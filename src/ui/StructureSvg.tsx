@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { ROLE_FILL, ROLE_STROKE, type Drawn, type EdgeRoute, type Pt } from '../model/structure'
+import { DEVICE_STYLE, ROLE_FILL, ROLE_STROKE, type Drawn, type EdgeRoute, type Pt } from '../model/structure'
 import type { Id, Project } from '../model/types'
 
 export interface SvgHandlers {
@@ -57,6 +57,13 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
             <path d={path(e.points)} fill="none" stroke="transparent" strokeWidth={12} />
             <path d={path(e.points)} fill="none" stroke={sel ? '#f97316' : edgeColor(e)} strokeWidth={sel ? 2.5 : 1.5}
               strokeDasharray={e.kind === 'feedback' ? '5 3' : undefined} markerEnd={`url(#arrow-${e.kind === 'ca' ? 'ca' : 'fb'})`} />
+            {e.device && (
+              <g>
+                <title>{e.device.kind}: {e.device.name}</title>
+                <rect x={e.device.x} y={e.device.y} width={e.device.w} height={e.device.h} rx={8} fill={DEVICE_STYLE[e.device.kind].fill} stroke={sel ? '#f97316' : DEVICE_STYLE[e.device.kind].stroke} strokeWidth={1.2} />
+                <text x={e.device.x + e.device.w / 2} y={e.device.y + 11.5} textAnchor="middle" fontSize={10} fill="#111827">{e.device.name}</text>
+              </g>
+            )}
             {e.text && e.label && (
               <text x={e.label.x + e.label.w / 2} y={e.label.y + 11} textAnchor="middle" fontSize={11} fill={edgeColor(e)} fontStyle={e.kind === 'feedback' ? 'italic' : undefined}
                 stroke="#ffffff" strokeWidth={3} paintOrder="stroke">

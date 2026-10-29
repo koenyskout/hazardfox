@@ -31,7 +31,7 @@ export function Structure() {
         {tabs.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l} {k !== 'diagram' && <i>{n}</i>}</button>)}
       </div>
       {tab === 'diagram' && <Diagram />}
-      {tab === 'nodes' && <TreeTable kind="node" empty="Add controllers, actuators, sensors and controlled processes. Nest elements to build the hierarchy." extraHeader="Role" extra={(n) => (n.kind === 'node' ? <span className="muted">{n.role}</span> : null)} />}
+      {tab === 'nodes' && <TreeTable kind="node" empty="Add controllers, controlled processes and external elements. Nest elements to build the hierarchy. Sensors and actuators are set on the feedback and control action arrows." extraHeader="Role" extra={(n) => (n.kind === 'node' ? <span className="muted">{n.role}</span> : null)} />}
       {tab === 'ca' && (
         <FlatTable kind="ca" items={itemsOfKind(p, 'ca')} init={{ from: sel ?? '', to: nodes[1]?.id ?? '' }}
           columns={[{ head: 'From → To', cell: (c) => (c.kind === 'ca' ? <span>{c.from ? <Ref id={c.from} /> : '?'} → {c.to ? <Ref id={c.to} /> : '?'}</span> : null) }]} />

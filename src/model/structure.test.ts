@@ -9,7 +9,7 @@ describe('control structure layout', () => {
     const mk = b.add
     const sys = mk('node', { title: 'Plant', role: 'external' })
     const c = mk('node', { title: 'Controller', role: 'controller' })
-    const a = mk('node', { title: 'Valve actuator', role: 'actuator', parent: sys })
+    const a = mk('node', { title: 'Valve actuator', role: 'process', parent: sys })
     const pr = mk('node', { title: 'Process', role: 'process', parent: sys })
     mk('ca', { title: 'open', from: c, to: a })
     mk('ca', { title: 'flow', from: a, to: pr })

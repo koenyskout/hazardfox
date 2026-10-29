@@ -12,6 +12,8 @@ export interface EdgeRoute {
   /** Polyline in drawing direction (from → to). */
   points: Pt[]
   label: { x: number; y: number; w: number; h: number; lines: string[] } | null
+  /** Sensor / actuator pill sitting on the arrow. */
+  device: { x: number; y: number; w: number; h: number; name: string; kind: 'sensor' | 'actuator' } | null
   text: string
 }
 export interface Layout { nodes: Record<Id, NodeBox>; edges: EdgeRoute[]; width: number; height: number }
@@ -47,9 +49,9 @@ const segHits = (p: Pt, q: Pt, r: Rect) => hitsRect({ x: Math.min(p.x, q.x), y: 
  * Put every label beside one of its edge's segments (control actions left/above, feedback right/below, they run in pairs),
  * avoiding boxes, other labels and other edges: the candidate with the lowest penalty wins.
  */
-const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lines: string[] }[], nodes: NodeBox[]): Record<Id, Rect & { lines: string[] }> => {
+const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lines: string[] }[], nodes: NodeBox[], blocks: Rect[] = []): Record<Id, Rect & { lines: string[] }> => {
   const out: Record<Id, Rect & { lines: string[] }> = {}
-  const placed: Rect[] = []
+  const placed: Rect[] = [...blocks]
   for (const it of items) {
     if (!it.lines.length) continue
     const w = Math.max(...it.lines.map((l) => l.length)) * 6.2 + 10, h = it.lines.length * 13 + 4
@@ -59,11 +61,11 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
     order.forEach((sg, si) => {
       const vertical = Math.abs(sg.a.x - sg.b.x) < 1
       for (const side of it.kind === 'ca' ? [-1, 1] : [1, -1]) {
-        for (const t of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 40]) {
           const mx = sg.a.x + (sg.b.x - sg.a.x) * t, my = sg.a.y + (sg.b.y - sg.a.y) * t
-          const r: Rect = vertical ? { x: side < 0 ? mx - w - 6 : mx + 6, y: my - h / 2, w, h } : { x: mx - w / 2, y: side < 0 ? my - h - 3 : my + 3, w, h }
+          const r: Rect = vertical ? { x: side < 0 ? mx - w - gap : mx + gap, y: my - h / 2, w, h } : { x: mx - w / 2, y: side < 0 ? my - h - 3 : my + 3, w, h }
           const pad = { x: r.x - 2, y: r.y - 2, w: w + 4, h: h + 4 }
-          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (sg.len < h + 10 && vertical ? 20 : 0)
+          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 : 0) + (sg.len < h + 10 && vertical ? 20 : 0)
           score += nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
           for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 15
           if (!best || score < best.score) best = { ...r, score }
@@ -75,6 +77,85 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
     out[it.id] = { x: r.x, y: r.y, w, h, lines: it.lines }
   }
   return out
+}
+
+type Device = NonNullable<EdgeRoute['device']>
+
+/** The sensor / actuator name of an arrow, if any. */
+const deviceOf = (p: Project, id: Id): { name: string; kind: Device['kind'] } | null => {
+  const it = p.items[id]
+  if (it?.kind === 'ca' && it.actuator) return { name: it.actuator, kind: 'actuator' }
+  if (it?.kind === 'feedback' && it.sensor) return { name: it.sensor, kind: 'sensor' }
+  return null
+}
+
+/** Sit each sensor / actuator pill on its arrow (actuators near the process, sensors near its origin), staggered so pills of parallel arrows do not collide. */
+const placeDevices = (items: { id: Id; points: Pt[]; name: string; kind: Device['kind'] }[], nodes: NodeBox[]): Record<Id, Device> => {
+  const out: Record<Id, Device> = {}
+  const placed: Rect[] = []
+  for (const it of items) {
+    if (it.points.length < 2) continue
+    const w = it.name.length * 5.8 + 18, h = 16
+    const pref = it.kind === 'actuator' ? 0.75 : 0.25
+    let best: (Rect & { score: number }) | null = null
+    for (let k = 0; k <= 16; k++) {
+      for (const sgn of k ? [1, -1] : [1]) {
+        const t = pref + sgn * k * 0.05
+        if (t < 0.06 || t > 0.94) continue
+        const c = pointAt(it.points, t)
+        const r: Rect = { x: c.x - w / 2, y: c.y - h / 2, w, h }
+        const pad = { x: r.x - 3, y: r.y - 2, w: w + 6, h: h + 4 }
+        let score = k * 2 + nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
+        let own = 0
+        for (let i = 1; i < it.points.length; i++) if (segHits(it.points[i - 1], it.points[i], pad)) own++
+        if (own > 1) score += 20
+        for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 6
+        if (!best || score < best.score) best = { ...r, score }
+      }
+    }
+    if (!best) continue
+    placed.push(best)
+    out[it.id] = { x: best.x, y: best.y, w, h, name: it.name, kind: it.kind }
+  }
+  return out
+}
+
+/**
+ * Spread the straight vertical arrows of each node pair evenly over the shared width, away from the arrows of other pairs
+ * on the same boxes (greedy: largest groups first, each arrow takes the free slot closest to its ideal position).
+ */
+const spreadPorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
+  const groups = new Map<string, EdgeRoute[]>()
+  for (const r of routes) {
+    if (r.points.length !== 2 || Math.abs(r.points[0].x - r.points[1].x) > 1 || !nodes[r.from] || !nodes[r.to]) continue
+    const k = [r.from, r.to].sort().join('|')
+    groups.set(k, [...(groups.get(k) ?? []), r])
+  }
+  const used: Record<Id, number[]> = {}
+  for (const g of [...groups.values()].sort((a, b) => b.length - a.length)) {
+    const a = nodes[g[0].from], b = nodes[g[0].to]
+    const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w)
+    if (hi - lo < 4) continue
+    const m = Math.min(10, (hi - lo) / 4), L = lo + m, H = hi - m
+    g.sort((p, q) => p.points[0].x - q.points[0].x || (p.kind === 'ca' ? -1 : 1))
+    const gap = Math.min(40, (H - L) / g.length)
+    const mean = g.reduce((t, r) => t + r.points[0].x, 0) / g.length
+    const start = Math.max(L, Math.min(H - gap * (g.length - 1), mean - (gap * (g.length - 1)) / 2))
+    g.forEach((r, i) => {
+      const ideal = start + gap * i
+      let best = ideal, bs = -Infinity
+      for (let d = -40; d <= 40; d += 4) {
+        const x = ideal + d
+        if (x < L || x > H) continue
+        const dist = Math.min(18, ...[...(used[r.from] ?? []), ...(used[r.to] ?? [])].map((u) => Math.abs(u - x)))
+        const sc = dist - Math.abs(d) * 0.12
+        if (sc > bs) { bs = sc; best = x }
+      }
+      r.points = r.points.map((q) => ({ x: best, y: q.y }))
+      ;(used[r.from] ??= []).push(best)
+      ;(used[r.to] ??= []).push(best)
+    })
+  }
 }
 
 /** Orthogonal route between two boxes; `slot` offsets parallel edges. */
@@ -140,10 +221,13 @@ export async function layoutStructure(p: Project): Promise<Layout> {
         layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + n.wide},60)` },
       }
     }
-    const w = Math.max(120, Math.max(...ls.map((l) => l.length)) * CHAR_W + 28) + n.wide
+    const w = Math.max(n.role === 'process' ? 320 : 120, Math.max(...ls.map((l) => l.length)) * CHAR_W + 28, (deg[n.id] ?? 0) * 30 + 40) + n.wide
     return { id: n.id, width: w, height: 30 + ls.length * 16 }
   }
   const roots = children(p, null, 'node')
+  // boxes grow with the number of arrows they carry (so parallel arrows get room); the controlled process starts wide
+  const deg: Record<Id, number> = {}
+  for (const e of [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback')]) { deg[e.from] = (deg[e.from] ?? 0) + 1; deg[e.to] = (deg[e.to] ?? 0) + 1 }
 
   const edges: ElkExtendedEdge[] = []
   const meta = new Map<string, { kind: 'ca' | 'feedback'; from: Id; to: Id; text: string; reversed: boolean; pairOf?: string }>()
@@ -169,6 +253,9 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     }
   }
 
+  const pairs: Record<string, number> = {}
+  for (const m of meta.values()) { const k = [m.from, m.to].sort().join('|'); pairs[k] = (pairs[k] ?? 0) + 1 }
+
   const graph: ElkNode = {
     id: 'root',
     children: roots.map(build),
@@ -179,7 +266,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
       'elk.edgeRouting': 'ORTHOGONAL',
       'elk.spacing.nodeNode': '50',
-      'elk.layered.spacing.nodeNodeBetweenLayers': String(Math.max(80, ...Object.values(labelLines).map((l) => l.length * 13 + 40))),
+      'elk.layered.spacing.nodeNodeBetweenLayers': String(Math.min(400, Math.max(80, ...Object.values(labelLines).map((l) => l.length * 13 + 40), ...Object.values(pairs).map((n) => n * 20 + 50)))),
       'elk.spacing.edgeNode': '24',
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
       'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
@@ -213,24 +300,27 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const sa = e.sources?.[0] as Id, ta = e.targets?.[0] as Id
     pts = straighten(pts, out.nodes[sa], out.nodes[ta], Object.values(out.nodes).filter((n) => n.id !== sa && n.id !== ta && !isAnc(n.id, sa) && !isAnc(n.id, ta)))
     if (m.reversed) pts = pts.reverse()
-    routes.set(e.id, { id: e.id, kind: m.kind, from: m.from, to: m.to, points: pts, text: m.text, label: null })
+    routes.set(e.id, { id: e.id, kind: m.kind, from: m.from, to: m.to, points: pts, text: m.text, label: null, device: null })
   }
   // Feedback parallel to a control action: offset the reversed route of that action.
+  const nth: Record<string, number> = {}
   for (const [id, m] of meta) {
     if (!m.pairOf) continue
     const base = routes.get(m.pairOf)
     if (!base) continue
     const pts = [...base.points].reverse()
     const vertical = pts.length > 1 && Math.abs(pts[0].x - pts[1].x) < 1
-    const d = 22
+    const d = 22 * (nth[m.pairOf] = (nth[m.pairOf] ?? 0) + 1)
     routes.set(id, {
       id, kind: 'feedback', from: m.from, to: m.to, text: m.text,
       points: pts.map((q) => (vertical ? { x: q.x + d, y: q.y } : { x: q.x, y: q.y + d })),
-      label: null,
+      label: null, device: null,
     })
   }
-  const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes))
-  for (const r of routes.values()) r.label = labs[r.id] ?? null
+  spreadPorts([...routes.values()], out.nodes)
+  const devs = placeDevices([...routes.values()].flatMap((r) => { const d = deviceOf(p, r.id); return d ? [{ id: r.id, points: r.points, ...d }] : [] }), Object.values(out.nodes))
+  const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes), Object.values(devs))
+  for (const r of routes.values()) { r.label = labs[r.id] ?? null; r.device = devs[r.id] ?? null }
   out.edges = [...routes.values()]
   return out
 }
@@ -276,12 +366,13 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     })
     return { ...e, points }
   })
-  const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes)
+  const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
+  const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {
     const it = p.items[e.id]
     const bend = it && (it.kind === 'ca' || it.kind === 'feedback') ? it.bend : null
     const lab = labs[e.id]
-    edges[i] = { ...e, label: lab ? { ...lab, x: lab.x + (e.points.length > 2 ? 0 : bend?.dx ?? 0), y: lab.y + (e.points.length > 2 ? 0 : bend?.dy ?? 0) } : null }
+    edges[i] = { ...e, device: devs[e.id] ?? null, label: lab ? { ...lab, x: lab.x + (e.points.length > 2 ? 0 : bend?.dx ?? 0), y: lab.y + (e.points.length > 2 ? 0 : bend?.dy ?? 0) } : null }
   })
   const xs = [...nodes.flatMap((n) => [n.x, n.x + n.w]), ...edges.flatMap((e) => [...e.points.map((q) => q.x), ...(e.label ? [e.label.x, e.label.x + e.label.w] : [])])]
   const ys = [...nodes.flatMap((n) => [n.y, n.y + n.h]), ...edges.flatMap((e) => [...e.points.map((q) => q.y), ...(e.label ? [e.label.y, e.label.y + e.label.h] : [])])]
@@ -291,15 +382,25 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
 
 export const ROLE_FILL: Record<NodeRole, string> = {
   controller: '#dbeafe',
-  actuator: '#fef3c7',
-  sensor: '#dcfce7',
   process: '#fee2e2',
   external: '#e5e7eb',
 }
 export const ROLE_STROKE: Record<NodeRole, string> = {
   controller: '#2563eb',
-  actuator: '#d97706',
-  sensor: '#16a34a',
   process: '#dc2626',
   external: '#6b7280',
+}
+
+/** Sensors and actuators are drawn as small markers on their arrow, not as boxes. */
+export const DEVICE_STYLE = { actuator: { fill: '#fef3c7', stroke: '#d97706' }, sensor: { fill: '#dcfce7', stroke: '#16a34a' } }
+
+/** Point at fraction t of the polyline's length. */
+export function pointAt(pts: Pt[], t: number): Pt {
+  const len = pts.slice(1).map((q, i) => Math.hypot(q.x - pts[i].x, q.y - pts[i].y))
+  let d = t * len.reduce((a, b) => a + b, 0)
+  for (let i = 0; i < len.length; i++) {
+    if (d <= len[i] || i === len.length - 1) { const f = len[i] ? Math.min(1, d / len[i]) : 0; return { x: pts[i].x + (pts[i + 1].x - pts[i].x) * f, y: pts[i].y + (pts[i + 1].y - pts[i].y) * f } }
+    d -= len[i]
+  }
+  return pts[0]
 }
