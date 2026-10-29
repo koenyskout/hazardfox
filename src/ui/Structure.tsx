@@ -65,6 +65,8 @@ function Diagram() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig])
 
+  const [devices, setDevices] = useState(() => { try { return localStorage.getItem('hazardfox.devices') !== '0' } catch { return true } })
+  const toggleDevices = () => setDevices((v) => { try { localStorage.setItem('hazardfox.devices', v ? '0' : '1') } catch { /* ignore */ } return !v })
   const [resize, setResize] = useState<{ id: Id; wide: number } | null>(null)
   const drawn = useMemo(() => {
     if (!layout) return null
@@ -142,6 +144,7 @@ function Diagram() {
           for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && i.bend) n = updateItem(n, i.id, { bend: null })
           return n
         })}>Auto-arrange arrows</button>
+        <button title="Show or hide the sensors and actuators drawn on the arrows" onClick={toggleDevices}>{devices ? 'Hide' : 'Show'} sensors/actuators</button>
         <button onClick={async () => { const s = await structureSvg(p); if (s) download('control-structure.svg', s.svg, 'image/svg+xml') }}>Export SVG</button>
         <span className="hint">Drag elements or labels to nudge · wheel to zoom · drag background to pan</span>
       </div>
@@ -149,7 +152,7 @@ function Diagram() {
         {err && <div className="empty">{err}</div>}
         {!drawn || drawn.nodes.length === 0 ? <div className="empty">Add control structure elements and control actions to see the diagram.</div> : (
           <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, transformOrigin: '0 0', width: drawn.width, height: drawn.height }}>
-            <StructureSvg p={p} d={drawn} h={{ selected, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
+            <StructureSvg p={p} d={drawn} h={{ selected, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
           </div>
         )}
       </div>

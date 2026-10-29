@@ -7,6 +7,7 @@ export interface SvgHandlers {
   onResizeDown?: (e: MouseEvent, id: Id) => void
   onEdgeDown?: (e: MouseEvent, id: Id) => void
   selected?: Id | null
+  hideDevices?: boolean
 }
 
 const path = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(' ')
@@ -57,7 +58,7 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
             <path d={path(e.points)} fill="none" stroke="transparent" strokeWidth={12} />
             <path d={path(e.points)} fill="none" stroke={sel ? '#f97316' : edgeColor(e)} strokeWidth={sel ? 2.5 : 1.5}
               strokeDasharray={e.kind === 'feedback' ? '5 3' : undefined} markerEnd={`url(#arrow-${e.kind === 'ca' ? 'ca' : 'fb'})`} />
-            {e.device && (
+            {e.device && !h.hideDevices && (
               <g>
                 <title>{e.device.kind}: {e.device.name}</title>
                 <rect x={e.device.x} y={e.device.y} width={e.device.w} height={e.device.h} rx={8} fill={DEVICE_STYLE[e.device.kind].fill} stroke={sel ? '#f97316' : DEVICE_STYLE[e.device.kind].stroke} strokeWidth={1.2} />
