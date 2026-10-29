@@ -18,6 +18,7 @@ import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { ReviewDot } from './Review'
 import { Icon } from './Icon'
+import { ItemHover } from './Fields'
 
 type Dialog = null | { type: 'group' | 'merge' } | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
 
@@ -171,7 +172,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               }}
               onClick={(e) => click(e, item.id)}
             >
-              <span className="lbl">{labels[item.id]}</span>
+              <span className="lbl"><ItemHover id={item.id}>{labels[item.id]}</ItemHover></span>
               <span className="ttl" style={{ paddingLeft: depth * 20 }}>
                 <button
                   className={'twisty' + (hasKids ? '' : ' none')}

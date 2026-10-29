@@ -7,7 +7,7 @@ import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
-import { Field, Ref, TextInput } from './Fields'
+import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { TreeTable } from './TreeTable'
@@ -127,7 +127,7 @@ export function Ucas() {
                   const cell = ucas.filter((u) => u.ca === ca.id && u.guide === g)
                   return (
                     <td key={g} className={cell.length ? '' : 'gap'}>
-                      {cell.map((u) => <button key={u.id} className="chip k-uca" onClick={() => select(u.id)}>{labels[u.id]}</button>)}
+                      {cell.map((u) => <ItemHover key={u.id} id={u.id}><button className="chip k-uca" onClick={() => select(u.id)}>{labels[u.id]}</button></ItemHover>)}
                       <button className="add" title="Add UCA" onClick={() => addUca(ca.id, g)}>+</button>
                     </td>
                   )

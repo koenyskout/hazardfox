@@ -36,6 +36,16 @@ export function TextInput(props: { value: string; onChange: (v: string) => void;
   return <input value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
 }
 
+/** Shows the item's hover card (title, description, traceability) when hovering the children. */
+export function ItemHover({ id, children }: { id: Id; children: ReactNode }) {
+  const p = useProject()
+  const labels = useLabels()
+  const goto = useStore((s) => s.goto)
+  const it = p.items[id]
+  if (!it) return <>{children}</>
+  return <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />}>{children}</HoverCard>
+}
+
 /** A chip that links to the target item. */
 export function Ref({ id }: { id: Id }) {
   const p = useProject()
@@ -44,11 +54,11 @@ export function Ref({ id }: { id: Id }) {
   const it = p.items[id]
   if (!it) return <span className="chip dead">{DELETED}</span>
   return (
-    <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />}>
+    <ItemHover id={id}>
       <a className={'chip k-' + it.kind} href="#" onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
         {labels[id]}
       </a>
-    </HoverCard>
+    </ItemHover>
   )
 }
 

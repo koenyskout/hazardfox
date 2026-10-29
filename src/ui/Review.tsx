@@ -8,6 +8,7 @@ import { freshReview, saveReview, getAuto, reviewStale, setAutoEnabled, subscrib
 import { updateItem } from '../model/ops'
 import { commit, useLabels, useProject } from './hooks'
 import { Icon } from './Icon'
+import { ItemHover } from './Fields'
 
 /** Connection settings for the local Ollama server; checks the endpoint and lists installed decision models. */
 function Settings({ value, onChange }: { value: LlmSettings; onChange: (s: LlmSettings) => void }) {
@@ -56,7 +57,7 @@ function ItemResult({ id, label, title, result }: { id: Id; label: string; title
     <div className={'verdict-item ' + review.verdict}>
       <div className="verdict-head">
         <Icon name={review.verdict === 'pass' ? 'check' : 'warn'} />
-        <b>{label}</b>
+        <b><ItemHover id={id}>{label}</ItemHover></b>
         {title && <span className="verdict-title">{title}</span>}
         <span className="verdict-badge">{VERDICT_TEXT[review.verdict]}</span>
       </div>
