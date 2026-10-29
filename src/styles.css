@@ -145,6 +145,3 @@ table.plain td { padding: 4px 10px 4px 0; }
 .review-dot.unsure { color: #d9a21b; }
 .review-dot.fail { color: #d64545; }
 
-.example { margin: 10px 0; padding-bottom: 6px; border-bottom: 1px solid var(--border, #ddd); }
-.verdict-badge.pass { background: #dff3e0; color: #1d6b2c; }
-.verdict-badge.fail { background: #fbe0e0; color: #9b1c1c; }

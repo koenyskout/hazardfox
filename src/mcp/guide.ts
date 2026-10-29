@@ -1,0 +1,50 @@
+/** Method guidance for agents, condensed from the STPA Handbook and the conventions of the tool. */
+export const GUIDE = `# Performing an STPA / STPA-Sec analysis with HazardFox
+
+The analysis is stored in one project file; every write tool saves immediately. Items are addressed by derived labels
+(L-1, H-1.2, SC-3, E-1, V-2, CS-1, CA-1, FB-1, UCA-4, LS-4.1, LS-CA-1.1, R-1, A-1) that follow position and may change after
+inserts/moves/deletes: always use labels from the latest result, or "$alias" inside one create_items call.
+Free text may mention items as @[H-1]. Create items as status "draft"; leave approval to humans.
+
+Workflow: project_summary -> update_project_meta (system description!) -> steps 1-4 below -> validate -> export_report.
+Ask the user for missing system knowledge instead of inventing it; mark assumptions with kind "assumption".
+
+## Step 1 - Purpose of the analysis
+- loss: something of value to stakeholders that is lost ("Loss of life or injury to people", "Loss of sensitive information").
+  Not a component, failure or cause.
+- hazard: a system-level STATE that, with worst-case environment, leads to a loss ("Aircraft violate minimum separation").
+  Not a cause or component failure; no consequence ("leading to ..."); no vague words (unsafe, unintended). Link with lossLinks.
+  Nest sub-hazards with parent; they inherit the losses. Set security=true for STPA-Sec hazards (adversary-related).
+- constraint: invert a hazard: "<System> must <condition>". One+ hazards in hazards; link LEAF hazards only; no design solutions.
+
+## Step 2 - Control structure
+- domain model (optional but needed for context-aware UCAs): entity (attributes, operations), variable (parent = entity, states[]),
+  relationship (from/to entities).
+- node: controller | actuator | sensor | process | external; nest with parent (subsystems). A controller's processModel lists the
+  variables it tracks. entity optionally links the domain entity.
+- ca (control action): from controller node to node; named as a verb phrase ("Set rate"). feedback: from node to node with the
+  variables it updates.
+
+## Step 3 - Unsafe control actions
+For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage).
+A UCA = controller + guide + control action + CONTEXT that makes it unsafe + hazards. Express context as conditions
+[{variable, state, negate}] over domain variables and/or free text in context. One control action and one type per UCA.
+The context is a real world state, not the controller's belief ("when it incorrectly believes ..." is a cause -> scenario).
+Link leaf hazards in hazards; write the controller constraint in "constraint" ("Controller must not ..."). The UCA sentence is generated.
+A guide word that cannot be unsafe needs no UCA; note why in an assumption.
+
+## Step 4 - Loss scenarios (causes)
+- scenarioType "uca": why the UCA occurs (cause: controller-failure | control-algorithm | process-model | feedback | other-controller).
+  Hazards come from the UCA.
+- scenarioType "ca": why a control action is not executed properly (cause: actuator | controlled-process | delivery | receiver |
+  environment); needs ca and own hazards.
+- Write a scenario as a story (factors combined), not a list of single faults. Optional element = control structure node of the cause.
+- STPA-Sec: adversarial=true, stride (Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of
+  privilege) and threat describing the attacker action. severity/likelihood 1-5 (0 = unrated).
+- requirement (type requirement|mitigation): verifiable, one thing, derived from constraints / UCAs / scenarios via sources.
+
+## Conventions
+- UCAs and constraints link only leaf hazards; scenarios of type uca inherit hazards.
+- Deleting a control action deletes its UCAs and scenarios; use delete_items dry_run first.
+- Prefer batch calls (create_items with aliases). After writing, read the returned issues and fix warnings.
+`

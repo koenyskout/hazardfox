@@ -4,7 +4,6 @@ import { itemsOfKind } from '../model/tree'
 import { KIND_NAMES, type Id, type Kind, type Item } from '../model/types'
 import { chat, decide, defaultLlm, listDecisionModels, loadLlm, saveLlm, type LlmSettings } from '../llm/ollama'
 import { FAIL, PASS, REVIEW_KINDS, WRITER_SYSTEM, canSuggest, cleanSuggestion, decisionRequest, suggestionPrompt, summarise, withTitle, type CheckResult, type ItemReview, type Verdict } from '../llm/review'
-import { EXAMPLES, agrees, buildExample, type Example } from '../llm/handbook'
 import { freshReview, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
 import { updateItem } from '../model/ops'
 import { commit, useLabels, useProject } from './hooks'
@@ -162,66 +161,6 @@ export function ReviewRunner({ kind, ids, settings }: { kind: Kind; ids: Id[]; s
   )
 }
 
-/** Built-in STPA Handbook examples (good and bad) run through the same checks, to see how well the model agrees with the Handbook. */
-function ExamplesRunner({ settings }: { settings: LlmSettings }) {
-  const [kind, setKind] = useState<Kind>('hazard')
-  const [res, setRes] = useState<Record<string, { review: ItemReview; ok: boolean }>>({})
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const ac = useRef<AbortController | null>(null)
-  useEffect(() => () => ac.current?.abort(), [])
-  const list = EXAMPLES.filter((e) => e.kind === kind)
-  const run = async () => {
-    ac.current?.abort()
-    const c = new AbortController()
-    ac.current = c
-    setBusy(true); setErr(''); setRes({})
-    try {
-      for (const e of list) {
-        const { p, L, it } = buildExample(e)
-        const { state, questions } = decisionRequest(p, L, it)
-        const probs = await decide(settings, state, questions, c.signal)
-        setRes((r) => ({ ...r, [e.id]: { review: summarise(it, probs), ok: agrees(e, probs, PASS, FAIL) } }))
-      }
-    } catch (x) {
-      if (!c.signal.aborted) setErr(String((x as Error).message ?? x))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const done = list.filter((e) => res[e.id])
-  const row = (e: Example) => {
-    const r = res[e.id]
-    return (
-      <div key={e.id} className="example">
-        <div className="verdict-head">
-          <span className={'verdict-badge ' + (e.good ? 'pass' : 'fail')}>{e.good ? 'Good' : 'Bad'}</span>
-          <span className="verdict-title">{e.text}</span>
-        </div>
-        <div className="hint">{e.source}{e.flaws?.length ? ` · should flag: ${e.flaws.join(', ')}` : ''}</div>
-        {r && <><ItemResult id={e.id} label={r.ok ? 'Model agrees with the Handbook' : 'Model disagrees with the Handbook'} result={{ review: r.review }} /></>}
-      </div>
-    )
-  }
-  return (
-    <div className="review-run">
-      <p className="hint">Examples quoted from the STPA Handbook, plus the mistakes it warns about (marked "Handbook mistake"; wording by us). Run them to see whether the checks agree.</p>
-      <div className="tabs">
-        {REVIEW_KINDS.filter((k) => EXAMPLES.some((e) => e.kind === k)).map((k) => (
-          <button key={k} className={kind === k ? 'on' : ''} onClick={() => { setKind(k); setRes({}) }}>{KIND_NAMES[k]}s <i>{EXAMPLES.filter((e) => e.kind === k).length}</i></button>
-        ))}
-      </div>
-      <div className="toolbar">
-        <button className="primary" disabled={busy} onClick={run}><Icon name="sparkle" /> Check {list.length} examples</button>
-        {busy && <button onClick={() => ac.current?.abort()}><Icon name="x" /> Stop</button>}
-        {done.length > 0 && <span className="hint">Agrees on {done.filter((e) => res[e.id].ok).length} of {done.length}</span>}
-      </div>
-      {err && <p className="note-warn"><Icon name="warn" /> {err}</p>}
-      {list.map(row)}
-    </div>
-  )
-}
-
 /** Compact review for the selected item (used in the details panel). */
 export function ReviewItem({ it }: { it: Item }) {
   const [settings, setSettings] = useState(loadLlm)
@@ -243,8 +182,8 @@ export function ReviewItem({ it }: { it: Item }) {
 export function ReviewView() {
   const p = useProject()
   const [settings, setSettings] = useState(loadLlm)
-  const [kind, setKind] = useState<Kind | 'examples'>('hazard')
-  const items = kind === 'examples' ? [] : itemsOfKind(p, kind as 'loss')
+  const [kind, setKind] = useState<Kind>('hazard')
+  const items = itemsOfKind(p, kind as 'loss')
   return (
     <div className="page">
       <h2>AI review <span className="hint">decision model via Ollama</span></h2>
@@ -254,9 +193,8 @@ export function ReviewView() {
         {REVIEW_KINDS.map((k) => (
           <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_NAMES[k]}s <i>{itemsOfKind(p, k as 'loss').length}</i></button>
         ))}
-        <button className={kind === 'examples' ? 'on' : ''} onClick={() => setKind('examples')}>Handbook examples <i>{EXAMPLES.length}</i></button>
       </div>
-      {kind === 'examples' ? <ExamplesRunner settings={settings} /> : <ReviewRunner kind={kind} ids={items.map((i) => i.id)} settings={settings} />}
+      <ReviewRunner kind={kind} ids={items.map((i) => i.id)} settings={settings} />
     </div>
   )
 }
