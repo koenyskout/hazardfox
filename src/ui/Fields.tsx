@@ -44,7 +44,7 @@ export function Ref({ id }: { id: Id }) {
   const it = p.items[id]
   if (!it) return <span className="chip dead">{DELETED}</span>
   return (
-    <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} />}>
+    <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />}>
       <a className={'chip k-' + it.kind} href="#" onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
         {labels[id]}
       </a>

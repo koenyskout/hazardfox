@@ -147,7 +147,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 
 
 .hc-trigger { display: inline-block; }
-.hovercard { position: fixed; z-index: 1000; width: 328px; max-height: 320px; overflow: auto; padding: 10px 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.22); font-size: 12.5px; line-height: 1.4; pointer-events: none; }
+.hovercard { position: fixed; z-index: 1000; width: 328px; max-height: 320px; overflow: auto; padding: 10px 12px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.22); font-size: 12.5px; line-height: 1.4; }
 .hc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .hc-type { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .hc-title { font-size: 14px; font-weight: 600; }
