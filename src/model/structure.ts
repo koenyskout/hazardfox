@@ -51,9 +51,10 @@ const segHits = (p: Pt, q: Pt, r: Rect) => hitsRect({ x: Math.min(p.x, q.x), y: 
  */
 const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lines: string[] }[], nodes: NodeBox[], blocks: Rect[] = []): Record<Id, Rect & { lines: string[] }> => {
   const out: Record<Id, Rect & { lines: string[] }> = {}
-  const placed: Rect[] = [...blocks]
-  for (const it of items) {
+  const byLines = [...items].sort((x, y) => y.lines.length - x.lines.length)
+  for (const it of [...byLines, ...byLines]) {
     if (!it.lines.length) continue
+    const placed: Rect[] = [...blocks, ...Object.entries(out).filter(([k]) => k !== it.id).map(([, v]) => v)]
     const w = Math.max(...it.lines.map((l) => l.length)) * 6.2 + 10, h = it.lines.length * 13 + 4
     const segs = it.points.slice(1).map((q, i) => ({ a: it.points[i], b: q })).map((sg) => ({ ...sg, len: Math.abs(sg.a.x - sg.b.x) + Math.abs(sg.a.y - sg.b.y) }))
     const order = [...segs].sort((x, y) => y.len - x.len)
@@ -61,11 +62,11 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
     order.forEach((sg, si) => {
       const vertical = Math.abs(sg.a.x - sg.b.x) < 1
       for (const side of it.kind === 'ca' ? [-1, 1] : [1, -1]) {
-        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 40]) {
-          const mx = sg.a.x + (sg.b.x - sg.a.x) * t, my = sg.a.y + (sg.b.y - sg.a.y) * t
+        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 40, 90, 150, 230]) for (const sh of [0, -1, 1]) {
+          const mx = sg.a.x + (sg.b.x - sg.a.x) * t + (vertical ? 0 : sh * w * 0.6), my = sg.a.y + (sg.b.y - sg.a.y) * t + (vertical ? sh * h * 0.7 : 0)
           const r: Rect = vertical ? { x: side < 0 ? mx - w - gap : mx + gap, y: my - h / 2, w, h } : { x: mx - w / 2, y: side < 0 ? my - h - 3 : my + 3, w, h }
           const pad = { x: r.x - 2, y: r.y - 2, w: w + 4, h: h + 4 }
-          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 : 0) + (sg.len < h + 10 && vertical ? 20 : 0)
+          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 + gap / 40 : 0) + Math.abs(sh) * 2 + (sg.len < h + 10 && vertical ? 20 : 0)
           score += nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
           for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 15
           if (!best || score < best.score) best = { ...r, score }
@@ -73,7 +74,6 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
       }
     })
     const r = best ?? { x: 0, y: 0, w, h }
-    placed.push(r)
     out[it.id] = { x: r.x, y: r.y, w, h, lines: it.lines }
   }
   return out
@@ -118,6 +118,42 @@ const placeDevices = (items: { id: Id; points: Pt[]; name: string; kind: Device[
     out[it.id] = { x: best.x, y: best.y, w, h, name: it.name, kind: it.kind }
   }
   return out
+}
+
+/** Shift every segment of an orthogonal route by d to its left-hand side, so the copy runs parallel to the original. */
+const offsetRoute = (pts: Pt[], d: number): Pt[] =>
+  pts.map((q, i) => {
+    let x = q.x, y = q.y
+    for (const [a, b] of [[pts[i - 1], q], [q, pts[i + 1]]]) {
+      if (!a || !b) continue
+      if (Math.abs(a.x - b.x) < 1) x += b.y < a.y ? d : -d
+      else y += b.x > a.x ? d : -d
+    }
+    return { x, y }
+  })
+
+/** Move vertical segments that run on top of another arrow's vertical segment sideways until they are apart (end points stay inside their boxes). */
+const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
+  const span = (a: Pt, b: Pt) => [Math.min(a.y, b.y), Math.max(a.y, b.y)]
+  const clash = (r: EdgeRoute, i: number, x: number) => {
+    const [y0, y1] = span(r.points[i], r.points[i + 1])
+    return routes.some((o) => o !== r && o.points.slice(1).some((q, j) => {
+      const a = o.points[j]
+      if (Math.abs(a.x - q.x) > 1 || Math.abs(a.x - x) >= 10) return false
+      const [z0, z1] = span(a, q)
+      return Math.min(y1, z1) - Math.max(y0, z0) > 6
+    }))
+  }
+  for (const r of routes) {
+    for (let i = 0; i < r.points.length - 1; i++) {
+      const a = r.points[i], b = r.points[i + 1]
+      if (Math.abs(a.x - b.x) > 1 || !clash(r, i, a.x)) continue
+      const ends = [i === 0 ? nodes[r.from] : null, i + 1 === r.points.length - 1 ? nodes[r.to] : null].filter(Boolean) as NodeBox[]
+      const lo = Math.max(-Infinity, ...ends.map((n) => n.x + 8)), hi = Math.min(Infinity, ...ends.map((n) => n.x + n.w - 8))
+      const x = [14, -14, 28, -28, 42, -42].map((d) => a.x + d).find((c) => c >= lo && c <= hi && !clash(r, i, c))
+      if (x !== undefined) { r.points[i] = { ...a, x }; r.points[i + 1] = { ...b, x } }
+    }
+  }
 }
 
 /**
@@ -309,15 +345,15 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const base = routes.get(m.pairOf)
     if (!base) continue
     const pts = [...base.points].reverse()
-    const vertical = pts.length > 1 && Math.abs(pts[0].x - pts[1].x) < 1
     const d = 22 * (nth[m.pairOf] = (nth[m.pairOf] ?? 0) + 1)
     routes.set(id, {
       id, kind: 'feedback', from: m.from, to: m.to, text: m.text,
-      points: pts.map((q) => (vertical ? { x: q.x + d, y: q.y } : { x: q.x, y: q.y + d })),
+      points: offsetRoute(pts, d),
       label: null, device: null,
     })
   }
   spreadPorts([...routes.values()], out.nodes)
+  separateVertical([...routes.values()], out.nodes)
   const devs = placeDevices([...routes.values()].flatMap((r) => { const d = deviceOf(p, r.id); return d ? [{ id: r.id, points: r.points, ...d }] : [] }), Object.values(out.nodes))
   const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes), Object.values(devs))
   for (const r of routes.values()) { r.label = labs[r.id] ?? null; r.device = devs[r.id] ?? null }
