@@ -32,7 +32,7 @@ export function exampleProject(): Project {
 
   const clinic = add('node', { title: 'Hospital', role: 'external' })
   const nurse = add('node', { title: 'Nurse', role: 'controller', parent: clinic })
-  const ctrl = add('node', { title: 'Pump controller', role: 'controller', processModel: [vRun, vAlarm, vOcc] })
+  const ctrl = add('node', { title: 'Pump controller', role: 'controller', processModel: [vRun, vAlarm, vOcc], entity: pump })
   const motor = add('node', { title: 'Motor drive', role: 'actuator' })
   const sensor = add('node', { title: 'Flow sensor', role: 'sensor' })
   const body = add('node', { title: 'Patient', role: 'process', entity: patient })
