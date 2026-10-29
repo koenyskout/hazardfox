@@ -132,6 +132,46 @@ const offsetRoute = (pts: Pt[], d: number): Pt[] =>
     return { x, y }
   })
 
+/**
+ * An arrow that leaves (or enters) a box and immediately turns sideways across another arrow of the same box would cross it:
+ * move its end point to the far side of that arrow (when it still lies inside the box).
+ */
+const uncross = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
+  for (const r of routes) {
+    const n = r.points.length
+    if (n < 4) continue
+    for (const end of [0, n - 1]) {
+      const dir = end === 0 ? 1 : -1
+      const e = r.points[end], k = r.points[end + dir], nx = r.points[end + 2 * dir]
+      const box = nodes[end === 0 ? r.from : r.to]
+      if (!box || Math.abs(e.x - k.x) > 1 || Math.abs(k.y - nx.y) > 1) continue
+      const side = Math.sign(nx.x - k.x)
+      for (const o of routes) {
+        if (o === r) continue
+        for (const [oe, ok, node] of [[0, 1, o.from], [o.points.length - 1, o.points.length - 2, o.to]] as const) {
+          if (node !== (end === 0 ? r.from : r.to)) continue
+          const a = o.points[oe], b = o.points[ok]
+          if (Math.abs(a.x - b.x) > 1 || Math.abs(a.x - e.x) < 1) continue
+          const between = (a.x - k.x) * (a.x - nx.x) < 0
+          const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)]
+          if (!between || k.y < y0 || k.y > y1) continue
+          const x = [14, 10, 6].map((g) => a.x + side * g).find((c) => c >= box.x + 4 && c <= box.x + box.w - 4) ?? NaN
+          if (!isNaN(x)) {
+            r.points[end] = { ...e, x }
+            r.points[end + dir] = { ...k, x }
+            continue
+          }
+          // no room: slide the straight crossed arrow to the near side instead
+          const A = nodes[o.from], B = nodes[o.to]
+          const lo = Math.max(A.x, B.x) + 8, hi = Math.min(A.x + A.w, B.x + B.w) - 8
+          const nxx = e.x - side * 14
+          if (o.points.length === 2 && nxx >= lo && nxx <= hi) o.points = o.points.map((q) => ({ ...q, x: nxx }))
+        }
+      }
+    }
+  }
+}
+
 /** Move vertical segments that run on top of another arrow's vertical segment sideways until they are apart (end points stay inside their boxes). */
 const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
   const span = (a: Pt, b: Pt) => [Math.min(a.y, b.y), Math.max(a.y, b.y)]
@@ -373,6 +413,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     })
   }
   spreadPorts([...routes.values()], out.nodes)
+  uncross([...routes.values()], out.nodes)
   separateVertical([...routes.values()], out.nodes)
   const devs = placeDevices([...routes.values()].flatMap((r) => { const d = deviceOf(p, r.id); return d ? [{ id: r.id, points: r.points, ...d }] : [] }), Object.values(out.nodes))
   const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes), Object.values(devs))
