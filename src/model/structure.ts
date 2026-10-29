@@ -136,14 +136,14 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     if (compound.has(n.id)) {
       return {
         id: n.id,
-        children: children(p, n.id, 'node').map((c) => build(c as CsNode)),
+        children: children(p, n.id, 'node').map(build),
         layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + n.wide},60)` },
       }
     }
     const w = Math.max(120, Math.max(...ls.map((l) => l.length)) * CHAR_W + 28) + n.wide
     return { id: n.id, width: w, height: 30 + ls.length * 16 }
   }
-  const roots = children(p, null, 'node') as CsNode[]
+  const roots = children(p, null, 'node')
 
   const edges: ElkExtendedEdge[] = []
   const meta = new Map<string, { kind: 'ca' | 'feedback'; from: Id; to: Id; text: string; reversed: boolean; pairOf?: string }>()

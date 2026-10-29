@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from 'react'
 import { download } from '../model/persist'
-import { updateItem, createItem } from '../model/ops'
+import { updateItem } from '../model/ops'
 import { applyOverrides, layoutStructure, type Layout } from '../model/structure'
 import { useStore } from '../model/store'
 import { itemsOfKind } from '../model/tree'
@@ -8,7 +8,7 @@ import type { Id } from '../model/types'
 import { structureSvg } from '../export/structureImage'
 import { Ref } from './Fields'
 import { FlatTable } from './FlatTable'
-import { commit, select, useProject } from './hooks'
+import { addItem, commit, select, useProject } from './hooks'
 import { StructureSvg } from './StructureSvg'
 import { TreeTable } from './TreeTable'
 
@@ -118,11 +118,7 @@ function Diagram() {
       return { k, x: mx - (mx - v.x) * (k / v.k), y: my - (my - v.y) * (k / v.k) }
     })
   }
-  const addNode = () => {
-    let id = ''
-    commit((q) => { const r = createItem(q, 'node', { title: 'New element', parent: (selected && q.items[selected]?.kind === 'node' ? selected : null) }); id = r.id; return r.project })
-    select(id)
-  }
+  const addNode = () => addItem('node', { title: 'New element', parent: selected && p.items[selected]?.kind === 'node' ? selected : null })
   const hasBends = Object.values(p.items).some((i) => (i.kind === 'ca' || i.kind === 'feedback') && i.bend)
   const hasNudges = Object.values(p.items).some((i) => (i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && i.bend))
 

@@ -1,17 +1,13 @@
-import { emptyProject } from './create'
-import { createItem } from './ops'
-import type { Id, Kind, Project } from './types'
+import { projectBuilder } from './build'
+import type { Project } from './types'
 
 /** Small infusion-pump example (safety + security) for trying out the tool. */
 export function exampleProject(): Project {
-  let p = emptyProject()
-  p.meta.name = 'Infusion pump (example)'
-  p.meta.description = 'Networked infusion pump administering a drug to a patient under nurse supervision.'
-  const add = (kind: Kind, init: Record<string, unknown> = {}): Id => {
-    const r = createItem(p, kind, init)
-    p = r.project
-    return r.id
-  }
+  const b = projectBuilder({
+    name: 'Infusion pump (example)',
+    description: 'Networked infusion pump administering a drug to a patient under nurse supervision.',
+  })
+  const { add } = b
 
   const l1 = add('loss', { title: 'Patient injury or death' })
   const l2 = add('loss', { title: 'Loss of patient data confidentiality' })
@@ -53,5 +49,5 @@ export function exampleProject(): Project {
   add('requirement', { title: 'Authenticate and integrity-protect sensor messages', sources: [s2], type: 'mitigation' })
   add('assumption', { title: 'Nurse verifies the prescription before programming the pump', about: [nurse] })
   void u2
-  return p
+  return b.project
 }

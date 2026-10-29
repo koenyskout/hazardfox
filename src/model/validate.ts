@@ -1,11 +1,14 @@
 import { computeLabels } from './labels'
-import { effectiveLosses } from './ops'
-import { MENTION_RE, refsOf } from './refs'
+import { effectiveLosses } from './derived'
+import { mentions, refsOf, scenarioTarget } from './refs'
 import { children, isLeaf, itemsOfKind } from './tree'
 import { GUIDE_WORDS, type Id, type Item, type Project } from './types'
 
+export const SEVERITIES = ['error', 'warning', 'info'] as const
+export type Severity = (typeof SEVERITIES)[number]
+
 export interface Issue {
-  severity: 'error' | 'warning' | 'info'
+  severity: Severity
   item: Id | null
   message: string
 }
@@ -14,7 +17,7 @@ export interface Issue {
 export function validate(p: Project): Issue[] {
   const L = computeLabels(p)
   const out: Issue[] = []
-  const add = (severity: Issue['severity'], item: Item | null, message: string) =>
+  const add = (severity: Severity, item: Item | null, message: string) =>
     out.push({ severity, item: item?.id ?? null, message })
   const nm = (i: Item) => `${L[i.id]} ${i.title}`.trim()
 
@@ -22,7 +25,7 @@ export function validate(p: Project): Issue[] {
   for (const it of Object.values(p.items)) {
     for (const r of refsOf(it)) if (!p.items[r]) add('error', it, `${nm(it)}: refers to a deleted item`)
     for (const f of [it.description, it.notes])
-      for (const m of f.matchAll(MENTION_RE)) if (!p.items[m[1]]) add('error', it, `${nm(it)}: dangling @-reference`)
+      for (const id of mentions(f)) if (!p.items[id]) add('error', it, `${nm(it)}: dangling @-reference`)
     if (!it.title.trim() && it.kind !== 'uca' && it.kind !== 'scenario') add('warning', it, `${L[it.id]}: has no title`)
   }
 
@@ -72,7 +75,7 @@ export function validate(p: Project): Issue[] {
   for (const r of itemsOfKind(p, 'requirement'))
     if (r.sources.length === 0) add('info', r, `${nm(r)}: not derived from any constraint or scenario`)
   for (const s of itemsOfKind(p, 'scenario')) {
-    if (s.scenarioType === 'uca' ? !s.uca : !s.ca) add('warning', s, `${L[s.id]}: not linked to a ${s.scenarioType === 'uca' ? 'UCA' : 'control action'}`)
+    if (!scenarioTarget(s)) add('warning', s, `${L[s.id]}: not linked to a ${s.scenarioType === 'uca' ? 'UCA' : 'control action'}`)
     if (s.scenarioType === 'ca') {
       if (s.hazards.length === 0) add('warning', s, `${L[s.id]}: no hazard linked`)
       nonLeafTargets(s, s.hazards)

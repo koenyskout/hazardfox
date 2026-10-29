@@ -1,19 +1,23 @@
-import type { Id, Item, Kind, Project } from './types'
+import type { Id, Item, ItemOf, Kind, Project, Scenario } from './types'
+
+/** Names of the fields of kind K whose value type is V. */
+type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
+type Registry<V> = { [K in Kind]?: readonly Fields<K, V>[] }
 
 /** Required single references: if the target disappears, the item is deleted too. */
-export const REQUIRED_REFS: Partial<Record<Kind, string[]>> = {
+export const REQUIRED_REFS: Registry<Id> = {
   relationship: ['from', 'to'],
   ca: ['from', 'to'],
   feedback: ['from', 'to'],
   uca: ['ca'],
 }
 /** Optional single references: cleared when the target disappears. */
-export const OPTIONAL_REFS: Partial<Record<Kind, string[]>> = {
+export const OPTIONAL_REFS: Registry<Id | null> = {
   node: ['entity'],
   scenario: ['uca', 'ca', 'element'],
 }
 /** List references: entries are removed when the target disappears. */
-export const LIST_REFS: Partial<Record<Kind, string[]>> = {
+export const LIST_REFS: Registry<Id[]> = {
   hazard: ['lossLinks', 'lossExclude'],
   constraint: ['hazards'],
   requirement: ['sources'],
@@ -23,32 +27,45 @@ export const LIST_REFS: Partial<Record<Kind, string[]>> = {
   uca: ['hazards'],
   scenario: ['hazards'],
 }
-/** Free-text fields that may contain `@[id]` mentions. */
-export const TEXT_FIELDS: Partial<Record<Kind, string[]>> = {
+/** Free-text fields (besides description and notes) that may contain `@[id]` mentions. */
+export const TEXT_FIELDS: Registry<string> = {
   uca: ['context', 'override', 'constraint'],
   scenario: ['threat'],
 }
-const COMMON_TEXT = ['description', 'notes']
 
-export const MENTION_RE = /@\[([^\]]+)\]/g
+export const requiredRefs = (kind: Kind): readonly string[] => REQUIRED_REFS[kind] ?? []
+export const optionalRefs = (kind: Kind): readonly string[] => OPTIONAL_REFS[kind] ?? []
+export const singleRefs = (kind: Kind) => [...requiredRefs(kind), ...optionalRefs(kind)]
+export const listRefs = (kind: Kind): readonly string[] => LIST_REFS[kind] ?? []
+export const textFields = (kind: Kind): readonly string[] => ['description', 'notes', ...(TEXT_FIELDS[kind] ?? [])]
 
-type Rec = Record<string, unknown>
+/** Dynamic field access by a registry field name; the only untyped view on items. */
+export const getField = (it: Item, f: string): unknown => (it as unknown as Record<string, unknown>)[f]
+export const setField = (it: Item, f: string, v: unknown) => {
+  ;(it as unknown as Record<string, unknown>)[f] = v
+}
+export const getList = (it: Item, f: string) => getField(it, f) as Id[]
 
-const textFields = (kind: Kind) => [...COMMON_TEXT, ...(TEXT_FIELDS[kind] ?? [])]
+const MENTION_RE = /@\[([^\]]+)\]/g
+export const mention = (id: Id) => `@[${id}]`
+/** Ids mentioned as `@[id]` in a text. */
+export const mentions = (text: string): Id[] => [...text.matchAll(MENTION_RE)].map((m) => m[1])
+export const replaceMentions = (text: string, f: (id: Id, whole: string) => string) =>
+  text.replace(MENTION_RE, (whole, id: string) => f(id, whole))
+
+/** The UCA (type 'uca') or control action (type 'ca') a scenario explains. */
+export const scenarioTarget = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : s.ca)
 
 /** All ids an item refers to (excluding its tree parent). */
 export function refsOf(it: Item): Id[] {
-  const r = it as unknown as Rec
   const out: Id[] = []
-  for (const f of [...(REQUIRED_REFS[it.kind] ?? []), ...(OPTIONAL_REFS[it.kind] ?? [])]) {
-    if (typeof r[f] === 'string' && r[f]) out.push(r[f] as Id)
+  for (const f of singleRefs(it.kind)) {
+    const v = getField(it, f)
+    if (typeof v === 'string' && v) out.push(v)
   }
-  for (const f of LIST_REFS[it.kind] ?? []) out.push(...((r[f] as Id[]) ?? []))
+  for (const f of listRefs(it.kind)) out.push(...getList(it, f))
   if (it.kind === 'uca') for (const c of it.conditions) out.push(c.variable)
-  for (const f of textFields(it.kind)) {
-    const t = r[f]
-    if (typeof t === 'string') for (const m of t.matchAll(MENTION_RE)) out.push(m[1])
-  }
+  for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
 }
 
@@ -57,20 +74,22 @@ export function incoming(p: Project, id: Id): Item[] {
   return Object.values(p.items).filter((o) => o.id !== id && (o.parent === id || refsOf(o).includes(id)))
 }
 
+/** Items whose list references contain `id`. */
+export function linkedTo(p: Project, id: Id): Item[] {
+  return Object.values(p.items).filter((o) => listRefs(o.kind).some((f) => getList(o, f).includes(id)))
+}
+
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {
-  const r = it as unknown as Rec
-  for (const f of [...(REQUIRED_REFS[it.kind] ?? []), ...(OPTIONAL_REFS[it.kind] ?? [])]) {
-    if (r[f] === from) r[f] = to ?? (OPTIONAL_REFS[it.kind]?.includes(f) ? null : from)
-  }
-  for (const f of LIST_REFS[it.kind] ?? []) {
-    const list = r[f] as Id[]
+  for (const f of requiredRefs(it.kind)) if (to && getField(it, f) === from) setField(it, f, to)
+  for (const f of optionalRefs(it.kind)) if (getField(it, f) === from) setField(it, f, to)
+  for (const f of listRefs(it.kind)) {
     const next: Id[] = []
-    for (const x of list) {
+    for (const x of getList(it, f)) {
       const y = x === from ? to : x
       if (y && !next.includes(y)) next.push(y)
     }
-    r[f] = next
+    setField(it, f, next)
   }
   if (it.kind === 'uca') {
     it.conditions = it.conditions.flatMap((c) =>
@@ -78,30 +97,33 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     )
   }
   if (to) {
-    for (const f of textFields(it.kind)) {
-      if (typeof r[f] === 'string') r[f] = (r[f] as string).split(`@[${from}]`).join(`@[${to}]`)
-    }
+    for (const f of textFields(it.kind)) setField(it, f, (getField(it, f) as string).split(mention(from)).join(mention(to)))
   }
 }
 
-/** Ids whose required refs or parents point into `dead` (transitively) – cascade set. */
+/** Replace `from` by several ids in every list reference of the draft item. */
+export function replaceInLists(it: Item, from: Id, tos: Id[]) {
+  for (const f of listRefs(it.kind)) {
+    const list = getList(it, f)
+    const at = list.indexOf(from)
+    if (at >= 0) setField(it, f, [...new Set([...list.slice(0, at), ...tos, ...list.slice(at + 1)])])
+  }
+}
+
+/** Ids whose required refs or owners point into `dead` (transitively) – cascade set. */
 export function cascadeSet(p: Project, seed: Iterable<Id>): Set<Id> {
   const dead = new Set<Id>(seed)
+  const ownerDead = (it: Item) =>
+    (it.kind === 'variable' && !!it.parent && dead.has(it.parent)) ||
+    (it.kind === 'scenario' && dead.has(scenarioTarget(it) ?? '')) ||
+    requiredRefs(it.kind).some((f) => dead.has(getField(it, f) as Id))
   let changed = true
   while (changed) {
     changed = false
     for (const it of Object.values(p.items)) {
-      if (dead.has(it.id)) continue
-      const r = it as unknown as Rec
-      const req = REQUIRED_REFS[it.kind] ?? []
-      const ownerDead =
-        (it.kind === 'variable' && it.parent && dead.has(it.parent)) ||
-        (it.kind === 'scenario' && (dead.has(it.scenarioType === 'uca' ? it.uca ?? '' : it.ca ?? ''))) ||
-        req.some((f) => dead.has(r[f] as Id))
-      if (ownerDead) {
-        dead.add(it.id)
-        changed = true
-      }
+      if (dead.has(it.id) || !ownerDead(it)) continue
+      dead.add(it.id)
+      changed = true
     }
   }
   return dead

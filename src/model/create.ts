@@ -1,4 +1,4 @@
-import type { GuideWord, Id, Item, Kind, Project } from './types'
+import type { Base, Id, ItemOf, Kind, Patch, Project } from './types'
 
 export const newId = (): Id =>
   (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
@@ -9,42 +9,37 @@ export const emptyProject = (): Project => ({
   items: {},
 })
 
-type Init = Partial<Item> & Record<string, unknown>
+/** Default values of the kind-specific fields. */
+const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
+  loss: () => ({}),
+  hazard: () => ({ lossLinks: [], lossExclude: [], security: false }),
+  constraint: () => ({ hazards: [] }),
+  requirement: () => ({ sources: [], type: 'requirement' }),
+  assumption: () => ({ about: [] }),
+  entity: () => ({ attributes: [], operations: [] }),
+  relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*' }),
+  variable: () => ({ states: [] }),
+  node: () => ({ role: 'controller', processModel: [], entity: null, nudge: null, wide: 0 }),
+  ca: () => ({ from: '', to: '', operation: '', bend: null }),
+  feedback: () => ({ from: '', to: '', variables: [], bend: null }),
+  uca: () => ({ ca: '', guide: 'not-provided', conditions: [], context: '', override: '', hazards: [], constraint: '' }),
+  scenario: () => ({
+    scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null,
+    stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0,
+  }),
+}
 
 /** Build a fully defaulted item of the given kind. */
-export function makeItem(kind: Kind, init: Init = {}): Item {
-  const base = {
+export function makeItem<K extends Kind>(kind: K, init: Patch<K> = {} as Patch<K>): ItemOf<K> {
+  const base: Base = {
     id: newId(),
     parent: null,
     rank: Number.MAX_SAFE_INTEGER,
     title: '',
     description: '',
     notes: '',
-    status: 'draft' as const,
-    tags: [] as string[],
+    status: 'draft',
+    tags: [],
   }
-  const extra: Record<Kind, Record<string, unknown>> = {
-    loss: {},
-    hazard: { lossLinks: [], lossExclude: [], security: false },
-    constraint: { hazards: [] },
-    requirement: { sources: [], type: 'requirement' },
-    assumption: { about: [] },
-    entity: { attributes: [], operations: [] },
-    relationship: { from: '', to: '', fromCard: '1', toCard: '*' },
-    variable: { states: [] },
-    node: { role: 'controller', processModel: [], entity: null, nudge: null, wide: 0 },
-    ca: { from: '', to: '', operation: '', bend: null },
-    feedback: { from: '', to: '', variables: [], bend: null },
-    uca: {
-      ca: '',
-      guide: 'not-provided' as GuideWord,
-      conditions: [],
-      context: '',
-      override: '',
-      hazards: [],
-      constraint: '',
-    },
-    scenario: { scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null, stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0 },
-  }
-  return { ...base, ...extra[kind], ...init, kind } as Item
+  return { ...base, ...DEFAULTS[kind](), ...init, kind } as unknown as ItemOf<K>
 }

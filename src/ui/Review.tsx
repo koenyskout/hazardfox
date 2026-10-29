@@ -77,7 +77,7 @@ function ItemResult({ id, label, title, result }: { id: Id; label: string; title
         <div className="verdict-suggest">
           <div className="hint">Suggested wording – passes all {review.checks.length} checks{suggestion.tries > 1 ? ` (attempt ${suggestion.tries})` : ''}:</div>
           <q>{suggestion.text}</q>
-          <button onClick={() => commit((q) => updateItem(q, id, { title: suggestion.text } as Partial<Item>))}><Icon name="check" /> Apply</button>
+          <button onClick={() => commit((q) => updateItem(q, id, { title: suggestion.text }))}><Icon name="check" /> Apply</button>
         </div>
       )}
     </div>
@@ -183,7 +183,7 @@ export function ReviewView() {
   const p = useProject()
   const [settings, setSettings] = useState(loadLlm)
   const [kind, setKind] = useState<Kind>('hazard')
-  const items = itemsOfKind(p, kind as 'loss')
+  const items = itemsOfKind(p, kind)
   return (
     <div className="page">
       <h2>AI review <span className="hint">decision model via Ollama</span></h2>
@@ -191,7 +191,7 @@ export function ReviewView() {
       <Settings value={settings} onChange={setSettings} />
       <div className="tabs">
         {REVIEW_KINDS.map((k) => (
-          <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_NAMES[k]}s <i>{itemsOfKind(p, k as 'loss').length}</i></button>
+          <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_NAMES[k]}s <i>{itemsOfKind(p, k).length}</i></button>
         ))}
       </div>
       <ReviewRunner kind={kind} ids={items.map((i) => i.id)} settings={settings} />

@@ -1,4 +1,6 @@
 export type Id = string
+/** Display labels per item id (derived, see `labels.ts`). */
+export type Labels = Record<Id, string>
 
 export const GUIDE_WORDS = [
   'not-provided',
@@ -31,7 +33,13 @@ export type Status = (typeof STATUSES)[number]
 export const NODE_ROLES = ['controller', 'actuator', 'sensor', 'process', 'external'] as const
 export type NodeRole = (typeof NODE_ROLES)[number]
 
-interface Base {
+export const REQUIREMENT_TYPES = ['requirement', 'mitigation'] as const
+export type RequirementType = (typeof REQUIREMENT_TYPES)[number]
+
+/** Manual layout offset in px. */
+export interface Offset { dx: number; dy: number }
+
+export interface Base {
   id: Id
   /** Parent in the item's tree (null = root). Flat kinds use it for their owner where noted. */
   parent: Id | null
@@ -65,7 +73,7 @@ export interface Requirement extends Base {
   kind: 'requirement'
   /** constraints, scenarios or UCAs this requirement / mitigation derives from */
   sources: Id[]
-  type: 'requirement' | 'mitigation'
+  type: RequirementType
 }
 export interface Assumption extends Base {
   kind: 'assumption'
@@ -101,7 +109,7 @@ export interface CsNode extends Base {
   /** Optional link to the domain entity this node represents */
   entity: Id | null
   /** Manual layout nudge, relative offset applied on top of the auto layout */
-  nudge: { dx: number; dy: number } | null
+  nudge: Offset | null
   /** Extra width in px added to the box in the diagram (0 = automatic) */
   wide: number
 }
@@ -112,7 +120,7 @@ export interface ControlAction extends Base {
   to: Id
   /** Optional domain operation (`<entityId>:<operation>`) */
   operation: string
-  bend: { dx: number; dy: number } | null
+  bend: Offset | null
 }
 export interface Feedback extends Base {
   kind: 'feedback'
@@ -120,7 +128,7 @@ export interface Feedback extends Base {
   to: Id
   /** Variables this feedback updates */
   variables: Id[]
-  bend: { dx: number; dy: number } | null
+  bend: Offset | null
 }
 
 export interface Condition {
@@ -150,7 +158,7 @@ export const SCENARIO_TYPE_LABELS: Record<ScenarioType, string> = {
   ca: 'Why a control action is not executed properly',
 }
 /** Causal-factor categories (STPA Handbook, step 4). */
-export const CAUSES: Record<ScenarioType, { value: string; label: string }[]> = {
+export const CAUSES = {
   uca: [
     { value: 'controller-failure', label: 'Controller failure (physical / software)' },
     { value: 'control-algorithm', label: 'Inadequate control algorithm' },
@@ -165,7 +173,12 @@ export const CAUSES: Record<ScenarioType, { value: string; label: string }[]> = 
     { value: 'receiver', label: 'Receiver / lower-level controller does not act on it' },
     { value: 'environment', label: 'Environmental disturbance' },
   ],
-}
+} as const satisfies Record<ScenarioType, readonly { value: string; label: string }[]>
+export type Cause = (typeof CAUSES)[ScenarioType][number]['value']
+export const CAUSE_LABELS = Object.fromEntries(
+  Object.values(CAUSES).flat().map((c) => [c.value, c.label]),
+) as Record<Cause, string>
+export const isCauseOf = (t: ScenarioType, c: string): c is Cause => CAUSES[t].some((x) => x.value === c)
 export interface Scenario extends Base {
   kind: 'scenario'
   scenarioType: ScenarioType
@@ -175,7 +188,8 @@ export interface Scenario extends Base {
   ca: Id | null
   /** type 'ca' only: leaf hazards it may lead to (type 'uca' inherits them from the UCA) */
   hazards: Id[]
-  cause: string
+  /** '' = unspecified */
+  cause: Cause | ''
   /** Control structure element where the cause lies (optional) */
   element: Id | null
   stride: Stride[]
@@ -202,22 +216,8 @@ export type Item =
 
 export type Kind = Item['kind']
 export type ItemOf<K extends Kind> = Extract<Item, { kind: K }>
-
-export const KINDS: Kind[] = [
-  'loss',
-  'hazard',
-  'constraint',
-  'requirement',
-  'assumption',
-  'entity',
-  'relationship',
-  'variable',
-  'node',
-  'ca',
-  'feedback',
-  'uca',
-  'scenario',
-]
+/** Changeable fields of an item of kind K (distributes over unions of kinds). */
+export type Patch<K extends Kind = Kind> = K extends Kind ? Partial<Omit<ItemOf<K>, 'id' | 'kind'>> : never
 
 export const KIND_NAMES: Record<Kind, string> = {
   loss: 'Loss',
@@ -234,6 +234,8 @@ export const KIND_NAMES: Record<Kind, string> = {
   uca: 'Unsafe control action',
   scenario: 'Loss scenario',
 }
+/** All kinds, in canonical order (Step 1 → Step 4). */
+export const KINDS = Object.keys(KIND_NAMES) as Kind[]
 
 export interface SavedReview { key: string; p: Record<string, number> }
 

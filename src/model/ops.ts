@@ -1,11 +1,11 @@
 import { produce } from 'immer'
 import { makeItem } from './create'
-import { cascadeSet, LIST_REFS, rewriteRefs } from './refs'
-import { ancestors, children, descendants, groupKey, isTreeKind, siblings } from './tree'
-import type { Id, Item, Kind, Project } from './types'
+import { effectiveLosses } from './derived'
+import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
+import { children, descendants, groupKey, isTreeKind, parentKind, siblings } from './tree'
+import type { Id, Item, ItemOf, Kind, Patch, Project } from './types'
 
 type Draft = Project
-type Rec = Record<string, unknown>
 
 /** Rewrite ranks to 0..n-1 in every sibling group. */
 function renormalize(d: Draft) {
@@ -24,7 +24,7 @@ function renormalize(d: Draft) {
 /** Put item at `index` among its (new) siblings, optionally changing its tree parent first. */
 function placeAt(d: Draft, id: Id, parent: Id | null | undefined, index: number) {
   const it = d.items[id]
-  if (parent !== undefined && (isTreeKind(it.kind) || it.kind === 'variable')) it.parent = parent
+  if (parent !== undefined && parentKind(it.kind)) it.parent = parent
   renormalize(d)
   const sibs = siblings(d, it).filter((s) => s.id !== id)
   const i = Math.max(0, Math.min(index, sibs.length))
@@ -33,28 +33,10 @@ function placeAt(d: Draft, id: Id, parent: Id | null | undefined, index: number)
   renormalize(d)
 }
 
-export function effectiveLosses(p: Project, hazardId: Id): Id[] {
-  const chain = [...ancestors(p, hazardId), p.items[hazardId]]
-  let set: Id[] = []
-  for (const h of chain) {
-    if (h?.kind !== 'hazard') continue
-    set = set.filter((x) => !h.lossExclude.includes(x))
-    for (const l of h.lossLinks) if (!set.includes(l)) set.push(l)
-  }
-  return set
-}
-
-/** Loss links a hazard inherits from its ancestors. */
-export const inheritedLosses = (p: Project, hazardId: Id): Id[] => {
-  const it = p.items[hazardId]
-  if (it?.kind !== 'hazard' || !it.parent) return []
-  return effectiveLosses(p, it.parent)
-}
-
-export function createItem(
+export function createItem<K extends Kind>(
   p: Project,
-  kind: Kind,
-  init: Partial<Item> & Rec = {},
+  kind: K,
+  init: Patch<K> = {} as Patch<K>,
   index?: number,
 ): { project: Project; id: Id } {
   const item = makeItem(kind, init)
@@ -65,7 +47,7 @@ export function createItem(
   return { project, id: item.id }
 }
 
-export function updateItem(p: Project, id: Id, patch: Partial<Item> & Rec): Project {
+export function updateItem(p: Project, id: Id, patch: Patch): Project {
   if (!p.items[id]) return p
   return produce(p, (d) => {
     Object.assign(d.items[id], patch)
@@ -105,13 +87,12 @@ export function deleteItems(p: Project, ids: Id[], opts: { promote?: boolean } =
 
 export function moveItem(p: Project, id: Id, parent: Id | null, index: number): Project {
   const it = p.items[id]
-  if (!it || !(isTreeKind(it.kind) || it.kind === 'variable')) return p
+  const pk = it && parentKind(it.kind)
+  if (!pk) return p
   if (parent) {
     const par = p.items[parent]
-    if (!par || par.id === id || descendants(p, id).some((x) => x.id === parent)) return p
-    if (it.kind !== 'variable' && par.kind !== it.kind) return p
-    if (it.kind === 'variable' && par.kind !== 'entity') return p
-  } else if (it.kind === 'variable') return p
+    if (!par || par.id === id || par.kind !== pk || descendants(p, id).some((x) => x.id === parent)) return p
+  } else if (!isTreeKind(it.kind)) return p
   return produce(p, (d) => placeAt(d, id, parent, index))
 }
 
@@ -165,43 +146,16 @@ export function group(p: Project, ids: Id[], title: string): { project: Project;
     if (kind === 'hazard') {
       const old = parent.parent ? effectiveLosses(p, parent.parent) : []
       const union = [...new Set([...before.values()].flat())].filter((l) => !old.includes(l))
-      ;(d.items[parent.id] as Extract<Item, { kind: 'hazard' }>).lossLinks = union
+      ;(d.items[parent.id] as ItemOf<'hazard'>).lossLinks = union
       const parentEff = effectiveLosses(d, parent.id)
       for (const h of ordered) {
-        const hz = d.items[h.id] as Extract<Item, { kind: 'hazard' }>
+        const hz = d.items[h.id] as ItemOf<'hazard'>
         const keep = before.get(h.id)!
         hz.lossExclude = [...new Set([...hz.lossExclude, ...parentEff.filter((l) => !keep.includes(l))])]
       }
     }
   })
   return { project, id: parent.id }
-}
-
-/** Replace `from` by several ids in every list reference of the draft item. */
-function replaceWithMany(it: Item, from: Id, tos: Id[]) {
-  const r = it as unknown as Rec
-  for (const f of LIST_REFS[it.kind] ?? []) {
-    const list = r[f] as Id[]
-    const at = list.indexOf(from)
-    if (at < 0) continue
-    const next = [...list.slice(0, at), ...tos, ...list.slice(at + 1)]
-    r[f] = [...new Set(next)]
-  }
-}
-
-/** Items whose list references point at `id` (candidates for reassignment on split). */
-/** Leaf hazards a scenario relates to: via its UCA (type 1) or directly (type 2). */
-export function scenarioHazards(p: Project, s: Extract<Item, { kind: 'scenario' }>): Id[] {
-  if (s.scenarioType === 'ca') return s.hazards
-  const u = s.uca ? p.items[s.uca] : null
-  return u?.kind === 'uca' ? u.hazards : []
-}
-
-export function linkedTo(p: Project, id: Id): Item[] {
-  return Object.values(p.items).filter((o) => {
-    const fields = LIST_REFS[o.kind] ?? []
-    return fields.some((f) => ((o as unknown as Rec)[f] as Id[]).includes(id))
-  })
 }
 
 /**
@@ -234,7 +188,7 @@ export function split(
     for (const [ref, idxs] of Object.entries(assign)) {
       const target = d.items[ref]
       const ids = idxs.map((i) => kids[i]?.id).filter(Boolean)
-      if (target && ids.length) replaceWithMany(target, id, ids)
+      if (target && ids.length) replaceInLists(target, id, ids)
     }
   })
   return { project, ids: kids.map((k) => k.id) }
@@ -252,14 +206,14 @@ export function merge(p: Project, ids: Id[], title?: string): Project {
         throw new Error('Cannot merge an item with its own descendant')
   const [keep, ...rest] = items
   return produce(p, (d) => {
-    const k = d.items[keep.id] as Item & Rec
+    const k = d.items[keep.id]
     const losses = kind === 'hazard' ? [...new Set(items.flatMap((h) => effectiveLosses(p, h.id)))] : []
     for (const o of rest) {
-      const other = d.items[o.id] as Item & Rec
+      const other = d.items[o.id]
       for (const c of children(d, o.id, kind)) placeAt(d, c.id, keep.id, Number.MAX_SAFE_INTEGER)
-      for (const f of LIST_REFS[kind] ?? []) {
+      for (const f of listRefs(kind)) {
         if (f === 'lossExclude') continue
-        k[f] = [...new Set([...(k[f] as Id[]), ...(other[f] as Id[])])]
+        setField(k, f, [...new Set([...getList(k, f), ...getList(other, f)])])
       }
       if (other.description && other.description !== k.description)
         k.description = [k.description, other.description].filter(Boolean).join('\n\n')
@@ -268,8 +222,8 @@ export function merge(p: Project, ids: Id[], title?: string): Project {
       for (const x of Object.values(d.items)) if (x.id !== o.id) rewriteRefs(x, o.id, keep.id)
       delete d.items[o.id]
     }
-    if (kind === 'hazard') {
-      const inherited = k.parent ? effectiveLosses(d, k.parent as Id) : []
+    if (k.kind === 'hazard') {
+      const inherited = k.parent ? effectiveLosses(d, k.parent) : []
       k.lossLinks = losses.filter((l) => !inherited.includes(l))
       k.lossExclude = []
     }

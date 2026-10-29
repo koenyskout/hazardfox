@@ -23,7 +23,7 @@ interface State {
   future: Project[]
   dirty: boolean
   fileName: string | null
-  fileHandle: unknown
+  fileHandle: FileSystemFileHandle | null
   view: View
   selected: Id | null
   paletteOpen: boolean
@@ -36,8 +36,8 @@ interface State {
   saveReviews: (r: Record<Id, SavedReview>) => void
   undo: () => void
   redo: () => void
-  load: (p: Project, fileName: string | null, handle?: unknown, markDirty?: boolean) => void
-  setFile: (name: string | null, handle: unknown) => void
+  load: (p: Project, fileName: string | null, handle?: FileSystemFileHandle | null, markDirty?: boolean) => void
+  setFile: (name: string | null, handle: FileSystemFileHandle | null) => void
   markSaved: () => void
   setView: (v: View) => void
   select: (id: Id | null) => void

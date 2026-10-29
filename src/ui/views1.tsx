@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { effectiveLosses } from '../model/ops'
+import { effectiveLosses } from '../model/derived'
+import { byLabel } from '../model/labels'
+import { updateMeta } from '../model/ops'
+import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
-import { updateMeta, createItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
-import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type Item } from '../model/types'
+import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
-import { commit, select, useLabels, useProject } from './hooks'
+import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { TreeTable } from './TreeTable'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -36,7 +38,7 @@ export function Overview() {
         ))}
       </div>
       <h2>Assumptions</h2>
-      <FlatTable kind="assumption" items={itemsOfKind(p, 'assumption')} columns={[{ head: 'About', cell: (i) => (i.kind === 'assumption' ? chips(i.about) : null) }]} />
+      <FlatTable kind="assumption" items={itemsOfKind(p, 'assumption')} columns={[{ head: 'About', cell: (i) => chips(i.about) }]} />
     </div>
   )
 }
@@ -63,7 +65,7 @@ export function Step1() {
           extra={(h) => chips(effectiveLosses(p, h.id))} />
       )}
       {sub === 'constraint' && (
-        <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => (c.kind === 'constraint' ? chips(c.hazards) : null)} />
+        <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => chips(c.hazards)} />
       )}
     </div>
   )
@@ -86,14 +88,14 @@ export function Domain() {
       {tab === 'entity' && (
         <TreeTable kind="entity" extraHeader="Attributes / operations / variables"
           empty="Entities model the things in the domain: controllers, controlled processes, devices, data…"
-          extra={(e) => (e.kind === 'entity' ? <span className="muted">{e.attributes.length} attr · {e.operations.length} ops · {itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} vars</span> : null)} />
+          extra={(e) => <span className="muted">{e.attributes.length} attr · {e.operations.length} ops · {itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} vars</span>} />
       )}
       {tab === 'variable' && (
         <FlatTable kind="variable" init={{ parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
-          items={[...itemsOfKind(p, 'variable')].sort((a, b) => (labels[a.id] ?? '').localeCompare(labels[b.id] ?? '', undefined, { numeric: true }))}
+          items={itemsOfKind(p, 'variable').sort(byLabel(labels))}
           columns={[
             { head: 'Entity', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
-            { head: 'States', cell: (v) => (v.kind === 'variable' ? <span className="muted">{v.states.join(' | ')}</span> : null) },
+            { head: 'States', cell: (v) => <span className="muted">{v.states.join(' | ')}</span> },
           ]} />
       )}
       {tab === 'relationship' && (
@@ -110,11 +112,7 @@ export function Ucas() {
   const labels = useLabels()
   const cas = itemsOfKind(p, 'ca')
   const ucas = itemsOfKind(p, 'uca')
-  const addUca = (ca: string, guide: (typeof GUIDE_WORDS)[number]) => {
-    let id = ''
-    commit((q) => { const r = createItem(q, 'uca', { ca, guide }); id = r.id; return r.project })
-    select(id)
-  }
+  const addUca = (ca: string, guide: GuideWord) => addItem('uca', { ca, guide })
   return (
     <div className="page full">
       <h2>Control action × guide word</h2>
@@ -140,11 +138,11 @@ export function Ucas() {
         </table>
       )}
       <h2>Unsafe control actions</h2>
-      <FlatTable kind="uca" titleEditable={false} items={[...ucas].sort((a, b) => (labels[a.id] ?? '').localeCompare(labels[b.id] ?? '', undefined, { numeric: true }))}
+      <FlatTable kind="uca" titleEditable={false} items={[...ucas].sort(byLabel(labels))}
         addLabel="UCA" init={{ ca: cas[0]?.id ?? '' }}
         columns={[
-          { head: 'Statement', cell: (u) => (u.kind === 'uca' ? generateUcaText(p, labels, u) : null) },
-          { head: 'Hazards', cell: (u) => (u.kind === 'uca' ? chips(u.hazards) : null), width: '130px' },
+          { head: 'Statement', cell: (u) => generateUcaText(p, labels, u) },
+          { head: 'Hazards', cell: (u) => chips(u.hazards), width: '130px' },
         ]} />
     </div>
   )
@@ -153,7 +151,7 @@ export function Ucas() {
 export function Scenarios() {
   const p = useProject()
   const labels = useLabels()
-  const scenarios = itemsOfKind(p, 'scenario').sort((a, b) => (labels[a.id] ?? '').localeCompare(labels[b.id] ?? '', undefined, { numeric: true }))
+  const scenarios = itemsOfKind(p, 'scenario').sort(byLabel(labels))
   const ucas = itemsOfKind(p, 'uca')
   const cas = itemsOfKind(p, 'ca')
   const sel = useStore((s) => s.selected)
@@ -168,9 +166,9 @@ export function Scenarios() {
           { label: `Scenario for ${ca ? labels[ca] : 'a control action'} not executed properly`, init: { scenarioType: 'ca', ca } },
         ]}
         columns={[
-          { head: 'Applies to', cell: (s) => (s.kind === 'scenario' ? <><Ref id={(s.scenarioType === 'ca' ? s.ca : s.uca) ?? ''} /> <span className="muted">{s.scenarioType === 'ca' ? 'CA' : 'UCA'}</span></> : null), width: '130px' },
-          { head: 'STRIDE', cell: (s) => (s.kind === 'scenario' ? <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span> : null), width: '70px' },
-          { head: 'Risk', cell: (s) => (s.kind === 'scenario' && s.severity && s.likelihood ? <b>{s.severity * s.likelihood}</b> : <span className="muted">—</span>), width: '50px' },
+          { head: 'Applies to', cell: (s) => <><Ref id={scenarioTarget(s) ?? ''} /> <span className="muted">{s.scenarioType === 'ca' ? 'CA' : 'UCA'}</span></>, width: '130px' },
+          { head: 'STRIDE', cell: (s) => <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span>, width: '70px' },
+          { head: 'Risk', cell: (s) => (s.severity && s.likelihood ? <b>{s.severity * s.likelihood}</b> : <span className="muted">—</span>), width: '50px' },
         ]} />
     </div>
   )
@@ -179,7 +177,7 @@ export function Scenarios() {
 export function Requirements() {
   return (
     <div className="page full">
-      <TreeTable kind="requirement" extraHeader="Derived from" extra={(r: Item) => (r.kind === 'requirement' ? chips(r.sources) : null)}
+      <TreeTable kind="requirement" extraHeader="Derived from" extra={(r) => chips(r.sources)}
         empty="Requirements and mitigations derived from constraints and loss scenarios." />
     </div>
   )

@@ -1,5 +1,6 @@
-import { children, flatten, itemsOfKind } from './tree'
-import type { Id, Kind, Project } from './types'
+import { replaceMentions } from './refs'
+import { children, flatten, itemsOfKind, TREE_KINDS } from './tree'
+import type { Id, Kind, Labels, Project } from './types'
 
 export const PREFIX: Record<Kind, string> = {
   loss: 'L',
@@ -18,10 +19,10 @@ export const PREFIX: Record<Kind, string> = {
 }
 
 /** Derive all display labels from kind + position. Labels are never stored. */
-export function computeLabels(p: Project): Record<Id, string> {
-  const out: Record<Id, string> = {}
+export function computeLabels(p: Project): Labels {
+  const out: Labels = {}
 
-  for (const kind of ['loss', 'hazard', 'constraint', 'requirement', 'entity', 'node'] as const) {
+  for (const kind of TREE_KINDS) {
     const walk = (pid: Id | null, path: string) => {
       children(p, pid, kind).forEach((c, i) => {
         const here = path ? `${path}.${i + 1}` : `${i + 1}`
@@ -71,10 +72,18 @@ export function computeLabels(p: Project): Record<Id, string> {
   return out
 }
 
-/** Render text, replacing `@[id]` with the live label (or a visible dangling marker). */
-export function renderText(labels: Record<Id, string>, text: string): string {
-  return text.replace(/@\[([^\]]+)\]/g, (_, id: string) => labels[id] ?? '⟨deleted⟩')
-}
+/** Shown in place of a reference to an item that no longer exists. */
+export const DELETED = '⟨deleted⟩'
 
-export const labelOf = (labels: Record<Id, string>, id: Id | null | undefined) =>
-  (id && labels[id]) || '—'
+/** Render text, replacing `@[id]` with the live label (or a visible dangling marker). */
+export const renderText = (labels: Labels, text: string) => replaceMentions(text, (id) => labels[id] ?? DELETED)
+
+export const labelOf = (labels: Labels, id: Id | null | undefined) => (id && labels[id]) || '—'
+
+/** Natural label order (H-2 before H-10). */
+export const compareLabels = (a = '', b = '') => a.localeCompare(b, undefined, { numeric: true })
+/** Comparator for items (or ids) by their label. */
+export const byLabel =
+  (labels: Labels) =>
+  (a: Id | { id: Id }, b: Id | { id: Id }) =>
+    compareLabels(labels[typeof a === 'string' ? a : a.id], labels[typeof b === 'string' ? b : b.id])

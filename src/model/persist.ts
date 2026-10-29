@@ -2,9 +2,14 @@ import { deserialize, serialize } from './serialize'
 import { useStore } from './store'
 import type { Project } from './types'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const w = window as any
-export const fsAccess = typeof w.showOpenFilePicker === 'function'
+/** File System Access API pickers (Chromium only, not in the DOM typings). */
+interface PickerOptions { types: { description: string; accept: Record<string, string[]> }[]; suggestedName?: string }
+interface Pickers {
+  showOpenFilePicker(o: PickerOptions): Promise<FileSystemFileHandle[]>
+  showSaveFilePicker(o: PickerOptions): Promise<FileSystemFileHandle>
+}
+const pickers = 'showOpenFilePicker' in window ? (window as unknown as Pickers) : null
+export const fsAccess = !!pickers
 
 const DB = 'hazardfox'
 function idb(): Promise<IDBDatabase> {
@@ -24,12 +29,14 @@ async function kv<T>(mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequ
   })
 }
 
+interface Autosave { text: string; fileName: string | null; at: number }
+
 export const autosave = (p: Project, fileName: string | null) =>
-  kv('readwrite', (s) => s.put({ text: serialize(p), fileName, at: Date.now() }, 'autosave')).catch(() => {})
+  kv('readwrite', (s) => s.put({ text: serialize(p), fileName, at: Date.now() } satisfies Autosave, 'autosave')).catch(() => {})
 
 export async function restoreAutosave(): Promise<{ project: Project; fileName: string | null } | null> {
   try {
-    const v = await kv<any>('readonly', (s) => s.get('autosave'))
+    const v = await kv<Autosave | undefined>('readonly', (s) => s.get('autosave'))
     return v ? { project: deserialize(v.text), fileName: v.fileName } : null
   } catch {
     return null
@@ -39,9 +46,9 @@ export async function restoreAutosave(): Promise<{ project: Project; fileName: s
 const jsonType = [{ description: 'HazardFox project', accept: { 'application/json': ['.hazardfox.json', '.json'] } }]
 
 export async function openProject() {
-  let text: string, name: string, handle: unknown = null
-  if (fsAccess) {
-    const [h] = await w.showOpenFilePicker({ types: jsonType })
+  let text: string, name: string, handle: FileSystemFileHandle | null = null
+  if (pickers) {
+    const [h] = await pickers.showOpenFilePicker({ types: jsonType })
     const f = await h.getFile()
     text = await f.text()
     name = f.name
@@ -77,9 +84,9 @@ export async function saveProject(as = false) {
   const s = useStore.getState()
   const text = serialize(s.project)
   const suggested = (s.project.meta.name || 'analysis').replace(/[^\w.-]+/g, '_') + '.hazardfox.json'
-  if (fsAccess) {
-    let h = as ? null : (s.fileHandle as any)
-    if (!h) h = await w.showSaveFilePicker({ suggestedName: s.fileName ?? suggested, types: jsonType })
+  if (pickers) {
+    let h = as ? null : s.fileHandle
+    if (!h) h = await pickers.showSaveFilePicker({ suggestedName: s.fileName ?? suggested, types: jsonType })
     const wr = await h.createWritable()
     await wr.write(text)
     await wr.close()

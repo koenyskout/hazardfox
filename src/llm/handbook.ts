@@ -1,6 +1,5 @@
 import { computeLabels } from '../model/labels'
-import { createItem } from '../model/ops'
-import { emptyProject } from '../model/create'
+import { projectBuilder } from '../model/build'
 import type { GuideWord, Id, Item, Kind, Project } from '../model/types'
 
 /** An example from the STPA Handbook (or a mistake the Handbook warns about), used as built-in demo input and as the LLM test set. */
@@ -116,12 +115,8 @@ export interface Built { p: Project; L: Record<Id, string>; it: Item }
 
 /** Builds a small in-memory project around an example so the review checks see linked items like they would in a real project. */
 export function buildExample(ex: Example): Built {
-  let p = emptyProject()
-  const add = (kind: Kind, init: Record<string, unknown>): Id => {
-    const r = createItem(p, kind, init)
-    p = r.project
-    return r.id
-  }
+  const b = projectBuilder()
+  const { add } = b
   const mkHazards = (titles: string[] = []) => titles.map((t) => add('hazard', { title: t, lossLinks: [add('loss', { title: LOSSES[0] })] }))
   let id: Id
   switch (ex.kind) {
@@ -146,6 +141,7 @@ export function buildExample(ex: Example): Built {
       } else id = add(ex.kind, { title: ex.text })
     }
   }
+  const p = b.project
   return { p, L: computeLabels(p), it: p.items[id] }
 }
 

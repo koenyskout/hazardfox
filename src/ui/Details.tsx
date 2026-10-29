@@ -1,5 +1,6 @@
-import { CAUSES, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Item, type Kind, type ScenarioType } from '../model/types'
-import { effectiveLosses, inheritedLosses, updateItem } from '../model/ops'
+import { CAUSES, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType, type Status } from '../model/types'
+import { effectiveLosses, inheritedLosses } from '../model/derived'
+import { updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
@@ -14,8 +15,8 @@ export function Details() {
   const id = useStore((s) => s.selected)
   const it = id ? p.items[id] : null
   if (!it) return <aside className="details"><p className="hint">Select an item to edit its details.</p></aside>
-  const set = (patch: Record<string, unknown>, key?: string) => commit((q) => updateItem(q, it.id, patch as Partial<Item>), key ? `${it.id}:${key}` : undefined)
-  const text = (f: string) => (v: string) => set({ [f]: v }, f)
+  const set: Set = (patch, key) => commit((q) => updateItem(q, it.id, patch), key ? `${it.id}:${key}` : undefined)
+  const text = (f: 'title' | 'description' | 'notes') => (v: string) => set({ [f]: v }, f)
   const used = incoming(p, it.id).filter((o) => o.parent !== it.id)
 
   return (
@@ -34,7 +35,7 @@ export function Details() {
       <Field label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
       <div className="two">
         <Field label="Status">
-          <select value={it.status} onChange={(e) => set({ status: e.target.value })}>
+          <select value={it.status} onChange={(e) => set({ status: e.target.value as Status })}>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
           </select>
         </Field>
@@ -49,12 +50,14 @@ export function Details() {
   )
 }
 
-type Set = (patch: Record<string, unknown>, key?: string) => void
+type Set = (patch: Patch, key?: string) => void
 
 function KindFields({ it, set }: { it: Item; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const of = <K extends Kind>(k: K) => itemsOfKind(p, k)
+  /** Leaf hazards, plus any non-leaf ones still linked (so they can be removed). */
+  const leafHazards = (linked: Id[]) => of('hazard').filter((h) => isLeaf(p, h.id) || linked.includes(h.id))
   switch (it.kind) {
     case 'hazard': {
       const inh = inheritedLosses(p, it.id)
@@ -84,14 +87,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'constraint':
       return (
         <Field label="Prevents hazards (leaf hazards)">
-          <RefList value={it.hazards} options={of('hazard').filter((h) => isLeaf(p, h.id) || it.hazards.includes(h.id))} onChange={(v) => set({ hazards: v })} />
+          <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
         </Field>
       )
     case 'requirement':
       return (
         <>
           <Field label="Type">
-            <select value={it.type} onChange={(e) => set({ type: e.target.value })}><option>requirement</option><option>mitigation</option></select>
+            <select value={it.type} onChange={(e) => set({ type: e.target.value as RequirementType })}>{REQUIREMENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
           </Field>
           <Field label="Derived from">
             <RefList value={it.sources} options={[...of('constraint'), ...of('scenario'), ...of('uca')]} onChange={(v) => set({ sources: v })} />
@@ -139,7 +142,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           <Field label="Role">
-            <select value={it.role} onChange={(e) => set({ role: e.target.value })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</select>
+            <select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</select>
           </Field>
           <Field label="Domain entity"><SingleRef value={it.entity} options={of('entity')} onChange={(v) => set({ entity: v })} /></Field>
           <Field label="Process model (variables)">
@@ -182,7 +185,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
         <>
           <Field label="Control action"><SingleRef value={it.ca} options={of('ca')} onChange={(v) => v && set({ ca: v })} /></Field>
           <Field label="Guide word">
-            <select value={it.guide} onChange={(e) => set({ guide: e.target.value })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
+            <select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
           </Field>
           <Field label="Context">
             <ConditionsEditor it={it} set={set} />
@@ -192,7 +195,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
           </Field>
           <Field label="Hazards (leaf)">
-            <RefList value={it.hazards} options={of('hazard').filter((h) => isLeaf(p, h.id) || it.hazards.includes(h.id))} onChange={(v) => set({ hazards: v })} />
+            <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
           </Field>
           <Field label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
         </>
@@ -214,12 +217,12 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <>
               <Field label="Control action"><SingleRef value={it.ca} options={of('ca')} onChange={(v) => set({ ca: v })} /></Field>
               <Field label="Hazards (leaf)" hint="The control action is issued but not carried out properly; which hazards can this lead to?">
-                <RefList value={it.hazards} options={of('hazard').filter((h) => isLeaf(p, h.id) || it.hazards.includes(h.id))} onChange={(v) => set({ hazards: v })} />
+                <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
               </Field>
             </>
           )}
           <Field label="Causal factor">
-            <select value={it.cause} onChange={(e) => set({ cause: e.target.value })}>
+            <select value={it.cause} onChange={(e) => set({ cause: e.target.value as Cause | '' })}>
               <option value="">—</option>
               {CAUSES[it.scenarioType].map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
@@ -255,7 +258,7 @@ const Rating = ({ v, on }: { v: number; on: (v: number) => void }) => (
   </select>
 )
 
-function ConditionsEditor({ it, set }: { it: Extract<Item, { kind: 'uca' }>; set: Set }) {
+function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const vars = itemsOfKind(p, 'variable')

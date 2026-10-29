@@ -1,7 +1,8 @@
 import { makeItem } from '../model/create'
-import { computeLabels, renderText } from '../model/labels'
-import { LIST_REFS, MENTION_RE, OPTIONAL_REFS, REQUIRED_REFS, TEXT_FIELDS } from '../model/refs'
-import { CAUSES, GUIDE_WORDS, KINDS, NODE_ROLES, STATUSES, STRIDE, type Id, type Item, type Kind, type Project } from '../model/types'
+import { computeLabels, DELETED, renderText } from '../model/labels'
+import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
+import { parentKind } from '../model/tree'
+import { CAUSES, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -22,23 +23,16 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   scenario: { uca: ['uca'], ca: ['ca'], hazards: ['hazard'], element: ['node'] },
 }
 
-/** Kind a `parent` must have (tree kinds: same kind; variables: owned by an entity). */
-export const parentKind = (kind: Kind): Kind | null =>
-  kind === 'variable' ? 'entity' : ['loss', 'hazard', 'constraint', 'requirement', 'entity', 'node'].includes(kind) ? kind : null
-
 const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
-  requirement: { type: ['requirement', 'mitigation'] },
+  requirement: { type: REQUIREMENT_TYPES },
   node: { role: NODE_ROLES },
   uca: { guide: GUIDE_WORDS },
-  scenario: { scenarioType: ['uca', 'ca'] },
+  scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const refFields = (kind: Kind): string[] => [
-  ...(REQUIRED_REFS[kind] ?? []), ...(OPTIONAL_REFS[kind] ?? []), ...(LIST_REFS[kind] ?? []),
-  ...(parentKind(kind) ? ['parent'] : []),
-]
+const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKind(kind) ? ['parent'] : [])]
 
-const TEXT = (kind: Kind) => ['title', 'description', 'notes', ...(TEXT_FIELDS[kind] ?? [])]
+const isText = (kind: Kind, f: string) => f === 'title' || textFields(kind).includes(f)
 
 export interface FieldInfo { type: string; values?: readonly string[]; targets?: string; required?: boolean }
 
@@ -65,7 +59,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (ENUMS[kind]?.[f]) info.values = ENUMS[kind]![f]
     if (target) info.targets = Array.isArray(target) ? target.join(' | ') : target
     else if (target === null) info.targets = 'any item'
-    if (REQUIRED_REFS[kind]?.includes(f)) info.required = true
+    if (requiredRefs(kind).includes(f)) info.required = true
     out[f] = info
   }
   return out
@@ -105,14 +99,14 @@ export class Resolver {
   }
   /** Replace labels inside `@[...]` mentions by ids. */
   internalText(t: string): string {
-    return t.replace(MENTION_RE, (m, x: string) => {
-      try { return `@[${this.resolve(x)}]` } catch { return m }
+    return replaceMentions(t, (x, m) => {
+      try { return mention(this.resolve(x)) } catch { return m }
     })
   }
   externalText(t: string): string {
-    return t.replace(MENTION_RE, (_, id: string) => `@[${this.labels[id] ?? id}]`)
+    return replaceMentions(t, (id) => mention(this.labels[id] ?? id))
   }
-  label = (id: Id | null | undefined) => (id ? this.labels[id] ?? '⟨deleted⟩' : null)
+  label = (id: Id | null | undefined) => (id ? this.labels[id] ?? DELETED : null)
 }
 
 const isStr = (v: unknown): v is string => typeof v === 'string'
@@ -136,8 +130,8 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     try {
       if (spec.type.startsWith('ref | null') || spec.type === 'ref') {
         if (v === null || v === '') {
-          if (REQUIRED_REFS[kind]?.includes(f)) errors.push(`${f} is required`)
-          out[f] = f === 'parent' || OPTIONAL_REFS[kind]?.includes(f) ? null : ''
+          if (requiredRefs(kind).includes(f)) errors.push(`${f} is required`)
+          out[f] = f === 'parent' || optionalRefs(kind).includes(f) ? null : ''
         } else {
           const id = r.resolve(v)
           checkKind(id, f)
@@ -170,7 +164,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       } else {
         if (!isStr(v)) throw new Error('expected a string')
         if (spec.values && !spec.values.includes(v)) throw new Error(`must be one of ${spec.values.join(', ')}`)
-        out[f] = TEXT(kind).includes(f) ? r.internalText(v) : v
+        out[f] = isText(kind, f) ? r.internalText(v) : v
       }
     } catch (e) {
       errors.push(`${f}: ${(e as Error).message}`)
@@ -181,7 +175,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     try { out.operation = `${r.resolve(ent)}:${op.join(':')}` } catch { /* keep as given */ }
   }
   if (mode === 'create') {
-    for (const f of REQUIRED_REFS[kind] ?? []) if (!out[f]) errors.push(`${f} is required`)
+    for (const f of requiredRefs(kind)) if (!out[f]) errors.push(`${f} is required`)
     if (kind === 'scenario') {
       const t = (out.scenarioType as string) ?? 'uca'
       if (t === 'uca' && !out.uca) errors.push('scenarioType "uca" needs the field "uca"')
@@ -211,7 +205,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
     else if (f === 'conditions') out[f] = (v as { variable: Id; state: string; negate: boolean }[]).map((c) => ({ ...c, variable: r.label(c.variable) }))
-    else out[f] = isStr(v) && TEXT(it.kind).includes(f) ? r.externalText(v) : v
+    else out[f] = isStr(v) && isText(it.kind, f) ? r.externalText(v) : v
   }
   if (it.kind === 'ca' && isStr(raw.operation) && raw.operation.includes(':')) {
     const [ent, ...op] = raw.operation.split(':')

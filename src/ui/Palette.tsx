@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { renderText } from '../model/labels'
+import { byLabel, renderText } from '../model/labels'
 import { useStore } from '../model/store'
 import { KIND_NAMES } from '../model/types'
 import { VIEW_OF } from './Fields'
@@ -20,7 +20,7 @@ export function Palette() {
     return Object.values(p.items)
       .map((it) => ({ it, text: `${labels[it.id]} ${it.title} ${renderText(labels, it.description)} ${it.tags.join(' ')}`.toLowerCase() }))
       .filter((x) => !t || t.split(/\s+/).every((w) => x.text.includes(w)))
-      .sort((a, b) => (labels[a.it.id] ?? '').localeCompare(labels[b.it.id] ?? '', undefined, { numeric: true }))
+      .sort((a, b) => byLabel(labels)(a.it, b.it))
       .slice(0, 40)
   }, [p, labels, q])
   if (!open) return null

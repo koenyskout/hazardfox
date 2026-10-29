@@ -1,8 +1,8 @@
 import { useRef, type ReactNode } from 'react'
-import { MENTION_RE } from '../model/refs'
-import { renderText } from '../model/labels'
+import { mention, mentions } from '../model/refs'
+import { byLabel, DELETED, renderText } from '../model/labels'
 import { useStore, type View } from '../model/store'
-import type { Id, Item, Kind } from '../model/types'
+import type { Id, Item, Kind, Labels } from '../model/types'
 import { useLabels, useProject } from './hooks'
 
 export const VIEW_OF: Record<Kind, View> = {
@@ -41,7 +41,7 @@ export function Ref({ id }: { id: Id }) {
   const labels = useLabels()
   const goto = useStore((s) => s.goto)
   const it = p.items[id]
-  if (!it) return <span className="chip dead">⟨deleted⟩</span>
+  if (!it) return <span className="chip dead">{DELETED}</span>
   return (
     <a className={'chip k-' + it.kind} href="#" title={it.title} onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
       {labels[id]}
@@ -49,7 +49,7 @@ export function Ref({ id }: { id: Id }) {
   )
 }
 
-export const optionLabel = (labels: Record<Id, string>, it: Item) => `${labels[it.id]} ${it.title || ''}`.trim()
+export const optionLabel = (labels: Labels, it: Item) => `${labels[it.id]} ${it.title || ''}`.trim()
 
 export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[]) => void; placeholder?: string; disabled?: Id[] }) {
   const labels = useLabels()
@@ -96,13 +96,12 @@ export function RichText(props: { value: string; onChange: (v: string) => void; 
     const el = ta.current
     const at = el ? el.selectionStart : props.value.length
     const end = el ? el.selectionEnd : at
-    const next = props.value.slice(0, at) + `@[${id}]` + props.value.slice(end)
+    const next = props.value.slice(0, at) + mention(id) + props.value.slice(end)
     props.onChange(next)
     setTimeout(() => el?.focus(), 0)
   }
-  const hasRefs = MENTION_RE.test(props.value)
-  MENTION_RE.lastIndex = 0
-  const others = Object.values(p.items).sort((a, b) => (labels[a.id] ?? '').localeCompare(labels[b.id] ?? '', undefined, { numeric: true }))
+  const hasRefs = mentions(props.value).length > 0
+  const others = Object.values(p.items).sort(byLabel(labels))
   return (
     <div className="rich">
       <textarea ref={ta} rows={props.rows ?? 3} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />

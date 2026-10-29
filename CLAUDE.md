@@ -15,12 +15,14 @@ Read `PLAN.md` for goals, decisions and milestone status.
 
 ## Architecture (src/)
 - `model/` – pure, UI-free. `types.ts` (item kinds), `create.ts` (defaults), `ops.ts` (immutable Immer ops: create,
-  update, delete+cascade, shift/indent/outdent, group/split/merge), `refs.ts` (link-field registry), `labels.ts`
-  (derived labels), `tree.ts`, `validate.ts`, `serialize.ts` (stable JSON, fills defaults for older files),
+  update, delete+cascade, shift/indent/outdent, group/split/merge), `refs.ts` (typed link-field registry, mention
+  helpers, ref rewriting/cascade), `derived.ts` (effective losses, scenario hazards, hazard trace), `labels.ts`
+  (derived labels, `byLabel` natural sort, `DELETED`), `tree.ts` (`TREE_KINDS`, `parentKind`), `build.ts`
+  (`projectBuilder` for examples/tests), `validate.ts`, `serialize.ts` (stable JSON, fills defaults for older files),
   `store.ts` (Zustand: project, selection, view, undo/redo with coalescing), `persist.ts`, `structure.ts`
   (ELK layout + pinned nudges), `uca.ts` (UCA sentence generation), `example.ts` (demo project).
 - `ui/` – React views (`views1.tsx` step 1–4, `views2.tsx` requirements/trace/validation/overview), generic
-  `TreeTable` / `FlatTable`, `Details.tsx` side panel, `Structure*.tsx` diagram, `Review.tsx` AI review, `Icon.tsx`.
+  `TreeTable<K>` / `FlatTable<K>`, `Details.tsx` side panel, `Structure*.tsx` diagram, `Review.tsx` AI review, `Icon.tsx`.
 - `export/` – `tables.ts` (shared row builders), `xlsx.ts` (exceljs), `docx.ts` (docx; diagram embedded as PNG via
   `structureImage.ts`).
 - `mcp/` – stdio MCP server for agents (`server.ts` file I/O + wiring, `tools.ts` pure tool handlers `(Project, args) -> {project?, result}`, `schema.ts` field validation + label↔id mapping derived from `makeItem` defaults and `refs.ts`, `guide.ts` method text). Run: `npm run mcp -- file.hazardfox.json`. New item field/kind: check `TARGETS`/`ENUMS` in `schema.ts`.
@@ -31,11 +33,16 @@ Read `PLAN.md` for goals, decisions and milestone status.
   V-, CA-, FB-, REL-, A-, UCA-n, LS-n.m for UCA scenarios, LS-CA-n.m for control-action scenarios).
   Free text references items as `@[id]`, rendered as live labels.
 - Every link field must be declared in `REQUIRED_REFS` / `OPTIONAL_REFS` / `LIST_REFS` (`refs.ts`); this drives
-  dangling-link cleanup, cascade delete (`cascadeSet`) and traceability.
+  dangling-link cleanup, cascade delete (`cascadeSet`) and traceability. The registries are typed per kind, so only
+  real fields of the right type can be listed; untyped field access is confined to `getField`/`setField`/`getList`.
+- Typing: `ItemOf<K>` is the item of kind K, `Patch<K>` a partial update of it; `makeItem`, `createItem`, `itemsOfKind`,
+  `children`, `flatten` and `addItem` (`ui/hooks.ts`: commit + select) are generic over the kind. Enumerations
+  (`STATUSES`, `CAUSES`, `REQUIREMENT_TYPES`, `SEVERITIES`, …) are `as const` arrays with derived union types.
+  Mentions: use `mention`/`mentions`/`replaceMentions` from `refs.ts`, not the regex.
 - UCAs and system constraints link only to **leaf** hazards. Hazard→loss links are many-to-many; sub-hazards inherit.
 - Two scenario kinds (`scenarioType`): `'uca'` (why a UCA occurs; hazards inherited from the UCA) and `'ca'` (why a
   control action is not executed properly; own `hazards`, `cause` from `CAUSES`, optional `element`).
-  Use `scenarioHazards(p, s)` rather than reading `s.hazards` directly.
+  Use `scenarioHazards(p, s)` (`derived.ts`) and `scenarioTarget(s)` rather than reading `s.hazards` directly.
 - Model ops are pure functions `Project -> Project`; UI calls `commit(fn, coalesceKey?)` from `ui/hooks.ts`.
 - When adding an item kind or field: update `types.ts`, `create.ts`, `refs.ts`, `labels.ts`/`tree.ts` if numbered,
   `validate.ts`, `Details.tsx`, a view, `export/tables.ts`, `example.ts`, the smoke-test VIEWS list.

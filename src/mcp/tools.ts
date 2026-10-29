@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import { buildTables, defaultOptions, SECTIONS } from '../export/tables'
-import { updateItem as patchItem, updateMeta, createItem, deleteItems, effectiveLosses, moveItem, reorder, scenarioHazards } from '../model/ops'
+import { effectiveLosses, scenarioHazards } from '../model/derived'
+import { compareLabels } from '../model/labels'
+import { updateItem as patchItem, updateMeta, createItem, deleteItems, moveItem, reorder } from '../model/ops'
 import { incoming } from '../model/refs'
-import { children, flatten, itemsOfKind } from '../model/tree'
+import { children, flatten, itemsOfKind, parentKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { validate } from '../model/validate'
+import { SEVERITIES, validate } from '../model/validate'
 import { GUIDE_WORDS, KINDS, KIND_NAMES, STATUSES, type Id, type Item, type Kind, type Project } from '../model/types'
-import { describeKind, internalize, parentKind, Resolver, view } from './schema'
+import { describeKind, internalize, Resolver, view } from './schema'
 
 type Rec = Record<string, unknown>
 export interface Outcome { project?: Project; result: unknown }
@@ -25,8 +27,6 @@ const kindEnum = z.enum(KINDS as [Kind, ...Kind[]])
 const ref = z.string().describe('Item label such as "H-1.2" (case-insensitive), an item id, or "$alias" defined earlier in the same call')
 const fieldsSchema = z.record(z.string(), z.unknown()).describe('Field values; call describe_kinds for the fields of each kind. References are labels like "H-1".')
 
-const natural = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
-
 /** Extra derived fields that make items easier to read than their raw fields. */
 function extras(r: Resolver, it: Item): Rec {
   const p = r.p
@@ -42,7 +42,7 @@ const show = (r: Resolver, it: Item) => view(r, it, extras(r, it))
 /** Items of a kind in label order (tree kinds depth-first). */
 function ordered(p: Project, r: Resolver, kind: Kind): Item[] {
   if (parentKind(kind) && kind !== 'variable') return flatten(p, kind).map((x) => x.item)
-  return Object.values(p.items).filter((i) => i.kind === kind).sort((a, b) => natural(r.labels[a.id] ?? '', r.labels[b.id] ?? ''))
+  return Object.values(p.items).filter((i) => i.kind === kind).sort((a, b) => compareLabels(r.labels[a.id], r.labels[b.id]))
 }
 
 /** Warnings and errors from the validator that concern the touched items. */
@@ -276,7 +276,7 @@ export const TOOLS = [
       const r = new Resolver(p)
       const ucas = itemsOfKind(p, 'uca')
       return {
-        result: itemsOfKind(p, 'ca').sort((a, b) => natural(r.labels[a.id], r.labels[b.id])).map((ca) => {
+        result: itemsOfKind(p, 'ca').sort((a, b) => compareLabels(r.labels[a.id], r.labels[b.id])).map((ca) => {
           const from = p.items[ca.from]
           const by = Object.fromEntries(GUIDE_WORDS.map((g) => [g, ucas.filter((u) => u.ca === ca.id && u.guide === g).map((u) => r.label(u.id))]))
           return { ref: r.label(ca.id), title: ca.title, controller: from?.title, ucas: by, missing: GUIDE_WORDS.filter((g) => by[g].length === 0) }
@@ -288,13 +288,12 @@ export const TOOLS = [
   tool({
     name: 'validate',
     description: 'Check completeness and consistency (dangling links, hazards without constraint or loss, UCAs without hazards or scenarios, uncovered guide words, non-leaf hazard links, adversarial scenarios without STRIDE …).',
-    shape: { severity: z.enum(['error', 'warning', 'info']).optional().describe('Minimum severity; default info (everything)') },
+    shape: { severity: z.enum(SEVERITIES).optional().describe('Minimum severity; default info (everything)') },
     writes: false,
     run: (p, a) => {
-      const rank = { error: 0, warning: 1, info: 2 }
-      const min = rank[a.severity ?? 'info']
+      const min = SEVERITIES.indexOf(a.severity ?? 'info')
       const r = new Resolver(p)
-      return { result: validate(p).filter((i) => rank[i.severity] <= min).map((i) => ({ severity: i.severity, ref: r.label(i.item), message: i.message })) }
+      return { result: validate(p).filter((i) => SEVERITIES.indexOf(i.severity) <= min).map((i) => ({ severity: i.severity, ref: r.label(i.item), message: i.message })) }
     },
   }),
 

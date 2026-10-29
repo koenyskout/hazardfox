@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { emptyProject } from './create'
-import { createItem, updateItem } from './ops'
+import { projectBuilder } from './build'
+import { updateItem } from './ops'
 import { applyOverrides, layoutStructure } from './structure'
-import type { Id, Project } from './types'
 
 describe('control structure layout', () => {
   it('puts controller above process, nests children, routes feedback', async () => {
-    let p: Project = emptyProject()
-    const mk = (kind: Parameters<typeof createItem>[1], init: Record<string, unknown>) => {
-      const r = createItem(p, kind, init); p = r.project; return r.id as Id
-    }
+    const b = projectBuilder()
+    const mk = b.add
     const sys = mk('node', { title: 'Plant', role: 'external' })
     const c = mk('node', { title: 'Controller', role: 'controller' })
     const a = mk('node', { title: 'Valve actuator', role: 'actuator', parent: sys })
@@ -17,6 +14,7 @@ describe('control structure layout', () => {
     mk('ca', { title: 'open', from: c, to: a })
     mk('ca', { title: 'flow', from: a, to: pr })
     mk('feedback', { title: 'level', from: pr, to: c })
+    const p = b.project
     const l = await layoutStructure(p)
     expect(l.nodes[c].y).toBeLessThan(l.nodes[a].y)
     expect(l.nodes[a].y).toBeLessThan(l.nodes[pr].y)

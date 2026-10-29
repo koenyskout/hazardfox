@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
-import { createItem, deleteItems, effectiveLosses, group, indent, merge, outdent, shift, split, updateItem } from './ops'
+import { effectiveLosses } from './derived'
+import { createItem, deleteItems, group, indent, merge, outdent, shift, split, updateItem } from './ops'
 import { emptyProject } from './create'
 import { validate } from './validate'
-import type { Hazard, Id, Project } from './types'
+import type { Hazard, Id, Kind, Patch, Project } from './types'
 
-function add(p: Project, kind: Parameters<typeof createItem>[1], init: Record<string, unknown> = {}) {
+function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
   const r = createItem(p, kind, init)
   return [r.project, r.id] as const
 }

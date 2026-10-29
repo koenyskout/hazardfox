@@ -1,13 +1,12 @@
-import { emptyProject } from './create'
-import { createItem } from './ops'
-import type { Id, Kind, Project } from './types'
+import { projectBuilder, type Add } from './build'
+import type { Cause, Id, Patch, Project } from './types'
 
 /**
  * End-to-end STPA analyses taken from openly published sources (losses, hazards, constraints, control structure,
  * UCAs, loss scenarios, requirements). Where the source only shows a figure or an excerpt, the gap is noted in the
  * item notes / project description rather than filled with invented content.
  */
-type Build = (add: (kind: Kind, init?: Record<string, unknown>) => Id) => void
+type Build = (add: Add) => void
 
 export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; description: string; build: Build }[] = [
   {
@@ -55,7 +54,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const u22 = add('uca', { ca: caEnv, guide: 'not-provided', hazards: [H1, H2], override: 'Traffic and mission control system does not provide environmental data during extraordinary environmental conditions, so the AM operates without complying with required parameters' })
       const u23 = add('uca', { ca: caEnv, guide: 'too-early-late', hazards: [H1, H2], override: 'Traffic and mission control system provides environmental data too late to adjust accordingly while AM is driving, so the AM operates without complying with required parameters' })
 
-      const S = (uca: Id, title: string, cause: string, init: Record<string, unknown> = {}) => add('scenario', { uca, title, cause, ...init })
+      const S = (uca: Id, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
       // UCA-1.1
       S(u11, 'Failure in the traffic and mission control system itself', 'controller-failure')
       S(u11, 'Failure in the connection of the traffic and mission control system and the AM', 'other-controller')
@@ -161,13 +160,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
 
 export function publishedExampleProject(id: string): Project {
   const e = PUBLISHED_EXAMPLES.find((x) => x.id === id)!
-  let p = emptyProject()
-  p.meta.name = e.name
-  p.meta.description = e.description
-  e.build((kind, init = {}) => {
-    const r = createItem(p, kind, init)
-    p = r.project
-    return r.id
-  })
-  return p
+  const b = projectBuilder({ name: e.name, description: e.description })
+  e.build(b.add)
+  return b.project
 }

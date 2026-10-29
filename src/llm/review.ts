@@ -1,5 +1,7 @@
-import { effectiveLosses, scenarioHazards, updateItem } from '../model/ops'
+import { effectiveLosses, scenarioHazards } from '../model/derived'
+import { updateItem } from '../model/ops'
 import { renderText } from '../model/labels'
+import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { KIND_NAMES, SCENARIO_TYPE_LABELS, type Id, type Item, type Kind, type Project } from '../model/types'
@@ -177,7 +179,7 @@ export function describe(p: Project, L: Record<Id, string>, it: Item): string {
       return `${L[it.id]}: ${T(generateUcaText(p, L, it))}\n  Control action: ${ca ? `${L[ca.id]} ${ca.title}` : 'none'}; type: ${it.guide}\n  Hazards: ${lab(it.hazards)}\n  Controller constraint: ${T(it.constraint) || 'none'}`
     }
     case 'scenario': {
-      const target = it.scenarioType === 'ca' ? it.ca : it.uca
+      const target = scenarioTarget(it)
       return `${head}\n  Kind: ${SCENARIO_TYPE_LABELS[it.scenarioType]}; applies to ${target ? L[target] : 'nothing'}; cause: ${it.cause || 'unspecified'}\n  Hazards: ${lab(scenarioHazards(p, it))}${it.adversarial ? `\n  Adversarial; STRIDE: ${it.stride.join(', ') || 'none'}; threat: ${T(it.threat) || 'none'}` : ''}`
     }
     case 'requirement':
@@ -212,7 +214,7 @@ export function summarise(it: Item, probs: Record<string, number>): ItemReview {
   return { checks, verdict }
 }
 
-export const itemsForReview = (p: Project, kind: Kind) => itemsOfKind(p, kind as 'loss') as Item[]
+export const itemsForReview = (p: Project, kind: Kind): Item[] => itemsOfKind(p, kind)
 
 /** Kinds whose wording can be rewritten: the title is the text under review (UCA text is generated from its parts). */
 export const canSuggest = (it: Item) => REVIEW_KINDS.includes(it.kind) && it.kind !== 'uca'
@@ -251,4 +253,4 @@ export function suggestionPrompt(p: Project, L: Record<Id, string>, it: Item, fa
 export const cleanSuggestion = (raw: string) =>
   raw.trim().split('\n')[0].replace(/^(?:[A-Z]{1,3}-[\d.]+|rewritten[^:]*|suggestion)\s*:\s*/i, '').replace(/^["'“]+|["'”]+$/g, '').trim()
 
-export const withTitle = (p: Project, it: Item, title: string): Project => updateItem(p, it.id, { title } as Partial<Item>)
+export const withTitle = (p: Project, it: Item, title: string): Project => updateItem(p, it.id, { title })

@@ -1,6 +1,5 @@
-import { emptyProject } from './create'
-import { createItem } from './ops'
-import type { GuideWord, Id, Kind, NodeRole, Project } from './types'
+import { projectBuilder } from './build'
+import type { GuideWord, Id, NodeRole, Project } from './types'
 
 /** Worked examples from the appendices of the STPA Handbook (Appendix A: hazard lists, Appendix B: control structures, Appendix C: UCA tables). */
 interface Spec {
@@ -270,14 +269,8 @@ export const HANDBOOK_EXAMPLES: { id: string; label: string; spec: Spec }[] = [
 
 export function handbookExampleProject(id: string): Project {
   const spec = HANDBOOK_EXAMPLES.find((e) => e.id === id)!.spec
-  let p = emptyProject()
-  p.meta.name = spec.name
-  p.meta.description = spec.description
-  const add = (kind: Kind, init: Record<string, unknown> = {}): Id => {
-    const r = createItem(p, kind, init)
-    p = r.project
-    return r.id
-  }
+  const b = projectBuilder({ name: spec.name, description: spec.description })
+  const { add } = b
   const loss: Record<string, Id> = {}
   for (const [k, t] of spec.losses) loss[k] = add('loss', { title: t })
   const haz: Record<string, Id> = {}
@@ -293,5 +286,5 @@ export function handbookExampleProject(id: string): Project {
     for (const t of spec.cas ?? []) ca[t] = add('ca', { title: t, from: ctrl, to: proc })
   }
   for (const [c, type, text, hs] of spec.ucas ?? []) add('uca', { ca: ca[c], guide: GUIDE[type], override: text, hazards: hs.map((h) => haz[h]) })
-  return p
+  return b.project
 }

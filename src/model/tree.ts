@@ -1,16 +1,13 @@
-import type { Id, Item, Kind, Project } from './types'
+import type { Id, Item, ItemOf, Kind, Project } from './types'
 
 /** Kinds that form their own hierarchy through `parent`. */
-export const TREE_KINDS: ReadonlySet<Kind> = new Set<Kind>([
-  'loss',
-  'hazard',
-  'constraint',
-  'requirement',
-  'entity',
-  'node',
-])
+export const TREE_KINDS = ['loss', 'hazard', 'constraint', 'requirement', 'entity', 'node'] as const satisfies readonly Kind[]
+export type TreeKind = (typeof TREE_KINDS)[number]
 
-export const isTreeKind = (k: Kind) => TREE_KINDS.has(k)
+export const isTreeKind = (k: Kind): k is TreeKind => (TREE_KINDS as readonly Kind[]).includes(k)
+
+/** Kind a `parent` must have: tree kinds nest under their own kind, variables belong to an entity; others have none. */
+export const parentKind = (k: Kind): Kind | null => (k === 'variable' ? 'entity' : isTreeKind(k) ? k : null)
 
 /** Items that are siblings share a group key; ranks are 0..n-1 within a group. */
 export function groupKey(it: Item): string {
@@ -19,24 +16,17 @@ export function groupKey(it: Item): string {
       return `uca:${it.ca}`
     case 'scenario':
       return `scenario:${it.scenarioType === 'ca' ? it.ca : it.uca}`
-    case 'variable':
-      return `variable:${it.parent}`
-    case 'loss':
-    case 'hazard':
-    case 'constraint':
-    case 'requirement':
-    case 'entity':
-    case 'node':
-      return `${it.kind}:${it.parent}`
     default:
-      return it.kind
+      return parentKind(it.kind) ? `${it.kind}:${it.parent}` : it.kind
   }
 }
 
 const byRank = (a: Item, b: Item) => a.rank - b.rank || (a.id < b.id ? -1 : 1)
 
-export function itemsOfKind<K extends Kind>(p: Project, kind: K): Extract<Item, { kind: K }>[] {
-  return Object.values(p.items).filter((i): i is Extract<Item, { kind: K }> => i.kind === kind)
+const isKind = <K extends Kind>(kind: K) => (i: Item): i is ItemOf<K> => i.kind === kind
+
+export function itemsOfKind<K extends Kind>(p: Project, kind: K): ItemOf<K>[] {
+  return Object.values(p.items).filter(isKind(kind))
 }
 
 /** Ordered siblings (including the item itself) in the item's group. */
@@ -47,9 +37,9 @@ export function siblings(p: Project, it: Item): Item[] {
     .sort(byRank)
 }
 
-export function children(p: Project, id: Id | null, kind: Kind): Item[] {
-  return Object.values(p.items)
-    .filter((o) => o.kind === kind && o.parent === id)
+export function children<K extends Kind>(p: Project, id: Id | null, kind: K): ItemOf<K>[] {
+  return itemsOfKind(p, kind)
+    .filter((o) => o.parent === id)
     .sort(byRank)
 }
 
@@ -87,8 +77,8 @@ export const isLeaf = (p: Project, id: Id) => {
 }
 
 /** Depth-first ordered list of a tree kind. */
-export function flatten(p: Project, kind: Kind): { item: Item; depth: number }[] {
-  const out: { item: Item; depth: number }[] = []
+export function flatten<K extends Kind>(p: Project, kind: K): { item: ItemOf<K>; depth: number }[] {
+  const out: { item: ItemOf<K>; depth: number }[] = []
   const walk = (pid: Id | null, depth: number) => {
     for (const c of children(p, pid, kind)) {
       out.push({ item: c, depth })

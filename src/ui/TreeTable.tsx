@@ -1,10 +1,8 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
-  createItem,
   deleteItems,
   group,
   indent,
-  linkedTo,
   merge,
   moveItem,
   outdent,
@@ -13,24 +11,24 @@ import {
   updateItem,
 } from '../model/ops'
 import { useStore } from '../model/store'
-import { cascadeSet } from '../model/refs'
+import { cascadeSet, linkedTo } from '../model/refs'
 import { children, descendants, flatten, isLeaf } from '../model/tree'
-import { KIND_NAMES, type Id, type Item, type Kind } from '../model/types'
-import { commit, select, useLabels, useProject } from './hooks'
+import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
+import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { ReviewDot } from './Review'
 import { Icon } from './Icon'
 
 type Dialog = null | { type: 'group' | 'merge' } | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
 
-export interface TreeTableProps {
-  kind: Kind
+export interface TreeTableProps<K extends Kind> {
+  kind: K
   /** Extra cell content per row (e.g. linked losses). */
-  extra?: (it: Item) => ReactNode
+  extra?: (it: ItemOf<K>) => ReactNode
   extraHeader?: string
   empty?: string
   /** Defaults applied to newly created items. */
-  defaults?: Record<string, unknown>
+  defaults?: Patch<K>
 }
 
 function dropPos(e: React.DragEvent<HTMLElement>): 'before' | 'after' | 'into' {
@@ -39,7 +37,7 @@ function dropPos(e: React.DragEvent<HTMLElement>): 'before' | 'after' | 'into' {
   return y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'into'
 }
 
-export function TreeTable({ kind, extra, extraHeader, empty, defaults }: TreeTableProps) {
+export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, defaults }: TreeTableProps<K>) {
   const p = useProject()
   const labels = useLabels()
   const selected = useStore((s) => s.selected)
@@ -64,13 +62,7 @@ export function TreeTable({ kind, extra, extraHeader, empty, defaults }: TreeTab
 
   const focusRow = (id: Id) => setTimeout(() => refs.current[id]?.focus(), 0)
   const add = (parent: Id | null, index?: number) => {
-    let newId = ''
-    commit((q) => {
-      const r = createItem(q, kind, { parent, ...defaults }, index)
-      newId = r.id
-      return r.project
-    })
-    select(newId)
+    const newId = addItem(kind, { ...defaults, parent } as Patch<K>, index)
     setMulti(new Set([newId]))
     focusRow(newId)
   }
