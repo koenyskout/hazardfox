@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { effectiveLosses } from '../model/derived'
 import { byLabel, renderText } from '../model/labels'
@@ -24,15 +24,15 @@ function Group({ title, groups, p, labels, go }: { title: string; groups: [Kind,
     <div className="hc-sec">
       <div className="hc-head">{title}</div>
       {groups.map(([k, ids]) => (
-        <div key={k} className="hc-row">
+        <Fragment key={k}>
           <span className="hc-kind">{KIND_NAMES[k]}{ids.length > 1 ? 's' : ''}</span>
-          <span>
+          <span className="hc-chips">
             {ids.slice(0, MAX_PER_KIND).map((i) => (
               <a key={i} href="#" className={'chip k-' + k} title={p.items[i].title} onClick={(e) => { e.preventDefault(); go(i) }}>{labels[i]}</a>
             ))}
             {ids.length > MAX_PER_KIND && <span className="muted"> +{ids.length - MAX_PER_KIND}</span>}
           </span>
-        </div>
+        </Fragment>
       ))}
     </div>
   )
@@ -48,7 +48,8 @@ export function ItemCard({ it, p, labels, go }: { it: Item; p: Project; labels: 
     <>
       <div className="hc-top">
         <span className={'chip k-' + it.kind}>{labels[it.id]}</span>
-        <span className="hc-type">{KIND_NAMES[it.kind]}{it.kind === 'uca' && ` · ${GUIDE_WORD_LABELS[it.guide]}`}</span>
+        <span className="hc-type">{KIND_NAMES[it.kind]}</span>
+        {it.kind === 'uca' && <span className="hc-badge">{GUIDE_WORD_LABELS[it.guide]}</span>}
       </div>
       <div className="hc-title">{title || <span className="muted">(untitled)</span>}</div>
       {desc && <div className="hc-desc">{desc}</div>}
@@ -71,7 +72,7 @@ export function HoverCard({ children, card }: { children: ReactNode; card: () =>
       const r = trigger.current?.getBoundingClientRect()
       if (!r) return
       const below = r.bottom + 260 < window.innerHeight || r.top < 260
-      setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - 336)), y: below ? r.bottom + 6 : r.top - 6, below })
+      setPos({ x: Math.max(8, Math.min(r.left, window.innerWidth - 356)), y: below ? r.bottom + 6 : r.top - 6, below })
     }, 250)
   }
   const close = () => { window.clearTimeout(timer.current); setPos(null) }
