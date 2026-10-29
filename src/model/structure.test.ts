@@ -31,5 +31,14 @@ describe('control structure layout', () => {
     expect(end.x).toBeGreaterThanOrEqual(box.x)
     expect(end.x).toBeLessThanOrEqual(box.x + box.w)
     e.points.slice(1).forEach((q, i) => expect(q.x === e.points[i].x || q.y === e.points[i].y).toBe(true))
+    // a straight vertical arrow slides sideways when dragged, but stays inside both boxes
+    const ca = Object.values(p.items).find((x) => x.kind === 'ca' && x.from === c && x.to === a)!.id
+    const x0 = d.edges.find((x) => x.id === ca)!.points[0].x
+    const slid = applyOverrides(updateItem(p, ca, { bend: { dx: 15, dy: 0 } }), l).edges.find((x) => x.id === ca)!
+    expect(slid.points[0].x).toBeGreaterThan(x0)
+    expect(slid.points[0].x).toBe(slid.points[1].x)
+    const far = applyOverrides(updateItem(p, ca, { bend: { dx: 5000, dy: 0 } }), l)
+    const cb = far.nodes.find((n) => n.id === c)!
+    expect(far.edges.find((x) => x.id === ca)!.points[0].x).toBeLessThanOrEqual(cb.x + cb.w)
   })
 })

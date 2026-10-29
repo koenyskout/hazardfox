@@ -1,6 +1,6 @@
 import ELK, { type ElkNode, type ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
 import { children, itemsOfKind } from './tree'
-import type { CsNode, Id, NodeRole, Project } from './types'
+import type { CsNode, Id, NodeRole, Offset, Project } from './types'
 
 export interface Pt { x: number; y: number }
 export interface NodeBox { id: Id; x: number; y: number; w: number; h: number; compound: boolean; depth: number; lines: string[] }
@@ -347,6 +347,24 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
   const pairKey = (e: EdgeRoute) => [e.from, e.to].sort().join('|')
   const groups = new Map<string, EdgeRoute[]>()
   for (const e of live) groups.set(pairKey(e), [...(groups.get(pairKey(e)) ?? []), e])
+  /** A straight arrow slides sideways (vertical) or up/down (horizontal) with the bend offset, staying within both boxes. */
+  const slide = (pts: Pt[], e: EdgeRoute, bend: Offset | null): Pt[] => {
+    if (!bend || pts.length !== 2) return pts
+    const A = box[e.from], B = box[e.to]
+    if (Math.abs(pts[0].x - pts[1].x) < 1) {
+      const lo = Math.max(A.x, B.x) + 8, hi = Math.min(A.x + A.w, B.x + B.w) - 8
+      if (hi < lo) return pts
+      const x = Math.max(lo, Math.min(hi, pts[0].x + bend.dx))
+      return pts.map((q) => ({ ...q, x }))
+    }
+    if (Math.abs(pts[0].y - pts[1].y) < 1) {
+      const lo = Math.max(A.y, B.y) + 8, hi = Math.min(A.y + A.h, B.y + B.h) - 8
+      if (hi < lo) return pts
+      const y = Math.max(lo, Math.min(hi, pts[0].y + bend.dy))
+      return pts.map((q) => ({ ...q, y }))
+    }
+    return pts
+  }
   const edges = live.map((e) => {
     const a = cumulative(p, e.from), b = cumulative(p, e.to)
     const it = p.items[e.id]
@@ -356,7 +374,7 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
       const g = groups.get(pairKey(e))!
       let pts = routeBetween(box[e.from], box[e.to], (g.indexOf(e) - (g.length - 1) / 2) * 22)
       if (bend && pts.length > 2) pts = pts.map((q, i) => (i > 0 && i < pts.length - 1 ? { x: q.x + bend.dx, y: q.y + bend.dy } : q))
-      return { ...e, points: pts }
+      return { ...e, points: slide(pts, e, bend) }
     }
     const n = e.points.length
     const points = e.points.map((q, i) => {
@@ -364,15 +382,13 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
       const mid = i > 0 && i < n - 1
       return { x: q.x + a.x + (b.x - a.x) * t + (mid && bend ? bend.dx : 0), y: q.y + a.y + (b.y - a.y) * t + (mid && bend ? bend.dy : 0) }
     })
-    return { ...e, points }
+    return { ...e, points: slide(points, e, bend) }
   })
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {
-    const it = p.items[e.id]
-    const bend = it && (it.kind === 'ca' || it.kind === 'feedback') ? it.bend : null
     const lab = labs[e.id]
-    edges[i] = { ...e, device: devs[e.id] ?? null, label: lab ? { ...lab, x: lab.x + (e.points.length > 2 ? 0 : bend?.dx ?? 0), y: lab.y + (e.points.length > 2 ? 0 : bend?.dy ?? 0) } : null }
+    edges[i] = { ...e, device: devs[e.id] ?? null, label: lab ?? null }
   })
   const xs = [...nodes.flatMap((n) => [n.x, n.x + n.w]), ...edges.flatMap((e) => [...e.points.map((q) => q.x), ...(e.label ? [e.label.x, e.label.x + e.label.w] : [])])]
   const ys = [...nodes.flatMap((n) => [n.y, n.y + n.h]), ...edges.flatMap((e) => [...e.points.map((q) => q.y), ...(e.label ? [e.label.y, e.label.y + e.label.h] : [])])]
