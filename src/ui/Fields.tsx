@@ -4,6 +4,7 @@ import { byLabel, DELETED, renderText } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { Id, Item, Kind, Labels } from '../model/types'
 import { useLabels, useProject } from './hooks'
+import { HoverCard, ItemCard } from './HoverCard'
 
 export const VIEW_OF: Record<Kind, View> = {
   loss: 'step1',
@@ -43,9 +44,11 @@ export function Ref({ id }: { id: Id }) {
   const it = p.items[id]
   if (!it) return <span className="chip dead">{DELETED}</span>
   return (
-    <a className={'chip k-' + it.kind} href="#" title={it.title} onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
-      {labels[id]}
-    </a>
+    <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} />}>
+      <a className={'chip k-' + it.kind} href="#" onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
+        {labels[id]}
+      </a>
+    </HoverCard>
   )
 }
 
