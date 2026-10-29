@@ -1,0 +1,30 @@
+import type { ReactNode } from 'react'
+
+const PATHS: Record<string, ReactNode> = {
+  plus: <path d="M8 3v10M3 8h10" />,
+  trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4" />,
+  /** delete the item only: the box stays, children are lifted out */
+  'trash-keep': <><path d="M3 5.5h6M5 5.5V4h2v1.5M3.8 5.5l.4 6h3.6l.4-6" /><path d="M12 12V6.5M9.8 8.4L12 6.2l2.2 2.2" /></>,
+  /** delete item and everything below it */
+  'trash-all': <><path d="M3 4h10M6 4V2.8h4V4M4 4l.6 9h6.8l.6-9" /><path d="M6.5 7v4M9.5 7v4" /></>,
+  up: <path d="M8 13V3M4 7l4-4 4 4" />,
+  down: <path d="M8 3v10M4 9l4 4 4-4" />,
+  group: <><rect x="2.5" y="2.5" width="11" height="4" rx="1" /><rect x="4.5" y="9.5" width="3" height="4" rx=".7" /><rect x="9" y="9.5" width="3" height="4" rx=".7" /><path d="M8 6.5v1.5M6 8h4M6 8v1.5M10 8v1.5" /></>,
+  split: <><rect x="5" y="2" width="6" height="3.5" rx="1" /><path d="M8 5.5V8M4.5 8h7M4.5 8v2M11.5 8v2" /><rect x="2.5" y="10" width="4" height="3.5" rx="1" /><rect x="9.5" y="10" width="4" height="3.5" rx="1" /></>,
+  merge: <><rect x="2.5" y="2" width="4" height="3.5" rx="1" /><rect x="9.5" y="2" width="4" height="3.5" rx="1" /><path d="M4.5 5.5V8h7V5.5M8 8v2.5" /><rect x="5" y="10.5" width="6" height="3.5" rx="1" /></>,
+  sparkle: <path d="M8 2l1.4 3.6L13 7l-3.6 1.4L8 12 6.6 8.4 3 7l3.6-1.4zM12.5 11l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" />,
+  x: <path d="M4 4l8 8M12 4l-8 8" />,
+  check: <path d="M3.5 8.5l3 3 6-7" />,
+  warn: <path d="M8 2.5l6 10.5H2zM8 7v3M8 11.5v.2" />,
+  gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
+}
+
+export type IconName = keyof typeof PATHS
+
+export function Icon({ name, size = 15 }: { name: IconName; size?: number }) {
+  return (
+    <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      {PATHS[name]}
+    </svg>
+  )
+}

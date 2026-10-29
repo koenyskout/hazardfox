@@ -1,0 +1,101 @@
+import { lazy, Suspense, useEffect, useMemo } from 'react'
+import { fsAccess, openProject, saveProject } from './model/persist'
+import { emptyProject } from './model/create'
+import { useStore, type View } from './model/store'
+import { validate } from './model/validate'
+import { exampleProject } from './model/example'
+import { HANDBOOK_EXAMPLES, handbookExampleProject } from './model/handbookExamples'
+import { PUBLISHED_EXAMPLES, publishedExampleProject } from './model/publishedExamples'
+import { Details } from './ui/Details'
+import { useProject } from './ui/hooks'
+import { Palette } from './ui/Palette'
+import { Structure } from './ui/Structure'
+import { Domain, Overview, Requirements, Scenarios, Step1, Ucas } from './ui/views1'
+import { Trace, Validation } from './ui/views2'
+
+import { AutoReviewToggle, ReviewView, useAutoReview } from './ui/Review'
+const ExportView = lazy(() => import('./ui/ExportView').then((m) => ({ default: m.ExportView })))
+
+const NAV: [View, string, string][] = [
+  ['overview', 'Overview', '◎'],
+  ['step1', '1 · Losses & hazards', '⚠'],
+  ['domain', 'Domain model', '▦'],
+  ['structure', '2 · Control structure', '⛓'],
+  ['ucas', '3 · Unsafe control actions', '✖'],
+  ['scenarios', '4 · Loss scenarios', '⤳'],
+  ['requirements', 'Requirements', '✔'],
+  ['trace', 'Traceability', '⇄'],
+  ['validation', 'Validation', '✓'],
+  ['review', 'AI review', '✦'],
+  ['export', 'Export', '⇩'],
+]
+
+export default function App() {
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
+  const { undo, redo, past, future, dirty, fileName, load, setPalette } = useStore()
+  const p = useProject()
+  const issues = useMemo(() => validate(p), [p])
+  useAutoReview()
+  const errs = issues.filter((i) => i.severity !== 'info').length
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      const k = e.key.toLowerCase()
+      const typing = (e.target as HTMLElement)?.tagName === 'TEXTAREA'
+      if (mod && k === 'k') { e.preventDefault(); setPalette(true) }
+      else if (mod && k === 's') { e.preventDefault(); saveProject(e.shiftKey).catch(() => {}) }
+      else if (mod && k === 'o') { e.preventDefault(); openProject().catch(() => {}) }
+      else if (mod && k === 'z' && !typing) { e.preventDefault(); e.shiftKey ? redo() : undo() }
+      else if (mod && k === 'y' && !typing) { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [undo, redo, setPalette])
+
+  const body = {
+    overview: <Overview />, step1: <Step1 />, domain: <Domain />, structure: <Structure />, ucas: <Ucas />,
+    scenarios: <Scenarios />, requirements: <Requirements />, trace: <Trace />, validation: <Validation />, export: <ExportView />,
+    review: <ReviewView />,
+  }[view]
+  const wideDetails = view !== 'trace' && view !== 'validation' && view !== 'review' && view !== 'export'
+
+  return (
+    <div className="app">
+      <header>
+        <b className="brand">🦊 HazardFox</b>
+        <span className="title">{p.meta.name}{dirty ? ' •' : ''} <small className="muted">{fileName ?? 'unsaved'}</small></span>
+        <span className="spacer" />
+        <button onClick={() => { if (!dirty || confirm('Discard unsaved changes?')) load(emptyProject(), null) }}>New</button>
+        <button onClick={() => openProject().catch(() => {})}>Open</button>
+        <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
+        <select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
+          <option value="">Example…</option>
+          <option value="pump">Infusion pump (demo)</option>
+          <optgroup label="STPA Handbook, appendices">
+            {HANDBOOK_EXAMPLES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+          </optgroup>
+          <optgroup label="Published STPA analyses">
+            {PUBLISHED_EXAMPLES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
+          </optgroup>
+        </select>
+        <span className="sep" />
+        <button disabled={!past.length} onClick={undo} title="Undo (Ctrl+Z)">↶</button>
+        <button disabled={!future.length} onClick={redo} title="Redo (Ctrl+Shift+Z)">↷</button>
+        <AutoReviewToggle />
+        <button onClick={() => setPalette(true)} title="Ctrl+K">Search ⌘K</button>
+      </header>
+      <nav>
+        {NAV.map(([v, l, ic]) => (
+          <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+            <span className="ic">{ic}</span>{l}{v === 'validation' && errs > 0 && <i className="badge">{errs}</i>}
+          </button>
+        ))}
+      </nav>
+      <main><Suspense fallback={<p className="muted" style={{ padding: 16 }}>Loading…</p>}>{body}</Suspense></main>
+      {wideDetails && <Details />}
+      <Palette />
+    </div>
+  )
+}
