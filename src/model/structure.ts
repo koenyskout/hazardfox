@@ -221,6 +221,21 @@ const routeBetween = (a: NodeBox, b: NodeBox, slot: number): Pt[] => {
 }
 
 /** Replace a jogged route by one straight vertical line (moving the ends a little) when the nodes overlap horizontally and nothing is in the way. */
+/** Remove a short sideways jog just before the end of a route: slide the end point (or, if it would leave the box, the last long vertical) so the arrow arrives straight. */
+const unjogEnd = (pts: Pt[], b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] => {
+  const n = pts.length
+  if (n < 4 || !b) return pts
+  const [p0, p1, p2, p3] = pts.slice(n - 4)
+  if (Math.abs(p2.x - p3.x) > 1 || Math.abs(p1.y - p2.y) > 1 || Math.abs(p0.x - p1.x) > 1 || Math.abs(p1.x - p2.x) > 60 || Math.abs(p1.x - p2.x) < 1) return pts
+  if (p1.x >= b.x + 8 && p1.x <= b.x + b.w - 8) return [...pts.slice(0, n - 3), { x: p1.x, y: p3.y }]
+  const x = p3.x
+  const y0 = Math.min(p0.y, p3.y), y1 = Math.max(p0.y, p3.y)
+  if (n > 4 && obstacles.every((o) => o.y >= y1 || o.y + o.h <= y0 || x + 6 < o.x || x - 6 > o.x + o.w)) return [...pts.slice(0, n - 4), { x, y: p0.y }, { x, y: p3.y }]
+  return pts
+}
+const unjog = (pts: Pt[], a: NodeBox | undefined, b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] =>
+  unjogEnd(unjogEnd(pts, b, obstacles).reverse(), a, obstacles).reverse()
+
 const straighten = (pts: Pt[], a: NodeBox | undefined, b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] => {
   if (pts.length < 3 || !a || !b) return pts
   const first = pts[0], last = pts[pts.length - 1]
@@ -334,7 +349,8 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const o = abs[(e as unknown as { container?: string }).container ?? 'root'] ?? { x: 0, y: 0 }
     let pts: Pt[] = [s.startPoint, ...(s.bendPoints ?? []), s.endPoint].map((q) => ({ x: q.x + o.x, y: q.y + o.y }))
     const sa = e.sources?.[0] as Id, ta = e.targets?.[0] as Id
-    pts = straighten(pts, out.nodes[sa], out.nodes[ta], Object.values(out.nodes).filter((n) => n.id !== sa && n.id !== ta && !isAnc(n.id, sa) && !isAnc(n.id, ta)))
+    const obst = Object.values(out.nodes).filter((n) => n.id !== sa && n.id !== ta && !isAnc(n.id, sa) && !isAnc(n.id, ta))
+    pts = unjog(straighten(pts, out.nodes[sa], out.nodes[ta], obst), out.nodes[sa], out.nodes[ta], obst)
     if (m.reversed) pts = pts.reverse()
     routes.set(e.id, { id: e.id, kind: m.kind, from: m.from, to: m.to, points: pts, text: m.text, label: null, device: null })
   }
@@ -348,7 +364,11 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const d = 22 * (nth[m.pairOf] = (nth[m.pairOf] ?? 0) + 1)
     routes.set(id, {
       id, kind: 'feedback', from: m.from, to: m.to, text: m.text,
-      points: offsetRoute(pts, d),
+      points: (() => {
+        const cand = [offsetRoute(pts, d), offsetRoute(pts, -d)]
+        const stub = (q: Pt[]) => Math.min(Math.hypot(q[1].x - q[0].x, q[1].y - q[0].y), Math.hypot(q[q.length - 1].x - q[q.length - 2].x, q[q.length - 1].y - q[q.length - 2].y))
+        return pts.length < 3 || stub(cand[0]) >= 14 ? cand[0] : cand[1]
+      })(),
       label: null, device: null,
     })
   }
