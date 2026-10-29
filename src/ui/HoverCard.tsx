@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { effectiveLosses } from '../model/derived'
 import { byLabel, renderText } from '../model/labels'
 import { incoming, refsOf } from '../model/refs'
+import { generateUcaText } from '../model/uca'
 import { KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 
 const MAX_PER_KIND = 5
@@ -41,6 +42,7 @@ export function ItemCard({ it, p, labels }: { it: Item; p: Project; labels: Labe
   const refs = [...(it.parent ? [it.parent] : []), ...refsOf(it), ...(it.kind === 'hazard' ? effectiveLosses(p, it.id) : [])]
   const out = group(p, labels, refs.filter((i) => i !== it.id))
   const inc = group(p, labels, incoming(p, it.id).map((o) => o.id))
+  const title = it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const desc = renderText(labels, it.description).trim()
   return (
     <>
@@ -48,7 +50,7 @@ export function ItemCard({ it, p, labels }: { it: Item; p: Project; labels: Labe
         <span className={'chip k-' + it.kind}>{labels[it.id]}</span>
         <span className="hc-type">{KIND_NAMES[it.kind]}</span>
       </div>
-      <div className="hc-title">{it.title || <span className="muted">(untitled)</span>}</div>
+      <div className="hc-title">{title || <span className="muted">(untitled)</span>}</div>
       {desc && <div className="hc-desc">{desc}</div>}
       <Group title="Refers to" groups={out} p={p} labels={labels} />
       <Group title="Referenced by" groups={inc} p={p} labels={labels} />
