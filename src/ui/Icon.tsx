@@ -29,6 +29,8 @@ const PATHS: Record<string, ReactNode> = {
   'layer-signal': <path d="M1.5 9h2.5l1.8-4.5 2.7 8 2-5.5 1 2h3" />,
   'layer-belief': <><path d="M4.8 10.8a2.6 2.6 0 01-.6-5.1 3.7 3.7 0 017.1-1.1 3 3 0 01.6 6.2z" /><circle cx="4.6" cy="13.3" r="1" /><circle cx="2.2" cy="15" r=".5" /></>,
   'layer-internal': <><rect x="4.5" y="4.5" width="7" height="7" rx="1" /><path d="M6.5 2.5v2M9.5 2.5v2M6.5 11.5v2M9.5 11.5v2M2.5 6.5h2M2.5 9.5h2M11.5 6.5h2M11.5 9.5h2" /></>,
+  /** domain entity: class box */
+  entity: <><rect x="2.5" y="3" width="11" height="10" rx="1.2" /><path d="M2.5 6.5h11M2.5 9.8h11" /></>,
   gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
 }
 
@@ -53,6 +55,11 @@ export const LayerIcon = ({ layer, size = 13 }: { layer: VariableLayer; size?: n
 /** Chip content: the item's label; a variable shown by name gets its layer icon and drops the owner (shown on hover). */
 export function ChipLabel({ it, label }: { it: Item; label: string }) {
   const p = useProject()
+  if (it.kind === 'entity') {
+    const [, first, rest] = /^(\S*)([^]*)$/.exec(it.title.trim() || label)!
+    return <><span className="nowrap"><span className="layer-ico l-entity" title="Entity"><Icon name="entity" size={12} /></span>{first}</span>{rest}</>
+  }
+  if (it.kind === 'relationship') return <>{[p.items[it.from]?.title, it.title, p.items[it.to]?.title].map((x) => x?.trim() || '?').join(' ')}</>
   if (it.kind !== 'variable') return <>{label}</>
   if (label === variableName(p, it)) label = shortName(p, it) || label
   // icon stays on one line with the first word
