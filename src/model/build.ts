@@ -1,5 +1,5 @@
 import { emptyProject } from './create'
-import { createItem } from './ops'
+import { createItem, updateItem } from './ops'
 import type { Id, Kind, Patch, Project } from './types'
 
 export type Add = <K extends Kind>(kind: K, init?: Patch<K>) => Id
@@ -13,5 +13,6 @@ export function projectBuilder(meta: Partial<Project['meta']> = {}) {
     project = r.project
     return r.id
   }
-  return { add, get project() { return project } }
+  const set = (id: Id, patch: Patch | ((p: Project) => Patch)) => { project = updateItem(project, id, typeof patch === 'function' ? patch(project) : patch) }
+  return { add, set, get project() { return project } }
 }

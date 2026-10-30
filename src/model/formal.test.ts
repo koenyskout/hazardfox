@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest'
+import { emptyProject } from './create'
+import { exampleProject } from './example'
+import { addBelief, addSignal, beliefsAbout, beliefsOf, signalsOf, updatedBy } from './formal'
+import { createItem, deleteItems, updateItem } from './ops'
+import { deserialize, serialize } from './serialize'
+import { diagnose, draftTrace, holds, pickValue, valueAt, witness } from './traces'
+import { itemsOfKind } from './tree'
+import { validate } from './validate'
+import type { Condition, Id, Project, Scenario, Trace, Variable } from './types'
+
+function base() {
+  let p: Project = emptyProject()
+  const mk = <T,>(r: { project: Project; id: Id }) => { p = r.project; return r.id as T & Id }
+  const ent = mk(createItem(p, 'entity', { title: 'Tank' }))
+  const level = mk(createItem(p, 'variable', { title: 'Level', parent: ent, states: ['ok', 'high'] }))
+  const ctrl = mk(createItem(p, 'node', { title: 'Ctrl', role: 'controller' }))
+  const proc = mk(createItem(p, 'node', { title: 'Tank', role: 'process' }))
+  const ca = mk(createItem(p, 'ca', { title: 'Open inlet', from: ctrl, to: proc, affects: [level] }))
+  const fb = mk(createItem(p, 'feedback', { title: 'Level reading', from: proc, to: ctrl }))
+  const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ variable: level, op: '=', state: 'high' }] }))
+  return { p, level, ctrl, ca, fb, uca }
+}
+
+describe('formal variable layers', () => {
+  it('adding a signal gives the receiving controller a belief, once', () => {
+    let { p, level, ctrl, fb } = base()
+    p = addSignal(p, fb, level).project
+    p = addSignal(p, fb, level).project
+    expect(signalsOf(p, fb)).toHaveLength(1)
+    const [b] = beliefsAbout(p, ctrl, level)
+    expect(b.states).toEqual(['ok', 'high'])
+    expect(updatedBy(p, b).map((s) => s.id)).toEqual([signalsOf(p, fb)[0].id])
+    expect(addBelief(p, ctrl, level).project).toBe(p)
+  })
+
+  it('flags unrepresented and non-world context variables', () => {
+    let { p, level, ctrl, uca } = base()
+    expect(validate(p).some((i) => i.rule === 'context-unrepresented')).toBe(true)
+    p = addBelief(p, ctrl, level).project
+    expect(validate(p).some((i) => i.rule === 'context-unrepresented')).toBe(false)
+    const b = beliefsOf(p, ctrl)[0].id
+    p = updateItem(p, uca, { conditions: [{ variable: b, op: '=', state: 'high' }] })
+    expect(validate(p).some((i) => i.rule === 'context-not-world')).toBe(true)
+  })
+
+  it('deleting a world variable removes its trace values and clears about', () => {
+    let { p, level, ctrl, fb, uca } = base()
+    p = addSignal(p, fb, level).project
+    const r = createItem(p, 'scenario', { uca, cause: 'feedback' })
+    p = updateItem(r.project, r.id, { trace: draftTrace(r.project, r.project.items[r.id] as Scenario) })
+    p = deleteItems(p, [level])
+    const s = p.items[r.id] as Scenario
+    expect(s.trace.lanes).not.toContain(level)
+    expect(s.trace.steps.every((x) => !(level in x.values))).toBe(true)
+    expect(beliefsOf(p, ctrl)[0].about).toBeNull()
+  })
+
+  it('migrates old process models and feedback variables', () => {
+    const { p, level, ctrl, fb } = base()
+    const raw = JSON.parse(serialize(p))
+    const at = (id: Id) => raw.items.find((i: { id: Id }) => i.id === id)
+    at(ctrl).processModel = [level]
+    at(fb).variables = [level]
+    const q = deserialize(JSON.stringify(raw))
+    expect(beliefsAbout(q, ctrl, level)).toHaveLength(1)
+    expect(signalsOf(q, fb).map((s) => s.about)).toEqual([level])
+    expect('processModel' in q.items[ctrl]).toBe(false)
+  })
+})
+
+describe('traces', () => {
+  const range: Variable = { ...(base().p.items[base().level] as Variable), type: 'range', min: 0, max: 100, unit: '', states: [] }
+  it('picks values that satisfy (or violate) a condition', () => {
+    const cs: Condition[] = [{ variable: '', op: '>', state: '50' }, { variable: '', op: 'between', state: '20', to: '40' }, { variable: '', op: 'not between', state: '0', to: '40' }]
+    for (const c of cs) {
+      expect(holds(range, c, pickValue(range, c))).toBe(true)
+      expect(holds(range, c, pickValue(range, c, true))).toBe(false)
+    }
+  })
+
+  it('carries values forward', () => {
+    const t: Trace = { lanes: ['a'], steps: [{ t: '0', note: '', values: { a: '1' }, events: [] }, { t: '1', note: '', values: {}, events: [] }] }
+    expect(valueAt(t, 1, 'a')).toEqual({ value: '1', set: false })
+  })
+
+  it('drafted example traces witness their UCA and match their cause', () => {
+    const p = exampleProject()
+    for (const s of itemsOfKind(p, 'scenario').filter((s) => s.trace.steps.length)) {
+      if (s.scenarioType === 'uca') {
+        expect(witness(p, s)?.ok).toBe(true)
+        expect(diagnose(p, s)?.cause).toBe(s.cause)
+      }
+    }
+    expect(validate(p).filter((i) => i.rule?.startsWith('trace-'))).toEqual([])
+  })
+})

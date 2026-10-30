@@ -4,7 +4,8 @@ import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { describeStates } from '../model/variables'
-import { CAUSE_LABELS, GUIDE_WORD_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
+import { beliefsOf, controlledBy, signalsOf, variablesIn } from '../model/formal'
+import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
 
 export const SECTIONS = [
   ['summary', 'Summary'],
@@ -56,19 +57,28 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
 
   push('domain', 'Entities', ['ID', 'Entity', 'Attributes', 'Operations', 'Description', 'Status', 'Tags'],
     tree('entity').map(({ item: e }) => [...common(e), e.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
-  push('domain', 'Process variables', ['ID', 'Variable', 'Entity', 'States', 'Description', 'Status'],
-    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), name(v.parent as Id), describeStates(v), T(v.description), v.status]))
+  push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Description', 'Status'],
+    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), T(v.description), v.status]))
+  push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],
+    itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain').sort(byLabel(L)).filter(keep).map((v) => {
+      const about = itemsOfKind(p, 'variable').filter((x) => x.about === v.id)
+      const of = (layer: string) => about.filter((x) => x.layer === layer).map((x) => `${L[x.id]} ${p.items[x.parent ?? '']?.title ?? ''}.${x.title}`).join('\n')
+      return [name(v.id), of('signal'), of('belief'), lab(controlledBy(p, v.id).map((c) => c.id))]
+    }))
   push('domain', 'Relationships', ['ID', 'Name', 'From', 'To', 'Cardinality'], flat('relationship').map((r) => [...common(r), name(r.from), name(r.to), `${r.fromCard} : ${r.toCard}`]))
 
-  push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Process model', 'Description', 'Status'],
-    tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', n.processModel.map((v) => p.items[v]?.title).filter(Boolean).join(', '), T(n.description), n.status]))
-  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, T(c.description), c.status]))
-  push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Sensor', 'Variables', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), c.sensor, lab(c.variables), T(c.description), c.status]))
+  const titles = (vs: { title: string }[]) => vs.map((v) => v.title).join(', ')
+  push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Process model', 'Internal state', 'Description', 'Status'],
+    tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', titles(beliefsOf(p, n.id)), titles(variablesIn(p, 'internal', n.id)), T(n.description), n.status]))
+  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Affects', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, lab(c.affects), T(c.description), c.status]))
+  push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Sensor', 'Signals', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), c.sensor, titles(signalsOf(p, c.id)), T(c.description), c.status]))
 
   push('ucas', 'Unsafe control actions', ['ID', 'Control action', 'Type', 'Unsafe control action', 'Hazards', 'Controller constraint', 'Status', 'Tags'],
     flat('uca').sort(byLabel(L)).map((u) => [L[u.id], name(u.ca), GUIDE_WORD_LABELS[u.guide], generateUcaText(p, L, u), lab(u.hazards), T(u.constraint), u.status, u.tags.join(', ')]), [1, 2, 1.6, 4, 1.3, 3, 1, 1.2])
   push('scenarios', 'Loss scenarios', ['ID', 'Type', 'Applies to', 'Cause', 'Scenario', 'Hazards', 'Adversarial', 'STRIDE', 'Threat', 'Severity', 'Likelihood', 'Risk', 'Status'],
     flat('scenario').sort(byLabel(L)).map((s) => [L[s.id], s.scenarioType === 'ca' ? 'Control action not executed properly' : 'Unsafe control action', L[scenarioTarget(s) ?? ''] ?? '', s.cause ? CAUSE_LABELS[s.cause] : '', s.title + (s.description ? '\n' + T(s.description) : ''), lab(scenarioHazards(p, s)), s.adversarial ? 'yes' : '', s.stride.join(', '), T(s.threat), s.severity ? String(s.severity) : '', s.likelihood ? String(s.likelihood) : '', s.severity && s.likelihood ? String(s.severity * s.likelihood) : '', s.status]), [1, 1.4, 1, 2, 4, 1.2, 1, 2, 3, 1, 1, 0.8, 1])
+  push('scenarios', 'Scenario traces', ['Scenario', 'Step', 'Events', 'State changes', 'Note'],
+    flat('scenario').sort(byLabel(L)).flatMap((s) => s.trace.steps.map((st, i) => [i ? '' : L[s.id], st.t || String(i), st.events.map((e) => `${L[e.on] ?? DELETED} ${TRACE_EVENT_LABELS[e.what]}`).join('\n'), Object.entries(st.values).map(([k, x]) => `${L[k] ?? DELETED} ${p.items[k]?.title ?? ''} = ${x}`).join('\n'), T(st.note)])), [1, 0.8, 2, 3, 4])
   push('requirements', 'Requirements & mitigations', ['ID', 'Requirement', 'Type', 'Derived from', ...tailH], tree('requirement').map(({ item }) => [...common(item), item.type, lab(item.sources), ...tail(item)]))
   push('assumptions', 'Assumptions', ['ID', 'Assumption', 'About', ...tailH], flat('assumption').map((a) => [...common(a), lab(a.about), ...tail(a)]))
 

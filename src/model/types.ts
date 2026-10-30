@@ -21,6 +21,17 @@ export const VARIABLE_TYPES = ['enum', 'boolean', 'range'] as const
 export type VariableType = (typeof VARIABLE_TYPES)[number]
 export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range' }
 
+/** Where a variable lives (formalization: actual state x, observation o, process-model belief x̂, controller-internal state q). */
+export const VARIABLE_LAYERS = ['domain', 'signal', 'belief', 'internal'] as const
+export type VariableLayer = (typeof VARIABLE_LAYERS)[number]
+export const VARIABLE_LAYER_LABELS: Record<VariableLayer, string> = {
+  domain: 'World (actual process state)',
+  signal: 'Signal (observation carried by a feedback)',
+  belief: 'Belief (process model of a controller)',
+  internal: 'Controller internal state (mode, timer, memory)',
+}
+export const LAYER_SHORT: Record<VariableLayer, string> = { domain: 'World', signal: 'Signal', belief: 'Belief', internal: 'Internal' }
+
 export const CONDITION_OPS = ['=', '≠', 'in', 'not in', '<', '≤', '>', '≥', 'between', 'not between'] as const
 export type ConditionOp = (typeof CONDITION_OPS)[number]
 
@@ -109,9 +120,14 @@ export interface Relationship extends Base {
   fromCard: string
   toCard: string
 }
-/** Process variable owned by an entity (parent = entity id). */
+/** A variable; its owner (`parent`) depends on the layer: domain → entity, signal → feedback, belief / internal → controller node. */
 export interface Variable extends Base {
   kind: 'variable'
+  layer: VariableLayer
+  /** signal / belief: the world variable it observes / stands for (designation δ) */
+  about: Id | null
+  /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
+  definition: string
   /** enum: named `states`; boolean: true / false; range: numeric, optional `min`/`max` bounds and `unit` */
   type: VariableType
   states: string[]
@@ -124,8 +140,6 @@ export interface Variable extends Base {
 export interface CsNode extends Base {
   kind: 'node'
   role: NodeRole
-  /** Variables tracked in this controller's process model */
-  processModel: Id[]
   /** Optional link to the domain entity this node represents */
   entity: Id | null
   /** Manual layout nudge, relative offset applied on top of the auto layout */
@@ -142,6 +156,8 @@ export interface ControlAction extends Base {
   to: Id
   /** Instantaneous (discrete) actions have no duration, so "stopped too soon / applied too long" does not apply (Handbook, step 3) */
   duration: Duration
+  /** World variables this action is meant to change (controlled variables) */
+  affects: Id[]
   /** Optional domain operation (`<entityId>:<operation>`) */
   operation: string
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
@@ -156,8 +172,6 @@ export interface Feedback extends Base {
   kind: 'feedback'
   from: Id
   to: Id
-  /** Variables this feedback updates */
-  variables: Id[]
   /** Sensor that produces this feedback (name; an attribute of the arrow, not a node) */
   sensor: string
   bend: Offset | null
@@ -215,6 +229,16 @@ export const CAUSE_LABELS = Object.fromEntries(
   Object.values(CAUSES).flat().map((c) => [c.value, c.label]),
 ) as Record<Cause, string>
 export const isCauseOf = (t: ScenarioType, c: string): c is Cause => CAUSES[t].some((x) => x.value === c)
+/** What happens to a control action or feedback in a trace step. */
+export const TRACE_EVENTS = ['occurs', 'absent', 'lost'] as const
+export type TraceEventKind = (typeof TRACE_EVENTS)[number]
+export const TRACE_EVENT_LABELS: Record<TraceEventKind, string> = { occurs: 'sent', absent: 'not sent', lost: 'sent but lost / not executed' }
+export interface TraceEvent { on: Id; what: TraceEventKind }
+/** `values` sets variables at this step (unset ones keep their previous value). */
+export interface TraceStep { t: string; note: string; values: Record<Id, string>; events: TraceEvent[] }
+/** A finite run σ of the system (world, signals, beliefs, internal state) that exhibits the scenario. */
+export interface Trace { lanes: Id[]; steps: TraceStep[] }
+
 export interface Scenario extends Base {
   kind: 'scenario'
   scenarioType: ScenarioType
@@ -233,6 +257,7 @@ export interface Scenario extends Base {
   adversarial: boolean
   severity: number // 1..5, 0 = unrated
   likelihood: number // 1..5, 0 = unrated
+  trace: Trace
 }
 
 export type Item =

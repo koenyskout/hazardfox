@@ -4,10 +4,10 @@ import { effectiveLosses, scenarioHazards } from '../model/derived'
 import { compareLabels } from '../model/labels'
 import { updateItem as patchItem, updateMeta, createItem, deleteItems, moveItem, reorder } from '../model/ops'
 import { incoming } from '../model/refs'
-import { children, flatten, itemsOfKind, parentKind } from '../model/tree'
+import { children, flatten, isTreeKind, itemsOfKind, VARIABLE_OWNER } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
 import { SEVERITIES, validate } from '../model/validate'
-import { GUIDE_WORDS, KINDS, KIND_NAMES, STATUSES, type Id, type Item, type Kind, type Project } from '../model/types'
+import { GUIDE_WORDS, KINDS, KIND_NAMES, STATUSES, type Id, type Item, type Kind, type Project, type VariableLayer } from '../model/types'
 import { describeKind, internalize, Resolver, view } from './schema'
 
 type Rec = Record<string, unknown>
@@ -41,7 +41,7 @@ const show = (r: Resolver, it: Item) => view(r, it, extras(r, it))
 
 /** Items of a kind in label order (tree kinds depth-first). */
 function ordered(p: Project, r: Resolver, kind: Kind): Item[] {
-  if (parentKind(kind) && kind !== 'variable') return flatten(p, kind).map((x) => x.item)
+  if (isTreeKind(kind)) return flatten(p, kind).map((x) => x.item)
   return Object.values(p.items).filter((i) => i.kind === kind).sort((a, b) => compareLabels(r.labels[a.id], r.labels[b.id]))
 }
 
@@ -179,7 +179,8 @@ export const TOOLS = [
           const init = internalize(r, spec.kind, (spec.fields ?? {}) as Rec, 'create')
           if (init.parent) {
             const par = p.items[init.parent as Id]
-            if (par.kind !== parentKind(spec.kind)) throw new Error(`parent must be a ${parentKind(spec.kind)}`)
+            const want = spec.kind === 'variable' ? VARIABLE_OWNER[(init.layer as VariableLayer | undefined) ?? 'domain'] : spec.kind
+            if (par.kind !== want) throw new Error(`parent must be a ${want}`)
           }
           const res = createItem(p, spec.kind, init, spec.index)
           p = res.project

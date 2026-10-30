@@ -1,8 +1,10 @@
 import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { children, isLeaf, itemsOfKind } from './tree'
-import { type Id, type Item, type Project } from './types'
+import { beliefsAbout, beliefsOf, refines, updatedBy, updates } from './formal'
+import { diagnose, witness } from './traces'
+import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
+import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
@@ -35,7 +37,15 @@ export const RULES = {
   'ca-instantaneous-stsoon': { title: 'Instantaneous control action with "stopped too soon / applied too long" UCA', why: 'This guide word only applies to continuous control actions; an instantaneous one cannot be stopped or applied for too long.', fix: 'Delete the UCA, or change the duration of the control action to continuous if that is wrong.' },
   'ca-na-conflict': { title: 'Guide word marked not applicable but has UCAs', why: 'The control action says a guide word cannot apply, yet UCAs exist for it. One of the two is wrong.', fix: 'Remove the "not applicable" mark, or delete the UCAs.' },
   'ca-no-scenarios': { title: 'No scenarios for improper execution of the control action', why: 'Besides why a UCA happens, STPA asks why a control action is not executed properly (actuator, delay, controlled process).', fix: 'Add scenarios of type "control action not executed properly" for this control action.' },
-  'controller-no-pm': { title: 'Controller without process model variables', why: 'UCA contexts and scenarios about flawed process models need the variables the controller bases its decisions on.', fix: 'Add the process model variables of this controller (in the control structure view).' },
+  'controller-no-pm': { title: 'Controller without process model', why: 'A controller decides on what it believes about the process (its process model). UCA contexts and scenarios about flawed beliefs need these beliefs.', fix: 'Add beliefs to the controller: in the Variable map, use "+ belief" next to the world variables it must know about.' },
+  'variable-owner': { title: 'Variable has an owner of the wrong kind', why: 'World variables belong to a domain entity, signals to the feedback that carries them, beliefs and internal state to a controller. Otherwise it is unclear whose state the variable is.', fix: 'Open the variable and choose an owner of the right kind, or change its layer.' },
+  'context-not-world': { title: 'UCA context uses a belief or signal', why: 'The context of a UCA states what is actually true in the world (or the controller\'s own mode). What the controller believes or observes is a cause and belongs in a loss scenario (STPA Handbook, step 3).', fix: 'Use the world variable this belief / signal is about, and explain the wrong belief in a scenario.' },
+  'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable (representability).', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
+  'belief-no-about': { title: 'Belief without designation', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
+  'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
+  'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
+  'trace-no-witness': { title: 'Trace does not exhibit the UCA', why: 'A scenario trace should show the unsafe control action: the UCA context holds at the step where the action is sent (or not sent).', fix: 'Adjust the values at the action step, or add / fix the control action event.' },
+  'trace-cause-mismatch': { title: 'Trace points at a different causal factor', why: 'Comparing world, signal and belief at the action step suggests another cause than the one chosen: signal ≠ world → feedback; signal = world but belief ≠ signal → process model; belief = world → control algorithm.', fix: 'Change the causal factor, or adjust the trace.' },
   'uca-no-hazard': { title: 'UCA not linked to a hazard', why: 'An unsafe control action is only unsafe because it can lead to a hazard. The link is the definition of "unsafe".', fix: 'Link the UCA to the hazard(s) it can cause. If there is none, the context is probably not unsafe.' },
   'uca-no-constraint': { title: 'UCA without controller constraint', why: 'Each UCA yields a controller constraint, the inverse of the UCA, from which requirements are derived.', fix: 'State what the controller must (not) do in that context.' },
   'uca-no-scenario': { title: 'UCA without loss scenarios', why: 'Loss scenarios explain how each UCA could occur; they are where mitigations come from.', fix: 'Add scenarios explaining why the controller could provide or withhold the action in this context.' },
@@ -95,11 +105,29 @@ export function validate(p: Project): Issue[] {
       add('info', ca, 'ca-no-scenarios', `${L[ca.id]} ${ca.title}: no scenarios for improper execution of the control action`)
   }
   for (const n of itemsOfKind(p, 'node')) {
-    if (n.role === 'controller' && n.processModel.length === 0 && children(p, n.id, 'node').length === 0)
-      add('info', n, 'controller-no-pm', `${nm(n)}: controller has no process model variables`)
+    if (n.role === 'controller' && beliefsOf(p, n.id).length === 0 && children(p, n.id, 'node').length === 0)
+      add('info', n, 'controller-no-pm', `${nm(n)}: controller has no beliefs (process model)`)
+  }
+  for (const v of itemsOfKind(p, 'variable')) {
+    const owner = v.parent ? p.items[v.parent] : null
+    if (owner && owner.kind !== VARIABLE_OWNER[v.layer]) add('error', v, 'variable-owner', `${nm(v)}: a ${LAYER_SHORT[v.layer].toLowerCase()} variable cannot belong to a ${owner.kind}`)
+    if (v.layer === 'belief' && !v.about && !v.definition.trim()) add('info', v, 'belief-no-about', `${nm(v)}: not linked to the world variable it stands for`)
+    if (v.layer === 'belief' && v.about && !updatedBy(p, v).length && !v.definition.trim()) add('info', v, 'belief-no-source', `${nm(v)}: no feedback updates this belief`, [v.about])
+    if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
+      const to = p.items[owner.to]
+      if (to?.kind === 'node' && to.role === 'controller' && !updates(p, v).length) add('info', v, 'signal-unused', `${nm(v)}: the receiving controller has no belief about it`, [v.about])
+    }
   }
 
   for (const u of ucas) {
+    const ca = p.items[u.ca]
+    for (const c of u.conditions) {
+      const v = p.items[c.variable]
+      if (v?.kind !== 'variable') continue
+      if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])
+      else if (v.layer === 'domain' && ca?.kind === 'ca' && p.items[ca.from]?.kind === 'node' && !beliefsAbout(p, ca.from, v.id).length && !refines(p, v).some((w) => beliefsAbout(p, ca.from, w).length))
+        add('warning', u, 'context-unrepresented', `${L[u.id]}: ${p.items[ca.from].title} has no belief about ${v.title}`, [v.id])
+    }
     if (u.hazards.length === 0) add('warning', u, 'uca-no-hazard', `${L[u.id]}: no hazard linked`)
     nonLeafTargets(u, u.hazards)
     if (!u.constraint.trim()) add('info', u, 'uca-no-constraint', `${L[u.id]}: no controller constraint`)
@@ -112,6 +140,12 @@ export function validate(p: Project): Issue[] {
     if (s.scenarioType === 'ca') {
       if (s.hazards.length === 0) add('warning', s, 'scenario-no-hazard', `${L[s.id]}: no hazard linked`)
       nonLeafTargets(s, s.hazards)
+    }
+    if (s.trace.steps.length) {
+      const w = witness(p, s)
+      if (w && w.ok === false) add('warning', s, 'trace-no-witness', `${L[s.id]}: ${w.why}`)
+      const d = w?.ok ? diagnose(p, s) : null
+      if (d && s.cause && d.cause !== s.cause && s.cause !== 'controller-failure' && s.cause !== 'other-controller') add('info', s, 'trace-cause-mismatch', `${L[s.id]}: trace suggests "${CAUSE_LABELS[d.cause]}" (${d.why})`)
     }
     if (p.meta.strideEnabled && s.adversarial && s.stride.length === 0)
       add('warning', s, 'scenario-no-stride', `${L[s.id]}: adversarial scenario without STRIDE category`)

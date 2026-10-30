@@ -1,4 +1,4 @@
-import type { Id, Item, ItemOf, Kind, Project, Scenario } from './types'
+import type { Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
 type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
@@ -14,6 +14,7 @@ export const REQUIRED_REFS: Registry<Id> = {
 /** Optional single references: cleared when the target disappears. */
 export const OPTIONAL_REFS: Registry<Id | null> = {
   node: ['entity'],
+  variable: ['about'],
   scenario: ['uca', 'ca', 'element'],
 }
 /** List references: entries are removed when the target disappears. */
@@ -22,13 +23,13 @@ export const LIST_REFS: Registry<Id[]> = {
   constraint: ['hazards'],
   requirement: ['sources'],
   assumption: ['about'],
-  node: ['processModel'],
-  feedback: ['variables'],
+  ca: ['affects'],
   uca: ['hazards'],
   scenario: ['hazards'],
 }
 /** Free-text fields (besides description and notes) that may contain `@[id]` mentions. */
 export const TEXT_FIELDS: Registry<string> = {
+  variable: ['definition'],
   uca: ['context', 'override', 'constraint'],
   scenario: ['threat'],
 }
@@ -68,9 +69,13 @@ export function refsOf(it: Item): Id[] {
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
   if (it.kind === 'uca') for (const c of it.conditions) out.push(c.variable)
+  if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
 }
+
+/** Variables, control actions and feedback a trace mentions. */
+export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])]
 
 /** Items that refer to `id` (via parent, refs or mentions). */
 export function incoming(p: Project, id: Id): Item[] {
@@ -98,6 +103,18 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     it.conditions = it.conditions.flatMap((c) =>
       c.variable !== from ? [c] : to ? [{ ...c, variable: to }] : [],
     )
+  }
+  if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
+    const t = it.trace
+    t.lanes = [...new Set(t.lanes.flatMap((x) => (x !== from ? [x] : to ? [to] : [])))]
+    for (const st of t.steps) {
+      if (from in st.values) {
+        const v = st.values[from]
+        delete st.values[from]
+        if (to) st.values[to] = v
+      }
+      st.events = st.events.flatMap((e) => (e.on !== from ? [e] : to ? [{ ...e, on: to }] : []))
+    }
   }
   if (to) {
     for (const f of textFields(it.kind)) setField(it, f, (getField(it, f) as string).split(mention(from)).join(mention(to)))

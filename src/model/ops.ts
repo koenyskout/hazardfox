@@ -2,7 +2,7 @@ import { produce } from 'immer'
 import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
-import { children, descendants, groupKey, isTreeKind, parentKind, siblings } from './tree'
+import { children, descendants, groupKey, isTreeKind, ownerKind, parentKinds, siblings } from './tree'
 import type { Id, Item, ItemOf, Kind, Patch, Project } from './types'
 
 type Draft = Project
@@ -24,7 +24,7 @@ function renormalize(d: Draft) {
 /** Put item at `index` among its (new) siblings, optionally changing its tree parent first. */
 function placeAt(d: Draft, id: Id, parent: Id | null | undefined, index: number) {
   const it = d.items[id]
-  if (parent !== undefined && parentKind(it.kind)) it.parent = parent
+  if (parent !== undefined && parentKinds(it.kind).length) it.parent = parent
   renormalize(d)
   const sibs = siblings(d, it).filter((s) => s.id !== id)
   const i = Math.max(0, Math.min(index, sibs.length))
@@ -87,7 +87,7 @@ export function deleteItems(p: Project, ids: Id[], opts: { promote?: boolean } =
 
 export function moveItem(p: Project, id: Id, parent: Id | null, index: number): Project {
   const it = p.items[id]
-  const pk = it && parentKind(it.kind)
+  const pk = it && ownerKind(it)
   if (!pk) return p
   if (parent) {
     const par = p.items[parent]

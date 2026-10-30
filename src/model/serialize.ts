@@ -1,4 +1,5 @@
 import { emptyProject, makeItem } from './create'
+import { addBelief, addSignal } from './formal'
 import { groupKey } from './tree'
 import { KINDS, type Condition, type Item, type NodeRole, type Project } from './types'
 
@@ -40,5 +41,20 @@ export function deserialize(text: string): Project {
     if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
   }
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
+  return migrateLayers(p, raw.items as Item[])
+}
+
+/** Older files listed process-model variables on controllers (`processModel`) and on feedback (`variables`); these become beliefs and signals. */
+function migrateLayers(p0: Project, raw: Item[]): Project {
+  let p = p0
+  for (const it of raw) {
+    const old = it as Item & { processModel?: string[]; variables?: string[] }
+    for (const v of old.processModel ?? []) p = addBelief(p, it.id, v).project
+    for (const v of old.variables ?? []) p = addSignal(p, it.id, v).project
+    if (old.processModel || old.variables) {
+      const { processModel: _a, variables: _b, ...rest } = p.items[it.id] as typeof old
+      p = { ...p, items: { ...p.items, [it.id]: rest as Item } }
+    }
+  }
   return p
 }
