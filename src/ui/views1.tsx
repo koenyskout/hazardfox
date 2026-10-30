@@ -21,9 +21,9 @@ export function Overview() {
     <div className="page">
       <h2>Analysis</h2>
       <div className="card form">
-        <Field label="Name"><TextInput value={p.meta.name} onChange={(v) => set({ name: v })} /></Field>
-        <Field label="Author"><TextInput value={p.meta.author} onChange={(v) => set({ author: v })} /></Field>
-        <Field label="Description / system under analysis">
+        <Field single label="Name"><TextInput value={p.meta.name} onChange={(v) => set({ name: v })} /></Field>
+        <Field single label="Author"><TextInput value={p.meta.author} onChange={(v) => set({ author: v })} /></Field>
+        <Field single label="Description / system under analysis">
           <textarea rows={4} value={p.meta.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
         <label className="check">

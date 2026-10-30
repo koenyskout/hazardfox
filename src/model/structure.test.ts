@@ -65,11 +65,11 @@ describe('control structure layout', () => {
         const nb = d.nodes.find((x) => x.id === id)!, q = e.points[i], k = e.points[j]
         const v = Math.abs(q.x - k.x) < 1
         const t = v ? q.x : q.y, lo = v ? nb.x : nb.y, hi = v ? nb.x + nb.w : nb.y + nb.h
-        if (t - lo < 9.5 || hi - t < 9.5) n++
+        if (t - lo < 15.5 || hi - t < 15.5) n++
         const key = id + (v ? (Math.abs(q.y - nb.y) < 1 ? 't' : 'b') : (Math.abs(q.x - nb.x) < 1 ? 'l' : 'r'))
         ;(ends[key] ??= []).push(t)
       }
-      for (const w of Object.values(ends)) { w.sort((a, b) => a - b); for (let i = 1; i < w.length; i++) if (w[i] - w[i - 1] < 13.5) n++ }
+      for (const w of Object.values(ends)) { w.sort((a, b) => a - b); for (let i = 1; i < w.length; i++) if (w[i] - w[i - 1] < 19.5) n++ }
       return n
     }
     const bad: number[] = []

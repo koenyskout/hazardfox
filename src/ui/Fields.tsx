@@ -24,9 +24,9 @@ export const VIEW_OF: Record<Kind, View> = {
   scenario: 'scenarios',
 }
 
-/** `group`: no `<label>` (it would forward clicks and :hover to the first button inside, e.g. an editor toolbar). */
-export function Field(props: { label: string; children: ReactNode; hint?: string; group?: boolean }) {
-  const Tag = props.group ? 'div' : 'label'
+/** A `<label>` would forward clicks and :hover to the first button inside (pickers, chips, editor toolbar), so only fields with a single input (`single`) use one. */
+export function Field(props: { label: string; children: ReactNode; hint?: string; single?: boolean }) {
+  const Tag = props.single ? 'label' : 'div'
   return (
     <Tag className="field">
       <span>{props.label}</span>

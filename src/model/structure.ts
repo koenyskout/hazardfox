@@ -19,8 +19,8 @@ export interface EdgeRoute {
 export interface Layout { nodes: Record<Id, NodeBox>; edges: EdgeRoute[]; width: number; height: number }
 
 /** Minimum distance between parallel arrows on one side of a box, and between an arrow and the corner of its box. */
-const SEP = 14
-const MARGIN = 10
+const SEP = 20
+const MARGIN = 16
 const CHAR_W = 7.2
 const wrap = (text: string, max: number): string[] => {
   const words = text.split(/\s+/).filter(Boolean)
@@ -272,7 +272,7 @@ const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
     const [y0, y1] = span(r.points[i], r.points[i + 1])
     return routes.some((o) => o !== r && o.points.slice(1).some((q, j) => {
       const a = o.points[j]
-      if (Math.abs(a.x - q.x) > 1 || Math.abs(a.x - x) >= 10) return false
+      if (Math.abs(a.x - q.x) > 1 || Math.abs(a.x - x) >= SEP - 4) return false
       const [z0, z1] = span(a, q)
       return Math.min(y1, z1) - Math.max(y0, z0) > 6
     }))
@@ -283,7 +283,7 @@ const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
       if (Math.abs(a.x - b.x) > 1 || !clash(r, i, a.x)) continue
       const ends = [i === 0 ? nodes[r.from] : null, i + 1 === r.points.length - 1 ? nodes[r.to] : null].filter(Boolean) as NodeBox[]
       const lo = Math.max(-Infinity, ...ends.map((n) => n.x + MARGIN)), hi = Math.min(Infinity, ...ends.map((n) => n.x + n.w - MARGIN))
-      const x = [14, -14, 28, -28, 42, -42].map((d) => a.x + d).find((c) => c >= lo && c <= hi && !clash(r, i, c))
+      const x = [1, -1, 2, -2, 3, -3].map((d) => a.x + d * SEP).find((c) => c >= lo && c <= hi && !clash(r, i, c))
       if (x !== undefined) { r.points[i] = { ...a, x }; r.points[i + 1] = { ...b, x } }
     }
   }

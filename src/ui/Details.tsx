@@ -30,19 +30,19 @@ export function Details() {
         <ItemHover id={it.id}><span className={'chip k-' + it.kind}>{labels[it.id]}</span></ItemHover> {KIND_NAMES[it.kind]}
       </h3>
       {it.kind !== 'uca' && it.kind !== 'scenario' && (
-        <Field label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
+        <Field single label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
       )}
       <KindFields it={it} set={set} />
       <ReviewItem it={it} />
       {it.kind !== 'uca' && (
-        <Field group label="Description"><RichText value={it.description} onChange={text('description')} /></Field>
+        <Field label="Description"><RichText value={it.description} onChange={text('description')} /></Field>
       )}
-      <Field group label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
+      <Field label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
       <div className="two">
         <Field label="Status">
           <ChoicePicker options={STATUSES} value={it.status} onPick={(s) => set({ status: s })} icon={(s) => <StatusIcon status={s} size={16} />} />
         </Field>
-        <Field label="Tags"><Tags value={it.tags} onChange={(v) => set({ tags: v })} /></Field>
+        <Field single label="Tags"><Tags value={it.tags} onChange={(v) => set({ tags: v })} /></Field>
       </div>
       {used.length > 0 && (
         <Field label="Referenced by">
@@ -111,10 +111,10 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
-          <Field label="Attributes (one per line: name: type)">
+          <Field single label="Attributes (one per line: name: type)">
             <textarea rows={3} value={it.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n')} onChange={(e) => set({ attributes: e.target.value.split('\n').map((l) => { const [n, ...t] = l.split(':'); return { name: n.trim(), type: t.join(':').trim() } }).filter((a) => a.name) }, 'attrs')} />
           </Field>
-          <Field label="Operations (one per line)">
+          <Field single label="Operations (one per line)">
             <textarea rows={2} value={it.operations.join('\n')} onChange={(e) => set({ operations: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'ops')} />
           </Field>
         </>
@@ -125,7 +125,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Owner entity">
             <SingleRef value={it.parent} options={of('entity')} onChange={(v) => v && set({ parent: v })} />
           </Field>
-          <Field label="States (one per line)" hint="Enumerated values, or ranges like “0–100 %”.">
+          <Field single label="States (one per line)" hint="Enumerated values, or ranges like “0–100 %”.">
             <textarea rows={4} value={it.states.join('\n')} onChange={(e) => set({ states: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'states')} />
           </Field>
         </>
@@ -138,8 +138,8 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="To"><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></Field>
           </div>
           <div className="two">
-            <Field label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
-            <Field label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
+            <Field single label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
+            <Field single label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
           </div>
         </>
       )
@@ -216,17 +216,17 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Guide word">
             <select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
           </Field>
-          <Field group label="Context">
+          <Field label="Context">
             <ConditionsEditor it={it} set={set} />
             <RichText value={it.context} onChange={(v) => set({ context: v }, 'context')} rows={2} placeholder="Additional context (free text)" />
           </Field>
-          <Field label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
+          <Field single label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
           </Field>
           <Field label="Hazards (leaf)">
             <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
           </Field>
-          <Field group label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
+          <Field label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
         </>
       )
     case 'scenario':
@@ -257,7 +257,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </select>
           </Field>
           <Field label="Where in the control structure"><SingleRef value={it.element} options={of('node')} onChange={(v) => set({ element: v })} none="— not specified —" /></Field>
-          <Field label="Title"><TextInput value={it.title} onChange={(v) => set({ title: v }, 'title')} /></Field>
+          <Field single label="Title"><TextInput value={it.title} onChange={(v) => set({ title: v }, 'title')} /></Field>
           <label className="check"><input type="checkbox" checked={it.adversarial} onChange={(e) => set({ adversarial: e.target.checked })} /> Adversarial (STPA-Sec)</label>
           {p.meta.strideEnabled && (
             <Field label="STRIDE">
@@ -268,7 +268,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               </div>
             </Field>
           )}
-          <Field group label="Threat description"><RichText value={it.threat} onChange={(v) => set({ threat: v }, 'threat')} rows={2} /></Field>
+          <Field label="Threat description"><RichText value={it.threat} onChange={(v) => set({ threat: v }, 'threat')} rows={2} /></Field>
           <div className="two">
             <Field label="Severity (1–5)"><Rating v={it.severity} on={(v) => set({ severity: v })} /></Field>
             <Field label="Likelihood (1–5)"><Rating v={it.likelihood} on={(v) => set({ likelihood: v })} /></Field>
