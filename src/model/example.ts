@@ -29,8 +29,8 @@ export function exampleProject(): Project {
   const vOcc = add('variable', { title: 'Line occlusion', parent: pump, states: ['clear', 'occluded'], definition: 'The line downstream of the pump is blocked (kink, closed clamp, clot), so the drug does not reach the patient.' })
   const vFlow = add('variable', { title: 'Flow', parent: patient, type: 'range', min: 0, max: 500, unit: 'ml/h', definition: 'Actual rate at which the drug enters the patient.' })
 
-  b.set(h11, { variables: [vFlow] })
-  b.set(h12, { variables: [vFlow, vOcc] })
+  b.set(h11, { variables: [vFlow], conditions: [{ variable: vFlow, op: '>', state: '400' }] })
+  b.set(h12, { variables: [vFlow, vOcc], conditions: [{ variable: vRun, op: '=', state: 'running' }, { variable: vOcc, op: '=', state: 'occluded' }] })
 
   const clinic = add('node', { title: 'Hospital', role: 'external' })
   const nurse = add('node', { title: 'Nurse', role: 'controller', parent: clinic })

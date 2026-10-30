@@ -16,7 +16,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
   Not a component, failure or cause.
 - hazard: a system-level STATE that, with worst-case environment, leads to a loss ("Aircraft violate minimum separation").
   Not a cause or component failure; no consequence ("leading to ..."); no vague words (unsafe, unintended). Link with lossLinks.
-  Optional variables: world (domain) variables describing the system/environment state that makes it hazardous (e.g. flow).
+  Optional conditions: logical definition over world variables (same format as UCA conditions, all must hold). Optional variables: world (domain) variables describing the system/environment state that makes it hazardous (e.g. flow).
   Nest sub-hazards with parent; they inherit the losses. Set security=true for STPA-Sec hazards (adversary-related).
 - constraint: invert a hazard: "<System> must <condition>". One+ hazards in hazards; link LEAF hazards only; no design solutions.
 

@@ -90,6 +90,8 @@ export interface Hazard extends Base {
   lossExclude: Id[]
   /** World (domain) variables describing the system state or environment conditions that make this a hazard. */
   variables: Id[]
+  /** Logical definition of the hazardous state over world variables (all must hold). */
+  conditions: Condition[]
   /** STPA-Sec: hazard is caused by / relevant for adversarial actions. */
   security: boolean
 }

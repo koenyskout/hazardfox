@@ -122,6 +122,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="System / environment state" hint="World variables whose values (together with worst-case environment) make this a hazard.">
             <RefList value={it.variables} options={of('variable').filter((v) => v.layer === 'domain')} onChange={(v) => set({ variables: v })} />
           </Field>
+          <Field label="Hazardous condition" hint="Logical definition over world variables; the hazard is the state in which all of these hold.">
+            <HazardCondition it={it} set={set} />
+          </Field>
           <label className="check"><input type="checkbox" checked={it.security} onChange={(e) => set({ security: e.target.checked })} /> Security-related (STPA-Sec)</label>
           {!isLeaf(p, it.id) && <p className="hint">Parent hazard: UCAs and constraints link to its sub-hazards.</p>}
         </>
@@ -411,12 +414,31 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   )
 }
 
-function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
+function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
+  const p = useProject()
+  const [open, setOpen] = useState(false)
+  const lines = it.conditions.filter(conditionComplete).map((c) => conditionText(p, c))
+  return (
+    <div className="ctx-summary">
+      {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">No condition yet</span>}
+      <button type="button" onClick={() => setOpen(true)}>Edit condition…</button>
+      {open && (
+        <Modal title="Edit hazardous condition" onClose={() => setOpen(false)} wide>
+          <p className="muted">The system is in this hazard state when all of these hold.</p>
+          <ConditionsEditor it={it} set={set} vars={itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain')} />
+          <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard'>; set: Set; vars?: ItemOf<'variable'>[] }) {
   const p = useProject()
   const labels = useLabels()
-  const ca = p.items[it.ca]
+  const ca = it.kind === 'uca' ? p.items[it.ca] : undefined
   // The context is actual state: world variables and the controller's own internal state, not beliefs or signals.
-  const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
+  const vars = given ?? itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
   const upd = (i: number, patch: Partial<(typeof it.conditions)[number]>) =>
     set({ conditions: it.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
   return (

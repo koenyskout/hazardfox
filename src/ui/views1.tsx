@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { effectiveLosses } from '../model/derived'
-import { describeStates } from '../model/variables'
+import { conditionComplete, conditionText, describeStates } from '../model/variables'
 import { byLabel } from '../model/labels'
 import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
@@ -66,7 +66,7 @@ export function Step1() {
       )}
       {sub === 'hazard' && (
         <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, with worst-case environment, leads to a loss."
-          extra={(h) => <>{chips(effectiveLosses(p, h.id))}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
+          extra={(h) => <>{chips(effectiveLosses(p, h.id))}{h.conditions.some(conditionComplete) && <div className="muted">{h.conditions.filter(conditionComplete).map((c) => conditionText(p, c)).join(' and ')}</div>}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
       )}
       {sub === 'constraint' && (
         <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => chips(c.hazards)} />

@@ -68,7 +68,7 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca') for (const c of it.conditions) out.push(c.variable)
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) out.push(c.variable)
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
@@ -99,7 +99,7 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     }
     setField(it, f, next)
   }
-  if (it.kind === 'uca') {
+  if (it.kind === 'uca' || it.kind === 'hazard') {
     it.conditions = it.conditions.flatMap((c) =>
       c.variable !== from ? [c] : to ? [{ ...c, variable: to }] : [],
     )
