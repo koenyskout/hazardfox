@@ -21,7 +21,7 @@ export const VARIABLE_TYPES = ['enum', 'boolean', 'range'] as const
 export type VariableType = (typeof VARIABLE_TYPES)[number]
 export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range' }
 
-export const CONDITION_OPS = ['=', '≠', '<', '≤', '>', '≥', 'between'] as const
+export const CONDITION_OPS = ['=', '≠', 'in', 'not in', '<', '≤', '>', '≥', 'between'] as const
 export type ConditionOp = (typeof CONDITION_OPS)[number]
 
 export const DURATIONS = ['continuous', 'instantaneous'] as const
@@ -164,12 +164,13 @@ export interface Feedback extends Base {
   labelShift: Offset | null
 }
 
-/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`. */
+/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations). */
 export interface Condition {
   variable: Id
   op: ConditionOp
   state: string
   to?: string
+  set?: string[]
 }
 export interface Uca extends Base {
   kind: 'uca'

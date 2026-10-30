@@ -222,15 +222,19 @@ describe('variable types and conditions', () => {
     const range = { ...makeItem('variable'), type: 'range' as const, unit: '%', min: 0, max: 100 }
     expect(describeStates(range)).toBe('0–100 %')
     expect(opsFor(range)).toContain('between')
-    expect(opsFor(makeItem('variable'))).toEqual(['=', '≠'])
+    expect(opsFor({ ...makeItem('variable'), type: 'boolean' })).toEqual(['=', '≠'])
     expect(conditionError(range, { variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
     expect(conditionError(range, { variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
     expect(conditionError(range, { variable: 'x', op: '≥', state: '5' })).toBeNull()
     expect(conditionError({ ...range, type: 'boolean' }, { variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
+    const en = { ...makeItem('variable'), title: 'Mode', states: ['a', 'b', 'c'] }
+    expect(opsFor(en)).toEqual(['=', '≠', 'in', 'not in'])
+    expect(conditionError(en, { variable: 'x', op: 'in', state: '', set: ['a', 'z'] })).toMatch(/"z" is not one of/)
+    expect(conditionError(en, { variable: 'x', op: 'not in', state: '', set: ['a', 'b'] })).toBeNull()
     let p = emptyProject()
     p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
     const v = Object.values(p.items)[0]
-    expect(conditionText(p, { variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate between 1 and 5 %')
+    expect(conditionText(p, { variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
     const old = JSON.parse(serialize(p))
     old.items.push({ ...makeItem('uca'), conditions: [{ variable: v.id, state: '3', negate: true }] })
     const q = deserialize(JSON.stringify(old))

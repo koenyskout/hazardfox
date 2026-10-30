@@ -1,5 +1,6 @@
+import { renderText } from '../model/labels'
 import { guideApplies } from '../model/uca'
-import { conditionError, opsFor, valuesOf } from '../model/variables'
+import { conditionComplete, conditionError, conditionText, isSetOp, OP_LABELS, opsFor, valuesOf } from '../model/variables'
 import { VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -263,8 +264,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
           </Field>
           <Field label="Context">
-            <ConditionsEditor it={it} set={set} />
-            <RichText value={it.context} onChange={(v) => set({ context: v }, 'context')} rows={2} placeholder="Additional context (free text)" />
+            <ContextSummary it={it} set={set} />
           </Field>
           <Field single label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
@@ -333,6 +333,34 @@ const Rating = ({ v, on }: { v: number; on: (v: number) => void }) => (
   </select>
 )
 
+function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
+  const p = useProject()
+  const labels = useLabels()
+  const [open, setOpen] = useState(false)
+  const lines = it.conditions.filter(conditionComplete).map((c) => conditionText(p, c))
+  return (
+    <div className="ctx-summary">
+      {lines.length || it.context ? (
+        <ul>
+          {lines.map((l, i) => <li key={i}>{l}</li>)}
+          {it.context && <li>{renderText(labels, it.context)}</li>}
+        </ul>
+      ) : <span className="muted">No context yet</span>}
+      <button type="button" onClick={() => setOpen(true)}>Edit context…</button>
+      {open && (
+        <Modal title="Edit context" onClose={() => setOpen(false)} wide>
+          <p className="muted">The UCA applies when all of these hold.</p>
+          <ConditionsEditor it={it} set={set} />
+          <Field label="Additional context (free text)">
+            <RichText value={it.context} onChange={(v) => set({ context: v }, 'context')} rows={3} placeholder="Additional context (free text)" />
+          </Field>
+          <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
 function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
@@ -345,7 +373,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         const v = p.items[c.variable]
         const vr = v?.kind === 'variable' ? v : undefined
         const values = valuesOf(vr)
-        const err = vr && c.state ? conditionError(vr, c) : null
+        const err = vr && (c.state || c.set?.length) ? conditionError(vr, c) : null
         const valueInput = (key: 'state' | 'to', placeholder: string) =>
           values ? (
             <select value={c[key] ?? ''} onChange={(e) => upd(i, { [key]: e.target.value })}>
@@ -357,14 +385,17 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
           )
         return (
           <div key={i} className="cond">
-            <Picker options={vars} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
+            <span className="cond-word">{i === 0 ? 'When' : 'and'}</span>
+            <Picker options={vars} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
               {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
             <select value={c.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp })}>
-              {opsFor(vr).map((o) => <option key={o} value={o}>{o === 'between' ? 'between' : o}</option>)}
+              {opsFor(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
             </select>
-            {valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-            {c.op === 'between' && <><span className="muted">and</span>{valueInput('to', 'value…')}</>}
+            {isSetOp(c.op)
+              ? <span className="setpick">{(vr?.states ?? []).map((s) => <button type="button" key={s} className={'chip' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{s}</button>)}{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
+              : valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
+            {c.op === 'between' && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
             {vr?.type === 'range' && vr.unit && <span className="muted">{vr.unit}</span>}
             <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
             {err && <small className="cond-err">{err}</small>}
