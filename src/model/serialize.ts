@@ -18,7 +18,7 @@ export function serialize(p: Project): string {
       (groupKey(a) < groupKey(b) ? -1 : groupKey(a) > groupKey(b) ? 1 : 0) ||
       a.rank - b.rank,
   )
-  return JSON.stringify({ app: 'hazardfox', schema: p.schema, meta: p.meta, items, ...(Object.keys(p.reviews ?? {}).length ? { reviews: p.reviews } : {}) }, sortKeys, 2) + '\n'
+  return JSON.stringify({ app: 'hazardfox', schema: p.schema, meta: p.meta, items, ...(Object.keys(p.rangeTypes ?? {}).length ? { rangeTypes: p.rangeTypes } : {}), ...(Object.keys(p.reviews ?? {}).length ? { reviews: p.reviews } : {}) }, sortKeys, 2) + '\n'
 }
 
 export function deserialize(text: string): Project {
@@ -48,6 +48,7 @@ export function deserialize(text: string): Project {
     if (it.kind === 'variable') { Object.assign(it, { ...makeItem('variable'), ...it }); it.rules = it.rules.map((r) => (Array.isArray(r.when) ? { ...r, when: allOf(...r.when) } : r)) }
     if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
   }
+  if (raw.rangeTypes) p.rangeTypes = raw.rangeTypes
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
   return migrateLayers(p, raw.items as Item[])
 }

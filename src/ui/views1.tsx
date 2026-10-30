@@ -15,6 +15,7 @@ import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
 import { VariableMap } from './VariableMap'
 import { LayerIcon, LayerTag } from './Icon'
+import { RangeTypes } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -82,7 +83,7 @@ export function Domain() {
   const selected = useStore((s) => s.selected)
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
-  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'map' | 'relationship'>('diagram')
+  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'map' | 'relationship' | 'types'>('diagram')
   const [layer, setLayer] = useState<VariableLayer | ''>('')
   const vars = itemsOfKind(p, 'variable')
   return (
@@ -93,6 +94,7 @@ export function Domain() {
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
         <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>Variable map <i>{vars.filter((v) => v.layer === 'domain').length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
+        <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length}</i></button>
       </div>
       {tab === 'diagram' && <DomainDiagram />}
       {tab === 'entity' && (
@@ -109,7 +111,7 @@ export function Domain() {
           </div>
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
-            groupAdd={(g, v) => ({ layer: v.layer, parent: g })}
+            groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => describeStates(v)}
             items={vars.filter((v) => !layer || v.layer === layer).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
             columns={[
@@ -118,6 +120,7 @@ export function Domain() {
         </>
       )}
       {tab === 'map' && <VariableMap />}
+      {tab === 'types' && <RangeTypes />}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
           columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}
@@ -186,19 +189,24 @@ export function Scenarios() {
   const scenarios = itemsOfKind(p, 'scenario').sort(byLabel(labels))
   const ucas = itemsOfKind(p, 'uca')
   const cas = itemsOfKind(p, 'ca')
+  const sortedUcas = [...ucas].sort(byLabel(labels))
+  const sortedCas = [...cas].sort(byLabel(labels))
+  const order = new Map([...sortedUcas, ...sortedCas].map((x, i) => [x.id, i]))
+  const grouped = [...scenarios].sort((a, b) => (order.get(scenarioTarget(a) ?? '') ?? 1e9) - (order.get(scenarioTarget(b) ?? '') ?? 1e9))
   const sel = useStore((s) => s.selected)
   const cur = sel ? p.items[sel] : null
   const uca = cur?.kind === 'uca' ? cur.id : cur?.kind === 'scenario' && cur.uca ? cur.uca : ucas[0]?.id ?? null
   const ca = cur?.kind === 'ca' ? cur.id : cur?.kind === 'scenario' && cur.ca ? cur.ca : cas[0]?.id ?? null
   return (
     <div className="page full">
-      <FlatTable kind="scenario" items={scenarios}
+      <FlatTable kind="scenario" items={grouped}
+        groupBy={(s) => scenarioTarget(s)} groups={[...sortedUcas, ...sortedCas].map((x) => x.id)}
+        groupAdd={(g) => (g && p.items[g]?.kind === 'ca' ? { scenarioType: 'ca', ca: g } : { scenarioType: 'uca', uca: g })}
         adds={[
           { label: `Scenario for ${uca ? labels[uca] : 'a UCA'}`, init: { scenarioType: 'uca', uca } },
           { label: `Scenario for ${ca ? labels[ca] : 'a control action'} not executed properly`, init: { scenarioType: 'ca', ca } },
         ]}
         columns={[
-          { head: 'Applies to', cell: (s) => <><Ref id={scenarioTarget(s) ?? ''} /> <span className="muted">{s.scenarioType === 'ca' ? 'CA' : 'UCA'}</span></>, width: '130px' },
           { head: 'STRIDE', cell: (s) => <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span>, width: '70px' },
           { head: 'Risk', cell: (s) => (s.severity && s.likelihood ? <b>{s.severity * s.likelihood}</b> : <span className="muted">—</span>), width: '50px' },
           { head: 'Trace', cell: (s) => (s.trace.steps.length ? <span className="muted">{s.trace.steps.length} steps</span> : null), width: '70px' },

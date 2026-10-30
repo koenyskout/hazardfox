@@ -2,10 +2,11 @@ import { renderText } from '../model/labels'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, CARDINALITY_PAIRS, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
+import { VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -205,13 +206,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
             </Field>
           )}
-          {it.type === 'range' && (
-            <div className="two">
-              <Field single label="Min"><NumberInput value={it.min} onChange={(v) => set({ min: v }, 'min')} /></Field>
-              <Field single label="Max"><NumberInput value={it.max} onChange={(v) => set({ max: v }, 'max')} /></Field>
-              <Field single label="Unit"><TextInput value={it.unit} onChange={(v) => set({ unit: v }, 'unit')} placeholder="e.g. %, mL/h" /></Field>
-            </div>
-          )}
+          {it.type === 'range' && <RangeFields v={it} />}
         </>
       )
     }
@@ -645,6 +640,20 @@ function OwnedVars(props: { vars: Variable[]; add: string; options?: Item[]; onA
 }
 
 /** How a variable is connected through the layers: world → signals → beliefs, and what controls it. */
+/** Read-only summary of a range variable's type; editing happens in a popup. */
+function RangeFields({ v }: { v: Variable }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Field single label="Range">
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span>{v.rangeType && <b>{v.rangeType} · </b>}{describeStates(v)}</span>
+        <button className="btn" onClick={() => setOpen(true)}>Edit…</button>
+      </div>
+      {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
+    </Field>
+  )
+}
+
 function VariableLinks({ v }: { v: Variable }) {
   const p = useProject()
   const all = itemsOfKind(p, 'variable')

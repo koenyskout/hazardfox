@@ -3,7 +3,7 @@ import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
-import type { Id, Item, ItemOf, Kind, Patch, Project } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType } from './types'
 
 type Draft = Project
 
@@ -53,9 +53,41 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
   if (!p.items[id]) return p
   return produce(p, (d) => {
     Object.assign(d.items[id], patch)
+    const v = d.items[id]
+    if (v.kind === 'variable') {
+      const t = d.rangeTypes?.[v.rangeType]
+      if (v.type !== 'range' || !t) v.rangeType = ''
+      else if ('rangeType' in patch) Object.assign(v, t)
+      else if ('min' in patch || 'max' in patch || 'unit' in patch) setRangeType(d, v.rangeType, { min: v.min, max: v.max, unit: v.unit })
+    }
     renormalize(d)
   })
 }
+
+/** Create or change a named range type; variables using it follow. Works on a draft. */
+function setRangeType(d: Draft, name: string, t: RangeType) {
+  ;(d.rangeTypes ??= {})[name] = t
+  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === name) Object.assign(it, t)
+}
+
+export const defineRangeType = (p: Project, name: string, t: RangeType): Project => produce(p, (d) => setRangeType(d, name, t))
+
+/** Rename a range type (no-op when the new name is taken). */
+export const renameRangeType = (p: Project, from: string, to: string): Project => {
+  if (!to || to === from || !p.rangeTypes?.[from] || p.rangeTypes[to]) return p
+  return produce(p, (d) => {
+    d.rangeTypes![to] = d.rangeTypes![from]
+    delete d.rangeTypes![from]
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === from) it.rangeType = to
+  })
+}
+
+/** Remove a range type; its variables keep their current bounds as custom ones. */
+export const deleteRangeType = (p: Project, name: string): Project =>
+  produce(p, (d) => {
+    delete d.rangeTypes?.[name]
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === name) it.rangeType = ''
+  })
 
 export function updateMeta(p: Project, patch: Partial<Project['meta']>): Project {
   return produce(p, (d) => {

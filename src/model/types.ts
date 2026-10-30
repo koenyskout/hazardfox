@@ -143,10 +143,14 @@ export interface Variable extends Base {
   unit: string
   min: number | null
   max: number | null
+  /** Name of the project's `rangeTypes` entry that `min`/`max`/`unit` follow ('' = custom bounds) */
+  rangeType: string
   /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
   rules: Rule[]
   otherwise: string
 }
+/** A reusable numeric type: bounds and unit shared by every variable that uses it. */
+export interface RangeType { min: number | null; max: number | null; unit: string }
 /** Condition tree: all (`any` false) or any of its conditions and nested groups hold. */
 export interface Group { any: boolean; of: When[] }
 export type When = Condition | Group
@@ -329,5 +333,7 @@ export interface Project {
   items: Record<Id, Item>
   /** Saved AI-check results per item (`key` = hash of what was checked); outside undo history. */
   reviews?: Record<Id, SavedReview>
+  /** Named numeric types (min / max / unit) that range variables can share. */
+  rangeTypes?: Record<string, RangeType>
   /** Mentioned tags registry is derived; nothing stored. */
 }

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
 import { effectiveLosses } from './derived'
-import { createItem, deleteItems, group, indent, merge, outdent, shift, split, updateItem } from './ops'
-import { emptyProject } from './create'
+import { createItem, defineRangeType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
+import { emptyProject, makeItem } from './create'
+import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
 import { guideApplies } from './uca'
-import type { Hazard, Id, Kind, Patch, Project } from './types'
+import type { Hazard, Id, Kind, Patch, Project, Variable } from './types'
 
 function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
   const r = createItem(p, kind, init)
