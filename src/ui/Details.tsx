@@ -405,7 +405,9 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
-  const vars = itemsOfKind(p, 'variable')
+  const ca = p.items[it.ca]
+  // The context is actual state: world variables and the controller's own internal state, not beliefs or signals.
+  const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
   const upd = (i: number, patch: Partial<(typeof it.conditions)[number]>) =>
     set({ conditions: it.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
   return (

@@ -6,12 +6,14 @@ import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
-import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
+import { LAYER_SHORT, VARIABLE_LAYER_LABELS, VARIABLE_LAYERS, type VariableLayer, GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { TreeTable } from './TreeTable'
+import { VariableMap } from './VariableMap'
+import { ScenarioTrace } from './Trace'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
 
@@ -78,12 +80,15 @@ export function Domain() {
   const selected = useStore((s) => s.selected)
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
-  const [tab, setTab] = useState<'entity' | 'variable' | 'relationship'>('entity')
+  const [tab, setTab] = useState<'entity' | 'variable' | 'map' | 'relationship'>('entity')
+  const [layer, setLayer] = useState<VariableLayer | ''>('')
+  const vars = itemsOfKind(p, 'variable')
   return (
     <div className="page full">
       <div className="tabs">
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
-        <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Process variables <i>{itemsOfKind(p, 'variable').length}</i></button>
+        <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
+        <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>Variable map <i>{vars.filter((v) => v.layer === 'domain').length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
       </div>
       {tab === 'entity' && (
@@ -92,13 +97,23 @@ export function Domain() {
           extra={(e) => <span className="muted">{e.attributes.length} attr · {e.operations.length} ops · {itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} vars</span>} />
       )}
       {tab === 'variable' && (
-        <FlatTable kind="variable" init={{ parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
-          items={itemsOfKind(p, 'variable').sort(byLabel(labels))}
-          columns={[
-            { head: 'Entity', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
-            { head: 'States', cell: (v) => <span className="muted">{describeStates(v)}</span> },
-          ]} />
+        <>
+          <div className="layer-filter">
+            {(['', ...VARIABLE_LAYERS] as const).map((l) => (
+              <button key={l} className={layer === l ? 'on' : ''} onClick={() => setLayer(l)}>{l ? VARIABLE_LAYER_LABELS[l] : 'All'} <i>{(l ? vars.filter((v) => v.layer === l) : vars).length}</i></button>
+            ))}
+          </div>
+          <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
+            items={vars.filter((v) => !layer || v.layer === layer).sort(byLabel(labels))}
+            columns={[
+              { head: 'Layer', cell: (v) => <span className={'layer l-' + v.layer}>{LAYER_SHORT[v.layer]}</span>, width: '70px' },
+              { head: 'Owner', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
+              { head: 'About', cell: (v) => (v.about ? <Ref id={v.about} /> : null), width: '80px' },
+              { head: 'States', cell: (v) => <span className="muted">{describeStates(v)}</span> },
+            ]} />
+        </>
       )}
+      {tab === 'map' && <VariableMap />}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
           columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}
@@ -182,7 +197,9 @@ export function Scenarios() {
           { head: 'Applies to', cell: (s) => <><Ref id={scenarioTarget(s) ?? ''} /> <span className="muted">{s.scenarioType === 'ca' ? 'CA' : 'UCA'}</span></>, width: '130px' },
           { head: 'STRIDE', cell: (s) => <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span>, width: '70px' },
           { head: 'Risk', cell: (s) => (s.severity && s.likelihood ? <b>{s.severity * s.likelihood}</b> : <span className="muted">—</span>), width: '50px' },
+          { head: 'Trace', cell: (s) => (s.trace.steps.length ? <span className="muted">{s.trace.steps.length} steps</span> : null), width: '70px' },
         ]} />
+      {cur?.kind === 'scenario' ? <ScenarioTrace key={cur.id} s={cur} /> : <p className="hint">Select a scenario to see or edit its trace and play it on the control structure.</p>}
     </div>
   )
 }
