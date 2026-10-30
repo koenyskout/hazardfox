@@ -112,7 +112,8 @@ export function Domain() {
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
-            sub={(v) => v.type === 'range' ? <RangeCell v={v} /> : describeStates(v)}
+            sub={(v) => v.type === 'range' ? null : describeStates(v)}
+            tail={(v) => <RangeCell v={v} />}
             items={vars.filter((v) => !layer || v.layer === layer).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
             columns={[
               { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },

@@ -113,7 +113,7 @@ export function RangeCell({ v }: { v: Variable }) {
   if (v.type !== 'range') return null
   return (
     <>
-      <button className="btn" title="Change range type" onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType}</b> : 'Custom'} · {describeStates(v)}</button>
+      <button className="btn" title={`Change range type (${v.rangeType || 'custom'})`} style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 11, padding: '1px 6px' }} onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType} </b> : null}{describeStates(v)}</button>
       {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
     </>
   )
