@@ -232,7 +232,7 @@ export function summary(p: Project, labels: Labels, it: Item): string {
     case 'assumption': return ls(it.about) && 'about ' + ls(it.about)
     case 'node': return it.role
     case 'ca': case 'feedback': case 'relationship': return `${l(it.from)} → ${l(it.to)}`
-    case 'variable': return it.parent ? 'of ' + l(it.parent) : ''
+    case 'variable': return it.parent ? 'of ' + (p.items[it.parent]?.title.trim() || l(it.parent)) : ''
     case 'uca': return `${GUIDE_WORD_LABELS[it.guide]} · ${l(it.ca)}`
     case 'scenario': return (it.scenarioType === 'uca' ? l(it.uca) : l(it.ca)) + (it.cause ? ' · ' + CAUSE_LABELS[it.cause] : '')
     default: return ''
