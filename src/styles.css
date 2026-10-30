@@ -215,3 +215,4 @@ table.plain td { padding: 4px 10px 4px 0; }
 .mention-menu .pk-main { display: flex; flex-direction: column; min-width: 0; }
 .mention-menu .pk-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mention-menu .pk-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mention-sel .chip { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import {
   $applyNodeReplacement, $createParagraphNode, $createTextNode, $getRoot, $getSelection, $insertNodes, $isElementNode, $isRangeSelection, $isTextNode,
   DecoratorNode, FORMAT_TEXT_COMMAND, type EditorConfig, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread, type TextNode,
-  type ElementNode,
+  type ElementNode, $createNodeSelection, $setSelection, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, COMMAND_PRIORITY_LOW,
 } from 'lexical'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { useLexicalNodeSelection } from '@lexical/react/useLexicalNodeSelection'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
@@ -34,7 +35,11 @@ export class MentionNode extends DecoratorNode<JSX.Element> {
   updateDOM() { return false }
   isInline() { return true }
   getTextContent() { return '' }
-  decorate() { return <Ref id={this.__id} /> }
+  decorate() { return <Pill id={this.__id} nodeKey={this.__key} /> }
+}
+function Pill({ id, nodeKey }: { id: Id; nodeKey: NodeKey }) {
+  const [selected] = useLexicalNodeSelection(nodeKey)
+  return <span className={selected ? 'mention-sel' : ''}><Ref id={id} /></span>
 }
 export const $createMention = (id: Id) => $applyNodeReplacement(new MentionNode(id))
 const $isMention = (n: LexicalNode | null | undefined): n is MentionNode => n instanceof MentionNode
@@ -186,6 +191,7 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
           ErrorBoundary={LexicalErrorBoundary}
         />
         <ClickToEnd />
+        <SelectPillFirst />
         <Sync value={props.value} onChange={props.onChange} />
         <MentionMenu options={options} />
       </LexicalComposer>
@@ -207,6 +213,38 @@ function ClickToEnd() {
     }
     root.addEventListener('mousedown', h)
     return () => root.removeEventListener('mousedown', h)
+  }, [editor])
+  return null
+}
+
+/** Backspace/Delete next to a pill first selects it; a second press deletes it (default behaviour for a selected node). */
+function SelectPillFirst() {
+  const [editor] = useLexicalComposerContext()
+  useEffect(() => {
+    const neighbour = (forward: boolean) => {
+      const sel = $getSelection()
+      if (!$isRangeSelection(sel) || !sel.isCollapsed()) return null
+      const { type, offset } = sel.anchor
+      const node = sel.anchor.getNode()
+      if (type === 'text') {
+        if (forward ? offset !== node.getTextContentSize() : offset !== 0) return null
+        return forward ? node.getNextSibling() : node.getPreviousSibling()
+      }
+      if (!$isElementNode(node)) return null
+      return node.getChildAtIndex(forward ? offset : offset - 1)
+    }
+    const handler = (forward: boolean) => (e: KeyboardEvent) => {
+      const n = neighbour(forward)
+      if (!$isMention(n)) return false
+      e.preventDefault()
+      const ns = $createNodeSelection()
+      ns.add(n.getKey())
+      $setSelection(ns)
+      return true
+    }
+    const offBack = editor.registerCommand(KEY_BACKSPACE_COMMAND, handler(false), COMMAND_PRIORITY_LOW)
+    const offDel = editor.registerCommand(KEY_DELETE_COMMAND, handler(true), COMMAND_PRIORITY_LOW)
+    return () => { offBack(); offDel() }
   }, [editor])
   return null
 }
