@@ -12,7 +12,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   }, [props, behind])
   return (
     <div className={'modal-back' + (props.stacked ? ' stacked' : '')} onMouseDown={behind ? undefined : props.onClose}>
-      <div className={'modal' + (props.wide ? ' wide' : '') + (behind ? ' under' : '')} style={behind ? { transform: `translate(${-18 * behind}px, ${-44 * behind}px)` } : undefined} onMouseDown={(e) => e.stopPropagation()} role="dialog">
+      <div className={'modal' + (props.wide ? ' wide' : '') + (behind ? ' under' : '')} style={behind ? { transform: `translate(${-8 * behind}px, ${-10 * behind}px)` } : undefined} onMouseDown={(e) => e.stopPropagation()} role="dialog">
         <button className="modal-x" title="Close (Esc)" onClick={props.onClose}><Icon name="x" size={14} /></button>
         <h3>{props.title}</h3>
         {props.children}
