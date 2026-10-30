@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { isGroup, isSetOp, stepOf, valuesOf } from './variables'
+import { condKey, conditionComplete, isGroup, isSetOp, isText, leaves, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -38,9 +38,20 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
   return null
 }
 
-/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); conditions without a variable are ignored. */
+/** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text. */
+export function condHolds(p: Project, c: Condition, get: (id: Id) => string | undefined): boolean | null | undefined {
+  if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
+  const v = p.items[c.variable]
+  return v?.kind === 'variable' ? holds(v, c, get(c.variable)) : undefined
+}
+
+/** Texts of all conditions in words in the project (candidate trace lanes). */
+export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
+  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && conditionComplete(c)).map(condKey)))]
+
+/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
 export function whenHolds(p: Project, w: When, get: (id: Id) => string | undefined): boolean | null | undefined {
-  if (!isGroup(w)) { const v = p.items[w.variable]; return v?.kind === 'variable' ? holds(v, w, get(w.variable)) : undefined }
+  if (!isGroup(w)) return condHolds(p, w, get)
   const hs = w.of.map((x) => whenHolds(p, x, get)).filter((h) => h !== undefined)
   return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
 }
@@ -92,9 +103,7 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
   let all: boolean | null = true
   for (const c of u.conditions) {
-    const v = p.items[c.variable]
-    if (v?.kind !== 'variable') continue
-    const h = holds(v, c, state[c.variable])
+    const h = condHolds(p, c, (id) => state[id])
     if (h === false) return false
     if (h === null) all = null
   }
@@ -143,7 +152,7 @@ export function witness(p: Project, s: Scenario): { step: number; ok: boolean | 
   const ev = s.trace.steps[step].events.find((e) => e.on === u.ca)!
   if ((u.guide === 'not-provided') !== (ev.what === 'absent')) return { step, ok: false, why: u.guide === 'not-provided' ? 'the UCA is about not providing the action, but the trace sends it' : 'the UCA is about providing the action, but the trace does not send it' }
   const ctx = contextHolds(p, u, traceState(p, s.trace, step))
-  return { step, ok: ctx, why: ctx === false ? 'the UCA context does not hold at that step' : ctx === null ? 'some context variables have no value at that step' : 'the UCA context holds when the action is ' + (ev.what === 'absent' ? 'withheld' : 'sent') }
+  return { step, ok: ctx, why: ctx === false ? 'the UCA context does not hold at that step' : ctx === null ? 'some context conditions have no value at that step' : 'the UCA context holds when the action is ' + (ev.what === 'absent' ? 'withheld' : 'sent') }
 }
 
 export interface Mismatch { id: Id; world: Id; value: string; actual: string }
@@ -206,6 +215,14 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const lost = new Set<Id>(), sent = new Set<Id>()
     // Only the first condition is false initially; it becoming true makes the context hold.
     for (const [k, c] of u.conditions.entries()) {
+      if (isText(c)) {
+        if (!conditionComplete(c)) continue
+        const key = condKey(c), after = String(c.op !== '≠')
+        lanes.push(key)
+        init.values[key] = k ? after : String(c.op === '≠')
+        ctx.values[key] = after
+        continue
+      }
       const w = p.items[c.variable]
       if (w?.kind !== 'variable') continue
       const after = pickValue(w, c), before = k ? after : pickValue(w, c, true)

@@ -96,16 +96,18 @@ export const shortName = (p: Project, v: Variable): string => {
   return v.title.trim()
 }
 
-/** Labels for the UI: variables show their (namespaced) name, when unique and non-empty, instead of their V-n id. */
+/** Labels for the UI: entities and variables show their name instead of their E-n / V-n id (a clashing variable name gets its owner prefixed). */
 export function displayLabels(p: Project, ids: Labels): Labels {
   const out = { ...ids }
-  const taken = new Set<string>()
+  for (const e of itemsOfKind(p, 'entity')) if (e.title.trim()) out[e.id] = e.title.trim()
   const vars = itemsOfKind(p, 'variable').map((x) => [x, variableName(p, x)] as const)
-  for (const [, n] of vars) {
-    const name = n.toLowerCase()
-    if (name) taken.has(name) ? taken.add(name + '\0dup') : taken.add(name)
+  const count = new Map<string, number>()
+  for (const [, n] of vars) count.set(n.toLowerCase(), (count.get(n.toLowerCase()) ?? 0) + 1)
+  for (const [x, name] of vars) {
+    if (!name) continue
+    const owner = x.parent ? p.items[x.parent]?.title.trim() : ''
+    out[x.id] = (count.get(name.toLowerCase())! > 1 && owner && x.layer === 'domain' && x.title.trim()) ? `${owner}.${name}` : name
   }
-  for (const [x, name] of vars) if (name && !taken.has(name.toLowerCase() + '\0dup')) out[x.id] = name
   return out
 }
 

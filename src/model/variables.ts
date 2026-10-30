@@ -34,10 +34,19 @@ export function stepOf(v: Variable): number {
   return 10 ** Math.floor(Math.log10(span / 100 || 1))
 }
 
+/** A condition in words (no variable). */
+export const isText = (c: Condition) => c.text !== undefined
+const TEXT_KEY = 'text:'
+/** Trace lane / state key of a condition: its variable, or for a condition in words its text. */
+export const condKey = (c: Condition): string => (isText(c) ? TEXT_KEY + (c.text ?? '').trim() : c.variable)
+/** The text of a lane key of a condition in words, else null. */
+export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
+
 /** Whether the condition is complete enough to appear in a sentence. */
-export const conditionComplete = (c: Condition) => (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
+export const conditionComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 export function conditionText(p: Project, c: Condition): string {
+  if (isText(c)) return c.op === '≠' ? `not (${c.text!.trim()})` : c.text!.trim()
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''

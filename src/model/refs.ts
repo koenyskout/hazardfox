@@ -1,4 +1,4 @@
-import { leaves, mapLeaves } from './variables'
+import { laneText, leaves, mapLeaves } from './variables'
 import type { Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
@@ -70,15 +70,15 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) out.push(c.variable)
-  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).map((c) => c.variable))
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) if (c.variable) out.push(c.variable)
+  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).map((c) => c.variable).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
 }
 
 /** Variables, control actions and feedback a trace mentions. */
-export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])]
+export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].filter((k) => laneText(k) === null)
 
 /** Items that refer to `id` (via parent, refs or mentions). */
 export function incoming(p: Project, id: Id): Item[] {

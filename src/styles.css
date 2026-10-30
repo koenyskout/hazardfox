@@ -96,7 +96,7 @@ a.chip:hover, button.chip:hover { border-color: currentColor; }
 .rule .conds { margin: 2px 0 0 16px; } .rule .conds.group { margin: 0 0 4px 34px; padding-left: 8px; border-left: 2px dashed var(--line); }
 .rule-add { display: flex; gap: 6px; padding: 4px 0; } .rule-add button { width: auto; font-size: 12px; padding: 1px 8px; }
 .rule-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .rule-head .x { margin-left: auto; } .rule-head select, .rule-head input { width: auto; flex: none; } .rules button { white-space: nowrap; }
-.cond { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .cond select, .cond input.num { width: auto; min-width: 60px; max-width: 110px; } .cond input.num { width: 70px; } .cond .picker-btn { width: auto; max-width: 200px; } .cond select { max-width: 150px; } .cond-word { color: var(--muted); font-size: 13px; min-width: 34px; } .cond .x { margin-left: auto; align-self: center; } .cond { padding: 4px 0; border-bottom: 1px solid var(--line); } .setpick { flex: 1 1 200px; }
+.cond { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .cond select, .cond input.num { width: auto; min-width: 60px; max-width: 110px; } .cond input.num { width: 70px; } .cond .picker-btn { width: auto; max-width: 200px; } .cond select { max-width: 150px; } .cond-word { color: var(--muted); font-size: 13px; min-width: 34px; } .cond .x { margin-left: auto; align-self: center; } .cond { padding: 4px 0; border-bottom: 1px solid var(--line); } .setpick { flex: 1 1 200px; } .cond input.cond-text { flex: 1 1 220px; width: auto; }
 .cond-err { flex-basis: 100%; color: var(--danger); }
 
 table.grid { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); }

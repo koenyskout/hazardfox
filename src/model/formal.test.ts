@@ -176,6 +176,25 @@ describe('refinement', () => {
     expect((deserialize(JSON.stringify(raw)).items[em] as Variable).rules[0].when).toEqual(allOf(f, s))
   })
 
+  it('treats conditions in words as booleans keyed by their text', () => {
+    let { p, fire, em, uca } = train()
+    const words: Condition = { variable: '', op: '=', state: 'true', text: 'Passengers are boarding' }
+    p = updateItem(p, em, { rules: [{ state: 'evacuation', when: anyOf({ variable: fire, op: '=', state: 'true' }, words) }] })
+    const v = p.items[em] as Variable
+    expect(whenText(p, v.rules[0].when)).toBe('Fire is true or Passengers are boarding')
+    expect(ruleValue(p, v, (id) => ({ [fire]: 'false', 'text:Passengers are boarding': 'true' })[id])).toBe('evacuation')
+    expect(ruleValue(p, v, (id) => ({ [fire]: 'false' })[id])).toBeUndefined()
+    expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ variable: fire, op: '=', state: 'false' }, { ...words, op: '≠' }]])
+    p = updateItem(p, uca, { conditions: [{ ...words, op: '≠' }] })
+    const r = createItem(p, 'scenario', { scenarioType: 'uca', uca, cause: 'control-algorithm' })
+    p = r.project
+    const t = draftTrace(p, p.items[r.id] as Scenario)
+    expect(t.lanes).toEqual(['text:Passengers are boarding'])
+    p = updateItem(p, r.id, { trace: t })
+    expect(witness(p, p.items[r.id] as Scenario)?.ok).toBe(true)
+    expect(validate(p).filter((i) => i.rule === 'dangling-ref')).toEqual([])
+  })
+
   it('refines a UCA once, linked to its parent', () => {
     const { p: p0, uca, speed } = train()
     let r = refineUca(p0, uca, 0)

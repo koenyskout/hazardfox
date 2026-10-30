@@ -190,13 +190,15 @@ export interface Feedback extends Base {
   labelShift: Offset | null
 }
 
-/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations). */
+/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
+ *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
 export interface Condition {
   variable: Id
   op: ConditionOp
   state: string
   to?: string
   set?: string[]
+  text?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

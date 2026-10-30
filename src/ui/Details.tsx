@@ -2,7 +2,7 @@ import { renderText } from '../model/labels'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, OP_LABELS, opsFor, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, stepOf, valuesOf, whenText } from '../model/variables'
 import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
@@ -454,6 +454,7 @@ function ConditionList({ conditions, onChange, vars, head }: { conditions: Condi
 }
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
+const WORDS: Condition = { variable: '', op: '=', state: 'true', text: '' }
 
 /** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
 function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
@@ -472,6 +473,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; on
           : <ConditionRow key={i} c={w} word={i ? join : ''} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
+          <button title="A condition in words, for something not modelled as a variable; traces treat it as true / false" onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
           {!flat && <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
         </div>
       </div>
@@ -483,6 +485,14 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   const p = useProject()
   const labels = useLabels()
   const upd = (patch: Partial<Condition>) => onChange({ ...c, ...patch })
+  if (isText(c)) return (
+    <div className="cond">
+      <span className="cond-word">{word}</span>
+      <input className="cond-text" value={c.text} placeholder="condition in words…" onChange={(e) => upd({ text: e.target.value })} />
+      <select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}><option value="=">holds</option><option value="≠">does not hold</option></select>
+      <button className="x" onClick={onRemove}>×</button>
+    </div>
+  )
   const v = p.items[c.variable]
   const vr = v?.kind === 'variable' ? v : undefined
   const values = valuesOf(vr)

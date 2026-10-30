@@ -1,20 +1,21 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { isGroup, stepOf, valuesOf } from './variables'
+import { condKey, isGroup, laneText, stepOf, valuesOf } from './variables'
 import type { Condition, Id, Project, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
 
-const key = (c: Condition) => JSON.stringify([c.variable, c.op, c.state, c.to ?? '', [...(c.set ?? [])].sort()])
+const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
 export function consistent(p: Project, cs: Condition[]): boolean {
   const by = new Map<Id, Condition[]>()
-  for (const c of cs) by.set(c.variable, [...(by.get(c.variable) ?? []), c])
+  for (const c of cs) by.set(condKey(c), [...(by.get(condKey(c)) ?? []), c])
   for (const [id, group] of by) {
+    if (laneText(id) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
     const v = p.items[id]
     if (v?.kind !== 'variable') continue
     const d = stepOf(v) / 10
