@@ -1,7 +1,7 @@
 import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
+import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
 import { diagnose, ruleConflicts, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
@@ -46,6 +46,7 @@ export const RULES = {
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
   'refinement-cycle': { title: 'Variable refined into itself', why: 'A refinement defines a higher-level variable from lower-level ones; a cycle defines it in terms of itself, so its value is undetermined.', fix: 'Remove the variable from the rules of the variables it is (transitively) refined into.' },
+  'ca-affects-invalid': { title: 'Control action affects an unrelated variable', why: 'A control action changes world variables, or the internal state and beliefs of the controller it is sent to; other variables are not under its control.', fix: 'Remove the variable, or point the action at the node that owns it.' },
   'refinement-invalid': { title: 'Invalid refinement rule', why: 'Each rule gives one value of the refined variable under conditions on actual (world) variables; a value it cannot take or a malformed condition makes the refinement meaningless.', fix: 'Pick one of the variable\'s values and fix the condition (world variables only).' },
   'trace-rule-conflict': { title: 'Trace value contradicts a refinement', why: 'A refined variable is a function of its parts: once the parts have values in a trace, its value follows from the rules.', fix: 'Clear the value (it is computed) or change the parts.' },
   'trace-no-witness': { title: 'Trace does not exhibit the UCA', why: 'A scenario trace should show the unsafe control action: the UCA context holds at the step where the action is sent (or not sent).', fix: 'Adjust the values at the action step, or add / fix the control action event.' },
@@ -105,6 +106,10 @@ export function validate(p: Project): Issue[] {
     if (!guideApplies(ca, 'stopped-too-soon') && ucas.some((u) => u.ca === ca.id && u.guide === 'stopped-too-soon')) add('warning', ca, 'ca-instantaneous-stsoon', `${L[ca.id]} ${ca.title}: instantaneous control action has "stopped too soon / applied too long" UCAs`)
     for (const n of ca.notApplicable)
       if (ucas.some((u) => u.ca === ca.id && u.guide === n.guide)) add('warning', ca, 'ca-na-conflict', `${L[ca.id]} ${ca.title}: guide word "${n.guide}" is marked not applicable but has UCAs`)
+    for (const id of ca.affects) {
+      const w = p.items[id]
+      if (w?.kind === 'variable' && w.layer !== 'domain' && !affectable(p, ca.to).some((x) => x.id === id)) add('warning', ca, 'ca-affects-invalid', `${L[ca.id]} ${ca.title}: affects ${w.title || L[id]}, which is neither a world variable nor internal to the receiving controller`)
+    }
     if (!itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'ca' && s.ca === ca.id))
       add('info', ca, 'ca-no-scenarios', `${L[ca.id]} ${ca.title}: no scenarios for improper execution of the control action`)
   }

@@ -66,6 +66,9 @@ export const updates = (p: Project, signal: Variable) => {
   return beliefsOf(p, fb.to).filter((b) => b.about && about.includes(b.about))
 }
 
+/** Non-world variables a control action to `node` can change: its internal state and beliefs. */
+export const affectable = (p: Project, node: Id) => (p.items[node]?.kind === 'node' ? [...variablesIn(p, 'internal', node), ...beliefsOf(p, node)] : [])
+
 /** Control actions that affect (control) a world variable. */
 export const controlledBy = (p: Project, world: Id) => itemsOfKind(p, 'ca').filter((c) => c.affects.includes(world))
 

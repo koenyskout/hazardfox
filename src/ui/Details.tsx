@@ -1,6 +1,6 @@
 import { Select } from './Select'
 import { renderText } from '../model/labels'
-import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
+import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
@@ -279,8 +279,8 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.kind === 'ca' && (
-            <Field label="Affects (controlled variables)" hint="World variables this action changes.">
-              <RefList value={it.affects} options={of('variable').filter((v) => v.layer === 'domain')} onChange={(v) => set({ affects: v })} />
+            <Field label="Affects (controlled variables)" hint="Variables this action changes: world variables, or the internal state and beliefs of the receiving controller.">
+              <RefList value={it.affects} options={[...of('variable').filter((v) => v.layer === 'domain'), ...affectable(p, it.to)]} onChange={(v) => set({ affects: v })} />
             </Field>
           )}
           {it.kind === 'ca' && (

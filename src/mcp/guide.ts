@@ -33,7 +33,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
   A UCA refined by substituting such rules into its context links its higher-level UCA in refines.
 - node: controller | process | external (sensors and actuators are NOT nodes); nest with parent (subsystems). entities optionally links the domain entities it represents (a process may comprise several).
 - ca (control action): from controller node to node; named as a verb phrase ("Set rate"); optional "actuator" names the actuator that
-  carries it out; affects lists the world variables it controls. feedback: from node to node; its signals are variables with parent = the feedback; optional "sensor" names the sensor producing it.
+  carries it out; affects lists the variables it changes (world variables, or internal/belief variables of the receiving controller). feedback: from node to node; its signals are variables with parent = the feedback; optional "sensor" names the sensor producing it.
 
 ## Step 3 - Unsafe control actions
 For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage). stopped-too-soon / applied-too-long only applies to continuous control actions (those with a duration); for instantaneous/discrete ones (e.g. separate Start and Stop commands, a toggle) set duration "instantaneous" and it is skipped automatically; not every combination needs a UCA: mark one that makes no sense with the control action field notApplicable ([{guide, reason}]).
