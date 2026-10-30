@@ -195,16 +195,14 @@ export function Scenarios() {
   const grouped = [...scenarios].sort((a, b) => (order.get(scenarioTarget(a) ?? '') ?? 1e9) - (order.get(scenarioTarget(b) ?? '') ?? 1e9))
   const sel = useStore((s) => s.selected)
   const cur = sel ? p.items[sel] : null
-  const uca = cur?.kind === 'uca' ? cur.id : cur?.kind === 'scenario' && cur.uca ? cur.uca : ucas[0]?.id ?? null
-  const ca = cur?.kind === 'ca' ? cur.id : cur?.kind === 'scenario' && cur.ca ? cur.ca : cas[0]?.id ?? null
   return (
     <div className="page full">
       <FlatTable kind="scenario" items={grouped}
         groupBy={(s) => scenarioTarget(s)} groups={[...sortedUcas, ...sortedCas].map((x) => x.id)}
         groupAdd={(g) => (g && p.items[g]?.kind === 'ca' ? { scenarioType: 'ca', ca: g } : { scenarioType: 'uca', uca: g })}
         adds={[
-          { label: `Scenario for ${uca ? labels[uca] : 'a UCA'}`, init: { scenarioType: 'uca', uca } },
-          { label: `Scenario for ${ca ? labels[ca] : 'a control action'} not executed properly`, init: { scenarioType: 'ca', ca } },
+          { label: 'Scenario for a UCA', init: { scenarioType: 'uca', uca: null } },
+          { label: 'Scenario for a control action not executed properly', init: { scenarioType: 'ca', ca: null } },
         ]}
         columns={[
           { head: 'STRIDE', cell: (s) => <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span>, width: '70px' },
