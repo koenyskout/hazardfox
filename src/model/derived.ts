@@ -1,5 +1,5 @@
 import { ancestors, descendants, itemsOfKind } from './tree'
-import type { Id, ItemOf, Project, Scenario } from './types'
+import type { Id, Item, ItemOf, Project, Scenario } from './types'
 
 /** Losses of a hazard: its own links plus inherited ones, minus exclusions along the way. */
 export function effectiveLosses(p: Project, hazardId: Id): Id[] {
@@ -48,4 +48,21 @@ export function hazardTrace(p: Project, hazardId: Id): HazardTrace {
   const sources = new Set([...constraints, ...ucas, ...scenarios].map((x) => x.id))
   const requirements = itemsOfKind(p, 'requirement').filter((r) => r.sources.some((x) => sources.has(x)))
   return { losses: effectiveLosses(p, hazardId), constraints, ucas, scenarios, requirements }
+}
+
+/** Leaf hazards an item traces back to (via constraints, UCAs, scenarios or requirement sources) and their losses. */
+export function upstream(p: Project, it: Item): { hazards: Id[]; losses: Id[] } {
+  const seen = new Set<Id>()
+  const hazards = new Set<Id>()
+  const walk = (x: Item | undefined) => {
+    if (!x || seen.has(x.id)) return
+    seen.add(x.id)
+    if (x.kind === 'hazard') hazards.add(x.id)
+    else if (x.kind === 'constraint' || x.kind === 'uca') x.hazards.forEach((h) => hazards.add(h))
+    else if (x.kind === 'scenario') scenarioHazards(p, x).forEach((h) => hazards.add(h))
+    else if (x.kind === 'requirement') x.sources.forEach((s) => walk(p.items[s]))
+  }
+  walk(it)
+  const hs = [...hazards].filter((h) => p.items[h])
+  return { hazards: hs, losses: [...new Set(hs.flatMap((h) => effectiveLosses(p, h)))] }
 }

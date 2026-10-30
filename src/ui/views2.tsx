@@ -3,7 +3,7 @@ import { hazardScope, hazardTrace } from '../model/derived'
 import { flatten, itemsOfKind } from '../model/tree'
 import { SEVERITIES, validate, type Severity } from '../model/validate'
 import { useStore } from '../model/store'
-import { Ref, VIEW_OF } from './Fields'
+import { ItemHover, Ref, VIEW_OF } from './Fields'
 import { useProject } from './hooks'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -75,7 +75,7 @@ export function Validation() {
         {shown.map((i, n) => (
           <li key={n} className={'sev-' + i.severity}>
             <b>{i.severity}</b>
-            <a href="#" onClick={(e) => { e.preventDefault(); const it = i.item ? p.items[i.item] : null; if (it) goto(VIEW_OF[it.kind], it.id) }}>{i.message}</a>
+            {i.item && p.items[i.item] ? <ItemHover id={i.item}><a href="#" onClick={(e) => { e.preventDefault(); const it = p.items[i.item!]; goto(VIEW_OF[it.kind], it.id) }}>{i.message}</a></ItemHover> : <span>{i.message}</span>}
           </li>
         ))}
       </ul>

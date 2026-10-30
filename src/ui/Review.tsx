@@ -234,5 +234,5 @@ export function ReviewDot({ id }: { id: Id }) {
   const r = freshReview(p, L, id)
   if (!r || r.verdict === 'pass') return null
   const bad = r.checks.filter((c) => c.verdict !== 'pass').map((c) => c.label).join('; ')
-  return <span className={'review-dot ' + r.verdict} title={`${VERDICT_TEXT[r.verdict]}: ${bad}`}>●</span>
+  return <ItemHover id={id}><span className={'review-dot ' + r.verdict} aria-label={`${VERDICT_TEXT[r.verdict]}: ${bad}`}>●</span></ItemHover>
 }

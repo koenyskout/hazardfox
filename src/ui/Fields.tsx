@@ -1,10 +1,12 @@
 import { useRef, type ReactNode } from 'react'
-import { mention, mentions } from '../model/refs'
-import { byLabel, DELETED, renderText } from '../model/labels'
+import { mention, mentions, splitMentions } from '../model/refs'
+import { byLabel, DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { Id, Item, Kind, Labels } from '../model/types'
 import { useLabels, useProject } from './hooks'
-import { HoverCard, ItemCard } from './HoverCard'
+import { HoverCard } from './HoverCard'
+import { ItemCard } from './ItemCard'
+import { Picker } from './Picker'
 
 export const VIEW_OF: Record<Kind, View> = {
   loss: 'step1',
@@ -65,7 +67,6 @@ export function Ref({ id }: { id: Id }) {
 export const optionLabel = (labels: Labels, it: Item) => `${labels[it.id]} ${it.title || ''}`.trim()
 
 export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[]) => void; placeholder?: string; disabled?: Id[] }) {
-  const labels = useLabels()
   const rest = props.options.filter((o) => !props.value.includes(o.id))
   return (
     <div className="reflist">
@@ -75,28 +76,19 @@ export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[
           <button className="x" title="Remove" onClick={() => props.onChange(props.value.filter((v) => v !== id))}>×</button>
         </span>
       ))}
-      <select
-        value=""
-        onChange={(e) => e.target.value && props.onChange([...props.value, e.target.value])}
-      >
-        <option value="">{props.placeholder ?? '+ add…'}</option>
-        {rest.map((o) => (
-          <option key={o.id} value={o.id}>{optionLabel(labels, o)}</option>
-        ))}
-      </select>
+      <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id])}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>
     </div>
   )
 }
 
 export function SingleRef(props: { value: Id | null; options: Item[]; onChange: (v: Id | null) => void; none?: string }) {
   const labels = useLabels()
+  const cur = useProject().items[props.value ?? '']
+  const opts = cur && !props.options.includes(cur) ? [cur, ...props.options] : props.options
   return (
-    <select value={props.value ?? ''} onChange={(e) => props.onChange(e.target.value || null)}>
-      <option value="">{props.none ?? '— none —'}</option>
-      {props.options.map((o) => (
-        <option key={o.id} value={o.id}>{optionLabel(labels, o)}</option>
-      ))}
-    </select>
+    <Picker options={opts} onPick={props.onChange}>
+      {cur ? <><span className={'chip k-' + cur.kind}>{labels[cur.id]}</span> {cur.title}</> : <span className="muted">{props.none ?? '— none —'}</span>}
+    </Picker>
   )
 }
 
@@ -126,7 +118,7 @@ export function RichText(props: { value: string; onChange: (v: string) => void; 
           ))}
         </select>
       </div>
-      {hasRefs && <div className="preview">{renderText(labels, props.value)}</div>}
+      {hasRefs && <div className="preview">{splitMentions(props.value).map((s, n) => (typeof s === 'string' ? s : <Ref key={n} id={s.id} />))}</div>}
     </div>
   )
 }

@@ -6,8 +6,9 @@ import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
 import { commit, useLabels, useProject } from './hooks'
+import { Picker } from './Picker'
 import { ReviewItem } from './Review'
-import { Field, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
 
 export function Details() {
   const p = useProject()
@@ -22,7 +23,7 @@ export function Details() {
   return (
     <aside className="details">
       <h3>
-        <span className={'chip k-' + it.kind}>{labels[it.id]}</span> {KIND_NAMES[it.kind]}
+        <ItemHover id={it.id}><span className={'chip k-' + it.kind}>{labels[it.id]}</span></ItemHover> {KIND_NAMES[it.kind]}
       </h3>
       {it.kind !== 'uca' && it.kind !== 'scenario' && (
         <Field label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
@@ -281,10 +282,9 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         const states = v?.kind === 'variable' ? v.states : []
         return (
           <div key={i} className="cond">
-            <select value={c.variable} onChange={(e) => upd(i, { variable: e.target.value, state: '' })}>
-              <option value="">variable…</option>
-              {vars.map((x) => <option key={x.id} value={x.id}>{labels[x.id]} {x.title}</option>)}
-            </select>
+            <Picker options={vars} onPick={(id) => id && upd(i, { variable: id, state: '' })}>
+              {v ? <><span className={'chip k-' + v.kind}>{labels[v.id]}</span> {v.title}</> : <span className="muted">variable…</span>}
+            </Picker>
             <select value={c.negate ? 'ne' : 'eq'} onChange={(e) => upd(i, { negate: e.target.value === 'ne' })}><option value="eq">=</option><option value="ne">≠</option></select>
             <select value={c.state} onChange={(e) => upd(i, { state: e.target.value })}>
               <option value="">state…</option>

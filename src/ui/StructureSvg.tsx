@@ -62,7 +62,6 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
               strokeDasharray={e.kind === 'feedback' ? '5 3' : undefined} markerEnd={`url(#arrow-${e.kind === 'ca' ? 'ca' : 'fb'})`} />
             {e.device && !h.hideDevices && (
               <g>
-                <title>{e.device.kind}: {e.device.name}</title>
                 <rect x={e.device.x} y={e.device.y} width={e.device.w} height={e.device.h} rx={8} fill={DEVICE_STYLE[e.device.kind].fill} stroke={sel ? '#f97316' : DEVICE_STYLE[e.device.kind].stroke} strokeWidth={1.2} />
                 <text x={e.device.x + e.device.w / 2} y={e.device.y + 11.5} textAnchor="middle" fontSize={10} fill="#111827">{e.device.name}</text>
               </g>

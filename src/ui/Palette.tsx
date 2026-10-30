@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { byLabel, renderText } from '../model/labels'
 import { useStore } from '../model/store'
 import { KIND_NAMES } from '../model/types'
-import { VIEW_OF } from './Fields'
+import { ItemHover, VIEW_OF } from './Fields'
 import { useLabels, useProject } from './hooks'
 
 export function Palette() {
@@ -38,7 +38,7 @@ export function Palette() {
         <ul>
           {hits.map((h, n) => (
             <li key={h.it.id} className={n === i ? 'on' : ''} onMouseEnter={() => setI(n)} onClick={() => go(n)}>
-              <span className={'chip k-' + h.it.kind}>{labels[h.it.id]}</span> {h.it.title || <i className="muted">{KIND_NAMES[h.it.kind]}</i>}
+              <ItemHover id={h.it.id}><span className={'chip k-' + h.it.kind}>{labels[h.it.id]}</span></ItemHover> {h.it.title || <i className="muted">{KIND_NAMES[h.it.kind]}</i>}
             </li>
           ))}
           {hits.length === 0 && <li className="muted">No matches</li>}

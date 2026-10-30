@@ -50,6 +50,9 @@ const MENTION_RE = /@\[([^\]]+)\]/g
 export const mention = (id: Id) => `@[${id}]`
 /** Ids mentioned as `@[id]` in a text. */
 export const mentions = (text: string): Id[] => [...text.matchAll(MENTION_RE)].map((m) => m[1])
+/** Text split into plain strings and `@[id]` references. */
+export const splitMentions = (text: string): (string | { id: Id })[] =>
+  text.split(/(@\[[^\]]+\])/).filter(Boolean).map((part) => { const m = /^@\[([^\]]+)\]$/.exec(part); return m ? { id: m[1] } : part })
 export const replaceMentions = (text: string, f: (id: Id, whole: string) => string) =>
   text.replace(MENTION_RE, (whole, id: string) => f(id, whole))
 

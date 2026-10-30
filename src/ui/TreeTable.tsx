@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   deleteItems,
   group,
@@ -369,7 +369,7 @@ function DeleteDialog({ ids, onClose }: { ids: Id[]; onClose: () => void }) {
         </div>
       )}
       {dependents.length > 0 && (
-        <p className="note-warn"><Icon name="warn" /> Also deleted because they depend on {ids.length > 1 ? 'these' : 'it'}: {dependents.map((i) => labels[i]).join(', ')}</p>
+        <p className="note-warn"><Icon name="warn" /> Also deleted because they depend on {ids.length > 1 ? 'these' : 'it'}: {dependents.map((i, n) => <Fragment key={i}>{n > 0 && ', '}<ItemHover id={i}><b>{labels[i]}</b></ItemHover></Fragment>)}</p>
       )}
       <div className="actions"><button onClick={onClose}>Cancel</button></div>
     </Modal>
