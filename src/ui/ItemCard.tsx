@@ -9,6 +9,7 @@ import { children } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { validate } from '../model/validate'
 import { freshReview } from '../llm/auto'
+import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 
 const MAX_PER_KIND = 5
@@ -28,7 +29,11 @@ function group(p: Project, labels: Labels, ids: Iterable<Id>): [Kind, Id[]][] {
 export function ChipLink({ id, p, labels, go }: { id: Id } & Ctx) {
   const it = p.items[id]
   if (!it) return <span className="chip dead">{DELETED}</span>
-  return <a href="#" className={'chip k-' + it.kind} title={it.title} onClick={(e) => { e.preventDefault(); go(id) }}>{labels[id]}</a>
+  return (
+    <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} go={go} />}>
+      <a href="#" className={'chip k-' + it.kind} onClick={(e) => { e.preventDefault(); go(id) }}>{labels[id]}</a>
+    </HoverCard>
+  )
 }
 
 const Chips = ({ ids, c }: { ids: Id[]; c: Ctx }) => (

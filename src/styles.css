@@ -154,7 +154,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 
 
 .hc-trigger { display: inline-block; }
-.hovercard { position: fixed; z-index: 1000; width: 340px; max-height: 340px; overflow: auto; padding: 14px 16px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 32px rgba(0,0,0,.22); font-size: 12.5px; line-height: 1.45; }
+.hovercard { position: fixed; z-index: 1002; width: 340px; max-height: 340px; overflow: auto; padding: 14px 16px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 32px rgba(0,0,0,.22); font-size: 12.5px; line-height: 1.45; }
 .hovercard .chip { white-space: nowrap; }
 .hc-top { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-bottom: 8px; }
 .hc-type { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
