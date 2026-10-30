@@ -4,11 +4,8 @@ import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
 import { LayerIcon } from './Icon'
-import { addItemInDialog, commit, useProject } from './hooks'
+import { addItemInDialog, commit, isComputed, useProject } from './hooks'
 import { Picker } from './Picker'
-
-/** Variables defined from lower-level ones (refinement rules) are computed; the others are raw. */
-const isComputed = (p: Project, w: Variable) => w.rules.length > 0 || refines(p, w).length > 0
 
 /** One row per variable; within an owner the raw ones first, then the computed ones. */
 const ordered = (p: Project, world: Variable[]) => [...world.filter((w) => !isComputed(p, w)), ...world.filter((w) => isComputed(p, w))]

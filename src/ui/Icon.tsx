@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { shortName, variableName } from '../model/labels'
-import { useProject } from './hooks'
+import { isComputed, useProject } from './hooks'
 import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
@@ -26,6 +26,8 @@ const PATHS: Record<string, ReactNode> = {
   info: <><circle cx="8" cy="8" r="6" /><path d="M8 7.3v3.6M8 5v.2" /></>,
   /** variable layers: world (globe), signal (measured pulse), belief (thought bubble), internal (memory chip) */
   'layer-domain': <><circle cx="8" cy="8" r="5.8" /><path d="M2.2 8h11.6M8 2.2c-2.2 2.6-2.2 9 0 11.6M8 2.2c2.2 2.6 2.2 9 0 11.6" /></>,
+  /** computed world variable: globe with an f */
+  'layer-computed': <><circle cx="8" cy="8" r="5.8" /><path d="M9.8 4.8c-1.4-.5-2.4.3-2.4 1.6V11.5M5.8 7.4h3.8" /></>,
   'layer-signal': <path d="M1.5 9h2.5l1.8-4.5 2.7 8 2-5.5 1 2h3" />,
   'layer-belief': <><path d="M4.8 10.8a2.6 2.6 0 01-.6-5.1 3.7 3.7 0 017.1-1.1 3 3 0 01.6 6.2z" /><circle cx="4.6" cy="13.3" r="1" /><circle cx="2.2" cy="15" r=".5" /></>,
   'layer-internal': <><rect x="4.5" y="4.5" width="7" height="7" rx="1" /><path d="M6.5 2.5v2M9.5 2.5v2M6.5 11.5v2M9.5 11.5v2M2.5 6.5h2M2.5 9.5h2M11.5 6.5h2M11.5 9.5h2" /></>,
@@ -50,8 +52,8 @@ export const StatusIcon = ({ status, size = 14 }: { status: Status; size?: numbe
   <span className={'status-ico st-' + status} title={status[0].toUpperCase() + status.slice(1)}><Icon name={status} size={size} /></span>
 )
 
-export const LayerIcon = ({ layer, size = 13 }: { layer: VariableLayer; size?: number }) => (
-  <span className={'layer-ico l-' + layer} title={LAYER_SHORT[layer] + ' variable'}><Icon name={`layer-${layer}`} size={size} /></span>
+export const LayerIcon = ({ layer, size = 13, computed }: { layer: VariableLayer; size?: number; computed?: boolean }) => (
+  <span className={'layer-ico l-' + layer} title={computed ? 'Computed world variable' : LAYER_SHORT[layer] + ' variable'}><Icon name={computed ? 'layer-computed' : `layer-${layer}`} size={size} /></span>
 )
 
 /** Chip content: the item's label; a variable shown by name gets its layer icon and drops the owner (shown on hover). */
@@ -69,7 +71,7 @@ export function ChipLabel({ it, label }: { it: Item; label: string }) {
   if (label === variableName(p, it)) label = shortName(p, it) || label
   // icon stays on one line with the first word
   const [, first, rest] = /^(\S*)([^]*)$/.exec(label)!
-  return <><span className="nowrap"><LayerIcon layer={it.layer} size={12} />{first}</span>{rest}</>
+  return <><span className="nowrap"><LayerIcon layer={it.layer} size={12} computed={isComputed(p, it)} />{first}</span>{rest}</>
 }
 
 /** A layer badge: icon and short name. */
