@@ -76,7 +76,10 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
           <div className="reflist">{used.map((o) => <Ref key={o.id} id={o.id} />)}</div>
         </Field>
       )}
-      <div className="actions"><button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button></div>
+      <div className={'actions' + (popup ? ' split' : '')}>
+        <button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button>
+        {popup && <button className="primary" onClick={closeEditor}>Done</button>}
+      </div>
       {deleting && <DeleteDialog ids={[it.id]} onClose={() => { setDeleting(false); if (popup) closeEditor() }} />}
     </>
   )
