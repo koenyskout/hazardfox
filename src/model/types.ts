@@ -17,6 +17,13 @@ export const GUIDE_WORD_LABELS: Record<GuideWord, string> = {
   'stopped-too-soon': 'Stopped too soon / applied too long',
 }
 
+export const DURATIONS = ['continuous', 'instantaneous'] as const
+export type Duration = (typeof DURATIONS)[number]
+export const DURATION_LABELS: Record<Duration, string> = {
+  continuous: 'Continuous (has a duration)',
+  instantaneous: 'Instantaneous / discrete (no duration)',
+}
+
 export const STRIDE = [
   'Spoofing',
   'Tampering',
@@ -121,6 +128,8 @@ export interface ControlAction extends Base {
   kind: 'ca'
   from: Id
   to: Id
+  /** Instantaneous (discrete) actions have no duration, so "stopped too soon / applied too long" does not apply (Handbook, step 3) */
+  duration: Duration
   /** Optional domain operation (`<entityId>:<operation>`) */
   operation: string
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */

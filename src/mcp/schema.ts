@@ -2,7 +2,7 @@ import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKind } from '../model/tree'
-import { CAUSES, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, type Id, type Item, type Kind, type Project } from '../model/types'
+import { CAUSES, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -26,6 +26,7 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
 const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   requirement: { type: REQUIREMENT_TYPES },
   node: { role: NODE_ROLES },
+  ca: { duration: DURATIONS },
   uca: { guide: GUIDE_WORDS },
   scenario: { scenarioType: SCENARIO_TYPES },
 }

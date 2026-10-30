@@ -4,7 +4,7 @@ import { byLabel } from '../model/labels'
 import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
-import { generateUcaText } from '../model/uca'
+import { generateUcaText, guideApplies } from '../model/uca'
 import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
@@ -127,6 +127,9 @@ export function Ucas() {
                   const cell = ucas.filter((u) => u.ca === ca.id && u.guide === g)
                   const na = ca.kind === 'ca' ? ca.notApplicable.find((n) => n.guide === g) : undefined
                   const toggleNa = () => commit((q) => updateItem(q, ca.id, { notApplicable: ca.kind === 'ca' ? (na ? ca.notApplicable.filter((n) => n.guide !== g) : [...ca.notApplicable, { guide: g, reason: '' }]) : [] }))
+                  if (ca.kind === 'ca' && !guideApplies(ca, g) && !cell.length) return (
+                    <td key={g} className="na" title="Instantaneous control action: no duration"><span className="muted">N/A – instantaneous</span></td>
+                  )
                   if (na && !cell.length) return (
                     <td key={g} className="na" title={na.reason}>
                       <span className="muted">N/A{na.reason && ` – ${na.reason}`}</span>

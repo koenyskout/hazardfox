@@ -4,6 +4,7 @@ import { effectiveLosses } from './derived'
 import { createItem, deleteItems, group, indent, merge, outdent, shift, split, updateItem } from './ops'
 import { emptyProject } from './create'
 import { validate } from './validate'
+import { guideApplies } from './uca'
 import type { Hazard, Id, Kind, Patch, Project } from './types'
 
 function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
@@ -197,5 +198,18 @@ describe('sensors and actuators', () => {
     expect(items.filter((i) => i.kind === 'node').map((n) => n.kind === 'node' && n.role).sort()).toEqual(['controller', 'external', 'process', 'process'])
     expect(items.find((i) => i.kind === 'ca' && i.actuator === 'Valve')).toBeTruthy()
     expect(items.find((i) => i.kind === 'feedback' && i.sensor === 'Gauge')).toBeTruthy()
+  })
+})
+
+describe('control action duration', () => {
+  it('stopped-too-soon applies only to continuous control actions', () => {
+    let p = emptyProject()
+    let ca: Id
+    ;[p, ca] = add(p, 'ca', { title: 'Brake' })
+    const get = () => p.items[ca] as Extract<Project['items'][Id], { kind: 'ca' }>
+    expect(guideApplies(get(), 'stopped-too-soon')).toBe(true)
+    p = updateItem(p, ca, { duration: 'instantaneous' })
+    expect(guideApplies(get(), 'stopped-too-soon')).toBe(false)
+    expect(guideApplies(get(), 'provided')).toBe(true)
   })
 })

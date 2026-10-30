@@ -1,5 +1,5 @@
 import { renderText } from './labels'
-import type { Id, Project, Uca } from './types'
+import type { ControlAction, GuideWord, Id, Project, Uca } from './types'
 
 const PHRASE: Record<Uca['guide'], string> = {
   'not-provided': 'does not provide',
@@ -19,3 +19,6 @@ export function generateUcaText(p: Project, labels: Record<Id, string>, u: Uca):
   const ctx = [...conds, renderText(labels, u.context).trim()].filter(Boolean).join(' and ')
   return `${from?.title || '⟨controller⟩'} ${PHRASE[u.guide]} ${ca?.title || '⟨control action⟩'}${ctx ? ' when ' + ctx : ''}`
 }
+
+/** Guide words that can apply to a control action: only continuous ones can be stopped too soon / applied too long. */
+export const guideApplies = (ca: ControlAction, g: GuideWord) => !(g === 'stopped-too-soon' && ca.duration === 'instantaneous')

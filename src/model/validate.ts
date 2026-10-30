@@ -3,6 +3,7 @@ import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
 import { children, isLeaf, itemsOfKind } from './tree'
 import { type Id, type Item, type Project } from './types'
+import { guideApplies } from './uca'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -55,6 +56,7 @@ export function validate(p: Project): Issue[] {
 
   // control structure
   for (const ca of itemsOfKind(p, 'ca')) {
+    if (!guideApplies(ca, 'stopped-too-soon') && ucas.some((u) => u.ca === ca.id && u.guide === 'stopped-too-soon')) add('warning', ca, `${L[ca.id]} ${ca.title}: instantaneous control action has "stopped too soon / applied too long" UCAs`)
     for (const n of ca.notApplicable)
       if (ucas.some((u) => u.ca === ca.id && u.guide === n.guide)) add('warning', ca, `${L[ca.id]} ${ca.title}: guide word "${n.guide}" is marked not applicable but has UCAs`)
     if (!itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'ca' && s.ca === ca.id))

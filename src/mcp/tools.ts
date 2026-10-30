@@ -5,7 +5,7 @@ import { compareLabels } from '../model/labels'
 import { updateItem as patchItem, updateMeta, createItem, deleteItems, moveItem, reorder } from '../model/ops'
 import { incoming } from '../model/refs'
 import { children, flatten, itemsOfKind, parentKind } from '../model/tree'
-import { generateUcaText } from '../model/uca'
+import { generateUcaText, guideApplies } from '../model/uca'
 import { SEVERITIES, validate } from '../model/validate'
 import { GUIDE_WORDS, KINDS, KIND_NAMES, STATUSES, type Id, type Item, type Kind, type Project } from '../model/types'
 import { describeKind, internalize, Resolver, view } from './schema'
@@ -63,7 +63,7 @@ export function nextSteps(p: Project): string[] {
   if (!c('node')) out.push('Step 2: model the control structure: controllers/process/external elements (kind "node"), control actions (kind "ca") and feedback (kind "feedback"); add domain entities and process variables for the process models.')
   else if (!c('ca')) out.push('Step 2: add control actions between nodes (kind "ca").')
   const cas = itemsOfKind(p, 'ca')
-  const missing = cas.filter((ca) => GUIDE_WORDS.some((g) => !itemsOfKind(p, 'uca').some((u) => u.ca === ca.id && u.guide === g)))
+  const missing = cas.filter((ca) => GUIDE_WORDS.some((g) => guideApplies(ca, g) && !itemsOfKind(p, 'uca').some((u) => u.ca === ca.id && u.guide === g)))
   if (cas.length && missing.length) out.push(`Step 3: analyse unsafe control actions; ${missing.length} of ${cas.length} control actions lack at least one guide word (see uca_coverage).`)
   const noScen = itemsOfKind(p, 'uca').filter((u) => !itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'uca' && s.uca === u.id))
   if (noScen.length) out.push(`Step 4: add loss scenarios for the ${noScen.length} UCAs without one, plus control-action scenarios (scenarioType "ca").`)
@@ -269,7 +269,7 @@ export const TOOLS = [
 
   tool({
     name: 'uca_coverage',
-    description: 'For every control action: which UCAs exist per guide word (not-provided, provided, too-early-late, stopped-too-soon) and which guide words are not analysed yet (guide words marked not applicable, with reason, are reported separately and not as missing). Use it to work through STPA step 3 systematically.',
+    description: 'For every control action: which UCAs exist per guide word (not-provided, provided, too-early-late, stopped-too-soon) and which guide words are not analysed yet (guide words marked not applicable, with reason, and stopped-too-soon for instantaneous control actions, are reported separately and not as missing). Use it to work through STPA step 3 systematically.',
     shape: {},
     writes: false,
     run: (p) => {
@@ -279,7 +279,7 @@ export const TOOLS = [
         result: itemsOfKind(p, 'ca').sort((a, b) => compareLabels(r.labels[a.id], r.labels[b.id])).map((ca) => {
           const from = p.items[ca.from]
           const by = Object.fromEntries(GUIDE_WORDS.map((g) => [g, ucas.filter((u) => u.ca === ca.id && u.guide === g).map((u) => r.label(u.id))]))
-          return { ref: r.label(ca.id), title: ca.title, controller: from?.title, ucas: by, notApplicable: ca.notApplicable, missing: GUIDE_WORDS.filter((g) => by[g].length === 0 && !ca.notApplicable.some((n) => n.guide === g)) }
+          return { ref: r.label(ca.id), title: ca.title, controller: from?.title, ucas: by, notApplicable: ca.notApplicable, missing: GUIDE_WORDS.filter((g) => guideApplies(ca, g) && by[g].length === 0 && !ca.notApplicable.some((n) => n.guide === g)) }
         }),
       }
     },

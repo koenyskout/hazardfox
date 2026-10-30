@@ -1,4 +1,5 @@
-import { CAUSES, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { guideApplies } from '../model/uca'
+import { CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
@@ -187,8 +188,13 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.kind === 'ca' && (
+            <Field label="Duration">
+              <select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</select>
+            </Field>
+          )}
+          {it.kind === 'ca' && (
             <Field label="Guide words not applicable">
-              {GUIDE_WORDS.map((g) => {
+              {GUIDE_WORDS.filter((g) => guideApplies(it, g)).map((g) => {
                 const n = it.notApplicable.find((x) => x.guide === g)
                 const upd = (next: typeof it.notApplicable) => set({ notApplicable: next })
                 return (
