@@ -276,6 +276,13 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     }
   }
   walk(res, 0, 0, 0)
+  // ELK may stretch a compound beyond its content (e.g. to align layers); trim it to the children plus padding and extra height
+  for (const n of Object.values(out.nodes).filter((q) => q.compound).sort((a, b) => b.depth - a.depth)) {
+    const kids = children(p, n.id, 'node').map((k) => out.nodes[k.id]).filter(Boolean)
+    if (!kids.length) continue
+    const h = Math.max(60, Math.max(...kids.map((k) => k.y + k.h)) - n.y + 16 + Math.max(0, (p.items[n.id] as CsNode).tall))
+    if (h < n.h) { n.h = h; n.minH = baseH(n.id, h) }
+  }
 
   // connected boxes need vertical room for the arrow and its label: push everything below apart (growing compounds that straddle the cut)
   for (let it = 0; it < 60; it++) {
@@ -289,9 +296,15 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       const need = 70 + 14 * Math.max(1, labelLines[id]?.length ?? 1) + (pairs[[m.from, m.to].sort().join('|')] - 1) * 20
       if (gap >= need) continue
       const cut = lo.y, delta = need - gap
+      // compounds grow only if something inside them moves down
+      const grow = new Set<Id>()
+      for (const n of Object.values(out.nodes)) {
+        if (n.y < cut - 0.5) continue
+        for (let q = p.items[n.id]?.parent; q; q = p.items[q]?.parent ?? null) grow.add(q)
+      }
       for (const n of Object.values(out.nodes)) {
         if (n.y >= cut - 0.5) n.y += delta
-        else if (n.compound && n.y + n.h > cut + 0.5) { n.h += delta; n.minH += delta }
+        else if (n.compound && grow.has(n.id) && n.y + n.h > cut + 0.5) { n.h += delta; n.minH += delta }
       }
       moved = true
     }

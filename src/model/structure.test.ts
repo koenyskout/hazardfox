@@ -131,6 +131,15 @@ describe('moved diagrams', () => {
 })
 
 describe('element height', () => {
+  it('a split element is only as tall as its children need', async () => {
+    const { split } = await import('./ops')
+    const p0 = (await import('./handbookExamples')).handbookExampleProject('hb-cs-proscan')
+    const n = Object.values(p0.items).find((x) => x.kind === 'node' && x.title.startsWith('Operations'))!
+    const { project, ids } = split(p0, n.id, ['x1', 'x2'])
+    const l = await layoutStructure(project)
+    const bottom = Math.max(...ids.map((i) => l.nodes[i].y + l.nodes[i].h))
+    expect(l.nodes[n.id].y + l.nodes[n.id].h).toBeLessThanOrEqual(bottom + 17)
+  })
   it('extra height enlarges leaf and parent elements', async () => {
     const p = (await import('./handbookExamples')).handbookExampleProject('hb-cs-proscan')
     for (const n of Object.values(p.items).filter((x) => x.kind === 'node').slice(0, 3)) {
