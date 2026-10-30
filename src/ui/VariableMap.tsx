@@ -1,10 +1,27 @@
-import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, signalsInto, variablesIn } from '../model/formal'
+import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refinedBy, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
+import type { Project, Variable } from '../model/types'
 import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
 import { LayerIcon } from './Icon'
 import { addItemInDialog, commit, useProject } from './hooks'
 import { Picker } from './Picker'
+
+/** World variables depth-first, each refined variable followed by its parts (a part shared by several wholes is listed once). */
+function hierarchy(p: Project, world: Variable[]): [Variable, number][] {
+  const ids = new Set(world.map((w) => w.id))
+  const seen = new Set<string>()
+  const out: [Variable, number][] = []
+  const visit = (w: Variable, d: number) => {
+    if (seen.has(w.id)) return
+    seen.add(w.id)
+    out.push([w, d])
+    for (const id of refines(p, w)) { const x = p.items[id]; if (x?.kind === 'variable' && ids.has(id)) visit(x, d + 1) }
+  }
+  for (const w of world) if (!refinedBy(p, w.id).some((x) => ids.has(x.id))) visit(w, 0)
+  for (const w of world) visit(w, 0)
+  return out
+}
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
 export function VariableMap() {
@@ -26,13 +43,13 @@ export function VariableMap() {
           <tr><th><LayerIcon layer="domain" />World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
         </thead>
         <tbody>
-          {world.map((w) => (
+          {hierarchy(p, world).map(([w, d]) => (
             <tr key={w.id}>
-              <th><Ref id={w.id} /><br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}</small></th>
+              <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
-                const sig = signalsInto(p, c.id).filter((s) => s.about === w.id)
+                const sig = bel.length ? [...new Set(bel.flatMap((b) => updatedBy(p, b)))] : signalsInto(p, c.id).filter((s) => s.about === w.id)
                 const fbs = feedbackInto(p, c.id)
                 const cls = !bel.length ? (needed(c.id, w.id) ? 'gap' : '') : !sig.length ? 'warn' : 'ok'
                 return (

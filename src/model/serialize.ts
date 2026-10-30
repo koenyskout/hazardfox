@@ -2,6 +2,7 @@ import { emptyProject, makeItem } from './create'
 import { addBelief, addSignal, predicateOf } from './formal'
 import { createItem } from './ops'
 import { groupKey } from './tree'
+import { allOf } from './variables'
 import { KINDS, type Condition, type Id, type Item, type NodeRole, type Project, type VariableType } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
@@ -26,7 +27,7 @@ export function deserialize(text: string): Project {
   if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
-  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' ? ({ ...makeItem(it.kind), ...it } as Item) : it
   // Nodes linked one domain entity (`entity`); now a list.
   for (const n of Object.values(p.items)) {
     if (n.kind !== 'node' || !('entity' in n)) continue
@@ -44,7 +45,7 @@ export function deserialize(text: string): Project {
     n.role = old[n.role as string]
   }
   for (const it of Object.values(p.items)) {
-    if (it.kind === 'variable') Object.assign(it, { ...makeItem('variable'), ...it })
+    if (it.kind === 'variable') { Object.assign(it, { ...makeItem('variable'), ...it }); it.rules = it.rules.map((r) => (Array.isArray(r.when) ? { ...r, when: allOf(...r.when) } : r)) }
     if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
   }
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r

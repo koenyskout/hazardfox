@@ -3,7 +3,7 @@ import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { conditionComplete, conditionText, describeStates } from '../model/variables'
+import { conditionComplete, conditionText, describeStates, whenText } from '../model/variables'
 import { beliefsOf, controlledBy, signalsOf, variablesIn } from '../model/formal'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
 
@@ -57,8 +57,8 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
 
   push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],
     tree('entity').map(({ item: e }) => [...common(e), itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).map((v) => v.title).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
-  push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Description', 'Status'],
-    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), T(v.description), v.status]))
+  push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Computed from', 'Description', 'Status'],
+    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), v.rules.map((r) => `${r.state} when ${whenText(p, r.when)}`).concat(v.rules.length && v.otherwise ? [`otherwise ${v.otherwise}`] : []).join('\n'), T(v.description), v.status]))
   push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],
     itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain').sort(byLabel(L)).filter(keep).map((v) => {
       const about = itemsOfKind(p, 'variable').filter((x) => x.about === v.id)

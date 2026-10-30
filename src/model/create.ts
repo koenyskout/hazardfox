@@ -18,11 +18,11 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   assumption: () => ({ about: [] }),
   entity: () => ({ operations: [] }),
   relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*' }),
-  variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null }),
+  variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rules: [], otherwise: '' }),
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], operation: '', actuator: '', notApplicable: [], bend: null, labelShift: null }),
   feedback: () => ({ from: '', to: '', sensor: '', bend: null, labelShift: null }),
-  uca: () => ({ ca: '', guide: 'not-provided', conditions: [], context: '', override: '', hazards: [], constraint: '' }),
+  uca: () => ({ ca: '', guide: 'not-provided', conditions: [], context: '', override: '', hazards: [], constraint: '', refines: null }),
   scenario: () => ({
     scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null,
     stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0, trace: { lanes: [], steps: [] },

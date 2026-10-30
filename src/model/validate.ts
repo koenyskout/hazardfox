@@ -1,11 +1,12 @@
 import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { beliefsAbout, beliefsOf, isPredicate, refines, updatedBy, updates } from './formal'
-import { diagnose, witness } from './traces'
+import { beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
+import { diagnose, ruleConflicts, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
+import { conditionError, leaves, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -44,6 +45,9 @@ export const RULES = {
   'belief-no-about': { title: 'Belief without designation', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
+  'refinement-cycle': { title: 'Variable refined into itself', why: 'A refinement defines a higher-level variable from lower-level ones; a cycle defines it in terms of itself, so its value is undetermined.', fix: 'Remove the variable from the rules of the variables it is (transitively) refined into.' },
+  'refinement-invalid': { title: 'Invalid refinement rule', why: 'Each rule gives one value of the refined variable under conditions on actual (world) variables; a value it cannot take or a malformed condition makes the refinement meaningless.', fix: 'Pick one of the variable\'s values and fix the condition (world variables only).' },
+  'trace-rule-conflict': { title: 'Trace value contradicts a refinement', why: 'A refined variable is a function of its parts: once the parts have values in a trace, its value follows from the rules.', fix: 'Clear the value (it is computed) or change the parts.' },
   'trace-no-witness': { title: 'Trace does not exhibit the UCA', why: 'A scenario trace should show the unsafe control action: the UCA context holds at the step where the action is sent (or not sent).', fix: 'Adjust the values at the action step, or add / fix the control action event.' },
   'trace-cause-mismatch': { title: 'Trace points at a different causal factor', why: 'Comparing world, signal and belief at the action step suggests another cause than the one chosen: signal ≠ world → feedback; signal = world but belief ≠ signal → process model; belief = world → control algorithm.', fix: 'Change the causal factor, or adjust the trace.' },
   'uca-no-hazard': { title: 'UCA not linked to a hazard', why: 'An unsafe control action is only unsafe because it can lead to a hazard. The link is the definition of "unsafe".', fix: 'Link the UCA to the hazard(s) it can cause. If there is none, the context is probably not unsafe.' },
@@ -115,6 +119,14 @@ export function validate(p: Project): Issue[] {
     if (owner && !VARIABLE_OWNER[v.layer].includes(owner.kind)) add('error', v, 'variable-owner', `${nm(v)}: a ${LAYER_SHORT[v.layer].toLowerCase()} variable cannot belong to a ${owner.kind}`)
     if (v.layer === 'belief' && !v.about && !v.definition.trim()) add('info', v, 'belief-no-about', `${nm(v)}: not linked to the world variable it stands for`)
     if (v.layer === 'belief' && v.about && !updatedBy(p, v).length && !v.definition.trim()) add('info', v, 'belief-no-source', `${nm(v)}: no feedback updates this belief`, [v.about])
+    if (partsOf(p, v.id).includes(v.id)) add('error', v, 'refinement-cycle', `${nm(v)}: refined (transitively) into itself`)
+    const vals = valuesOf(v)
+    if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
+    for (const r of v.rules) {
+      const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
+        : leaves(r.when).map((c) => { const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c) }).find(Boolean)
+      if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
+    }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
       const to = p.items[owner.to]
       if (to?.kind === 'node' && to.role === 'controller' && !updates(p, v).length) add('info', v, 'signal-unused', `${nm(v)}: the receiving controller has no belief about it`, [v.about])
@@ -127,7 +139,7 @@ export function validate(p: Project): Issue[] {
       const v = p.items[c.variable]
       if (v?.kind !== 'variable') continue
       if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])
-      else if (v.layer === 'domain' && ca?.kind === 'ca' && p.items[ca.from]?.kind === 'node' && !beliefsAbout(p, ca.from, v.id).length && !refines(p, v).some((w) => beliefsAbout(p, ca.from, w).length))
+      else if (v.layer === 'domain' && ca?.kind === 'ca' && p.items[ca.from]?.kind === 'node' && !beliefsAbout(p, ca.from, v.id).length && !partsOf(p, v.id).some((w) => beliefsAbout(p, ca.from, w).length))
         add('warning', u, 'context-unrepresented', `${L[u.id]}: ${p.items[ca.from].title} has no belief about ${v.title}`, [v.id])
     }
     if (u.hazards.length === 0) add('warning', u, 'uca-no-hazard', `${L[u.id]}: no hazard linked`)
@@ -144,6 +156,8 @@ export function validate(p: Project): Issue[] {
       nonLeafTargets(s, s.hazards)
     }
     if (s.trace.steps.length) {
+      const c = s.trace.steps.map((_, i) => ruleConflicts(p, s.trace, i)).find((x) => x.length)?.[0]
+      if (c) add('warning', s, 'trace-rule-conflict', `${L[s.id]}: ${p.items[c[0]]?.title || L[c[0]]} is set to ${c[1]}, but its rules give ${c[2]}`, [c[0]])
       const w = witness(p, s)
       if (w && w.ok === false) add('warning', s, 'trace-no-witness', `${L[s.id]}: ${w.why}`)
       const d = w?.ok ? diagnose(p, s) : null

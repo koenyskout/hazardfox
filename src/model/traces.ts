@@ -1,8 +1,9 @@
-import { beliefsAbout, feedbackInto, signalsOf, worldOf } from './formal'
+import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
 import { mention } from './refs'
-import { isSetOp, stepOf, valuesOf } from './variables'
-import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable } from './types'
+import { itemsOfKind } from './tree'
+import { isGroup, isSetOp, stepOf, valuesOf } from './variables'
+import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
 export function valueAt(t: Trace, i: number, id: Id): { value: string | undefined; set: boolean } {
@@ -37,6 +38,56 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
   return null
 }
 
+/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); conditions without a variable are ignored. */
+export function whenHolds(p: Project, w: When, get: (id: Id) => string | undefined): boolean | null | undefined {
+  if (!isGroup(w)) { const v = p.items[w.variable]; return v?.kind === 'variable' ? holds(v, w, get(w.variable)) : undefined }
+  const hs = w.of.map((x) => whenHolds(p, x, get)).filter((h) => h !== undefined)
+  return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
+}
+
+/** Value of a refined variable from its rules (first rule whose condition holds, else `otherwise`); undefined while a needed part is unknown. */
+export function ruleValue(p: Project, v: Variable, get: (id: Id) => string | undefined): string | undefined {
+  for (const r of v.rules) {
+    const h = whenHolds(p, r.when, get)
+    if (h === null) return undefined
+    if (h !== false) return r.state
+  }
+  return v.otherwise || undefined
+}
+
+/** State at step i, with refined world variables (and a controller's beliefs about them, from its beliefs about the parts) computed by their rules. */
+export function traceState(p: Project, t: Trace, i: number): Record<Id, string> {
+  const raw = stateAt(t, i)
+  const out = { ...raw }
+  const vars = itemsOfKind(p, 'variable')
+  if (!vars.some((v) => v.rules.length)) return out
+  const busy = new Set<Id>()
+  const derive = (id: Id, get: (id: Id) => string | undefined, own: string | undefined): string | undefined => {
+    const v = p.items[id]
+    if (v?.kind !== 'variable' || !v.rules.length || busy.has(id)) return own
+    busy.add(id)
+    const x = ruleValue(p, v, get)
+    busy.delete(id)
+    return x ?? own
+  }
+  const world = (id: Id): string | undefined => derive(id, world, raw[id])
+  for (const v of vars) if (v.rules.length) { const x = world(v.id); if (x !== undefined) out[v.id] = x }
+  for (const b of vars) {
+    if (b.layer !== 'belief' || !b.parent || !b.about) continue
+    const ctrl = b.parent
+    const belief = (id: Id): string | undefined => { const x = beliefsAbout(p, ctrl, id)[0]; return x ? derive(id, belief, raw[x.id]) : derive(id, belief, undefined) }
+    const x = derive(b.about, belief, undefined)
+    if (x !== undefined) out[b.id] = x
+  }
+  return out
+}
+
+/** Values set at step i that contradict the rules of a refined variable: [id, set value, computed value]. */
+export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, string][] {
+  const st = traceState(p, t, i)
+  return Object.entries(t.steps[i]?.values ?? {}).flatMap(([id, x]) => (st[id] !== undefined && st[id] !== x ? [[id, x, st[id]] as [Id, string, string]] : []))
+}
+
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
   let all: boolean | null = true
@@ -50,7 +101,7 @@ export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boo
   return all
 }
 
-const NEGATE: Record<ConditionOp, ConditionOp> = { '=': '≠', '≠': '=', in: 'not in', 'not in': 'in', '<': '≥', '≥': '<', '≤': '>', '>': '≤', between: 'not between', 'not between': 'between' }
+export const NEGATE: Record<ConditionOp, ConditionOp> = { '=': '≠', '≠': '=', in: 'not in', 'not in': 'in', '<': '≥', '≥': '<', '≤': '>', '>': '≤', between: 'not between', 'not between': 'between' }
 
 /** A value that satisfies the condition (or, with `negate`, one that does not). */
 export function pickValue(v: Variable, c: Condition, negate = false): string {
@@ -91,7 +142,7 @@ export function witness(p: Project, s: Scenario): { step: number; ok: boolean | 
   if (step < 0) return { step, ok: false, why: 'no step shows the control action (sent or not sent)' }
   const ev = s.trace.steps[step].events.find((e) => e.on === u.ca)!
   if ((u.guide === 'not-provided') !== (ev.what === 'absent')) return { step, ok: false, why: u.guide === 'not-provided' ? 'the UCA is about not providing the action, but the trace sends it' : 'the UCA is about providing the action, but the trace does not send it' }
-  const ctx = contextHolds(p, u, stateAt(s.trace, step))
+  const ctx = contextHolds(p, u, traceState(p, s.trace, step))
   return { step, ok: ctx, why: ctx === false ? 'the UCA context does not hold at that step' : ctx === null ? 'some context variables have no value at that step' : 'the UCA context holds when the action is ' + (ev.what === 'absent' ? 'withheld' : 'sent') }
 }
 
@@ -99,7 +150,7 @@ export interface Mismatch { id: Id; world: Id; value: string; actual: string }
 
 /** Signals and beliefs whose value differs from the world variable they are about, at step i. */
 export function mismatches(p: Project, t: Trace, i: number): Mismatch[] {
-  const st = stateAt(t, i)
+  const st = traceState(p, t, i)
   const out: Mismatch[] = []
   for (const [id, value] of Object.entries(st)) {
     const v = p.items[id]
@@ -118,15 +169,18 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
   if (s.scenarioType !== 'uca' || u?.kind !== 'uca' || ca?.kind !== 'ca') return null
   const step = actionStep(s.trace, ca.id)
   if (step < 0) return null
-  const st = stateAt(s.trace, step)
+  const st = traceState(p, s.trace, step)
   const fbs = feedbackInto(p, ca.from)
   let anyBelief = false
   for (const c of u.conditions) {
     const w = p.items[c.variable]
     if (w?.kind !== 'variable' || w.layer !== 'domain' || st[w.id] === undefined) continue
-    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about === w.id && st[x.id] !== undefined)
+    // Signals about the variable or one of its parts, each compared with the world variable it is about.
+    const about = [w.id, ...partsOf(p, w.id)]
+    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about && about.includes(x.about) && st[x.id] !== undefined)
     const bel = beliefsAbout(p, ca.from, w.id).filter((b) => st[b.id] !== undefined)
-    if (sigs.some((x) => st[x.id] !== st[w.id])) return { cause: 'feedback', why: `the signal about ${variableName(p, w)} differs from the world` }
+    const bad = sigs.find((x) => st[x.about!] !== undefined && st[x.id] !== st[x.about!])
+    if (bad) return { cause: 'feedback', why: `the signal about ${variableName(p, p.items[bad.about!] as Variable)} differs from the world` }
     for (const b of bel) {
       anyBelief = true
       if (st[b.id] === st[w.id]) continue
