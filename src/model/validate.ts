@@ -12,6 +12,8 @@ export interface Issue {
   severity: Severity
   item: Id | null
   message: string
+  /** 'ai': from the AI review (probabilistic hint) */
+  source?: 'ai'
 }
 
 /** Check completeness and consistency of the analysis. */

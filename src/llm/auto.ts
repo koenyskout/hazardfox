@@ -1,5 +1,6 @@
 import { computeLabels } from '../model/labels'
 import { useStore } from '../model/store'
+import type { Issue } from '../model/validate'
 import type { Id, Item, Project } from '../model/types'
 import { decide, loadLlm } from './ollama'
 import { REVIEW_KINDS, decisionRequest, summarise, type ItemReview } from './review'
@@ -66,4 +67,24 @@ export const freshReview = (p: Project, L: Record<Id, string>, id: Id): ItemRevi
   if (!it || !c || !REVIEW_KINDS.includes(it.kind)) return undefined
   if (c.key !== keyOf(decisionRequest(p, L, it), loadLlm().model)) return undefined
   return summarise(it, c.p)
+}
+
+/** Number of reviewable items without a current saved result, and the total. */
+export function reviewProgress(p: Project): { done: number; total: number } {
+  const L = computeLabels(p)
+  const items = Object.values(p.items).filter((it) => REVIEW_KINDS.includes(it.kind))
+  return { done: items.filter((it) => freshReview(p, L, it.id)).length, total: items.length }
+}
+
+/** Validation findings from the saved AI reviews: one per item with a failing (warning) or unsure (info) check. */
+export function aiIssues(p: Project): Issue[] {
+  const L = computeLabels(p)
+  const out: Issue[] = []
+  for (const it of Object.values(p.items)) {
+    const r = freshReview(p, L, it.id)
+    if (!r || r.verdict === 'pass') continue
+    const bad = r.checks.filter((c) => c.verdict !== 'pass').map((c) => `${c.label} (${Math.round(c.p * 100)}%)`)
+    out.push({ severity: r.verdict === 'fail' ? 'warning' : 'info', item: it.id, source: 'ai', message: `${L[it.id]} ${it.title}: ${bad.join('; ')}`.replace(/\s+:/, ':') })
+  }
+  return out
 }

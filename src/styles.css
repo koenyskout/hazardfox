@@ -275,3 +275,10 @@ table.plain td { padding: 4px 10px 4px 0; }
 .rb-val { position: absolute; top: 0; width: 56px; transform: translateX(-50%); font-size: 12px; font-weight: 600; text-align: center; padding: 1px 2px; }
 .rb-val.lo { transform: translateX(-100%); text-align: right; } .rb-val.hi { transform: none; text-align: left; }
 .rb-lbl { font-size: 11px; color: var(--muted); line-height: 16px; white-space: nowrap; margin-bottom: 1px; }
+
+.ai-tag { font-size: 10px; font-weight: 600; color: #6741d9; border: 1px solid #b197fc; border-radius: 4px; padding: 0 4px; align-self: flex-start; margin-top: 2px; }
+.link-btn { border: 0; background: none; padding: 0; color: var(--muted); cursor: pointer; vertical-align: middle; } .link-btn:hover { color: var(--text); }
+.check-help { margin: 2px 0 6px 24px; padding: 6px 10px; font-size: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.criteria h4 { margin: 14px 0 4px; } .criteria p { margin: 4px 0; font-size: 13px; } .criteria ul { padding-left: 18px; font-size: 13px; }
+.criteria .examples { list-style: none; padding: 0; } .criteria .examples li { padding: 2px 0; }
+.criteria .examples .mark { font-weight: 700; } .criteria .good .mark { color: #2f9e44; } .criteria .bad .mark { color: #d64545; }

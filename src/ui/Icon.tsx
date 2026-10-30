@@ -20,6 +20,7 @@ const PATHS: Record<string, ReactNode> = {
   draft: <path d="M3 13l.6-3L10.5 3.1a1.2 1.2 0 011.7 0l.7.7a1.2 1.2 0 010 1.7L6 12.4zM9.5 4.2l2.3 2.3" />,
   review: <><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="1.8" /></>,
   approved: <><circle cx="8" cy="8" r="6" /><path d="M5.2 8.3l2 2 3.6-4" /></>,
+  info: <><circle cx="8" cy="8" r="6" /><path d="M8 7.3v3.6M8 5v.2" /></>,
   gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
 }
 

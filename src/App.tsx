@@ -14,7 +14,7 @@ import { Domain, Overview, Requirements, Scenarios, Step1, Ucas } from './ui/vie
 import { Trace, Validation } from './ui/views2'
 import { Welcome } from './ui/Welcome'
 
-import { AutoReviewToggle, ReviewView, useAutoReview } from './ui/Review'
+import { AutoReviewToggle, useAiIssues, useAutoReview } from './ui/Review'
 const ExportView = lazy(() => import('./ui/ExportView').then((m) => ({ default: m.ExportView })))
 
 const NAV: [View, string, string][] = [
@@ -28,7 +28,6 @@ const NAV: [View, string, string][] = [
   ['requirements', 'Requirements', '✔'],
   ['trace', 'Traceability', '⇄'],
   ['validation', 'Validation', '✓'],
-  ['review', 'AI review', '✦'],
   ['export', 'Export', '⇩'],
 ]
 
@@ -38,8 +37,9 @@ export default function App() {
   const { undo, redo, past, future, dirty, fileName, load, setPalette } = useStore()
   const p = useProject()
   const issues = useMemo(() => validate(p), [p])
+  const aiFindings = useAiIssues()
   useAutoReview()
-  const errs = issues.filter((i) => i.severity !== 'info').length
+  const errs = issues.concat(aiFindings).filter((i) => i.severity !== 'info').length
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -59,7 +59,7 @@ export default function App() {
   const body = {
     welcome: <Welcome />, overview: <Overview />, step1: <Step1 />, domain: <Domain />, structure: <Structure />, ucas: <Ucas />,
     scenarios: <Scenarios />, requirements: <Requirements />, trace: <Trace />, validation: <Validation />, export: <ExportView />,
-    review: <ReviewView />,
+    review: <Validation details />,
   }[view]
   const wideDetails = view !== 'welcome' && view !== 'trace' && view !== 'validation' && view !== 'review' && view !== 'export'
 

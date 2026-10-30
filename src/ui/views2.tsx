@@ -5,6 +5,7 @@ import { SEVERITIES, validate, type Severity } from '../model/validate'
 import { useStore } from '../model/store'
 import { ItemHover, Ref, VIEW_OF } from './Fields'
 import { useProject } from './hooks'
+import { AiStatus, ReviewView, useAiIssues } from './Review'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
 
@@ -56,15 +57,24 @@ export function Trace() {
   )
 }
 
-export function Validation() {
+export function Validation({ details }: { details?: boolean }) {
   const p = useProject()
   const goto = useStore((s) => s.goto)
-  const issues = useMemo(() => validate(p), [p])
+  const rules = useMemo(() => validate(p), [p])
+  const ai = useAiIssues()
+  const issues = useMemo(() => [...rules, ...ai], [rules, ai])
   const [sev, setSev] = useState<'all' | Severity>('all')
+  const [showDetails, setShowDetails] = useState(!!details)
   const shown = issues.filter((i) => sev === 'all' || i.severity === sev)
   return (
     <div className="page">
       <h2>Validation <small className="muted">{issues.length} finding(s)</small></h2>
+      <AiStatus />
+      <div className="tabs">
+        <button className={!showDetails ? 'on' : ''} onClick={() => setShowDetails(false)}>Findings</button>
+        <button className={showDetails ? 'on' : ''} onClick={() => setShowDetails(true)}>AI review details &amp; rewrites</button>
+      </div>
+      {showDetails ? <ReviewView embedded /> : <>
       <div className="tabs">
         {(['all', ...SEVERITIES] as const).map((s) => (
           <button key={s} className={sev === s ? 'on' : ''} onClick={() => setSev(s)}>{s} <i>{s === 'all' ? issues.length : issues.filter((i) => i.severity === s).length}</i></button>
@@ -75,10 +85,12 @@ export function Validation() {
         {shown.map((i, n) => (
           <li key={n} className={'sev-' + i.severity}>
             <b>{i.severity}</b>
+            {i.source === 'ai' && <span className="ai-tag" title="From the AI review: a hint, not a verdict">AI</span>}
             {i.item && p.items[i.item] ? <ItemHover id={i.item}><a href="#" onClick={(e) => { e.preventDefault(); const it = p.items[i.item!]; goto(VIEW_OF[it.kind], it.id) }}>{i.message}</a></ItemHover> : <span>{i.message}</span>}
           </li>
         ))}
       </ul>
+      </>}
     </div>
   )
 }

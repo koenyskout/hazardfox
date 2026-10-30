@@ -3,12 +3,14 @@ import { computeLabels } from '../model/labels'
 import { itemsOfKind } from '../model/tree'
 import { KIND_NAMES, type Id, type Kind, type Item } from '../model/types'
 import { chat, decide, defaultLlm, listDecisionModels, loadLlm, saveLlm, type LlmSettings } from '../llm/ollama'
-import { FAIL, PASS, REVIEW_KINDS, WRITER_SYSTEM, canSuggest, cleanSuggestion, decisionRequest, suggestionPrompt, summarise, withTitle, type CheckResult, type ItemReview, type Verdict } from '../llm/review'
-import { freshReview, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
+import { CHECKS, FAIL, PASS, REVIEW_KINDS, WRITER_SYSTEM, canSuggest, cleanSuggestion, decisionRequest, suggestionPrompt, summarise, withTitle, type CheckResult, type ItemReview, type Verdict } from '../llm/review'
+import { aiIssues, freshReview, reviewProgress, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
 import { updateItem } from '../model/ops'
 import { commit, useLabels, useProject } from './hooks'
 import { Icon } from './Icon'
 import { ItemHover } from './Fields'
+import { CheckHelp, CriteriaButton } from './Criteria'
+import { useMemo } from 'react'
 
 /** Connection settings for the local Ollama server; checks the endpoint and lists installed decision models. */
 function Settings({ value, onChange }: { value: LlmSettings; onChange: (s: LlmSettings) => void }) {
@@ -51,6 +53,9 @@ type Result = { review: ItemReview; suggestion?: Suggestion }
 /** One item's result: overall verdict, the criteria that are not fulfilled (with the model's probability) and a verified rewrite. */
 function ItemResult({ id, label, title, result }: { id: Id; label: string; title?: string; result: Result }) {
   const { review, suggestion } = result
+  const p = useProject()
+  const [openCheck, setOpenCheck] = useState<string | null>(null)
+  const kind = p.items[id]?.kind
   const shown = review.checks.filter((c) => c.verdict !== 'pass')
   const fine = review.checks.length - shown.length
   return (
@@ -62,12 +67,17 @@ function ItemResult({ id, label, title, result }: { id: Id; label: string; title
         <span className="verdict-badge">{VERDICT_TEXT[review.verdict]}</span>
       </div>
       {shown.map((c) => (
-        <div key={c.id} className={'verdict-check ' + c.verdict} title={c.ask}>
-          <span>{c.verdict === 'fail' ? 'Problem: ' : 'Possible problem: '}{c.label}</span>
-          <span className="meter" title={`Probability that this mistake is present: ${Math.round(c.p * 100)}%`}>
-            <i style={{ width: `${Math.round(c.p * 100)}%` }} />
-          </span>
-          <span className="pct">{Math.round(c.p * 100)}%</span>
+        <div key={c.id}>
+          <div className={'verdict-check ' + c.verdict} title={c.ask}>
+            <span>{c.verdict === 'fail' ? 'Problem: ' : 'Possible problem: '}{c.label}{' '}
+              <button className="link-btn" title="What does this criterion mean?" onClick={() => setOpenCheck(openCheck === c.id ? null : c.id)}><Icon name="info" size={13} /></button>
+            </span>
+            <span className="meter" title={`Probability that this mistake is present: ${Math.round(c.p * 100)}%`}>
+              <i style={{ width: `${Math.round(c.p * 100)}%` }} />
+            </span>
+            <span className="pct">{Math.round(c.p * 100)}%</span>
+          </div>
+          {openCheck === c.id && kind && (() => { const ch = (CHECKS[kind] ?? []).find((x) => x.id === c.id); return ch && <CheckHelp check={ch} /> })()}
         </div>
       ))}
       {fine > 0 && <div className="hint">{fine} of {review.checks.length} checks passed</div>}
@@ -174,21 +184,23 @@ export function ReviewItem({ it }: { it: Item }) {
         <>
           <Settings value={settings} onChange={setSettings} />
           <ReviewRunner kind={it.kind} ids={[it.id]} settings={settings} />
+          <CriteriaButton kind={it.kind} label={`Criteria for ${KIND_NAMES[it.kind].toLowerCase()}s`} />
         </>
       )}
     </div>
   )
 }
 
-export function ReviewView() {
+/** AI review details: per kind, run the checks, see all unmet criteria and drafted rewrites. */
+export function ReviewView({ embedded }: { embedded?: boolean }) {
   const p = useProject()
   const [settings, setSettings] = useState(loadLlm)
   const [kind, setKind] = useState<Kind>('hazard')
   const items = itemsOfKind(p, kind)
   return (
-    <div className="page">
-      <h2>AI review <span className="hint">decision model via Ollama</span></h2>
-      <p className="hint">For each artifact a local decision model estimates how likely it is that a common mistake from the STPA Handbook is present (e.g. a component failure in a hazard). The percentages are the model's probabilities, not verdicts – always judge them yourself.</p>
+    <div className={embedded ? undefined : 'page'}>
+      {!embedded && <h2>AI review <span className="hint">decision model via Ollama</span></h2>}
+      <p className="hint">For each artifact a local decision model estimates how likely it is that a common mistake from the STPA Handbook is present (e.g. a component failure in a hazard). The percentages are the model's probabilities, not verdicts – always judge them yourself. <CriteriaButton kind={kind} /></p>
       <Settings value={settings} onChange={setSettings} />
       <div className="tabs">
         {REVIEW_KINDS.map((k) => (
@@ -235,4 +247,31 @@ export function ReviewDot({ id }: { id: Id }) {
   if (!r || r.verdict === 'pass') return null
   const bad = r.checks.filter((c) => c.verdict !== 'pass').map((c) => c.label).join('; ')
   return <ItemHover id={id}><span className={'review-dot ' + r.verdict} aria-label={`${VERDICT_TEXT[r.verdict]}: ${bad}`}>●</span></ItemHover>
+}
+
+/** AI findings for the validation list (from the saved reviews; recomputed when items or the review cache change). */
+export function useAiIssues() {
+  const p = useProject()
+  useAuto()
+  return useMemo(() => aiIssues(p), [p.items, p.reviews]) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Status line for the AI part of validation: switch, progress, run now, criteria help. */
+export function AiStatus() {
+  const p = useProject()
+  const { enabled, busy, error } = useAuto()
+  const ac = useRef<AbortController | null>(null)
+  useEffect(() => () => ac.current?.abort(), [])
+  const { done, total } = useMemo(() => reviewProgress(p), [p.items, p.reviews]) // eslint-disable-line react-hooks/exhaustive-deps
+  const run = () => { ac.current?.abort(); const c = new AbortController(); ac.current = c; void reviewStale(p, c.signal) }
+  return (
+    <div className="toolbar">
+      <Icon name="sparkle" /> <b>AI review</b>
+      <span className="hint">{done} of {total} items reviewed{busy ? ' (running…)' : ''}{error ? ` – ${error}` : ''}</span>
+      {done < total && !busy && <button onClick={run}>Review now</button>}
+      {busy && <button onClick={() => ac.current?.abort()}><Icon name="x" /> Stop</button>}
+      <AutoReviewToggle />
+      <CriteriaButton />
+    </div>
+  )
 }
