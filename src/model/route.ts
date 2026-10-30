@@ -5,7 +5,7 @@ export interface Seg { a: Pt; b: Pt }
 /** An arrow end already sitting on a box side (so new ports keep their distance). */
 export interface Used { box: string; y: number; x: number }
 
-const BEND = 40, CROSS = 400, PARALLEL = 600, USED = 500
+const BEND = 40, CROSS = 400, PARALLEL = 600, USED = 500, UNNATURAL = 120
 
 class Heap {
   private h: { k: number; v: number }[] = []
@@ -35,12 +35,11 @@ class Heap {
 const uniq = (v: number[]) => [...new Set(v.map((q) => Math.round(q)))].sort((a, b) => a - b)
 
 /**
- * Route from `a` to `b`: a control action (`up` false) leaves the bottom of `a` and arrives at the top of `b`, feedback the reverse.
+ * Route from `a` to `b`. Arrows leave and arrive vertically, on the top or bottom edge, never at a side. `pref` is the natural direction
+ * (control actions go down: leave the bottom, arrive at the top; feedback goes up); the opposite sides are allowed at a penalty.
  * Avoids all `boxes`, keeps `sep` from other arrows' parallel segments, prefers few bends and few crossings. Null if nothing is found.
  */
-export function routeAround(a: Box, b: Box, up: boolean, boxes: Box[], segs: Seg[], used: Used[], sep: number, margin: number): Pt[] | null {
-  const sd = up ? -1 : 1
-  const ya = up ? a.y : a.y + a.h, yb = up ? b.y + b.h : b.y
+export function routeAround(a: Box, b: Box, pref: 'down' | 'up', boxes: Box[], segs: Seg[], used: Used[], sep: number, margin: number): Pt[] | null {
   const ports = (n: Box) => {
     const out: number[] = []
     for (let x = n.x + margin; x <= n.x + n.w - margin + 0.01; x += 10) out.push(x)
@@ -49,8 +48,9 @@ export function routeAround(a: Box, b: Box, up: boolean, boxes: Box[], segs: Seg
   }
   const pa = ports(a), pb = ports(b)
   const gap = margin
+  const aTop = Math.round(a.y), aBot = Math.round(a.y + a.h), bTop = Math.round(b.y), bBot = Math.round(b.y + b.h)
   const xs = uniq([...boxes.flatMap((n) => [n.x - gap, n.x - gap - sep, n.x + n.w + gap, n.x + n.w + gap + sep]), ...pa, ...pb])
-  const ys = uniq([...boxes.flatMap((n) => [n.y - gap, n.y - gap - sep, n.y + n.h + gap, n.y + n.h + gap + sep]), ya, yb])
+  const ys = uniq([...boxes.flatMap((n) => [n.y - gap, n.y - gap - sep, n.y + n.h + gap, n.y + n.h + gap + sep]), aTop, aBot, bTop, bBot])
   const xi = new Map(xs.map((v, i) => [v, i])), yi = new Map(ys.map((v, i) => [v, i]))
   const NX = xs.length, NY = ys.length
   const solid = boxes.map((n) => ({ x0: n.x - 0.5, x1: n.x + n.w + 0.5, y0: n.y - 0.5, y1: n.y + n.h + 0.5, id: n.id }))
@@ -81,26 +81,28 @@ export function routeAround(a: Box, b: Box, up: boolean, boxes: Box[], segs: Seg
     for (const u of used) if (u.box === n.id && Math.abs(u.y - y) < 1 && Math.abs(u.x - x) < sep - 1) c += USED
     return c
   }
-  // state = (ix, iy, d) with d: 0 +x, 1 -x, 2 +y, 3 -y
+  // state = (ix, iy, d) with d: 0 +x, 1 -x, 2 +y (down), 3 -y (up)
   const idx = (ix: number, iy: number, d: number) => (iy * NX + ix) * 4 + d
   const dist = new Map<number, number>(), prev = new Map<number, number>()
   const heap = new Heap()
   const tx0 = b.x + margin, tx1 = b.x + b.w - margin
-  const hOf = (x: number, y: number) => Math.max(0, tx0 - x, x - tx1) + Math.abs(y - yb)
-  const startOf = new Map<number, number>()
-  const iyA = yi.get(Math.round(ya))!
-  const dSd = sd > 0 ? 2 : 3
-  for (const x of pa) {
-    const ix = xi.get(Math.round(x))!, iy = iyA + sd
+  const hOf = (x: number, y: number) => Math.max(0, tx0 - x, x - tx1) + Math.min(Math.abs(y - bTop), Math.abs(y - bBot))
+  const startOf = new Map<number, Pt>()
+  const natural = pref === 'down' ? 2 : 3
+  for (const [ya, nd] of [[aBot, 2], [aTop, 3]] as const) {
+    const iy = yi.get(ya)! + (nd === 2 ? 1 : -1)
     if (iy < 0 || iy >= NY) continue
-    const y1 = ys[iy]
-    if (blocked(x, ya, x, y1, a.id)) continue
-    const c = portCost(a, ya, x) + stepCost(x, ya, x, y1)
-    const s = idx(ix, iy, dSd)
-    if (c < (dist.get(s) ?? Infinity)) { dist.set(s, c); startOf.set(s, x); heap.push(c + hOf(x, y1), s) }
+    const y1 = ys[iy], pen = nd === natural ? 0 : UNNATURAL
+    for (const x of pa) {
+      const ix = xi.get(Math.round(x))!
+      if (blocked(x, ya, x, y1, a.id)) continue
+      const c = pen + portCost(a, ya, x) + stepCost(x, ya, x, y1)
+      const s = idx(ix, iy, nd)
+      if (c < (dist.get(s) ?? Infinity)) { dist.set(s, c); startOf.set(s, { x, y: ya }); heap.push(c + hOf(x, y1), s) }
+    }
   }
   const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1]
-  let best: { cost: number; state: number; x: number } | null = null
+  let best: { cost: number; state: number; x: number; y: number } | null = null
   let n = 0
   while (heap.size && n++ < 80000) {
     const { k, v } = heap.pop()
@@ -113,12 +115,12 @@ export function routeAround(a: Box, b: Box, up: boolean, boxes: Box[], segs: Seg
       const jx = ix + DX[nd], jy = iy + DY[nd]
       if (jx < 0 || jx >= NX || jy < 0 || jy >= NY) continue
       const x0 = xs[ix], y0 = ys[iy], x1 = xs[jx], y1 = ys[jy]
-      const last = nd === dSd && y1 === Math.round(yb) && x1 >= tx0 - 0.5 && x1 <= tx1 + 0.5
+      const last = ((nd === 2 && y1 === bTop) || (nd === 3 && y1 === bBot)) && x1 >= tx0 - 0.5 && x1 <= tx1 + 0.5
       if (blocked(x0, y0, x1, y1, last ? b.id : null)) continue
       let c = g + stepCost(x0, y0, x1, y1) + (nd === d ? 0 : BEND)
       if (last) {
-        c += portCost(b, yb, x1)
-        if (!best || c < best.cost) { best = { cost: c, state: v, x: x1 }; prev.set(-1, v) }
+        c += portCost(b, y1, x1) + (nd === natural ? 0 : UNNATURAL)
+        if (!best || c < best.cost) best = { cost: c, state: v, x: x1, y: y1 }
         continue
       }
       const s = idx(jx, jy, nd)
@@ -126,12 +128,13 @@ export function routeAround(a: Box, b: Box, up: boolean, boxes: Box[], segs: Seg
     }
   }
   if (!best) return null
-  const pts: Pt[] = [{ x: best.x, y: yb }]
+  const pts: Pt[] = [{ x: best.x, y: best.y }]
   let s: number | undefined = best.state
   while (s !== undefined) {
     const d = s % 4, cell = (s - d) / 4, ix = cell % NX, iy = (cell - ix) / NX
     pts.push({ x: xs[ix], y: ys[iy] })
-    if (startOf.has(s)) { pts.push({ x: startOf.get(s)!, y: ya }); break }
+    const st = startOf.get(s)
+    if (st) { pts.push(st); break }
     s = prev.get(s)
   }
   pts.reverse()

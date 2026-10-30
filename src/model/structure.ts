@@ -136,209 +136,6 @@ const placeDevices = (items: { id: Id; points: Pt[]; name: string; kind: Device[
   return out
 }
 
-/** Shift every segment of an orthogonal route by d to its left-hand side, so the copy runs parallel to the original. */
-const offsetRoute = (pts: Pt[], d: number): Pt[] =>
-  pts.map((q, i) => {
-    let x = q.x, y = q.y
-    for (const [a, b] of [[pts[i - 1], q], [q, pts[i + 1]]]) {
-      if (!a || !b) continue
-      if (Math.abs(a.x - b.x) < 1) x += b.y < a.y ? d : -d
-      else y += b.x > a.x ? d : -d
-    }
-    return { x, y }
-  })
-
-/**
- * An arrow that leaves (or enters) a box and immediately turns sideways across another arrow of the same box would cross it:
- * move its end point to the far side of that arrow (when it still lies inside the box).
- */
-const uncross = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
-  for (const r of routes) {
-    const n = r.points.length
-    if (n < 4) continue
-    for (const end of [0, n - 1]) {
-      const dir = end === 0 ? 1 : -1
-      const e = r.points[end], k = r.points[end + dir], nx = r.points[end + 2 * dir]
-      const box = nodes[end === 0 ? r.from : r.to]
-      if (!box || Math.abs(e.x - k.x) > 1 || Math.abs(k.y - nx.y) > 1) continue
-      const side = Math.sign(nx.x - k.x)
-      for (const o of routes) {
-        if (o === r) continue
-        for (const [oe, ok, node] of [[0, 1, o.from], [o.points.length - 1, o.points.length - 2, o.to]] as const) {
-          if (node !== (end === 0 ? r.from : r.to)) continue
-          const a = o.points[oe], b = o.points[ok]
-          if (Math.abs(a.x - b.x) > 1 || Math.abs(a.x - e.x) < 1) continue
-          const between = (a.x - k.x) * (a.x - nx.x) < 0
-          const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)]
-          if (!between || k.y < y0 || k.y > y1) continue
-          let x = a.x + side * SEP
-          if (side > 0 && x > box.x + box.w - MARGIN && widen(box, x + MARGIN - box.x, nodes)) x = a.x + side * SEP
-          const x2 = x >= box.x + MARGIN && x <= box.x + box.w - MARGIN ? x : NaN
-          x = x2
-          if (!isNaN(x)) {
-            r.points[end] = { ...e, x }
-            r.points[end + dir] = { ...k, x }
-            continue
-          }
-          // no room: slide the straight crossed arrow to the near side instead
-          const A = nodes[o.from], B = nodes[o.to]
-          const lo = Math.max(A.x, B.x) + MARGIN, hi = Math.min(A.x + A.w, B.x + B.w) - MARGIN
-          const nxx = e.x - side * SEP
-          if (o.points.length === 2 && nxx >= lo && nxx <= hi) o.points = o.points.map((q) => ({ ...q, x: nxx }))
-        }
-      }
-    }
-  }
-}
-
-/** Make a box wider to the right (to `w`) if no other box is in the way. */
-const widen = (box: NodeBox, w: number, nodes: Record<Id, NodeBox>): boolean => {
-  if (w <= box.w) return true
-  const free = Object.values(nodes).every((o) => o === box || o.compound || o.y >= box.y + box.h || o.y + o.h <= box.y || o.x + o.w <= box.x + box.w || o.x >= box.x + w + 24)
-  if (free) box.w = w
-  return free
-}
-
-/**
- * Arrows that meet the same side of a box keep at least SEP between them and MARGIN from the corners
- * (order is kept; a straight arrow also stays inside the other box). A box that is too narrow for its arrows grows.
- */
-const placePorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
-  interface Port { r: EdgeRoute; i: number; j: number; ax: 'x' | 'y'; lo: number; hi: number }
-  for (let round = 0; round < 6; round++) {
-    const groups = new Map<string, { box: NodeBox; ax: 'x' | 'y'; ports: Port[] }>()
-    for (const r of routes) {
-      const n = r.points.length
-      for (const [i, j, id] of [[0, 1, r.from], [n - 1, n - 2, r.to]] as const) {
-        const box = nodes[id], e = r.points[i], k = r.points[j]
-        if (!box || box.compound) continue
-        const ax = Math.abs(e.x - k.x) < 1 && Math.abs(e.y - k.y) >= 1 ? 'x' : Math.abs(e.y - k.y) < 1 && Math.abs(e.x - k.x) >= 1 ? 'y' : null
-        if (!ax) continue
-        const side = ax === 'x' ? (Math.abs(e.y - box.y) < 1 ? 't' : Math.abs(e.y - box.y - box.h) < 1 ? 'b' : '') : (Math.abs(e.x - box.x) < 1 ? 'l' : Math.abs(e.x - box.x - box.w) < 1 ? 'r' : '')
-        if (!side) continue
-        const key = id + side
-        const g = groups.get(key) ?? { box, ax, ports: [] }
-        g.ports.push({ r, i, j, ax, lo: -Infinity, hi: Infinity })
-        groups.set(key, g)
-      }
-    }
-    for (const { box, ax, ports } of groups.values()) {
-      const size = ax === 'x' ? box.w : box.h
-      const need = 2 * MARGIN + (ports.length - 1) * SEP
-      if (size < need && ax === 'x') widen(box, need, nodes)
-      for (const q of ports) {
-        const [a0, a1] = ax === 'x' ? [box.x, box.x + box.w] : [box.y, box.y + box.h]
-        q.lo = a0 + MARGIN
-        q.hi = a1 - MARGIN
-        if (q.r.points.length === 2) {
-          const o = nodes[q.i === 0 ? q.r.to : q.r.from]
-          if (o) {
-            const [b0, b1] = ax === 'x' ? [o.x, o.x + o.w] : [o.y, o.y + o.h]
-            if (Math.min(a1, b1) - Math.max(a0, b0) >= 2 * MARGIN) { q.lo = Math.max(q.lo, b0 + MARGIN); q.hi = Math.min(q.hi, b1 - MARGIN) }
-          }
-        }
-      }
-      const val = (q: Port) => q.r.points[q.i][ax]
-      ports.sort((a, b) => val(a) - val(b))
-      const set = (q: Port, v: number) => { q.r.points[q.i] = { ...q.r.points[q.i], [ax]: v }; q.r.points[q.j] = { ...q.r.points[q.j], [ax]: v } }
-      ports.forEach((q, i) => {
-        let v = Math.max(q.lo, Math.min(q.hi, val(q)))
-        if (i && v < val(ports[i - 1]) + SEP) v = Math.min(q.hi, val(ports[i - 1]) + SEP)
-        if (v !== val(q)) set(q, v)
-      })
-      for (let i = ports.length - 2; i >= 0; i--) {
-        const q = ports[i]
-        if (val(ports[i + 1]) - val(q) < SEP) { const v = Math.max(q.lo, val(ports[i + 1]) - SEP); if (v !== val(q)) set(q, v) }
-      }
-      // straight arrows squeezed by a narrow overlap of the two boxes: widen the box whose right edge limits the overlap
-      if (ax === 'x') for (let i = 1; i < ports.length; i++) {
-        const gap = val(ports[i]) - val(ports[i - 1])
-        if (gap >= SEP - 0.5) continue
-        for (const q of [ports[i - 1], ports[i]]) {
-          if (q.r.points.length !== 2) continue
-          const o = nodes[q.i === 0 ? q.r.to : q.r.from]
-          if (!o || o.compound) continue
-          const lim = box.x + box.w <= o.x + o.w ? box : o
-          if (widen(lim, lim.w + SEP - gap, nodes)) break
-        }
-        // cannot widen: the right-hand arrow jogs sideways towards the box that reaches further right
-        const q = ports[i], r = q.r
-        if (r.points.length === 2 && val(q) - val(ports[i - 1]) < SEP - 0.5 && nodes[r.from] && nodes[r.to]) {
-          const [A, B] = [nodes[r.from], nodes[r.to]]
-          const big = A.x + A.w >= B.x + B.w ? A : B
-          const [s0, s1] = r.points
-          const x0 = s0.x, x1 = s1.x
-          const xb = Math.min(big.x + big.w - MARGIN, Math.max(x0, x1) + SEP)
-          const nx0 = big === A ? xb : x0, nx1 = big === A ? x1 : xb
-          if (Math.abs(nx0 - nx1) >= 1) { const ym = (s0.y + s1.y) / 2; r.points = [{ x: nx0, y: s0.y }, { x: nx0, y: ym }, { x: nx1, y: ym }, { x: nx1, y: s1.y }] }
-        }
-      }
-    }
-  }
-}
-
-/** Move vertical segments that run on top of another arrow's vertical segment sideways until they are apart (end points stay inside their boxes). */
-const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
-  const span = (a: Pt, b: Pt) => [Math.min(a.y, b.y), Math.max(a.y, b.y)]
-  const clash = (r: EdgeRoute, i: number, x: number) => {
-    const [y0, y1] = span(r.points[i], r.points[i + 1])
-    return routes.some((o) => o !== r && o.points.slice(1).some((q, j) => {
-      const a = o.points[j]
-      if (Math.abs(a.x - q.x) > 1 || Math.abs(a.x - x) >= SEP - 4) return false
-      const [z0, z1] = span(a, q)
-      return Math.min(y1, z1) - Math.max(y0, z0) > 6
-    }))
-  }
-  for (const r of routes) {
-    for (let i = 0; i < r.points.length - 1; i++) {
-      const a = r.points[i], b = r.points[i + 1]
-      if (Math.abs(a.x - b.x) > 1 || !clash(r, i, a.x)) continue
-      const ends = [i === 0 ? nodes[r.from] : null, i + 1 === r.points.length - 1 ? nodes[r.to] : null].filter(Boolean) as NodeBox[]
-      const lo = Math.max(-Infinity, ...ends.map((n) => n.x + MARGIN)), hi = Math.min(Infinity, ...ends.map((n) => n.x + n.w - MARGIN))
-      const x = [1, -1, 2, -2, 3, -3].map((d) => a.x + d * SEP).find((c) => c >= lo && c <= hi && !clash(r, i, c))
-      if (x !== undefined) { r.points[i] = { ...a, x }; r.points[i + 1] = { ...b, x } }
-    }
-  }
-}
-
-/**
- * Spread the straight vertical arrows of each node pair evenly over the shared width, away from the arrows of other pairs
- * on the same boxes (greedy: largest groups first, each arrow takes the free slot closest to its ideal position).
- */
-const spreadPorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
-  const groups = new Map<string, EdgeRoute[]>()
-  for (const r of routes) {
-    if (r.points.length !== 2 || Math.abs(r.points[0].x - r.points[1].x) > 1 || !nodes[r.from] || !nodes[r.to]) continue
-    const k = [r.from, r.to].sort().join('|')
-    groups.set(k, [...(groups.get(k) ?? []), r])
-  }
-  const used: Record<Id, number[]> = {}
-  for (const g of [...groups.values()].sort((a, b) => b.length - a.length)) {
-    const a = nodes[g[0].from], b = nodes[g[0].to]
-    const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w)
-    if (hi - lo < 2 * MARGIN) continue
-    const m = MARGIN, L = lo + m, H = hi - m
-    g.sort((p, q) => p.points[0].x - q.points[0].x || (p.kind === 'ca' ? -1 : 1))
-    const gap = Math.min(40, (H - L) / g.length)
-    const mean = g.reduce((t, r) => t + r.points[0].x, 0) / g.length
-    const start = Math.max(L, Math.min(H - gap * (g.length - 1), mean - (gap * (g.length - 1)) / 2))
-    g.forEach((r, i) => {
-      const ideal = start + gap * i
-      let best = ideal, bs = -Infinity
-      for (let d = -40; d <= 40; d += 4) {
-        const x = ideal + d
-        if (x < L || x > H) continue
-        const dist = Math.min(18, ...[...(used[r.from] ?? []), ...(used[r.to] ?? [])].map((u) => Math.abs(u - x)))
-        const sc = dist - Math.abs(d) * 0.12
-        if (sc > bs) { bs = sc; best = x }
-      }
-      r.points = r.points.map((q) => ({ x: best, y: q.y }))
-      ;(used[r.from] ??= []).push(best)
-      ;(used[r.to] ??= []).push(best)
-    })
-  }
-}
-
 /**
  * Route that obeys the drawing convention: a control action leaves the bottom of `a` and arrives at the top of `b`,
  * feedback leaves the top of `a` and arrives at the bottom of `b` (`up` mirrors everything vertically).
@@ -384,49 +181,6 @@ const bendRoute = (pts: Pt[], bend: Offset | null, a: NodeBox, b: NodeBox): Pt[]
     else { const y = clamp(pts[i].y + bend.dy, box.y + MARGIN, box.y + box.h - MARGIN); out[i].y = y; out[j].y = y }
   }
   return out
-}
-
-/** Does the route leave/arrive on the sides the convention asks for? */
-const sidesOk = (r: EdgeRoute, a: NodeBox, b: NodeBox) => {
-  const s = r.points[0], t = r.points[r.points.length - 1]
-  const [ys, yt] = r.kind === 'ca' ? [a.y + a.h, b.y] : [a.y, b.y + b.h]
-  if (Math.abs(s.y - ys) < 1 && Math.abs(t.y - yt) < 1) return true
-  // exceptionally an end may use the opposite horizontal edge, as long as the arrow still meets the box vertically
-  const vert = (q: Pt, n: NodeBox, k: Pt) => Math.abs(q.x - k.x) < 1 && (Math.abs(q.y - n.y) < 1 || Math.abs(q.y - n.y - n.h) < 1)
-  const m = r.points.length
-  return vert(s, a, r.points[1]) && vert(t, b, r.points[m - 2])
-}
-
-/** Replace a jogged route by one straight vertical line (moving the ends a little) when the nodes overlap horizontally and nothing is in the way. */
-/** Remove a short sideways jog just before the end of a route: slide the end point (or, if it would leave the box, the last long vertical) so the arrow arrives straight. */
-const unjogEnd = (pts: Pt[], b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] => {
-  const n = pts.length
-  if (n < 4 || !b) return pts
-  const [p0, p1, p2, p3] = pts.slice(n - 4)
-  if (Math.abs(p2.x - p3.x) > 1 || Math.abs(p1.y - p2.y) > 1 || Math.abs(p0.x - p1.x) > 1 || Math.abs(p1.x - p2.x) > 60 || Math.abs(p1.x - p2.x) < 1) return pts
-  if (p1.x >= b.x + MARGIN && p1.x <= b.x + b.w - MARGIN) return [...pts.slice(0, n - 3), { x: p1.x, y: p3.y }]
-  const x = p3.x
-  const y0 = Math.min(p0.y, p3.y), y1 = Math.max(p0.y, p3.y)
-  if (n > 4 && obstacles.every((o) => o.y >= y1 || o.y + o.h <= y0 || x + 6 < o.x || x - 6 > o.x + o.w)) return [...pts.slice(0, n - 4), { x, y: p0.y }, { x, y: p3.y }]
-  return pts
-}
-const unjog = (pts: Pt[], a: NodeBox | undefined, b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] =>
-  unjogEnd(unjogEnd(pts, b, obstacles).reverse(), a, obstacles).reverse()
-
-const straighten = (pts: Pt[], a: NodeBox | undefined, b: NodeBox | undefined, obstacles: NodeBox[]): Pt[] => {
-  if (pts.length < 3 || !a || !b) return pts
-  const first = pts[0], last = pts[pts.length - 1]
-  if (Math.abs(first.x - pts[1].x) > 1e-6 || Math.abs(last.x - pts[pts.length - 2].x) > 1e-6) return pts
-  const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w)
-  if (hi - lo < 2 * MARGIN) return pts
-  const m = MARGIN
-  const y0 = Math.min(first.y, last.y), y1 = Math.max(first.y, last.y)
-  const between = obstacles.filter((n) => n.y < y1 && n.y + n.h > y0)
-  const free = (x: number) => between.every((n) => x + 6 < n.x || x - 6 > n.x + n.w)
-  const want = Math.max(lo + m, Math.min(hi - m, first.x))
-  const cands = [want, ...Array.from({ length: 12 }, (_, i) => want + (i % 2 ? -1 : 1) * Math.ceil((i + 1) / 2) * 10)].filter((x) => x >= lo + m && x <= hi - m)
-  const x = cands.find(free)
-  return x === undefined ? pts : [{ x, y: first.y }, { x, y: last.y }]
 }
 
 const elk = new ELK()
@@ -523,45 +277,34 @@ export async function layoutStructure(p: Project): Promise<Layout> {
   }
   walk(res, 0, 0, 0)
 
+  // connected boxes need vertical room for the arrow and its label: push everything below apart (growing compounds that straddle the cut)
+  for (let it = 0; it < 60; it++) {
+    let moved = false
+    for (const [id, m] of meta) {
+      const A = out.nodes[m.from], B = out.nodes[m.to]
+      if (!A || !B || A.compound || B.compound) continue
+      const [up, lo] = A.y <= B.y ? [A, B] : [B, A]
+      const gap = lo.y - (up.y + up.h)
+      if (gap < -1) continue
+      const need = 70 + 14 * Math.max(1, labelLines[id]?.length ?? 1) + (pairs[[m.from, m.to].sort().join('|')] - 1) * 20
+      if (gap >= need) continue
+      const cut = lo.y, delta = need - gap
+      for (const n of Object.values(out.nodes)) {
+        if (n.y >= cut - 0.5) n.y += delta
+        else if (n.compound && n.y + n.h > cut + 0.5) n.h += delta
+      }
+      moved = true
+    }
+    if (!moved) break
+  }
   const routes = new Map<string, EdgeRoute>()
-  for (const e of res.edges ?? []) {
-    const m = meta.get(e.id)
-    const s = e.sections?.[0]
-    if (!m || !s) continue
-    const o = abs[(e as unknown as { container?: string }).container ?? 'root'] ?? { x: 0, y: 0 }
-    let pts: Pt[] = [s.startPoint, ...(s.bendPoints ?? []), s.endPoint].map((q) => ({ x: q.x + o.x, y: q.y + o.y }))
-    const sa = e.sources?.[0] as Id, ta = e.targets?.[0] as Id
-    const obst = Object.values(out.nodes).filter((n) => n.id !== sa && n.id !== ta && !isAnc(n.id, sa) && !isAnc(n.id, ta))
-    pts = unjog(straighten(pts, out.nodes[sa], out.nodes[ta], obst), out.nodes[sa], out.nodes[ta], obst)
-    if (m.reversed) pts = pts.reverse()
-    routes.set(e.id, { id: e.id, kind: m.kind, from: m.from, to: m.to, points: pts, text: m.text, label: null, device: null })
-  }
-  // Feedback parallel to a control action: offset the reversed route of that action.
-  const nth: Record<string, number> = {}
   for (const [id, m] of meta) {
-    if (!m.pairOf) continue
-    const base = routes.get(m.pairOf)
-    if (!base) continue
-    const pts = [...base.points].reverse()
-    const d = 22 * (nth[m.pairOf] = (nth[m.pairOf] ?? 0) + 1)
-    routes.set(id, {
-      id, kind: 'feedback', from: m.from, to: m.to, text: m.text,
-      points: (() => {
-        const cand = [offsetRoute(pts, d), offsetRoute(pts, -d)]
-        const stub = (q: Pt[]) => Math.min(Math.hypot(q[1].x - q[0].x, q[1].y - q[0].y), Math.hypot(q[q.length - 1].x - q[q.length - 2].x, q[q.length - 1].y - q[q.length - 2].y))
-        return pts.length < 3 || stub(cand[0]) >= 14 ? cand[0] : cand[1]
-      })(),
-      label: null, device: null,
-    })
+    if (out.nodes[m.from] && out.nodes[m.to]) routes.set(id, { id, kind: m.kind, from: m.from, to: m.to, points: [], text: m.text, label: null, device: null })
   }
-  for (const r of routes.values()) {
-    const a = out.nodes[r.from], b = out.nodes[r.to]
-    if (a && b && !sidesOk(r, a, b)) r.points = routeVertical(a, b, r.kind === 'feedback', 0)
-  }
-  spreadPorts([...routes.values()], out.nodes)
-  separateVertical([...routes.values()], out.nodes)
-  placePorts([...routes.values()], out.nodes)
-  uncross([...routes.values()], out.nodes)
+  const dist = (e: EdgeRoute) => Math.abs(out.nodes[e.from].x - out.nodes[e.to].x) + Math.abs(out.nodes[e.from].y - out.nodes[e.to].y)
+  const order = [...routes.values()].sort((x, y) => dist(x) - dist(y))
+  const done = routeSet(out.nodes, order, new Map(), order.map((e) => e.id))
+  for (const [id, pts] of done) routes.get(id)!.points = pts
   const devs = placeDevices([...routes.values()].flatMap((r) => { const d = deviceOf(p, r.id); return d ? [{ id: r.id, points: r.points, ...d }] : [] }), Object.values(out.nodes))
   const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes), Object.values(devs))
   for (const r of routes.values()) { r.label = labs[r.id] ?? null; r.device = devs[r.id] ?? null }
@@ -582,6 +325,27 @@ const cumulative = (p: Project, id: Id): Pt => {
 }
 
 /** Apply stored manual nudges / bends to the auto layout. */
+/** Route `todo` (ids in order) between `box`es with the obstacle-aware router; `fixed` routes stay put and are avoided. A few rip-up passes reduce the order dependence. */
+function routeSet(box: Record<Id, NodeBox>, edges: EdgeRoute[], fixed: Map<string, Pt[]>, todo: string[], finish: (e: EdgeRoute, pts: Pt[]) => Pt[] = (_, q) => q): Map<string, Pt[]> {
+  const solid = Object.values(box).filter((n) => !n.compound)
+  const byId = new Map(edges.map((e) => [e.id, e]))
+  const segsOf = (pts: Pt[]) => pts.slice(1).map((q, i) => ({ a: pts[i], b: q }))
+  const routed = new Map<string, Pt[]>()
+  const pass = (id: string) => {
+    const e = byId.get(id)!
+    const others = [...fixed, ...routed].filter(([k]) => k !== id)
+    const us: Used[] = []
+    for (const [k, v] of others) { const o = byId.get(k); if (o) us.push({ box: o.from, y: v[0].y, x: v[0].x }, { box: o.to, y: v[v.length - 1].y, x: v[v.length - 1].x }) }
+    const pref = e.kind === 'feedback' ? 'up' : 'down'
+    const pts = routeAround(box[e.from], box[e.to], pref, solid, others.flatMap(([, v]) => segsOf(v)), us, SEP, MARGIN)
+      ?? routeVertical(box[e.from], box[e.to], pref === 'up', 0)
+    routed.set(id, finish(e, pts))
+  }
+  for (const id of todo) pass(id)
+  if (todo.length > 1) for (let r = 0; r < 2; r++) for (const id of todo) pass(id)
+  return routed
+}
+
 function segHitsBox(a: Pt, b: Pt, n: { x: number; y: number; w: number; h: number }) {
   return Math.max(a.x, b.x) > n.x + 0.5 && Math.min(a.x, b.x) < n.x + n.w - 0.5 && Math.max(a.y, b.y) > n.y + 0.5 && Math.min(a.y, b.y) < n.y + n.h - 0.5
 }
@@ -592,9 +356,6 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     .map((n) => { const d = cumulative(p, n.id); return { ...n, x: n.x + d.x, y: n.y + d.y } })
   const box = Object.fromEntries(nodes.map((n) => [n.id, n]))
   const live = l.edges.filter((e) => p.items[e.id] && l.nodes[e.from] && l.nodes[e.to])
-  const pairKey = (e: EdgeRoute) => [e.from, e.to].sort().join('|')
-  const groups = new Map<string, EdgeRoute[]>()
-  for (const e of live) groups.set(pairKey(e), [...(groups.get(pairKey(e)) ?? []), e])
   /** A straight arrow slides sideways (vertical) or up/down (horizontal) with the bend offset, staying within both boxes. */
   const slide = (pts: Pt[], e: EdgeRoute, bend: Offset | null): Pt[] => {
     if (!bend || pts.length !== 2) return pts
@@ -623,21 +384,7 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     const hits = pts.slice(1).some((q, i) => solid.some((n) => n.id !== e.from && n.id !== e.to && segHitsBox(pts[i], q, n)))
     if (a.x || a.y || b.x || b.y || hits) dirty.push(e); else base.set(e.id, pts)
   }
-  const segsOf = (pts: Pt[]) => pts.slice(1).map((q, i) => ({ a: pts[i], b: q }))
-  const routed = new Map<string, Pt[]>()
-  const pass = (e: EdgeRoute) => {
-    const others = [...base, ...routed].filter(([id]) => id !== e.id).map(([, v]) => v)
-    const g = groups.get(pairKey(e))!
-    const up = e.kind === 'feedback'
-    const segs = others.flatMap(segsOf)
-    const us: Used[] = []
-    for (const [id, v] of [...base, ...routed]) if (id !== e.id) { const o = live.find((x) => x.id === id)!; us.push({ box: o.from, y: v[0].y, x: v[0].x }, { box: o.to, y: v[v.length - 1].y, x: v[v.length - 1].x }) }
-    let pts = routeAround(box[e.from], box[e.to], up, solid, segs, us, SEP, MARGIN)
-    if (!pts) pts = routeVertical(box[e.from], box[e.to], up, (g.indexOf(e) - (g.length - 1) / 2) * 22)
-    routed.set(e.id, slide(bendRoute(pts, bendOf(e), box[e.from], box[e.to]), e, bendOf(e)))
-  }
-  for (const e of dirty) pass(e)
-  if (dirty.length > 1) for (let r = 0; r < 3; r++) for (const e of dirty) pass(e)
+  const routed = routeSet(box, live, base, dirty.map((e) => e.id), (e, pts) => slide(bendRoute(pts, bendOf(e), box[e.from], box[e.to]), e, bendOf(e)))
   const edges = live.map((e) => ({ ...e, points: routed.get(e.id) ?? base.get(e.id)! }))
   // the router already keeps arrows apart, so no port/crossing post-processing here
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
