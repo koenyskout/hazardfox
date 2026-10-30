@@ -24,7 +24,7 @@ export interface ToolDef<S extends z.ZodRawShape = z.ZodRawShape> {
 const tool = <S extends z.ZodRawShape>(t: ToolDef<S>) => t
 
 const kindEnum = z.enum(KINDS as [Kind, ...Kind[]])
-const ref = z.string().describe('Item label such as "H-1.2" (case-insensitive), an item id, or "$alias" defined earlier in the same call')
+const ref = z.string().describe('Item label such as "H-1.2" (case-insensitive), an item id, an exact unique title, or "$alias" defined earlier in the same call')
 const fieldsSchema = z.record(z.string(), z.unknown()).describe('Field values; call describe_kinds for the fields of each kind. References are labels like "H-1".')
 
 /** Extra derived fields that make items easier to read than their raw fields. */
@@ -32,7 +32,7 @@ function extras(r: Resolver, it: Item): Rec {
   const p = r.p
   switch (it.kind) {
     case 'hazard': return { losses: effectiveLosses(p, it.id).map((l) => r.label(l)) }
-    case 'uca': return { statement: generateUcaText(p, r.labels, it) }
+    case 'uca': { const statement = generateUcaText(p, r.labels, it); return { title: statement, statement } }
     case 'scenario': return it.scenarioType === 'uca' ? { hazards: scenarioHazards(p, it).map((h) => r.label(h)) } : {}
     default: return {}
   }
@@ -63,7 +63,7 @@ export function nextSteps(p: Project): string[] {
   if (!c('node')) out.push('Step 2: model the control structure: controllers/process/external elements (kind "node"), control actions (kind "ca") and feedback (kind "feedback"); add domain entities and process variables for the process models.')
   else if (!c('ca')) out.push('Step 2: add control actions between nodes (kind "ca").')
   const cas = itemsOfKind(p, 'ca')
-  const missing = cas.filter((ca) => GUIDE_WORDS.some((g) => guideApplies(ca, g) && !itemsOfKind(p, 'uca').some((u) => u.ca === ca.id && u.guide === g)))
+  const missing = cas.filter((ca) => GUIDE_WORDS.some((g) => guideApplies(ca, g) && !ca.notApplicable.some((n) => n.guide === g) && !itemsOfKind(p, 'uca').some((u) => u.ca === ca.id && u.guide === g)))
   if (cas.length && missing.length) out.push(`Step 3: analyse unsafe control actions; ${missing.length} of ${cas.length} control actions lack at least one guide word (see uca_coverage).`)
   const noScen = itemsOfKind(p, 'uca').filter((u) => !itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'uca' && s.uca === u.id))
   if (noScen.length) out.push(`Step 4: add loss scenarios for the ${noScen.length} UCAs without one, plus control-action scenarios (scenarioType "ca").`)
@@ -293,7 +293,7 @@ export const TOOLS = [
     run: (p, a) => {
       const min = SEVERITIES.indexOf(a.severity ?? 'info')
       const r = new Resolver(p)
-      return { result: validate(p).filter((i) => SEVERITIES.indexOf(i.severity) <= min).map((i) => ({ severity: i.severity, ref: r.label(i.item), message: i.message })) }
+      return { result: validate(p).filter((i) => SEVERITIES.indexOf(i.severity) <= min).sort((a, b) => compareLabels(r.label(a.item) ?? '', r.label(b.item) ?? '')).map((i) => ({ severity: i.severity, ref: r.label(i.item), message: i.message })) }
     },
   }),
 

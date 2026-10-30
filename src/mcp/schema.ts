@@ -42,7 +42,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
   const defaults = makeItem(kind) as unknown as Rec
   const out: Record<string, FieldInfo> = {}
   for (const f of Object.keys(defaults)) {
-    if (HIDDEN.has(f)) continue
+    if (HIDDEN.has(f) || (f === 'parent' && !parentKind(kind))) continue
     const v = defaults[f]
     const refs = refFields(kind)
     const target = f === 'parent' ? parentKind(kind) : TARGETS[kind]?.[f]
@@ -51,7 +51,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'attributes') info.type = '{name: string, type: string}[]'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'conditions') info.type = '{variable: ref, state: string, negate?: boolean}[]'
+    if (f === 'conditions') info.type = '{variable: ref, state: string (one of the variable\'s states), negate?: boolean}[]'
     if (f === 'stride') info.type = 'string[]'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
     if (f === 'tags') info.type = 'string[]'
@@ -86,7 +86,7 @@ export class Resolver {
     for (const [id, l] of Object.entries(this.labels)) this.byLabel.set(l.toLowerCase(), id)
   }
   resolve(s: unknown): Id {
-    if (typeof s !== 'string' || !s.trim()) throw new RefError(`Expected an item label like "H-1" or an id, got ${JSON.stringify(s)}`)
+    if (typeof s !== 'string' || !s.trim()) throw new RefError(`Expected an item label like "H-1", an id or a unique title, got ${JSON.stringify(s)}`)
     const t = s.trim()
     if (t.startsWith('$')) {
       const a = this.aliases[t.slice(1)]
@@ -96,6 +96,9 @@ export class Resolver {
     if (this.p.items[t]) return t
     const id = this.byLabel.get(t.toLowerCase())
     if (id) return id
+    const byTitle = Object.values(this.p.items).filter((i) => i.title.trim().toLowerCase() === t.toLowerCase())
+    if (byTitle.length === 1) return byTitle[0].id
+    if (byTitle.length > 1) throw new RefError(`Title "${t}" is ambiguous (${byTitle.map((i) => this.labels[i.id]).join(', ')}); use a label`)
     const near = [...this.byLabel.keys()].filter((l) => l.startsWith(t.toLowerCase().replace(/[.\-\d]+$/, ''))).slice(0, 6)
     throw new RefError(`No item "${t}"${near.length ? `; similar labels: ${near.join(', ').toUpperCase()}` : ''}`)
   }
@@ -148,6 +151,8 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
           const variable = r.resolve(c?.variable)
           checkKind(variable, 'variable')
           if (!isStr(c.state) || !c.state) throw new Error('each condition needs a "state" string')
+          const vi = r.p.items[variable]
+          if (vi?.kind === 'variable' && vi.states.length && !vi.states.includes(c.state)) throw new Error(`state "${c.state}" is not a state of ${r.labels[variable]} (${vi.states.join(', ')})`)
           return { variable, state: c.state, negate: c.negate === true }
         })
       } else if (f === 'notApplicable') {

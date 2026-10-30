@@ -55,4 +55,24 @@ describe('mcp tools', () => {
     expect(run(p, 'export_report').r).toContain('UCA-1')
     expect(run(p, 'project_summary').r.nextSteps.length).toBeGreaterThan(0)
   })
+
+  it('fixes agent usability issues', () => {
+    let p = emptyProject()
+    ;({ p } = run(p, 'create_items', { items: [
+      { kind: 'loss', fields: { title: 'Loss of life' } },
+      { kind: 'hazard', fields: { title: 'Vehicle leaves lane', lossLinks: ['Loss of life'] } },
+      { kind: 'entity', fields: { title: 'Car' }, alias: 'e' },
+      { kind: 'variable', fields: { title: 'Gear', parent: '$e', states: ['drive', 'park'] } },
+      { kind: 'node', fields: { title: 'Driver' }, alias: 'd' },
+      { kind: 'node', fields: { title: 'Steering' }, alias: 's' },
+      { kind: 'ca', fields: { title: 'Steer', from: '$d', to: '$s' } },
+    ] }))
+    const mk = (state: string) => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'Steer', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Gear', state }] } }] })
+    expect(() => mk('reverse')).toThrow(/not a state of V-1/)
+    ;({ p } = mk('park'))
+    expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear = park')
+    expect('parent' in run(p, 'describe_kinds', { kind: 'ca' }).r.ca.fields).toBe(false)
+    ;({ p } = run(p, 'update_items', { updates: [{ ref: 'CA-1', fields: { notApplicable: [{ guide: 'not-provided', reason: 'x' }, { guide: 'too-early-late', reason: 'x' }] } }] }))
+    expect(run(p, 'project_summary').r.nextSteps.join()).not.toMatch(/lack at least one guide word/)
+  })
 })
