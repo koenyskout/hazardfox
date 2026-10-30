@@ -21,7 +21,7 @@ export const VARIABLE_TYPES = ['enum', 'boolean', 'range'] as const
 export type VariableType = (typeof VARIABLE_TYPES)[number]
 export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range' }
 
-export const CONDITION_OPS = ['=', '≠', 'in', 'not in', '<', '≤', '>', '≥', 'between'] as const
+export const CONDITION_OPS = ['=', '≠', 'in', 'not in', '<', '≤', '>', '≥', 'between', 'not between'] as const
 export type ConditionOp = (typeof CONDITION_OPS)[number]
 
 export const DURATIONS = ['continuous', 'instantaneous'] as const

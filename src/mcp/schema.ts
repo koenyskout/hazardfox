@@ -2,7 +2,7 @@ import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKind } from '../model/tree'
-import { conditionError } from '../model/variables'
+import { conditionError, isRangeOp } from '../model/variables'
 import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, VARIABLE_TYPES, type Condition, type ConditionOp, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
@@ -53,7 +53,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'attributes') info.type = '{name: string, type: string}[]'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between (default =; in / not in need an enum variable, the order operators and between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between), set?: string[] (states, only for in / not in)}[]'
+    if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}[]'
     if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
@@ -157,7 +157,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
           if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
           const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
           if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
-          const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(op === 'between' ? { to: String(c.to ?? '') } : {}) }
+          const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}) }
           const vi = r.p.items[variable]
           const bad = vi?.kind === 'variable' ? conditionError(vi, cond) : null
           if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)

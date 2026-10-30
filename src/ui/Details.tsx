@@ -1,6 +1,6 @@
 import { renderText } from '../model/labels'
 import { guideApplies } from '../model/uca'
-import { conditionComplete, conditionError, conditionText, isSetOp, OP_LABELS, opsFor, valuesOf } from '../model/variables'
+import { conditionComplete, conditionError, conditionText, isRangeOp, isSetOp, OP_LABELS, opsFor, valuesOf } from '../model/variables'
 import { VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -395,7 +395,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
             {isSetOp(c.op)
               ? <span className="setpick">{(vr?.states ?? []).map((s) => <button type="button" key={s} className={'chip' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{s}</button>)}{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
               : valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-            {c.op === 'between' && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
+            {isRangeOp(c.op) && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
             {vr?.type === 'range' && vr.unit && <span className="muted">{vr.unit}</span>}
             <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
             {err && <small className="cond-err">{err}</small>}

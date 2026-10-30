@@ -1,9 +1,10 @@
 import { type Condition, type ConditionOp, type Project, type Variable } from './types'
 
-const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between']
+const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
 /** Operators as they read in a sentence. */
-export const OP_LABELS: Record<ConditionOp, string> = { '=': 'is', '≠': 'is not', in: 'is one of', 'not in': 'is not one of', '<': 'is less than', '≤': 'is at most', '>': 'is greater than', '≥': 'is at least', between: 'is between' }
+export const OP_LABELS: Record<ConditionOp, string> = { '=': 'is', '≠': 'is not', in: 'is one of', 'not in': 'is not one of', '<': 'is less than', '≤': 'is at most', '>': 'is greater than', '≥': 'is at least', between: 'is between', 'not between': 'is not between' }
+export const isRangeOp = (op: ConditionOp) => op === 'between' || op === 'not between'
 export const isSetOp = (op: ConditionOp) => op === 'in' || op === 'not in'
 
 /** Operators that make sense for the variable's type. */
@@ -26,7 +27,7 @@ export function describeStates(v: Variable): string {
 }
 
 /** Whether the condition is complete enough to appear in a sentence. */
-export const conditionComplete = (c: Condition) => (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (c.op !== 'between' || !!c.to)
+export const conditionComplete = (c: Condition) => (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 export function conditionText(p: Project, c: Condition): string {
   const v = p.items[c.variable]
@@ -34,7 +35,7 @@ export function conditionText(p: Project, c: Condition): string {
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = v.title
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} ${(c.set ?? []).join(', ')}`
-  return c.op === 'between' ? `${name} is between ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
+  return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }
 
 /** Problem with the condition's value for the variable's type, or null. */
@@ -43,8 +44,8 @@ export function conditionError(v: Variable, c: Condition): string | null {
   const vals = valuesOf(v)
   if (isSetOp(c.op)) { const bad = (c.set ?? []).find((x) => !vals?.includes(x)); return bad === undefined ? null : `"${bad}" is not one of ${(vals ?? []).join(', ')}` }
   if (vals) return !vals.length || vals.includes(c.state) ? null : `"${c.state}" is not one of ${vals.join(', ')}`
-  const bad = [c.state, ...(c.op === 'between' ? [c.to ?? ''] : [])].find((x) => x.trim() === '' || !Number.isFinite(Number(x)))
+  const bad = [c.state, ...(isRangeOp(c.op) ? [c.to ?? ''] : [])].find((x) => x.trim() === '' || !Number.isFinite(Number(x)))
   if (bad !== undefined) return `"${bad}" is not a number`
-  if (c.op === 'between' && Number(c.state) > Number(c.to)) return 'lower bound exceeds upper bound'
+  if (isRangeOp(c.op) && Number(c.state) > Number(c.to)) return 'lower bound exceeds upper bound'
   return null
 }

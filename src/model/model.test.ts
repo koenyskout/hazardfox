@@ -225,6 +225,7 @@ describe('variable types and conditions', () => {
     expect(opsFor({ ...makeItem('variable'), type: 'boolean' })).toEqual(['=', '≠'])
     expect(conditionError(range, { variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
     expect(conditionError(range, { variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
+    expect(conditionText({ ...emptyProject(), items: { x: { ...range, id: 'x', title: 'Rate' } } }, { variable: 'x', op: 'not between', state: '1', to: '5' })).toBe('Rate is not between 1 and 5 %')
     expect(conditionError(range, { variable: 'x', op: '≥', state: '5' })).toBeNull()
     expect(conditionError({ ...range, type: 'boolean' }, { variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
     const en = { ...makeItem('variable'), title: 'Mode', states: ['a', 'b', 'c'] }
