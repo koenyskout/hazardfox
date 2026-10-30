@@ -11,6 +11,7 @@ import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
+import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
 import { VariableMap } from './VariableMap'
 import { LayerIcon, LayerTag } from './Icon'
@@ -81,17 +82,19 @@ export function Domain() {
   const selected = useStore((s) => s.selected)
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
-  const [tab, setTab] = useState<'entity' | 'variable' | 'map' | 'relationship'>('entity')
+  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'map' | 'relationship'>('diagram')
   const [layer, setLayer] = useState<VariableLayer | ''>('')
   const vars = itemsOfKind(p, 'variable')
   return (
     <div className="page full">
       <div className="tabs">
+        <button className={tab === 'diagram' ? 'on' : ''} onClick={() => setTab('diagram')}>Diagram</button>
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
         <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>Variable map <i>{vars.filter((v) => v.layer === 'domain').length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
       </div>
+      {tab === 'diagram' && <DomainDiagram />}
       {tab === 'entity' && (
         <TreeTable kind="entity" extraHeader="Attributes (variables) / operations"
           empty="Entities model the things in the domain: controllers, controlled processes, devices, data…"
