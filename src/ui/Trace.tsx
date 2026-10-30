@@ -1,3 +1,4 @@
+import { Select } from './Select'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
@@ -83,7 +84,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
         <button onClick={draft} title="Generate steps from the UCA context (or the control action) and the causal factor">Draft trace</button>
         <button onClick={addStep}>+ step</button>
         <Picker options={lanePick} onPick={(id) => id && save(s, { ...t, lanes: [...t.lanes, id] })}><span className="muted">+ variable lane…</span></Picker>
-        {wordPick.length > 0 && <select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{laneText(k)}</option>)}</select>}
+        {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{laneText(k)}</option>)}</Select>}
         <span className="hint">A trace is a sequence of states: values carry forward until changed. Mismatches between a signal or belief and the world are marked red.</span>
       </div>
       <TraceChecks s={s} />
@@ -121,9 +122,9 @@ export function TraceEditor({ s }: { s: Scenario }) {
                     {st.events.map((e, k) => (
                       <div key={k} className="ev">
                         <Ref id={e.on} />
-                        <select value={e.what} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, what: x.target.value as TraceEventKind } : y)) })))}>
+                        <Select value={e.what} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, what: x.target.value as TraceEventKind } : y)) })))}>
                           {TRACE_EVENTS.map((w) => <option key={w} value={w}>{TRACE_EVENT_LABELS[w]}</option>)}
-                        </select>
+                        </Select>
                         <button className="x" onClick={() => save(s, setStep(t, i, (o) => ({ events: o.events.filter((_, j) => j !== k) })))}>×</button>
                       </div>
                     ))}
@@ -157,10 +158,10 @@ export function TraceEditor({ s }: { s: Scenario }) {
 function ValueInput({ v, value, carried, onChange }: { v: Variable; value: string; carried?: string; onChange: (v: string) => void }) {
   const vals = valuesOf(v)
   if (vals) return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
+    <Select value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{carried !== undefined ? `↳ ${carried}` : '—'}</option>
       {vals.map((x) => <option key={x}>{x}</option>)}
-    </select>
+    </Select>
   )
   return <input type="number" value={value} step={stepOf(v)} min={v.min ?? undefined} max={v.max ?? undefined} placeholder={carried !== undefined ? `↳ ${carried}` : '—'} onChange={(e) => onChange(e.target.value)} />
 }

@@ -1,3 +1,4 @@
+import { Select } from './Select'
 import { useMemo, useState } from 'react'
 import { defaultOptions, SECTIONS, type ExportOptions, type SectionKey } from '../export/tables'
 import { download, saveProject } from '../model/persist'
@@ -29,7 +30,7 @@ export function ExportView() {
         <div className="stride">
           {STATUSES.map((s) => <label key={s} className="check"><input type="checkbox" checked={o.statuses.includes(s)} onChange={() => setO({ ...o, statuses: o.statuses.includes(s) ? o.statuses.filter((x) => x !== s) : [...o.statuses, s] })} /> {s}</label>)}
           <label className="check">Tag
-            <select value={o.tag} onChange={(e) => setO({ ...o, tag: e.target.value })}><option value="">any</option>{tags.map((t) => <option key={t}>{t}</option>)}</select>
+            <Select value={o.tag} onChange={(e) => setO({ ...o, tag: e.target.value })}><option value="">any</option>{tags.map((t) => <option key={t}>{t}</option>)}</Select>
           </label>
         </div>
         <div className="actions left">

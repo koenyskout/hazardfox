@@ -1,3 +1,4 @@
+import { Select } from './ui/Select'
 import { lazy, Suspense, useEffect, useMemo } from 'react'
 import { fsAccess, openProject, saveProject } from './model/persist'
 import { emptyProject } from './model/create'
@@ -74,7 +75,7 @@ export default function App() {
         <button onClick={() => { if (!dirty || confirm('Discard unsaved changes?')) load(emptyProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
-        <select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
+        <Select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
           <option value="pump">Infusion pump (demo)</option>
           <option value="medication">Hospital medication (large domain model)</option>
@@ -84,7 +85,7 @@ export default function App() {
           <optgroup label="Published STPA analyses">
             {PUBLISHED_EXAMPLES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
           </optgroup>
-        </select>
+        </Select>
         <span className="sep" />
         <button disabled={!past.length} onClick={undo} title="Undo (Ctrl+Z)">↶</button>
         <button disabled={!future.length} onClick={redo} title="Redo (Ctrl+Shift+Z)">↷</button>

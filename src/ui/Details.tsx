@@ -1,3 +1,4 @@
+import { Select } from './Select'
 import { renderText } from '../model/labels'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
@@ -142,7 +143,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           <Field label="Type">
-            <select value={it.type} onChange={(e) => set({ type: e.target.value as RequirementType })}>{REQUIREMENT_TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+            <Select value={it.type} onChange={(e) => set({ type: e.target.value as RequirementType })}>{REQUIREMENT_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
           </Field>
           <Field label="Derived from">
             <RefList value={it.sources} options={[...of('constraint'), ...of('scenario'), ...of('uca')]} onChange={(v) => set({ sources: v })} />
@@ -197,9 +198,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
           <VariableLinks v={it} />
           <Field single label="Type">
-            <select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
+            <Select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
               {VARIABLE_TYPES.map((t) => <option key={t} value={t}>{VARIABLE_TYPE_LABELS[t]}</option>)}
-            </select>
+            </Select>
           </Field>
           {it.type === 'enum' && (
             <Field label="States" hint="Named values. Enter adds a state.">
@@ -237,7 +238,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           <Field label="Role">
-            <select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</select>
+            <Select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</Select>
           </Field>
           <Field label="Domain entities" hint="The domain entities this element represents; a physical process may comprise several."><RefList value={it.entities} options={of('entity')} onChange={(v) => set({ entities: v })} /></Field>
           {it.role === 'controller' && (
@@ -284,15 +285,15 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
           {it.kind === 'ca' && (
             <Field label="Domain operation">
-              <select value={it.operation} onChange={(e) => set({ operation: e.target.value })}>
+              <Select value={it.operation} onChange={(e) => set({ operation: e.target.value })}>
                 <option value="">— none —</option>
                 {of('entity').flatMap((e) => e.operations.map((o) => <option key={e.id + o} value={`${e.id}:${o}`}>{labels[e.id]} {e.title}: {o}</option>))}
-              </select>
+              </Select>
             </Field>
           )}
           {it.kind === 'ca' && (
             <Field label="Duration">
-              <select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</select>
+              <Select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</Select>
             </Field>
           )}
           {it.kind === 'ca' && (
@@ -318,7 +319,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
         <>
           <Field label="Control action"><SingleRef value={it.ca} options={of('ca')} onChange={(v) => v && set({ ca: v })} /></Field>
           <Field label="Guide word">
-            <select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
+            <Select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</Select>
           </Field>
           <Field label="Context">
             <ContextSummary it={it} set={set} />
@@ -337,12 +338,12 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           <Field label="Kind of scenario">
-            <select value={it.scenarioType} onChange={(e) => {
+            <Select value={it.scenarioType} onChange={(e) => {
               const t = e.target.value as ScenarioType
               set(t === 'uca' ? { scenarioType: t, uca: it.uca ?? of('uca')[0]?.id ?? null, ca: null, hazards: [], cause: '' } : { scenarioType: t, ca: it.ca ?? of('ca')[0]?.id ?? null, uca: null, cause: '' })
             }}>
               {SCENARIO_TYPES.map((t) => <option key={t} value={t}>{SCENARIO_TYPE_LABELS[t]}</option>)}
-            </select>
+            </Select>
           </Field>
           {it.scenarioType === 'uca' ? (
             <Field label="Unsafe control action"><SingleRef value={it.uca} options={of('uca')} onChange={(v) => set({ uca: v })} /></Field>
@@ -355,10 +356,10 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </>
           )}
           <Field label="Causal factor">
-            <select value={it.cause} onChange={(e) => set({ cause: e.target.value as Cause | '' })}>
+            <Select value={it.cause} onChange={(e) => set({ cause: e.target.value as Cause | '' })}>
               <option value="">—</option>
               {CAUSES[it.scenarioType].map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
+            </Select>
           </Field>
           <Field label="Where in the control structure"><SingleRef value={it.element} options={of('node')} onChange={(v) => set({ element: v })} none="— not specified —" /></Field>
           <Field single label="Title"><TextInput value={it.title} onChange={(v) => set({ title: v }, 'title')} /></Field>
@@ -386,17 +387,17 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
 
 /** Multiplicity of one relationship end: predefined values, plus whatever an older file holds. */
 const CardSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <select style={{ width: 'auto', flex: 'none' }} value={value} onChange={(e) => onChange(e.target.value)}>
+  <Select style={{ width: 'auto', flex: 'none' }} value={value} onChange={(e) => onChange(e.target.value)}>
     {!(CARDINALITIES as readonly string[]).includes(value) && <option>{value}</option>}
     {CARDINALITIES.map((c) => <option key={c}>{c}</option>)}
-  </select>
+  </Select>
 )
 
 const Rating = ({ v, on }: { v: number; on: (v: number) => void }) => (
-  <select value={v} onChange={(e) => on(+e.target.value)}>
+  <Select value={v} onChange={(e) => on(+e.target.value)}>
     <option value={0}>—</option>
     {[1, 2, 3, 4, 5].map((n) => <option key={n}>{n}</option>)}
-  </select>
+  </Select>
 )
 
 function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
@@ -470,7 +471,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; on
     <>
       <div className="rule-head">
         {head}
-        {g.of.length > 1 && (flat ? <span className="cond-word">all of these hold:</span> : <><select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all</option><option value="any">any</option></select><span className="cond-word">of these hold:</span></>)}
+        {g.of.length > 1 && (flat ? <span className="cond-word">all of these hold:</span> : <><Select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all</option><option value="any">any</option></Select><span className="cond-word">of these hold:</span></>)}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}>×</button>}
       </div>
       <div className={'conds' + (onRemove ? ' group' : '')}>
@@ -495,7 +496,7 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
     <div className="cond">
       <span className="cond-word">{word}</span>
       <input className="cond-text" value={c.text} placeholder="condition in words…" onChange={(e) => upd({ text: e.target.value })} />
-      <select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}><option value="=">holds</option><option value="≠">does not hold</option></select>
+      <Select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}><option value="=">holds</option><option value="≠">does not hold</option></Select>
       <button className="x" onClick={onRemove}>×</button>
     </div>
   )
@@ -508,10 +509,10 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
-      <select value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value })}>
+      <Select value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value })}>
         <option value="" disabled hidden>{placeholder}</option>
         {values.map((s) => <option key={s}>{s}</option>)}
-      </select>
+      </Select>
     ) : (
       <BoundedNumber value={c[key] ?? ''} onChange={(v) => upd({ [key]: v })} min={vr?.min ?? null} max={vr?.max ?? null} step={vr ? stepOf(vr) : 1} placeholder={placeholder} />
     )
@@ -521,10 +522,10 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
       <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], other: undefined, op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
         {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
       </Picker>
-      <select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}>
+      <Select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}>
         {(cmp ? opsForVar(vr) : opsFor(vr)).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
-      </select>
-      {vr && <select title="Compare with a fixed value or with the value of another variable" value={cmp ? 'var' : 'value'} onChange={(e) => e.target.value === 'var' ? upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' }) : onChange({ variable: c.variable, op: opsFor(vr).includes(c.op) ? c.op : '=', state: '' })}><option value="value">a value</option><option value="var">another variable</option></select>}
+      </Select>
+      {vr && <Select title="Compare with a fixed value or with the value of another variable" value={cmp ? 'var' : 'value'} onChange={(e) => e.target.value === 'var' ? upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' }) : onChange({ variable: c.variable, op: opsFor(vr).includes(c.op) ? c.op : '=', state: '' })}><option value="value">a value</option><option value="var">another variable</option></Select>}
       {cmp && vr && (
         <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
           {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
@@ -574,7 +575,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
   const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' && v.id !== it.id)
   const values = valuesOf(it)
   const value = (v: string, on: (v: string) => void, placeholder: string) => values
-    ? <select value={v} onChange={(e) => on(e.target.value)}><option value="">{placeholder}</option>{values.map((s) => <option key={s}>{s}</option>)}</select>
+    ? <Select value={v} onChange={(e) => on(e.target.value)}><option value="">{placeholder}</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
     : <TextInput value={v} onChange={on} placeholder={placeholder} />
   const upd = (i: number, r: Partial<Rule>) => set({ rules: it.rules.map((x, j) => (j === i ? { ...x, ...r } : x)) })
   const name = <b>{it.title || 'the variable'}</b>

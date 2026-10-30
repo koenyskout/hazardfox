@@ -1,3 +1,4 @@
+import { Select } from './Select'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { computeLabels } from '../model/labels'
 import { itemsOfKind } from '../model/tree'
@@ -30,10 +31,10 @@ function Settings({ value, onChange }: { value: LlmSettings; onChange: (s: LlmSe
       <label>Ollama endpoint <input value={value.endpoint} onChange={(e) => set({ endpoint: e.target.value })} /></label>
       <label>Model
         {models ? (
-          <select value={installed ?? value.model} onChange={(e) => set({ model: e.target.value })}>
+          <Select value={installed ?? value.model} onChange={(e) => set({ model: e.target.value })}>
             {!installed && <option value={value.model}>{value.model} (not installed)</option>}
             {models.map((m) => <option key={m}>{m}</option>)}
-          </select>
+          </Select>
         ) : <input value={value.model} onChange={(e) => set({ model: e.target.value })} />}
       </label>
       <label>Writer model <input value={value.writer} onChange={(e) => set({ writer: e.target.value })} title="Generative model that drafts improvements; the decision model verifies them" /></label>
