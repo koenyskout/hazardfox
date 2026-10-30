@@ -191,14 +191,16 @@ export function Scenarios() {
   const cas = itemsOfKind(p, 'ca')
   const sortedUcas = [...ucas].sort(byLabel(labels))
   const sortedCas = [...cas].sort(byLabel(labels))
-  const order = new Map([...sortedUcas, ...sortedCas].map((x, i) => [x.id, i]))
+  const outline = [...sortedCas.flatMap((c) => [{ id: c.id, depth: 0 }, ...sortedUcas.filter((u) => u.kind === 'uca' && u.ca === c.id).map((u) => ({ id: u.id, depth: 1 }))]),
+    ...sortedUcas.filter((u) => u.kind === 'uca' && !p.items[u.ca]).map((u) => ({ id: u.id, depth: 0 }))]
+  const order = new Map(outline.map((x, i) => [x.id, i]))
   const grouped = [...scenarios].sort((a, b) => (order.get(scenarioTarget(a) ?? '') ?? 1e9) - (order.get(scenarioTarget(b) ?? '') ?? 1e9))
   const sel = useStore((s) => s.selected)
   const cur = sel ? p.items[sel] : null
   return (
     <div className="page full">
       <FlatTable kind="scenario" items={grouped}
-        groupBy={(s) => scenarioTarget(s)} groups={[...sortedUcas, ...sortedCas].map((x) => x.id)}
+        groupBy={(s) => scenarioTarget(s)} groups={outline}
         groupAdd={(g) => (g && p.items[g]?.kind === 'ca' ? { scenarioType: 'ca', ca: g } : { scenarioType: 'uca', uca: g })}
         adds={[
           { label: 'Scenario for a UCA', init: { scenarioType: 'uca', uca: null } },

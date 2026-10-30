@@ -28,7 +28,7 @@ export function FlatTable<K extends Kind>(props: {
   /** Adds a button to each group header that creates an item with this patch (first item of the group given). */
   groupAdd?: (group: Id | null, first?: ItemOf<K>) => Patch<K>
   /** Groups always shown (in this order, before any others), also when they have no items. */
-  groups?: Id[]
+  groups?: { id: Id; depth?: number }[]
   addLabel?: string
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
@@ -38,17 +38,17 @@ export function FlatTable<K extends Kind>(props: {
   /** variables show their name pill, as everywhere else */
   const idLabels = props.kind === 'variable' ? names : ids
   const selected = useStore((s) => s.selected)
-  const rows: ({ group: Id | null; first?: ItemOf<K> } | { item: ItemOf<K> })[] = []
-  const push = (g: Id | null | undefined, first?: ItemOf<K>) => { rows.push({ group: g ?? null, first }) }
+  const rows: ({ group: Id | null; first?: ItemOf<K>; depth: number } | { item: ItemOf<K> })[] = []
+  const push = (g: Id | null | undefined, first?: ItemOf<K>, depth = 0) => { rows.push({ group: g ?? null, first, depth }) }
   if (props.groupBy) {
-    for (const g of props.groups ?? []) {
+    for (const { id: g, depth } of props.groups ?? []) {
       const its = props.items.filter((it) => props.groupBy!(it) === g)
-      push(g, its[0])
+      push(g, its[0], depth)
       its.forEach((item) => rows.push({ item }))
     }
     props.items.forEach((item, i) => {
       const g = props.groupBy!(item)
-      if (props.groups?.includes(g as Id)) return
+      if (props.groups?.some((x) => x.id === g)) return
       if (i === 0 || props.groupBy!(props.items[i - 1]) !== g || !rows.some((r) => 'group' in r && r.group === (g ?? null))) push(g, item)
       rows.push({ item })
     })
@@ -81,7 +81,7 @@ export function FlatTable<K extends Kind>(props: {
         {rows.map((r, i) => {
           if ('group' in r) {
             const g = r.group
-            return <div key={'g' + i + (g ?? '')} className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g, r.first))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>
+            return <div key={'g' + i + (g ?? '')} className="row group" style={r.depth ? { paddingLeft: 12 + r.depth * 18 } : undefined}>{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g, r.first))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>
           }
           const it = r.item
           return (
