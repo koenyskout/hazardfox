@@ -6,6 +6,9 @@ import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
 import { commit, useLabels, useProject } from './hooks'
+import { Icon } from './Icon'
+import { DeleteDialog } from './TreeTable'
+import { useState } from 'react'
 import { Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
@@ -14,6 +17,7 @@ export function Details() {
   const p = useProject()
   const labels = useLabels()
   const id = useStore((s) => s.selected)
+  const [deleting, setDeleting] = useState(false)
   const it = id ? p.items[id] : null
   if (!it) return <aside className="details"><p className="hint">Select an item to edit its details.</p></aside>
   const set: Set = (patch, key) => commit((q) => updateItem(q, it.id, patch), key ? `${it.id}:${key}` : undefined)
@@ -47,6 +51,8 @@ export function Details() {
           <div className="reflist">{used.map((o) => <Ref key={o.id} id={o.id} />)}</div>
         </Field>
       )}
+      <div className="actions"><button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button></div>
+      {deleting && <DeleteDialog ids={[it.id]} onClose={() => setDeleting(false)} />}
     </aside>
   )
 }

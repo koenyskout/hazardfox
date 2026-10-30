@@ -335,7 +335,7 @@ function SplitDialog({ id, onClose }: { id: Id; onClose: () => void }) {
   )
 }
 
-function DeleteDialog({ ids, onClose }: { ids: Id[]; onClose: () => void }) {
+export function DeleteDialog({ ids, onClose }: { ids: Id[]; onClose: () => void }) {
   const p = useProject()
   const labels = useLabels()
   const below = new Set(ids.flatMap((i) => descendants(p, i).map((d) => d.id)))

@@ -12,7 +12,7 @@ import { ItemCard } from './ItemCard'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { StructureSvg } from './StructureSvg'
-import { TreeTable } from './TreeTable'
+import { DeleteDialog, TreeTable } from './TreeTable'
 
 type Tab = 'diagram' | 'nodes' | 'ca' | 'feedback'
 
@@ -56,6 +56,8 @@ function Diagram() {
   const labels = useLabels()
   const goto = useStore((s) => s.goto)
   const hc = useHoverCard()
+  const [deleting, setDeleting] = useState<Id | null>(null)
+  const sel = selected && ['node', 'ca', 'feedback'].includes(p.items[selected]?.kind) ? selected : null
 
   // Re-run ELK only when structure (not nudges) changes.
   const sig = useMemo(() => JSON.stringify([
@@ -138,7 +140,7 @@ function Diagram() {
   const hasNudges = Object.values(p.items).some((i) => (i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && i.bend))
 
   return (
-    <div className="diagram-wrap">
+    <div className="diagram-wrap" tabIndex={-1} onKeyDown={(e) => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); setDeleting(sel) } }}>
       <div className="toolbar">
         <button onClick={addNode}>+ Element</button>
         <button onClick={fit}>Fit</button>
@@ -159,7 +161,7 @@ function Diagram() {
         })}>Auto-arrange arrows</button>
         <button title="Show or hide the sensors and actuators drawn on the arrows" onClick={toggleDevices}>{devices ? 'Hide' : 'Show'} sensors/actuators</button>
         <button onClick={async () => { const s = await structureSvg(p); if (s) download('control-structure.svg', s.svg, 'image/svg+xml') }}>Export SVG</button>
-        <span className="hint">Drag elements or labels to nudge · wheel to zoom · drag background to pan</span>
+        <span className="hint">Select + Delete to remove · drag elements or labels to nudge · wheel to zoom · drag background to pan</span>
       </div>
       <div className="canvas" ref={box} onMouseDown={(e) => down(e, 'pan')} onMouseMove={move} onMouseUp={up} onMouseLeave={up} onWheel={wheel}>
         {err && <div className="empty">{err}</div>}
@@ -170,6 +172,7 @@ function Diagram() {
         )}
         {hc.node}
       </div>
+      {deleting && <DeleteDialog ids={[deleting]} onClose={() => setDeleting(null)} />}
     </div>
   )
 }
