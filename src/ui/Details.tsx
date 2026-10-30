@@ -119,6 +119,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             )}
             <RefList value={it.lossLinks} options={of('loss').filter((l) => !eff.includes(l.id) || it.lossLinks.includes(l.id))} onChange={(v) => set({ lossLinks: v })} />
           </Field>
+          <Field label="System / environment state" hint="World variables whose values (together with worst-case environment) make this a hazard.">
+            <RefList value={it.variables} options={of('variable').filter((v) => v.layer === 'domain')} onChange={(v) => set({ variables: v })} />
+          </Field>
           <label className="check"><input type="checkbox" checked={it.security} onChange={(e) => set({ security: e.target.checked })} /> Security-related (STPA-Sec)</label>
           {!isLeaf(p, it.id) && <p className="hint">Parent hazard: UCAs and constraints link to its sub-hazards.</p>}
         </>

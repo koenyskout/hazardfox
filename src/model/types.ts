@@ -88,6 +88,8 @@ export interface Hazard extends Base {
   lossLinks: Id[]
   /** Inherited loss links that are switched off for this hazard. */
   lossExclude: Id[]
+  /** World (domain) variables describing the system state or environment conditions that make this a hazard. */
+  variables: Id[]
   /** STPA-Sec: hazard is caused by / relevant for adversarial actions. */
   security: boolean
 }

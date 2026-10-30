@@ -26,7 +26,7 @@ export function deserialize(text: string): Project {
   if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
-  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
   // Nodes linked one domain entity (`entity`); now a list.
   for (const n of Object.values(p.items)) {
     if (n.kind !== 'node' || !('entity' in n)) continue
@@ -68,8 +68,8 @@ function migrateLayers(p0: Project, raw: Item[]): Project {
     if (it.kind === 'relationship' && !predicateOf(p, it.id)) p = createItem(p, 'variable', { parent: it.id, type: 'boolean' }, 0).project
     const old = it as Item & { processModel?: string[]; variables?: string[] }
     for (const v of old.processModel ?? []) p = addBelief(p, it.id, v).project
-    for (const v of old.variables ?? []) p = addSignal(p, it.id, v).project
-    if (old.processModel || old.variables) {
+    for (const v of it.kind === 'feedback' ? old.variables ?? [] : []) p = addSignal(p, it.id, v).project
+    if (old.processModel || (it.kind === 'feedback' && old.variables)) {
       const { processModel: _a, variables: _b, ...rest } = p.items[it.id] as typeof old
       p = { ...p, items: { ...p.items, [it.id]: rest as Item } }
     }

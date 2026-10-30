@@ -52,7 +52,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   const push = (section: SectionKey, name: string, columns: string[], rows: string[][], widths?: number[]) => out.push({ section, name, columns, rows, widths })
 
   push('step1', 'Losses', ['ID', 'Loss', ...tailH], tree('loss').map(({ item }) => [...common(item), ...tail(item)]), [1, 3, 5, 1.2, 1.5, 3])
-  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1, 4, 1.2, 1.5, 2.5])
+  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'State variables', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), lab(item.variables), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1.5, 1, 4, 1.2, 1.5, 2.5])
   push('step1', 'System constraints', ['ID', 'Constraint', 'Hazards', ...tailH], tree('constraint').map(({ item }) => [...common(item), lab(item.hazards), ...tail(item)]), [1, 3, 1.3, 4, 1.2, 1.5, 2.5])
 
   push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],

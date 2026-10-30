@@ -66,7 +66,7 @@ export function Step1() {
       )}
       {sub === 'hazard' && (
         <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, with worst-case environment, leads to a loss."
-          extra={(h) => chips(effectiveLosses(p, h.id))} />
+          extra={(h) => <>{chips(effectiveLosses(p, h.id))}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
       )}
       {sub === 'constraint' && (
         <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => chips(c.hazards)} />

@@ -12,7 +12,7 @@ export const emptyProject = (): Project => ({
 /** Default values of the kind-specific fields. */
 const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   loss: () => ({}),
-  hazard: () => ({ lossLinks: [], lossExclude: [], security: false }),
+  hazard: () => ({ lossLinks: [], lossExclude: [], variables: [], security: false }),
   constraint: () => ({ hazards: [] }),
   requirement: () => ({ sources: [], type: 'requirement' }),
   assumption: () => ({ about: [] }),

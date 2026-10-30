@@ -18,7 +18,7 @@ export const OPTIONAL_REFS: Registry<Id | null> = {
 }
 /** List references: entries are removed when the target disappears. */
 export const LIST_REFS: Registry<Id[]> = {
-  hazard: ['lossLinks', 'lossExclude'],
+  hazard: ['lossLinks', 'lossExclude', 'variables'],
   constraint: ['hazards'],
   requirement: ['sources'],
   assumption: ['about'],

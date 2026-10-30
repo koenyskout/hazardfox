@@ -12,7 +12,7 @@ const HIDDEN = new Set(['id', 'kind', 'rank', 'nudge', 'bend', 'labelShift', 'wi
 
 /** Allowed target kinds of reference fields (`null` = any item). */
 const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
-  hazard: { lossLinks: ['loss'], lossExclude: ['loss'] },
+  hazard: { lossLinks: ['loss'], lossExclude: ['loss'], variables: ['variable'] },
   constraint: { hazards: ['hazard'] },
   requirement: { sources: null },
   assumption: { about: null },
