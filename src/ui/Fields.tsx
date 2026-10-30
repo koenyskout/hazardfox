@@ -1,12 +1,12 @@
-import { useRef, type ReactNode } from 'react'
-import { mention, mentions, splitMentions } from '../model/refs'
-import { byLabel, DELETED } from '../model/labels'
+import type { ReactNode } from 'react'
+import { DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { Id, Item, Kind, Labels } from '../model/types'
 import { useLabels, useProject } from './hooks'
 import { HoverCard } from './HoverCard'
 import { ItemCard } from './ItemCard'
 import { Picker } from './Picker'
+import { RichEditor } from './RichEditor'
 
 export const VIEW_OF: Record<Kind, View> = {
   loss: 'step1',
@@ -92,36 +92,7 @@ export function SingleRef(props: { value: Id | null; options: Item[]; onChange: 
   )
 }
 
-/** Textarea with `@[id]` reference insertion and a rendered preview. */
-export function RichText(props: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
-  const p = useProject()
-  const labels = useLabels()
-  const ta = useRef<HTMLTextAreaElement>(null)
-  const insert = (id: string) => {
-    const el = ta.current
-    const at = el ? el.selectionStart : props.value.length
-    const end = el ? el.selectionEnd : at
-    const next = props.value.slice(0, at) + mention(id) + props.value.slice(end)
-    props.onChange(next)
-    setTimeout(() => el?.focus(), 0)
-  }
-  const hasRefs = mentions(props.value).length > 0
-  const others = Object.values(p.items).sort(byLabel(labels))
-  return (
-    <div className="rich">
-      <textarea ref={ta} rows={props.rows ?? 3} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
-      <div className="rich-tools">
-        <select value="" onChange={(e) => e.target.value && insert(e.target.value)} title="Insert a live reference">
-          <option value="">@ insert reference…</option>
-          {others.map((o) => (
-            <option key={o.id} value={o.id}>{optionLabel(labels, o)}</option>
-          ))}
-        </select>
-      </div>
-      {hasRefs && <div className="preview">{splitMentions(props.value).map((s, n) => (typeof s === 'string' ? s : <Ref key={n} id={s.id} />))}</div>}
-    </div>
-  )
-}
+export const RichText = RichEditor
 
 export function Tags(props: { value: string[]; onChange: (v: string[]) => void }) {
   return (

@@ -39,6 +39,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
   `children`, `flatten` and `addItem` (`ui/hooks.ts`: commit + select) are generic over the kind. Enumerations
   (`STATUSES`, `CAUSES`, `REQUIREMENT_TYPES`, `SEVERITIES`, …) are `as const` arrays with derived union types.
   Mentions: use `mention`/`mentions`/`replaceMentions` from `refs.ts`, not the regex.
+  Free text is rich: stored as a string (`**bold**`, `*italic*`, `@[id]`, `\` escapes, `\n` paragraphs; `model/richtext.ts`). Edit with `RichText` (`ui/RichEditor.tsx`, Lexical: reference pills, `@` completion, B/I); render with `parseRich`; `renderText` gives plain text.
 - UCAs and system constraints link only to **leaf** hazards. Hazard→loss links are many-to-many; sub-hazards inherit.
 - Sensors and actuators are **not nodes**: node roles are controller / process / external. A feedback has an optional `sensor`, a control action an optional `actuator` (names), drawn as small coloured pills on the arrow (`DEVICE_STYLE`). `deserialize` migrates old sensor/actuator nodes (names move onto the arrows, nodes become external / process).
 - Two scenario kinds (`scenarioType`): `'uca'` (why a UCA occurs; hazards inherited from the UCA) and `'ca'` (why a

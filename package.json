@@ -12,11 +12,14 @@
     "mcp": "tsx src/mcp/server.ts"
   },
   "dependencies": {
+    "@lexical/react": "^0.53.0",
+    "@lexical/rich-text": "^0.53.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "docx": "^9.15.0",
     "elkjs": "^0.12.1",
     "exceljs": "^4.4.0",
     "immer": "^11.2.9",
+    "lexical": "^0.53.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7",

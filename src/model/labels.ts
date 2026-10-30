@@ -1,4 +1,4 @@
-import { replaceMentions } from './refs'
+import { plainRich } from './richtext'
 import { children, flatten, itemsOfKind, TREE_KINDS } from './tree'
 import type { Id, Kind, Labels, Project } from './types'
 
@@ -76,7 +76,7 @@ export function computeLabels(p: Project): Labels {
 export const DELETED = '⟨deleted⟩'
 
 /** Render text, replacing `@[id]` with the live label (or a visible dangling marker). */
-export const renderText = (labels: Labels, text: string) => replaceMentions(text, (id) => labels[id] ?? DELETED)
+export const renderText = (labels: Labels, text: string) => plainRich(text, (id) => labels[id] ?? DELETED)
 
 export const labelOf = (labels: Labels, id: Id | null | undefined) => (id && labels[id]) || '—'
 

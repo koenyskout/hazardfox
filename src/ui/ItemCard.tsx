@@ -2,7 +2,8 @@ import { Icon } from './Icon'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
 import { byLabel, DELETED } from '../model/labels'
-import { incoming, refsOf, splitMentions } from '../model/refs'
+import { incoming, refsOf } from '../model/refs'
+import { isRef, parseRich } from '../model/richtext'
 import { children } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { validate } from '../model/validate'
@@ -36,9 +37,18 @@ const Chips = ({ ids, c }: { ids: Id[]; c: Ctx }) => (
   </span>
 )
 
-/** Text with `@[id]` references as chips. */
+/** Rich text with `@[id]` references as chips. */
 function Mentions({ text, c }: { text: string; c: Ctx }) {
-  return <>{splitMentions(text).map((part, i) => (typeof part === 'string' ? <Fragment key={i}>{part}</Fragment> : <ChipLink key={i} id={part.id} {...c} />))}</>
+  return (
+    <>
+      {parseRich(text).map((segs, k) => (
+        <Fragment key={k}>
+          {k > 0 && <br />}
+          {segs.map((s, i) => isRef(s) ? <ChipLink key={i} id={s.id} {...c} /> : s.bold || s.italic ? <span key={i} style={{ fontWeight: s.bold ? 700 : undefined, fontStyle: s.italic ? 'italic' : undefined }}>{s.text}</span> : <Fragment key={i}>{s.text}</Fragment>)}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 function Section({ title, children: kids }: { title?: string; children: ReactNode }) {

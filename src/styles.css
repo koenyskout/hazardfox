@@ -83,8 +83,6 @@ a.chip:hover, button.chip:hover { border-color: var(--accent); }
 .chipwrap { display: inline-flex; align-items: center; } .chipwrap.off .chip { opacity: .35; text-decoration: line-through; }
 .x { border: none; background: none; padding: 0 4px; color: var(--muted); }
 .inherited .chip { opacity: .65; }
-.rich-tools { margin-top: 3px; } .rich-tools select { width: auto; font-size: 12px; }
-.preview { margin-top: 4px; padding: 6px 8px; background: var(--chip); border-radius: 6px; font-size: 12.5px; white-space: pre-wrap; }
 .conds { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
 .cond { display: grid; grid-template-columns: 1fr 54px 1fr auto; gap: 4px; }
 
