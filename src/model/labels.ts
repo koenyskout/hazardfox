@@ -33,12 +33,19 @@ export function computeLabels(p: Project): Labels {
     walk(null, '')
   }
 
-  // Variables: numbered globally in entity-tree order.
+  // Variables are shown by name (V-n only while unnamed or when the name is already taken), numbered globally in entity-tree order.
+  const vars = [...flatten(p, 'entity').flatMap(({ item: ent }) => children(p, ent.id, 'variable')), ...itemsOfKind(p, 'variable')]
+  const seen = new Set<string>()
+  const taken = new Set<string>()
   let v = 0
-  for (const { item: ent } of flatten(p, 'entity')) {
-    for (const x of children(p, ent.id, 'variable')) out[x.id] = `V-${++v}`
+  for (const x of vars) {
+    if (seen.has(x.id)) continue
+    seen.add(x.id)
+    const n = ++v
+    const name = x.title.trim()
+    out[x.id] = name && !taken.has(name.toLowerCase()) ? name : `V-${n}`
+    taken.add(out[x.id].toLowerCase())
   }
-  for (const x of itemsOfKind(p, 'variable')) if (!out[x.id]) out[x.id] = `V-${++v}`
 
   const flat = (kind: 'relationship' | 'ca' | 'feedback' | 'assumption') =>
     itemsOfKind(p, kind)
