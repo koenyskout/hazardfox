@@ -19,6 +19,11 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 button.danger { color: var(--danger); }
 input, select, textarea { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; width: 100%; }
 input[type=checkbox] { width: auto; }
+select:not([multiple]) { appearance: none; -webkit-appearance: none; padding-right: 24px; cursor: pointer; text-overflow: ellipsis;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 52%, calc(100% - 8px) 52%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; transition: border-color .12s; }
+select:not([multiple]):hover:not(:disabled) { border-color: var(--accent); }
+select:disabled { opacity: .55; cursor: default; }
 textarea { resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
 h2 { font-size: 16px; margin: 18px 0 8px; } h3 { margin: 0 0 12px; font-size: 15px; } h4 { margin: 14px 0 6px; font-size: 13px; color: var(--muted); }
@@ -86,7 +91,7 @@ a.chip:hover, button.chip:hover { border-color: currentColor; }
 .chip.k-ca { background: #1f2937; color: #fff; }
 @media (prefers-color-scheme: dark) { .chip.k-ca { background: #e6e9ee; color: #14181f; } }
 .reflist { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.reflist select { width: auto; max-width: 160px; font-size: 12px; padding: 1px 4px; }
+.reflist select { width: auto; max-width: 160px; font-size: 12px; padding: 1px 20px 1px 6px; background-position: calc(100% - 11px) 52%, calc(100% - 6px) 52%; }
 .chipwrap { display: inline-flex; align-items: center; } .chipwrap.off .chip { opacity: .35; text-decoration: line-through; }
 .x { border: none; background: none; padding: 0 4px; color: var(--muted); }
 .inherited .chip { opacity: .65; }
