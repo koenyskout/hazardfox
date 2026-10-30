@@ -194,3 +194,26 @@ table.plain td { padding: 4px 10px 4px 0; }
 .hc-badge.st-draft, .hc-badge.st-review, .hc-badge.st-approved { display: inline-flex; align-items: center; gap: 3px; border: 1px solid currentColor; background: transparent; }
 .status-sel { display: flex; align-items: center; gap: 6px; }
 .status-sel select { flex: 1; }
+
+.choice-btn { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; }
+.choice-btn .caret { margin-left: auto; color: var(--muted); }
+.choice-pop { max-height: 240px; }
+.choice-pop li { display: flex; align-items: center; gap: 6px; }
+
+.rich { position: relative; }
+.rich-tools { display: flex; gap: 2px; margin-bottom: 3px; }
+.rich-tools button { min-width: 24px; padding: 0 6px; font-size: 12px; line-height: 20px; }
+.tb-b { font-weight: 700; } .tb-i { font-style: italic; }
+.rich-edit { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--panel); outline: none; font-size: 13px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rich-edit:focus { border-color: var(--accent); }
+.rich-edit p { margin: 0; }
+.rich-ph { position: absolute; top: 28px; left: 9px; color: var(--muted); pointer-events: none; font-size: 13px; }
+.rt-bold { font-weight: 700; } .rt-italic { font-style: italic; }
+.mention-slot { display: inline-block; vertical-align: baseline; user-select: all; }
+.mention-menu { list-style: none; margin: 4px 0 0; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.18); min-width: 320px; max-width: 520px; max-height: 260px; overflow: auto; z-index: 50; }
+.mention-menu li { display: flex; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
+.mention-menu li.on { background: var(--sel); }
+.mention-menu .chip { flex: none; white-space: nowrap; }
+.mention-menu .pk-main { display: flex; flex-direction: column; min-width: 0; }
+.mention-menu .pk-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mention-menu .pk-sub { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

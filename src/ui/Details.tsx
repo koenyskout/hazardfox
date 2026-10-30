@@ -1,4 +1,4 @@
-import { CAUSES, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType, type Status } from '../model/types'
+import { CAUSES, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
@@ -9,7 +9,7 @@ import { commit, useLabels, useProject } from './hooks'
 import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { useState } from 'react'
-import { Picker } from './Picker'
+import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
 
@@ -40,10 +40,7 @@ export function Details() {
       <Field label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
       <div className="two">
         <Field label="Status">
-          <span className="status-sel"><StatusIcon status={it.status} size={16} />
-          <select value={it.status} onChange={(e) => set({ status: e.target.value as Status })}>
-            {STATUSES.map((s) => <option key={s}>{s}</option>)}
-          </select></span>
+          <ChoicePicker options={STATUSES} value={it.status} onPick={(s) => set({ status: s })} icon={(s) => <StatusIcon status={s} size={16} />} />
         </Field>
         <Field label="Tags"><Tags value={it.tags} onChange={(v) => set({ tags: v })} /></Field>
       </div>
