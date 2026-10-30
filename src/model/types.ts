@@ -110,6 +110,11 @@ export interface Assumption extends Base {
   about: Id[]
 }
 
+/** Predefined multiplicities of a relationship end (`*` = zero or more); other text from older files is kept as is. */
+export const CARDINALITIES = ['1', '0..1', '*', '1..*'] as const
+/** Common from–to combinations offered as one choice. */
+export const CARDINALITY_PAIRS = [['1', '1'], ['1', '*'], ['*', '1'], ['*', '*'], ['1', '0..1'], ['0..1', '1'], ['1', '1..*'], ['1..*', '1']] as const
+
 /** Domain model entity (tree: a child may be a part/specialisation of its parent). Its attributes are its world variables V(e). */
 export interface Entity extends Base {
   kind: 'entity'

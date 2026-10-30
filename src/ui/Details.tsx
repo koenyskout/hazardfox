@@ -3,7 +3,7 @@ import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateO
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, OP_LABELS, opsFor, stepOf, valuesOf, whenText } from '../model/variables'
-import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { CARDINALITIES, CARDINALITY_PAIRS, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS,type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
@@ -222,9 +222,15 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="From"><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></Field>
             <Field label="To"><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></Field>
           </div>
+          <Field single label="Cardinality" hint="Read left to right: 1 — * means one From entity is related to many To entities (* = zero or more).">
+            <select value={`${it.fromCard}|${it.toCard}`} onChange={(e) => { const [fromCard, toCard] = e.target.value.split('|'); set({ fromCard, toCard }) }}>
+              {!CARDINALITY_PAIRS.some(([a, b]) => a === it.fromCard && b === it.toCard) && <option value={`${it.fromCard}|${it.toCard}`}>{it.fromCard} — {it.toCard}</option>}
+              {CARDINALITY_PAIRS.map(([a, b]) => <option key={a + b} value={`${a}|${b}`}>{a} — {b}</option>)}
+            </select>
+          </Field>
           <div className="two">
-            <Field single label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
-            <Field single label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
+            <Field single label="From end"><CardSelect value={it.fromCard} onChange={(v) => set({ fromCard: v })} /></Field>
+            <Field single label="To end"><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></Field>
           </div>
           <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
             {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
@@ -385,6 +391,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return null
   }
 }
+
+/** Multiplicity of one relationship end: predefined values, plus whatever an older file holds. */
+const CardSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <select value={value} onChange={(e) => onChange(e.target.value)}>
+    {!(CARDINALITIES as readonly string[]).includes(value) && <option>{value}</option>}
+    {CARDINALITIES.map((c) => <option key={c}>{c}</option>)}
+  </select>
+)
 
 const Rating = ({ v, on }: { v: number; on: (v: number) => void }) => (
   <select value={v} onChange={(e) => on(+e.target.value)}>
