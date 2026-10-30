@@ -17,7 +17,7 @@ import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } fr
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { ReviewDot } from './Review'
-import { Icon } from './Icon'
+import { Icon, StatusIcon } from './Icon'
 import { ItemHover } from './Fields'
 
 type Dialog = null | { type: 'group' | 'merge' } | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
@@ -195,6 +195,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
                   onChange={(e) => commit((q) => updateItem(q, item.id, { title: e.target.value }), 'title:' + item.id)}
                   onKeyDown={(e) => onKey(e, item, i)}
                 />
+                <StatusIcon status={item.status} />
                 <ReviewDot id={item.id} />
               </span>
               {extra && <span className="ext">{extra(item)}</span>}

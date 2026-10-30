@@ -4,7 +4,7 @@ import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
 import { addItem, commit, select, useLabels } from './hooks'
 import { ReviewDot } from './Review'
-import { Icon } from './Icon'
+import { Icon, StatusIcon } from './Icon'
 import { ItemHover } from './Fields'
 
 export interface Column<K extends Kind> {
@@ -62,6 +62,7 @@ export function FlatTable<K extends Kind>(props: {
                   onFocus={() => select(it.id)}
                   onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)}
                 />
+                <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
               </span>
             )}

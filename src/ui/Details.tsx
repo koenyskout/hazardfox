@@ -6,7 +6,7 @@ import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
 import { commit, useLabels, useProject } from './hooks'
-import { Icon } from './Icon'
+import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { useState } from 'react'
 import { Picker } from './Picker'
@@ -40,9 +40,10 @@ export function Details() {
       <Field label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
       <div className="two">
         <Field label="Status">
+          <span className="status-sel"><StatusIcon status={it.status} size={16} />
           <select value={it.status} onChange={(e) => set({ status: e.target.value as Status })}>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          </select></span>
         </Field>
         <Field label="Tags"><Tags value={it.tags} onChange={(v) => set({ tags: v })} /></Field>
       </div>

@@ -1,3 +1,4 @@
+import { Icon } from './Icon'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
 import { byLabel, DELETED } from '../model/labels'
@@ -158,7 +159,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
         <span className="hc-type">{KIND_NAMES[it.kind]}</span>
         <span className="hc-badges">
           {badges}
-          {it.status !== 'draft' && <Badge>{it.status}</Badge>}
+          <span className={'hc-badge st-' + it.status}><Icon name={it.status} size={12} /> {it.status}</span>
         </span>
       </div>
       <div className="hc-title">{title || <span className="muted">(untitled)</span>}</div>

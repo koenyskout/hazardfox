@@ -2,8 +2,10 @@
   --bg: #f6f7f9; --panel: #ffffff; --line: #e1e5ea; --text: #1c2430; --muted: #6b7686;
   --accent: #e8590c; --accent-2: #1f3a5f; --sel: #fff1e6; --cur: #ffe3cc; --danger: #c92a2a;
   --chip: #eef2f7; --radius: 8px;
+  --st-draft: #6b7686; --st-review: #b7791f; --st-approved: #2a9d5c;
 }
 @media (prefers-color-scheme: dark) {
+  :root { --st-draft: #8b97a8; --st-review: #e0b04a; --st-approved: #4cc380; }
   :root { --bg: #14181f; --panel: #1b212b; --line: #2c3541; --text: #e6e9ee; --muted: #8b97a8; --sel: #2a2620; --cur: #3a2f22; --chip: #263040; --accent-2: #8fb4e8; }
 }
 * { box-sizing: border-box; }
@@ -183,3 +185,12 @@ table.plain td { padding: 4px 10px 4px 0; }
 .na-row label { display: flex; gap: 6px; align-items: center; }
 .picker-list li .chip, .picker-btn .chip { white-space: nowrap; flex: none; }
 .pk-title { overflow-wrap: anywhere; }
+
+.status-ico { display: inline-flex; align-items: center; flex: none; }
+.status-ico .icon { display: block; }
+.st-draft { color: var(--st-draft); }
+.st-review { color: var(--st-review); }
+.st-approved { color: var(--st-approved); }
+.hc-badge.st-draft, .hc-badge.st-review, .hc-badge.st-approved { display: inline-flex; align-items: center; gap: 3px; border: 1px solid currentColor; background: transparent; }
+.status-sel { display: flex; align-items: center; gap: 6px; }
+.status-sel select { flex: 1; }
