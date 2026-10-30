@@ -106,3 +106,15 @@ export function RangeTypes() {
     </div>
   )
 }
+
+/** Table cell for a variable's range: type name and bounds, click to change them in a popup. Empty for other types. */
+export function RangeCell({ v }: { v: Variable }) {
+  const [open, setOpen] = useState(false)
+  if (v.type !== 'range') return null
+  return (
+    <>
+      <button className="btn" title="Change range type" onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType}</b> : 'Custom'} · {describeStates(v)}</button>
+      {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
