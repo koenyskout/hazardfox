@@ -34,7 +34,7 @@ export function conditionText(p: Project, c: Condition): string {
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = v.title
-  if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} ${(c.set ?? []).join(', ')}`
+  if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }
 
