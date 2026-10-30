@@ -264,13 +264,16 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const H4 = add('hazard', { title: 'Reactor shut down', lossLinks: [A4], description: 'Any unplanned shutdown that may result in loss of electrical power generation.' })
 
       const eSg = add('entity', { title: 'Steam generator system' })
-      const vSgtr = add('variable', { title: 'Steam generator tube', parent: eSg, states: ['ruptured', 'not ruptured'] })
-      const vFw = add('variable', { title: 'Main feedwater pipe', parent: eSg, states: ['leak', 'no leak'] })
-      const vSl = add('variable', { title: 'Main steam line', parent: eSg, states: ['leak', 'no leak'] })
-      const vSup = add('variable', { title: 'Other support systems (CVCS, SI, ECCS, ...)', parent: eSg, states: ['adequate', 'inadequate'], description: 'Adequate: their operation suffices to provide the cooling normally provided by the steam generator.' })
-      const vP = add('variable', { title: 'SG pressure', parent: eSg, states: ['high', 'normal'] })
+      const world: [Id, string, string[]][] = []
+      const wv = (title: string, states: string[], description = '') => { const id = add('variable', { title, parent: eSg, states, description }); world.push([id, title, states]); return id }
+      const vSgtr = wv('Steam generator tube', ['ruptured', 'not ruptured'])
+      const vFw = wv('Main feedwater pipe', ['leak', 'no leak'])
+      const vSl = wv('Main steam line', ['leak', 'no leak'])
+      const vSup = wv('Other support systems (CVCS, SI, ECCS, ...)', ['adequate', 'inadequate'], 'Adequate: their operation suffices to provide the cooling normally provided by the steam generator.')
+      const vP = wv('SG pressure', ['high', 'normal'])
 
-      const op = add('node', { title: 'Operator', role: 'controller', processModel: [vSgtr, vFw, vSl, vSup, vP], description: 'Validates/inhibits permissives; brings the plant to a controlled shutdown on AOO / postulated accidents; activates the engineered safety features; starts main steam line isolation when necessary; monitors parameters; operates the plant during start-up and programmed shutdown; follows written guides in transients and emergencies.' })
+      const op = add('node', { title: 'Operator', role: 'controller', description: 'Validates/inhibits permissives; brings the plant to a controlled shutdown on AOO / postulated accidents; activates the engineered safety features; starts main steam line isolation when necessary; monitors parameters; operates the plant during start-up and programmed shutdown; follows written guides in transients and emergencies.' })
+      for (const [v, title, states] of world) add('variable', { layer: 'belief', parent: op, about: v, title, states })
       const nssc = add('node', { title: 'NSSC (Non-Safety System Controller)', role: 'controller', description: 'Provides manual control for the MSIV: forwards an operator open/close command to the PM and the PM feedback to the operator.' })
       const ps = add('node', { title: 'PS (Protection System)', role: 'controller', description: 'Brings the plant to a controlled shutdown on AOO / postulated accidents, activates the engineered safety features and starts main steam line isolation when necessary. Inputs: SIS actuation, low pressurizer pressure, partial cooldown, high main steam line activity, high SG level, start-up/shutdown, SG pressure drop rate, low SG pressure, containment compartment.' })
       const das = add('node', { title: 'DAS (Diverse Automation System)', role: 'controller', description: 'Backup protection system for the PS, same responsibilities.' })
