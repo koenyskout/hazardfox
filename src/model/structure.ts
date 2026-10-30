@@ -1,4 +1,5 @@
 import ELK, { type ElkNode, type ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
+import { routeAround, type Used } from './route'
 import { children, itemsOfKind } from './tree'
 import type { CsNode, Id, NodeRole, Offset, Project } from './types'
 
@@ -580,6 +581,10 @@ const cumulative = (p: Project, id: Id): Pt => {
 }
 
 /** Apply stored manual nudges / bends to the auto layout. */
+function segHitsBox(a: Pt, b: Pt, n: { x: number; y: number; w: number; h: number }) {
+  return Math.max(a.x, b.x) > n.x + 0.5 && Math.min(a.x, b.x) < n.x + n.w - 0.5 && Math.max(a.y, b.y) > n.y + 0.5 && Math.min(a.y, b.y) < n.y + n.h - 0.5
+}
+
 export function applyOverrides(p: Project, l: Layout): Drawn {
   const nodes = Object.values(l.nodes)
     .filter((n) => p.items[n.id])
@@ -607,24 +612,36 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     }
     return pts
   }
-  const edges = live.map((e) => {
+  const solid = nodes.filter((n) => !n.compound)
+  const bendOf = (e: EdgeRoute) => { const it = p.items[e.id]; return it && (it.kind === 'ca' || it.kind === 'feedback') ? it.bend : null }
+  const base = new Map<string, Pt[]>()
+  const dirty: EdgeRoute[] = []
+  for (const e of live) {
     const a = cumulative(p, e.from), b = cumulative(p, e.to)
-    const it = p.items[e.id]
-    const bend = it && (it.kind === 'ca' || it.kind === 'feedback') ? it.bend : null
-    if (a.x || a.y || b.x || b.y) {
-      // an end moved: re-route between the actual boxes instead of stretching the old route
-      const g = groups.get(pairKey(e))!
-      let pts = routeVertical(box[e.from], box[e.to], e.kind === 'feedback', (g.indexOf(e) - (g.length - 1) / 2) * 22)
-      pts = bendRoute(pts, bend, box[e.from], box[e.to])
-      return { ...e, points: slide(pts, e, bend) }
-    }
-    const points = bendRoute(e.points, bend, box[e.from], box[e.to])
-    return { ...e, points: slide(points, e, bend) }
-  })
+    const pts = slide(bendRoute(e.points, bendOf(e), box[e.from], box[e.to]), e, bendOf(e))
+    const hits = pts.slice(1).some((q, i) => solid.some((n) => n.id !== e.from && n.id !== e.to && segHitsBox(pts[i], q, n)))
+    if (a.x || a.y || b.x || b.y || hits) dirty.push(e); else base.set(e.id, pts)
+  }
+  const segsOf = (pts: Pt[]) => pts.slice(1).map((q, i) => ({ a: pts[i], b: q }))
+  const routed = new Map<string, Pt[]>()
+  const pass = (e: EdgeRoute) => {
+    const others = [...base, ...routed].filter(([id]) => id !== e.id).map(([, v]) => v)
+    const g = groups.get(pairKey(e))!
+    const up = e.kind === 'feedback'
+    const segs = others.flatMap(segsOf)
+    const us: Used[] = []
+    for (const [id, v] of [...base, ...routed]) if (id !== e.id) { const o = live.find((x) => x.id === id)!; us.push({ box: o.from, y: v[0].y, x: v[0].x }, { box: o.to, y: v[v.length - 1].y, x: v[v.length - 1].x }) }
+    let pts = routeAround(box[e.from], box[e.to], up, solid, segs, us, SEP, MARGIN)
+    if (!pts) pts = routeVertical(box[e.from], box[e.to], up, (g.indexOf(e) - (g.length - 1) / 2) * 22)
+    routed.set(e.id, slide(bendRoute(pts, bendOf(e), box[e.from], box[e.to]), e, bendOf(e)))
+  }
+  for (const e of dirty) pass(e)
+  if (dirty.length > 1) for (const e of dirty) pass(e)
+  const edges = live.map((e) => ({ ...e, points: routed.get(e.id) ?? base.get(e.id)! }))
   // re-routed arrows (after moving nodes) get the same crossing fix as the automatic layout
-  separateVertical(edges, box)
-  placePorts(edges, box)
-  uncross(edges, box)
+  if (!process.env.NOPOST) { if (process.env.SV) separateVertical(edges, box)
+  if (process.env.PP) placePorts(edges, box)
+  uncross(edges, box) }
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {

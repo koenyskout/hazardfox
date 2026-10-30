@@ -53,7 +53,7 @@ export function FlatTable<K extends Kind>(props: {
         {props.items.length === 0 && <div className="empty">Nothing here yet.</div>}
         {props.items.map((it) => (
           <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
-            <span className="lbl"><ItemHover id={it.id}>{labels[it.id]}</ItemHover></span>
+            <span className="lbl"><ItemHover id={it.id}><span className={'chip k-' + it.kind}>{labels[it.id]}</span></ItemHover></span>
             {props.titleEditable !== false && (
               <span className="ttl">
                 <input

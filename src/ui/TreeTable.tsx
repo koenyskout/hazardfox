@@ -172,7 +172,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               }}
               onClick={(e) => click(e, item.id)}
             >
-              <span className="lbl"><ItemHover id={item.id}>{labels[item.id]}</ItemHover></span>
+              <span className="lbl"><ItemHover id={item.id}><span className={'chip k-' + item.kind}>{labels[item.id]}</span></ItemHover></span>
               <span className="ttl" style={{ paddingLeft: depth * 20 }}>
                 <button
                   className={'twisty' + (hasKids ? '' : ' none')}
