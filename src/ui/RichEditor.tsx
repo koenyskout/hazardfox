@@ -183,7 +183,7 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
     editorState: () => $load(initial),
   }), [initial])
   return (
-    <div className="rich" onClick={(e) => e.preventDefault() /* the enclosing <label> would forward the click to the first toolbar button */}>
+    <div className="rich">
       <LexicalComposer initialConfig={config}>
         <Toolbar />
         <RichTextPlugin

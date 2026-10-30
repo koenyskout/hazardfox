@@ -24,13 +24,15 @@ export const VIEW_OF: Record<Kind, View> = {
   scenario: 'scenarios',
 }
 
-export function Field(props: { label: string; children: ReactNode; hint?: string }) {
+/** `group`: no `<label>` (it would forward clicks and :hover to the first button inside, e.g. an editor toolbar). */
+export function Field(props: { label: string; children: ReactNode; hint?: string; group?: boolean }) {
+  const Tag = props.group ? 'div' : 'label'
   return (
-    <label className="field">
+    <Tag className="field">
       <span>{props.label}</span>
       {props.children}
       {props.hint && <small className="hint">{props.hint}</small>}
-    </label>
+    </Tag>
   )
 }
 

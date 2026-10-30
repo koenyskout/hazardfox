@@ -35,9 +35,9 @@ export function Details() {
       <KindFields it={it} set={set} />
       <ReviewItem it={it} />
       {it.kind !== 'uca' && (
-        <Field label="Description"><RichText value={it.description} onChange={text('description')} /></Field>
+        <Field group label="Description"><RichText value={it.description} onChange={text('description')} /></Field>
       )}
-      <Field label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
+      <Field group label="Notes / rationale"><RichText value={it.notes} onChange={text('notes')} rows={2} /></Field>
       <div className="two">
         <Field label="Status">
           <ChoicePicker options={STATUSES} value={it.status} onPick={(s) => set({ status: s })} icon={(s) => <StatusIcon status={s} size={16} />} />
@@ -216,7 +216,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Guide word">
             <select value={it.guide} onChange={(e) => set({ guide: e.target.value as GuideWord })}>{GUIDE_WORDS.map((g) => <option key={g} value={g}>{GUIDE_WORD_LABELS[g]}</option>)}</select>
           </Field>
-          <Field label="Context">
+          <Field group label="Context">
             <ConditionsEditor it={it} set={set} />
             <RichText value={it.context} onChange={(v) => set({ context: v }, 'context')} rows={2} placeholder="Additional context (free text)" />
           </Field>
@@ -226,7 +226,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Hazards (leaf)">
             <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
           </Field>
-          <Field label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
+          <Field group label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
         </>
       )
     case 'scenario':
@@ -268,7 +268,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               </div>
             </Field>
           )}
-          <Field label="Threat description"><RichText value={it.threat} onChange={(v) => set({ threat: v }, 'threat')} rows={2} /></Field>
+          <Field group label="Threat description"><RichText value={it.threat} onChange={(v) => set({ threat: v }, 'threat')} rows={2} /></Field>
           <div className="two">
             <Field label="Severity (1–5)"><Rating v={it.severity} on={(v) => set({ severity: v })} /></Field>
             <Field label="Likelihood (1–5)"><Rating v={it.likelihood} on={(v) => set({ likelihood: v })} /></Field>
