@@ -2,7 +2,7 @@ import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
 import { children, isLeaf, itemsOfKind } from './tree'
-import { GUIDE_WORDS, type Id, type Item, type Project } from './types'
+import { type Id, type Item, type Project } from './types'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -55,9 +55,6 @@ export function validate(p: Project): Issue[] {
 
   // control structure
   for (const ca of itemsOfKind(p, 'ca')) {
-    const ds = ucas.filter((u) => u.ca === ca.id)
-    for (const g of GUIDE_WORDS)
-      if (!ds.some((u) => u.guide === g)) add('info', ca, `${L[ca.id]} ${ca.title}: guide word "${g}" not analysed`)
     if (!itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'ca' && s.ca === ca.id))
       add('info', ca, `${L[ca.id]} ${ca.title}: no scenarios for improper execution of the control action`)
   }
