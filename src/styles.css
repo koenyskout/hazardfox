@@ -243,4 +243,5 @@ table.plain td { padding: 4px 10px 4px 0; }
 .welcome .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 
 .modal-back.stacked { background: transparent; }
-.modal.under { pointer-events: none; filter: brightness(.94); }
+.modal.under { pointer-events: none; filter: brightness(.94); height: 40px; padding-block: 0; overflow: hidden; }
+.modal.under > * { visibility: hidden; }
