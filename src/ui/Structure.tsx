@@ -6,9 +6,10 @@ import { useStore } from '../model/store'
 import { itemsOfKind } from '../model/tree'
 import type { Id } from '../model/types'
 import { structureSvg } from '../export/structureImage'
-import { Ref } from './Fields'
+import { Ref, VIEW_OF } from './Fields'
+import { ItemCard, useHoverCard } from './HoverCard'
 import { FlatTable } from './FlatTable'
-import { addItem, commit, select, useProject } from './hooks'
+import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { StructureSvg } from './StructureSvg'
 import { TreeTable } from './TreeTable'
 
@@ -51,6 +52,9 @@ function Diagram() {
   const [err, setErr] = useState('')
   const [view, setView] = useState({ x: 20, y: 20, k: 1 })
   const box = useRef<HTMLDivElement>(null)
+  const labels = useLabels()
+  const goto = useStore((s) => s.goto)
+  const hc = useHoverCard()
 
   // Re-run ELK only when structure (not nudges) changes.
   const sig = useMemo(() => JSON.stringify([
@@ -84,8 +88,16 @@ function Diagram() {
   }
   useEffect(() => { if (layout) fit() }, [layout]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const hover = (id: Id | null, e: MouseEvent) => {
+    const it = id && p.items[id]
+    if (!it || drag.current) return hc.closeSoon()
+    const r = e.currentTarget.getBoundingClientRect()
+    const at = it.kind === 'node' ? { left: r.left, top: r.top, bottom: r.bottom } : { left: e.clientX, top: e.clientY, bottom: e.clientY + 8 }
+    hc.open(() => at, () => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />)
+  }
   const down = (e: MouseEvent, kind: 'pan' | 'node' | 'edge' | 'resize', id?: Id) => {
     e.stopPropagation()
+    hc.close()
     let ox = 0, oy = 0
     const it = id ? p.items[id] : null
     if (kind === 'resize' && it?.kind === 'node') ox = it.wide
@@ -152,9 +164,10 @@ function Diagram() {
         {err && <div className="empty">{err}</div>}
         {!drawn || drawn.nodes.length === 0 ? <div className="empty">Add control structure elements and control actions to see the diagram.</div> : (
           <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, transformOrigin: '0 0', width: drawn.width, height: drawn.height }}>
-            <StructureSvg p={p} d={drawn} h={{ selected, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
+            <StructureSvg p={p} d={drawn} h={{ selected, onHover: hover, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
           </div>
         )}
+        {hc.node}
       </div>
     </div>
   )

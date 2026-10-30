@@ -6,6 +6,8 @@ export interface SvgHandlers {
   onNodeDown?: (e: MouseEvent, id: Id) => void
   onResizeDown?: (e: MouseEvent, id: Id) => void
   onEdgeDown?: (e: MouseEvent, id: Id) => void
+  /** Pointer entered (id) or left (null) a box or arrow. */
+  onHover?: (id: Id | null, e: MouseEvent) => void
   selected?: Id | null
   hideDevices?: boolean
 }
@@ -31,7 +33,7 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
         if (!it || it.kind !== 'node') return null
         const sel = h.selected === n.id
         return (
-          <g key={n.id} onMouseDown={(e) => h.onNodeDown?.(e, n.id)} style={{ cursor: h.onNodeDown ? 'grab' : undefined }}>
+          <g key={n.id} onMouseDown={(e) => h.onNodeDown?.(e, n.id)} onMouseEnter={(e) => h.onHover?.(n.id, e)} onMouseLeave={(e) => h.onHover?.(null, e)} style={{ cursor: h.onNodeDown ? 'grab' : undefined }}>
             <rect x={n.x} y={n.y} width={n.w} height={n.h} rx={n.compound ? 10 : 6}
               fill={n.compound ? ROLE_FILL[it.role] + '66' : ROLE_FILL[it.role]} stroke={sel ? '#f97316' : ROLE_STROKE[it.role]} strokeWidth={sel ? 3 : 1.5} strokeDasharray={n.compound ? '6 3' : undefined} />
             {n.compound ? (
@@ -54,7 +56,7 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
       {d.edges.map((e) => {
         const sel = h.selected === e.id
         return (
-          <g key={e.id} onMouseDown={(ev) => h.onEdgeDown?.(ev, e.id)} style={{ cursor: h.onEdgeDown ? 'pointer' : undefined }}>
+          <g key={e.id} onMouseDown={(ev) => h.onEdgeDown?.(ev, e.id)} onMouseEnter={(ev) => h.onHover?.(e.id, ev)} onMouseLeave={(ev) => h.onHover?.(null, ev)} style={{ cursor: h.onEdgeDown ? 'pointer' : undefined }}>
             <path d={path(e.points)} fill="none" stroke="transparent" strokeWidth={12} />
             <path d={path(e.points)} fill="none" stroke={sel ? '#f97316' : edgeColor(e)} strokeWidth={sel ? 2.5 : 1.5}
               strokeDasharray={e.kind === 'feedback' ? '5 3' : undefined} markerEnd={`url(#arrow-${e.kind === 'ca' ? 'ca' : 'fb'})`} />
