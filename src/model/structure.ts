@@ -4,7 +4,7 @@ import { children, itemsOfKind } from './tree'
 import type { CsNode, Id, NodeRole, Offset, Project } from './types'
 
 export interface Pt { x: number; y: number }
-export interface NodeBox { id: Id; x: number; y: number; w: number; h: number; compound: boolean; depth: number; lines: string[]; minW: number; defW: number }
+export interface NodeBox { id: Id; x: number; y: number; w: number; h: number; compound: boolean; depth: number; lines: string[]; minW: number; defW: number; minH: number }
 export interface EdgeRoute {
   id: Id
   kind: 'ca' | 'feedback'
@@ -448,14 +448,15 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       return {
         id: n.id,
         children: children(p, n.id, 'node').map(build),
-        layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + Math.max(0, n.wide)},60)` },
+        layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + Math.max(0, n.wide)},${60 + Math.max(0, n.tall)})` },
       }
     }
     minW[n.id] = Math.max(Math.max(...ls.map((l) => l.length)) * CHAR_W + 28, (deg[n.id] ?? 0) * 30 + 40)
     defW[n.id] = Math.max(n.role === 'process' ? 320 : 120, minW[n.id])
     const w = Math.max(minW[n.id], defW[n.id] + n.wide)
-    return { id: n.id, width: w, height: 30 + ls.length * 16 }
+    return { id: n.id, width: w, height: 30 + ls.length * 16 + Math.max(0, n.tall) }
   }
+  const baseH = (id: Id, h: number) => { const n = p.items[id] as CsNode; return compound.has(id) ? (n.tall > 0 ? 60 : h) : h - Math.max(0, n.tall) }
   const roots = children(p, null, 'node')
   // boxes grow with the number of arrows they carry (so parallel arrows get room); the controlled process starts wide
   const deg: Record<Id, number> = {}
@@ -516,7 +517,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     for (const c of n.children ?? []) {
       const x = ox + (c.x ?? 0), y = oy + (c.y ?? 0)
       abs[c.id] = { x, y }
-      out.nodes[c.id] = { id: c.id, x, y, w: c.width ?? 0, h: c.height ?? 0, compound: compound.has(c.id), depth, lines: lines[c.id], minW: minW[c.id] ?? 0, defW: defW[c.id] ?? minW[c.id] ?? 0 }
+      out.nodes[c.id] = { id: c.id, x, y, w: c.width ?? 0, h: c.height ?? 0, compound: compound.has(c.id), depth, lines: lines[c.id], minW: minW[c.id] ?? 0, defW: defW[c.id] ?? minW[c.id] ?? 0, minH: baseH(c.id, c.height ?? 0) }
       walk(c, x, y, depth + 1)
     }
   }

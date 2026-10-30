@@ -5,6 +5,7 @@ import type { Id, Project } from '../model/types'
 export interface SvgHandlers {
   onNodeDown?: (e: MouseEvent, id: Id) => void
   onResizeDown?: (e: MouseEvent, id: Id) => void
+  onResizeHDown?: (e: MouseEvent, id: Id) => void
   onEdgeDown?: (e: MouseEvent, id: Id) => void
   /** Pointer entered (id) or left (null) a box or arrow. */
   onHover?: (id: Id | null, e: MouseEvent) => void
@@ -49,6 +50,10 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
             {sel && h.onResizeDown && (
               <rect x={n.x + n.w - 5} y={n.y + n.h / 2 - 12} width={10} height={24} rx={3} fill="#f97316" stroke="#ffffff" style={{ cursor: 'ew-resize' }}
                 onMouseDown={(e) => h.onResizeDown!(e, n.id)} />
+            )}
+            {sel && h.onResizeHDown && (
+              <rect x={n.x + n.w / 2 - 12} y={n.y + n.h - 5} width={24} height={10} rx={3} fill="#f97316" stroke="#ffffff" style={{ cursor: 'ns-resize' }}
+                onMouseDown={(e) => h.onResizeHDown!(e, n.id)} />
             )}
           </g>
         )

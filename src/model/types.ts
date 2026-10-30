@@ -113,6 +113,8 @@ export interface CsNode extends Base {
   nudge: Offset | null
   /** Extra width in px added to the box in the diagram (0 = automatic) */
   wide: number
+  /** Extra height in px (0 = automatic). */
+  tall: number
 }
 /** Control action edge. */
 export interface ControlAction extends Base {

@@ -7,7 +7,7 @@ import { CAUSES, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYP
 type Rec = Record<string, unknown>
 
 /** Fields the agent may not set (managed by the model or purely visual). */
-const HIDDEN = new Set(['id', 'kind', 'rank', 'nudge', 'bend', 'wide'])
+const HIDDEN = new Set(['id', 'kind', 'rank', 'nudge', 'bend', 'wide', 'tall'])
 
 /** Allowed target kinds of reference fields (`null` = any item). */
 const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
