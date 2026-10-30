@@ -16,7 +16,7 @@ import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
 import { StringList } from './StringList'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, NumberInput, BoundedNumber, RangeBar } from './Fields'
@@ -409,7 +409,6 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
       <button type="button" onClick={() => setOpen(true)}>Edit context…</button>
       {open && (
         <Modal title="Edit context" onClose={() => setOpen(false)} wide>
-          <p className="muted">The UCA applies when all of these hold.</p>
           <ConditionsEditor it={it} set={set} />
           <Field label="Additional context (free text)">
             <RichText value={it.context} onChange={(v) => set({ context: v }, 'context')} rows={3} placeholder="Additional context (free text)" />
@@ -431,7 +430,6 @@ function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
       <button type="button" onClick={() => setOpen(true)}>Edit condition…</button>
       {open && (
         <Modal title="Edit hazardous condition" onClose={() => setOpen(false)} wide>
-          <p className="muted">The system is in this hazard state when all of these hold.</p>
           <ConditionsEditor it={it} set={set} vars={itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain')} />
           <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
         </Modal>
@@ -445,39 +443,39 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
   const ca = it.kind === 'uca' ? p.items[it.ca] : undefined
   // The context is actual state: world variables and the controller's own internal state, not beliefs or signals.
   const vars = given ?? itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
-  return <ConditionList conditions={it.conditions} onChange={(conditions) => set({ conditions })} vars={vars} />
+  const label = <b>{useLabels()[it.id]}</b>
+  const head = <span>{it.kind === 'uca' ? <>{label} applies when</> : <>The system is in hazard state {label} when</>}</span>
+  return <ConditionList conditions={it.conditions} onChange={(conditions) => set({ conditions })} vars={vars} head={head} />
 }
 
-function ConditionList({ conditions, onChange, vars, first = 'When' }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; first?: string }) {
-  return (
-    <div className="conds">
-      {conditions.map((c, i) => <ConditionRow key={i} c={c} word={i === 0 ? first : 'and'} vars={vars} onChange={(x) => onChange(conditions.map((y, j) => (j === i ? x : y)))} onRemove={() => onChange(conditions.filter((_, j) => j !== i))} />)}
-      <button onClick={() => onChange([...conditions, { variable: '', op: '=', state: '' }])}>+ condition</button>
-    </div>
-  )
+/** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
+function ConditionList({ conditions, onChange, vars, head }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; head: ReactNode }) {
+  return <div className="rule"><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat /></div>
 }
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
 
-/** A condition tree: "all of" / "any of" its conditions and nested groups. */
-function GroupEditor({ g, onChange, onRemove, vars, word }: { g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; word: string }) {
+/** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
+function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
   const upd = (i: number, w: When | null) => onChange({ ...g, of: w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i) })
-  const join = g.any ? 'or' : 'and'
+  const join = g.of.length > 1 ? (g.any ? 'or' : 'and') : ''
   return (
-    <div className={'conds' + (onRemove ? ' group' : '')}>
+    <>
       <div className="rule-head">
-        <span className="cond-word">{word}</span>
-        <select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all of</option><option value="any">any of</option></select>
+        {head}
+        {g.of.length > 1 && (flat ? <span className="cond-word">all of these hold:</span> : <><select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all</option><option value="any">any</option></select><span className="cond-word">of these hold:</span></>)}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}>×</button>}
       </div>
-      {g.of.map((w, i) => isGroup(w)
-        ? <GroupEditor key={i} g={w} word={i ? join : ''} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />
-        : <ConditionRow key={i} c={w} word={i ? join : ''} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />)}
-      <div className="rule-head">
-        <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
-        <button onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK] }] })}>+ {g.any ? 'all-of' : 'any-of'} group</button>
+      <div className={'conds' + (onRemove ? ' group' : '')}>
+        {g.of.map((w, i) => isGroup(w)
+          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />
+          : <ConditionRow key={i} c={w} word={i ? join : ''} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />)}
+        <div className="rule-add">
+          <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
+          {!flat && <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -555,22 +553,19 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
     ? <select value={v} onChange={(e) => on(e.target.value)}><option value="">{placeholder}</option>{values.map((s) => <option key={s}>{s}</option>)}</select>
     : <TextInput value={v} onChange={on} placeholder={placeholder} />
   const upd = (i: number, r: Partial<Rule>) => set({ rules: it.rules.map((x, j) => (j === i ? { ...x, ...r } : x)) })
+  const name = <b>{it.title || 'the variable'}</b>
   return (
     <div className="rules">
+      {!it.rules.length && <p className="muted">No rules: {name} is set directly in traces.</p>}
       {it.rules.map((r, i) => (
         <div key={i} className="rule">
-          <div className="rule-head">
-            <span className="cond-word">{i ? 'else' : ''}</span>
-            {value(r.state, (v) => upd(i, { state: v }), 'value…')}
-            <button className="x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}>×</button>
-          </div>
-          <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars} word="when" />
+          <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars}
+            head={<><span>{i ? 'Else, ' : ''}{name} is</span>{value(r.state, (v) => upd(i, { state: v }), 'value…')}<span>when</span></>} />
+          <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}>×</button>
         </div>
       ))}
-      <div className="rule-head">
-        <button onClick={() => set({ rules: [...it.rules, { state: '', when: allOf(BLANK) }] })}>+ rule</button>
-        {it.rules.length > 0 && <><span className="cond-word">otherwise</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</>}
-      </div>
+      {it.rules.length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
+      <div className="rule-add"><button onClick={() => set({ rules: [...it.rules, { state: '', when: allOf(BLANK) }] })}>+ rule</button></div>
     </div>
   )
 }
