@@ -16,16 +16,16 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   constraint: () => ({ hazards: [] }),
   requirement: () => ({ sources: [], type: 'requirement' }),
   assumption: () => ({ about: [] }),
-  entity: () => ({ attributes: [], operations: [] }),
+  entity: () => ({ operations: [] }),
   relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*' }),
-  variable: () => ({ type: 'enum', states: [], unit: '', min: null, max: null }),
-  node: () => ({ role: 'controller', processModel: [], entity: null, nudge: null, wide: 0, tall: 0 }),
-  ca: () => ({ from: '', to: '', duration: 'continuous', operation: '', actuator: '', notApplicable: [], bend: null, labelShift: null }),
-  feedback: () => ({ from: '', to: '', variables: [], sensor: '', bend: null, labelShift: null }),
+  variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null }),
+  node: () => ({ role: 'controller', entity: null, nudge: null, wide: 0, tall: 0 }),
+  ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], operation: '', actuator: '', notApplicable: [], bend: null, labelShift: null }),
+  feedback: () => ({ from: '', to: '', sensor: '', bend: null, labelShift: null }),
   uca: () => ({ ca: '', guide: 'not-provided', conditions: [], context: '', override: '', hazards: [], constraint: '' }),
   scenario: () => ({
     scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null,
-    stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0,
+    stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0, trace: { lanes: [], steps: [] },
   }),
 }
 

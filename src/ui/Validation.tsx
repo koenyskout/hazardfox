@@ -6,7 +6,10 @@ import { generateUcaText } from '../model/uca'
 import { KIND_NAMES, type Id, type Kind } from '../model/types'
 import { RULES, SEVERITIES, validate, type RuleId, type Severity } from '../model/validate'
 import { Ref, VIEW_OF } from './Fields'
-import { addItem, useProject } from './hooks'
+import { addItem, commit, useProject } from './hooks'
+import { addBelief } from '../model/formal'
+import { updateItem } from '../model/ops'
+import { draftTrace } from '../model/traces'
 import { Icon, type IconName } from './Icon'
 import { AiStatus, ReviewView, useAiFindings } from './Review'
 
@@ -33,7 +36,10 @@ interface Group { key: string; severity: Severity; title: string; why: string; f
 const pct = (p: number) => Math.round(p * 100)
 
 /** One-click repairs for findings where the missing piece can be created right away. */
-const ACTIONS: Partial<Record<RuleId, { label: string; run: (id: Id) => void }>> = {
+const ACTIONS: Partial<Record<RuleId, { label: string; run: (id: Id, related: Id[]) => void }>> = {
+  'context-unrepresented': { label: 'Add belief', run: (id, [w]) => commit((p) => { const u = p.items[id], ca = u?.kind === 'uca' ? p.items[u.ca] : null; return ca?.kind === 'ca' && w ? addBelief(p, ca.from, w).project : p }) },
+  'signal-unused': { label: 'Add belief', run: (id) => commit((p) => { const v = p.items[id], fb = v?.kind === 'variable' && v.parent ? p.items[v.parent] : null; return fb?.kind === 'feedback' && v?.kind === 'variable' && v.about ? addBelief(p, fb.to, v.about).project : p }) },
+  'trace-no-witness': { label: 'Redraft trace', run: (id) => { if (confirm('Replace the trace with a drafted one?')) commit((p) => { const s = p.items[id]; return s?.kind === 'scenario' ? updateItem(p, id, { trace: draftTrace(p, s) }) : p }) } },
   'hazard-no-constraint': { label: 'Add constraint', run: (id) => { const n = addItem('constraint', { hazards: [id] }); useStore.getState().goto('step1', n) } },
   'uca-no-scenario': { label: 'Add scenario', run: (id) => { const n = addItem('scenario', { scenarioType: 'uca', uca: id }); useStore.getState().goto('scenarios', n) } },
   'ca-no-scenarios': { label: 'Add scenario', run: (id) => { const n = addItem('scenario', { scenarioType: 'ca', ca: id }); useStore.getState().goto('scenarios', n) } },
@@ -55,7 +61,7 @@ function FindingRow({ f, showItem = true }: { f: Finding; showItem?: boolean }) 
       )}
       {f.p !== undefined && <span className="pct">{pct(f.p)}%</span>}
       <span className="spacer" />
-      {action && <button onClick={() => action.run(f.item)}><Icon name="plus" size={13} /> {action.label}</button>}
+      {action && <button onClick={() => action.run(f.item, f.related ?? [])}><Icon name="plus" size={13} /> {action.label}</button>}
       <button onClick={() => goto(VIEW_OF[it.kind], it.id)}>Open</button>
     </li>
   )
@@ -157,7 +163,7 @@ export function Validation({ details }: { details?: boolean }) {
                         {f.related && f.related.length > 0 && <span className="reflist">links to {f.related.map((r) => <Ref key={r} id={r} />)}</span>}
                         {f.detail && <span className="muted">{f.detail}</span>}
                         <span className="spacer" />
-                        {f.rule && ACTIONS[f.rule] && <button onClick={() => ACTIONS[f.rule!]!.run(f.item)}><Icon name="plus" size={13} /> {ACTIONS[f.rule]!.label}</button>}
+                        {f.rule && ACTIONS[f.rule] && <button onClick={() => ACTIONS[f.rule!]!.run(f.item, f.related ?? [])}><Icon name="plus" size={13} /> {ACTIONS[f.rule]!.label}</button>}
                       </div>
                       <Explain why={f.why} fix={f.fix} />
                     </li>

@@ -1,9 +1,9 @@
 import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
-import { parentKind } from '../model/tree'
+import { parentKinds } from '../model/tree'
 import { conditionError, isRangeOp } from '../model/variables'
-import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, VARIABLE_TYPES, type Condition, type ConditionOp, type Id, type Item, type Kind, type Project } from '../model/types'
+import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -17,9 +17,10 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   requirement: { sources: null },
   assumption: { about: null },
   relationship: { from: ['entity'], to: ['entity'] },
-  node: { processModel: ['variable'], entity: ['entity'] },
-  ca: { from: ['node'], to: ['node'] },
-  feedback: { from: ['node'], to: ['node'], variables: ['variable'] },
+  node: { entity: ['entity'] },
+  variable: { about: ['variable'] },
+  ca: { from: ['node'], to: ['node'], affects: ['variable'] },
+  feedback: { from: ['node'], to: ['node'] },
   uca: { ca: ['ca'], hazards: ['hazard'] },
   scenario: { uca: ['uca'], ca: ['ca'], hazards: ['hazard'], element: ['node'] },
 }
@@ -28,12 +29,12 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   requirement: { type: REQUIREMENT_TYPES },
   node: { role: NODE_ROLES },
   ca: { duration: DURATIONS },
-  variable: { type: VARIABLE_TYPES },
+  variable: { type: VARIABLE_TYPES, layer: VARIABLE_LAYERS },
   uca: { guide: GUIDE_WORDS },
   scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKind(kind) ? ['parent'] : [])]
+const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
 const isText = (kind: Kind, f: string) => f === 'title' || textFields(kind).includes(f)
 
@@ -44,18 +45,18 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
   const defaults = makeItem(kind) as unknown as Rec
   const out: Record<string, FieldInfo> = {}
   for (const f of Object.keys(defaults)) {
-    if (HIDDEN.has(f) || (f === 'parent' && !parentKind(kind))) continue
+    if (HIDDEN.has(f) || (f === 'parent' && !parentKinds(kind).length)) continue
     const v = defaults[f]
     const refs = refFields(kind)
-    const target = f === 'parent' ? parentKind(kind) : TARGETS[kind]?.[f]
+    const target = f === 'parent' ? parentKinds(kind) : TARGETS[kind]?.[f]
     const info: FieldInfo = { type: Array.isArray(v) ? 'string[]' : typeof v === 'object' && v !== null ? 'object' : typeof v }
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
-    if (f === 'attributes') info.type = '{name: string, type: string}[]'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
     if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}[]'
     if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
+    if (f === 'trace') info.type = '{lanes: ref[] (variables), steps: {t: string, note: string, values: {<variable ref>: value}, events: {on: ref (ca | feedback), what: occurs | absent | lost}[]}[]} (values carry forward to later steps)'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
     if (f === 'tags') info.type = 'string[]'
     if (f === 'status') info.values = STATUSES
@@ -128,7 +129,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
   const errors: string[] = []
   const out: Rec = {}
   const checkKind = (id: Id, f: string) => {
-    const allowed = f === 'parent' ? [parentKind(kind)] : TARGETS[kind]?.[f]
+    const allowed = f === 'parent' ? parentKinds(kind) : TARGETS[kind]?.[f]
     const got = r.p.items[id]?.kind
     if (allowed && got && !allowed.includes(got)) errors.push(`${f}: ${r.labels[id]} is a ${got}, expected ${allowed.join(' | ')}`)
   }
@@ -163,12 +164,28 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
           if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
           return cond
         })
+      } else if (f === 'trace') {
+        const t = v as Rec
+        const isVar = (id: Id) => { if (r.p.items[id]?.kind !== 'variable') throw new Error(`${r.labels[id]} is not a variable`) }
+        if (!t || !Array.isArray(t.steps)) throw new Error('expected {lanes, steps}')
+        const lanes = Array.isArray(t.lanes) ? t.lanes.map((x) => { const id = r.resolve(x); isVar(id); return id }) : []
+        out[f] = {
+          lanes: [...new Set(lanes)],
+          steps: (t.steps as Rec[]).map((st) => ({
+            t: isStr(st.t) ? st.t : '',
+            note: isStr(st.note) ? r.internalText(st.note) : '',
+            values: Object.fromEntries(Object.entries((st.values ?? {}) as Rec).map(([k, x]) => { const id = r.resolve(k); isVar(id); return [id, String(x)] })),
+            events: ((st.events ?? []) as Rec[]).map((e) => {
+              const on = r.resolve(e.on)
+              if (!['ca', 'feedback'].includes(r.p.items[on]?.kind)) throw new Error(`event on ${r.labels[on]}: expected a control action or feedback`)
+              if (!(TRACE_EVENTS as readonly unknown[]).includes(e.what ?? 'occurs')) throw new Error(`event "what" must be one of ${TRACE_EVENTS.join(', ')}`)
+              return { on, what: (e.what ?? 'occurs') as TraceEventKind }
+            }),
+          })),
+        }
       } else if (f === 'notApplicable') {
         if (!Array.isArray(v) || v.some((n: Rec) => !(GUIDE_WORDS as readonly string[]).includes(n?.guide as string))) throw new Error(`expected [{guide, reason}] with guide among ${GUIDE_WORDS.join(', ')}`)
         out[f] = [...new Map(v.map((n: Rec) => [n.guide, { guide: n.guide, reason: isStr(n.reason) ? n.reason : '' }])).values()]
-      } else if (f === 'attributes') {
-        if (!Array.isArray(v) || v.some((a: Rec) => !isStr(a?.name))) throw new Error('expected [{name, type}]')
-        out[f] = v.map((a: Rec) => ({ name: a.name, type: isStr(a.type) ? a.type : '' }))
       } else if (spec.type === 'string[]') {
         if (!Array.isArray(v) || v.some((x) => !isStr(x))) throw new Error('expected an array of strings')
         if (f === 'stride' && v.some((x) => !(STRIDE as readonly string[]).includes(x))) throw new Error(`values must be among ${STRIDE.join(', ')}`)
@@ -226,6 +243,11 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
     else if (f === 'conditions') out[f] = (v as Condition[]).map((c) => ({ ...c, variable: r.label(c.variable) }))
+    else if (f === 'trace') {
+      const t = v as Trace
+      if (!t.steps.length) continue
+      out[f] = { lanes: t.lanes.map(r.label), steps: t.steps.map((st) => ({ ...st, note: r.externalText(st.note), values: Object.fromEntries(Object.entries(st.values).map(([k, x]) => [r.label(k), x])), events: st.events.map((e) => ({ ...e, on: r.label(e.on) })) })) }
+    }
     else out[f] = isStr(v) && isText(it.kind, f) ? r.externalText(v) : v
   }
   if (it.kind === 'ca' && isStr(raw.operation) && raw.operation.includes(':')) {

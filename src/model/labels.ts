@@ -1,6 +1,6 @@
 import { plainRich } from './richtext'
 import { children, flatten, itemsOfKind, TREE_KINDS } from './tree'
-import type { Id, Kind, Labels, Project } from './types'
+import type { Id, Kind, Labels, Project, Variable } from './types'
 
 export const PREFIX: Record<Kind, string> = {
   loss: 'L',
@@ -33,10 +33,19 @@ export function computeLabels(p: Project): Labels {
     walk(null, '')
   }
 
-  // Variables: numbered globally in entity-tree order.
+  // Variables: numbered globally by owner – entity tree (world), node tree (beliefs, internal state), feedback (signals).
   let v = 0
   for (const { item: ent } of flatten(p, 'entity')) {
     for (const x of children(p, ent.id, 'variable')) out[x.id] = `V-${++v}`
+  }
+  for (const r of itemsOfKind(p, 'relationship').sort((a, b) => a.rank - b.rank)) {
+    for (const x of children(p, r.id, 'variable')) out[x.id] = `V-${++v}`
+  }
+  for (const { item: n } of flatten(p, 'node')) {
+    for (const x of children(p, n.id, 'variable')) out[x.id] = `V-${++v}`
+  }
+  for (const f of itemsOfKind(p, 'feedback').sort((a, b) => a.rank - b.rank)) {
+    for (const x of children(p, f.id, 'variable')) out[x.id] = `V-${++v}`
   }
   for (const x of itemsOfKind(p, 'variable')) if (!out[x.id]) out[x.id] = `V-${++v}`
 
@@ -72,18 +81,25 @@ export function computeLabels(p: Project): Labels {
   return out
 }
 
-/** Labels for the UI: variables show their name (unique, non-empty) instead of their V-n id. */
+/** Name of a variable as shown: world variables by name, the others namespaced by their owner ("Pump controller.Line occlusion").
+ *  A relationship's untitled predicate is named after it ("Pump infuses Patient"). */
+export const variableName = (p: Project, v: Variable): string => {
+  const par = v.parent ? p.items[v.parent] : null
+  if (par?.kind === 'relationship' && !v.title.trim()) return [p.items[par.from]?.title, par.title, p.items[par.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  const owner = v.layer !== 'domain' && par ? par.title.trim() : ''
+  return v.title.trim() && owner ? `${owner}.${v.title.trim()}` : v.title.trim()
+}
+
+/** Labels for the UI: variables show their (namespaced) name, when unique and non-empty, instead of their V-n id. */
 export function displayLabels(p: Project, ids: Labels): Labels {
   const out = { ...ids }
   const taken = new Set<string>()
-  for (const x of itemsOfKind(p, 'variable')) {
-    const name = x.title.trim().toLowerCase()
+  const vars = itemsOfKind(p, 'variable').map((x) => [x, variableName(p, x)] as const)
+  for (const [, n] of vars) {
+    const name = n.toLowerCase()
     if (name) taken.has(name) ? taken.add(name + '\0dup') : taken.add(name)
   }
-  for (const x of itemsOfKind(p, 'variable')) {
-    const name = x.title.trim()
-    if (name && !taken.has(name.toLowerCase() + '\0dup')) out[x.id] = name
-  }
+  for (const [x, name] of vars) if (name && !taken.has(name.toLowerCase() + '\0dup')) out[x.id] = name
   return out
 }
 

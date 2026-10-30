@@ -3,6 +3,7 @@ import { download } from '../model/persist'
 import { updateItem } from '../model/ops'
 import { applyOverrides, layoutStructure, type Layout } from '../model/structure'
 import { useStore } from '../model/store'
+import { signalsOf } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import type { Id } from '../model/types'
 import { structureSvg } from '../export/structureImage'
@@ -40,7 +41,7 @@ export function Structure() {
       )}
       {tab === 'feedback' && (
         <FlatTable kind="feedback" items={itemsOfKind(p, 'feedback')} init={{ from: nodes[1]?.id ?? '', to: sel ?? '' }}
-          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'feedback' ? <span>{c.from ? <Ref id={c.from} /> : '?'} → {c.to ? <Ref id={c.to} /> : '?'}</span> : null) }, { head: 'Variables', cell: (c) => (c.kind === 'feedback' ? <span className="reflist">{c.variables.map((v) => <Ref key={v} id={v} />)}</span> : null) }]} />
+          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'feedback' ? <span>{c.from ? <Ref id={c.from} /> : '?'} → {c.to ? <Ref id={c.to} /> : '?'}</span> : null) }, { head: 'Signals', cell: (c) => (c.kind === 'feedback' ? <span className="reflist">{signalsOf(p, c.id).map((v) => <Ref key={v.id} id={v.id} />)}</span> : null) }]} />
       )}
     </div>
   )

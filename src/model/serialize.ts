@@ -1,6 +1,8 @@
 import { emptyProject, makeItem } from './create'
+import { addBelief, addSignal, predicateOf } from './formal'
+import { createItem } from './ops'
 import { groupKey } from './tree'
-import { KINDS, type Condition, type Item, type NodeRole, type Project } from './types'
+import { KINDS, type Condition, type Item, type NodeRole, type Project, type VariableType } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
   v && typeof v === 'object' && !Array.isArray(v)
@@ -40,5 +42,31 @@ export function deserialize(text: string): Project {
     if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
   }
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
+  return migrateLayers(p, raw.items as Item[])
+}
+
+/** Older files listed process-model variables on controllers (`processModel`) and on feedback (`variables`); these become beliefs and signals.
+ *  Entity attributes become world variables of the entity; relationships get their predicate variable. */
+function migrateLayers(p0: Project, raw: Item[]): Project {
+  let p = p0
+  for (const it of raw) {
+    const attrs = (it as Item & { attributes?: { name: string; type: string }[] }).attributes
+    if (it.kind === 'entity' && attrs) {
+      for (const a of attrs) {
+        const type: VariableType = /bool/i.test(a.type) ? 'boolean' : /int|num|float|real|double|decimal/i.test(a.type) ? 'range' : 'enum'
+        p = createItem(p, 'variable', { parent: it.id, title: a.name, type, definition: type === 'enum' ? a.type : '' }).project
+      }
+      const { attributes: _, ...rest } = p.items[it.id] as typeof it & { attributes?: unknown }
+      p = { ...p, items: { ...p.items, [it.id]: rest as Item } }
+    }
+    if (it.kind === 'relationship' && !predicateOf(p, it.id)) p = createItem(p, 'variable', { parent: it.id, type: 'boolean' }, 0).project
+    const old = it as Item & { processModel?: string[]; variables?: string[] }
+    for (const v of old.processModel ?? []) p = addBelief(p, it.id, v).project
+    for (const v of old.variables ?? []) p = addSignal(p, it.id, v).project
+    if (old.processModel || old.variables) {
+      const { processModel: _a, variables: _b, ...rest } = p.items[it.id] as typeof old
+      p = { ...p, items: { ...p.items, [it.id]: rest as Item } }
+    }
+  }
   return p
 }

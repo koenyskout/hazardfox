@@ -1,9 +1,11 @@
 import { renderText } from '../model/labels'
+import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
+import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { conditionComplete, conditionError, conditionText, isRangeOp, isSetOp, OP_LABELS, opsFor, stepOf, valuesOf } from '../model/variables'
-import { VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
-import { updateItem } from '../model/ops'
+import { createItem, updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
@@ -144,20 +146,45 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
-          <Field single label="Attributes (one per line: name: type)">
-            <textarea rows={3} value={it.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n')} onChange={(e) => set({ attributes: e.target.value.split('\n').map((l) => { const [n, ...t] = l.split(':'); return { name: n.trim(), type: t.join(':').trim() } }).filter((a) => a.name) }, 'attrs')} />
+          <Field single label="Attributes" hint="The entity's world variables V(e): its state that can change over time.">
+            <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
           </Field>
           <Field single label="Operations (one per line)">
             <textarea rows={2} value={it.operations.join('\n')} onChange={(e) => set({ operations: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'ops')} />
           </Field>
         </>
       )
-    case 'variable':
+    case 'variable': {
+      const ownerKind = VARIABLE_OWNER[it.layer][0]
+      const owners = ownerKind === 'node' ? of('node').filter((n) => n.role === 'controller') : ownerKind === 'entity' ? [...of('entity'), ...of('relationship')] : of(ownerKind)
+      const world = of('variable').filter((v) => v.layer === 'domain' && v.id !== it.id)
+      const pickLayer = (l: VariableLayer) => {
+        const cur = it.parent ? p.items[it.parent] : null
+        const k = VARIABLE_OWNER[l][0]
+        const parent = cur && VARIABLE_OWNER[l].includes(cur.kind) ? cur.id : (k === 'node' ? of('node').find((n) => n.role === 'controller') : of(k)[0])?.id ?? null
+        commit((q) => setLayer(q, it.id, l, parent))
+      }
       return (
         <>
-          <Field label="Owner entity">
-            <SingleRef value={it.parent} options={of('entity')} onChange={(v) => v && set({ parent: v })} />
+          <Field label="Layer" hint={LAYER_HINTS[it.layer]}>
+            <select value={it.layer} onChange={(e) => pickLayer(e.target.value as VariableLayer)}>
+              {VARIABLE_LAYERS.map((l) => <option key={l} value={l}>{VARIABLE_LAYER_LABELS[l]}</option>)}
+            </select>
           </Field>
+          <Field label={ownerKind === 'entity' ? 'Owner (entity or relationship)' : ownerKind === 'feedback' ? 'Carried by feedback' : 'Controller'}>
+            <SingleRef value={it.parent} options={owners} onChange={(v) => v && set({ parent: v })} />
+          </Field>
+          {(it.layer === 'signal' || it.layer === 'belief') && (
+            <Field label="About (world variable)" hint="The actual state this observation or belief refers to (designation δ).">
+              <SingleRef value={it.about} options={world} onChange={(v) => set({ about: v })} />
+            </Field>
+          )}
+          {it.layer === 'domain' && (
+            <Field label="Definition" hint="Optional: how this variable is defined, e.g. derived from other @variables (refinement).">
+              <RichText value={it.definition} onChange={(v) => set({ definition: v }, 'definition')} rows={2} />
+            </Field>
+          )}
+          <VariableLinks v={it} />
           <Field single label="Type">
             <select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
               {VARIABLE_TYPES.map((t) => <option key={t} value={t}>{VARIABLE_TYPE_LABELS[t]}</option>)}
@@ -177,6 +204,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
         </>
       )
+    }
     case 'relationship':
       return (
         <>
@@ -188,6 +216,13 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field single label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
             <Field single label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
           </div>
+          <Field single label="Holds" hint="Whether the relationship holds is a world variable R(from, to) (true / false, can change over time): use it in UCA contexts, beliefs and traces like any other.">
+            {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
+              : <button className="link" onClick={() => commit((q) => createItem(q, 'variable', { parent: it.id, type: 'boolean' }, 0).project)}>+ add predicate variable</button>}
+          </Field>
+          <Field single label="Other variables" hint="State of the link itself, e.g. the distance between the two entities.">
+            <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
+          </Field>
         </>
       )
     case 'node':
@@ -197,9 +232,16 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</select>
           </Field>
           <Field label="Domain entity"><SingleRef value={it.entity} options={of('entity')} onChange={(v) => set({ entity: v })} /></Field>
-          <Field label="Process model (variables)">
-            <RefList value={it.processModel} options={of('variable')} create={{ label: '+ New variable…', run: () => addItemInDialog('variable') }} onChange={(v) => set({ processModel: v })} />
-          </Field>
+          {it.role === 'controller' && (
+            <>
+              <Field label="Process model (beliefs)" hint="What this controller believes about the world. Fed by signals on its incoming feedback.">
+                <OwnedVars vars={beliefsOf(p, it.id)} add="+ belief about…" options={of('variable').filter((v) => v.layer === 'domain' && !beliefsAbout(p, it.id, v.id).length)} onAdd={(w) => commit((q) => addBelief(q, it.id, w).project)} />
+              </Field>
+              <Field label="Internal state" hint="Modes, timers and counters of the control algorithm itself.">
+                <OwnedVars vars={variablesIn(p, 'internal', it.id)} add="+ new internal variable" onNew={() => addItemInDialog('variable', { layer: 'internal', parent: it.id })} />
+              </Field>
+            </>
+          )}
           {it.nudge && <button onClick={() => set({ nudge: null })}>Reset manual position</button>}
         </>
       )
@@ -223,7 +265,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.kind === 'feedback' && (
-            <Field label="Updates variables"><RefList value={it.variables} options={of('variable')} create={{ label: '+ New variable…', run: () => addItemInDialog('variable') }} onChange={(v) => set({ variables: v })} /></Field>
+            <Field label="Signals" hint="What this feedback reports, each about a world variable. Adding one also gives the receiving controller a belief.">
+              <OwnedVars vars={signalsOf(p, it.id)} add="+ reports on…" options={of('variable').filter((v) => v.layer === 'domain' && !signalsOf(p, it.id).some((x) => x.about === v.id))} onAdd={(w) => commit((q) => addSignal(q, it.id, w).project)} />
+            </Field>
+          )}
+          {it.kind === 'ca' && (
+            <Field label="Affects (controlled variables)" hint="World variables this action changes.">
+              <RefList value={it.affects} options={of('variable').filter((v) => v.layer === 'domain')} onChange={(v) => set({ affects: v })} />
+            </Field>
           )}
           {it.kind === 'ca' && (
             <Field label="Domain operation">
@@ -364,7 +413,9 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
-  const vars = itemsOfKind(p, 'variable')
+  const ca = p.items[it.ca]
+  // The context is actual state: world variables and the controller's own internal state, not beliefs or signals.
+  const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
   const upd = (i: number, patch: Partial<(typeof it.conditions)[number]>) =>
     set({ conditions: it.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
   return (
@@ -409,4 +460,37 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
       <button onClick={() => set({ conditions: [...it.conditions, { variable: '', op: '=', state: '' }] })}>+ condition</button>
     </div>
   )
+}
+
+const LAYER_HINTS: Record<VariableLayer, string> = {
+  domain: 'Actual state of the world (x). UCA contexts are stated over these.',
+  signal: 'An observation (o) carried by a feedback; may differ from the world when feedback is wrong, late or missing.',
+  belief: 'Part of a controller\'s process model (x̂); may differ from the world.',
+  internal: 'State of the control algorithm itself (q): modes, timers, counters.',
+}
+
+/** Variables owned by an item, with a picker to add one about a world variable (or a new one). */
+function OwnedVars(props: { vars: Variable[]; add: string; options?: Item[]; onAdd?: (world: Id) => void; onNew?: () => void }) {
+  return (
+    <div className="reflist">
+      {props.vars.map((v) => <Ref key={v.id} id={v.id} />)}
+      {props.onNew ? <button className="link" onClick={props.onNew}>{props.add}</button>
+        : <Picker options={props.options ?? []} onPick={(id) => id && props.onAdd?.(id)}><span className="muted">{props.add}</span></Picker>}
+    </div>
+  )
+}
+
+/** How a variable is connected through the layers: world → signals → beliefs, and what controls it. */
+function VariableLinks({ v }: { v: Variable }) {
+  const p = useProject()
+  const all = itemsOfKind(p, 'variable')
+  const rows: [string, Id[]][] = v.layer === 'domain'
+    ? [['Observed as', all.filter((x) => x.layer === 'signal' && x.about === v.id).map((x) => x.id)], ['Believed as', all.filter((x) => x.layer === 'belief' && x.about === v.id).map((x) => x.id)], ['Controlled by', controlledBy(p, v.id).map((c) => c.id)]]
+    : v.layer === 'signal' ? [['Updates beliefs', updates(p, v).map((x) => x.id)]]
+    : v.layer === 'belief' ? [['Updated from signals', updatedBy(p, v).map((x) => x.id)]] : []
+  return rows.map(([label, ids]) => (
+    <Field key={label} label={label}>
+      <div className="reflist">{ids.length ? ids.map((id) => <Ref key={id} id={id} />) : <span className="muted">none</span>}</div>
+    </Field>
+  ))
 }

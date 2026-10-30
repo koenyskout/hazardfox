@@ -123,7 +123,6 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       break
     }
     case 'entity':
-      row('Attributes', list(it.attributes.map((a) => a.name)))
       row('Operations', list(it.operations))
       break
     case 'variable':

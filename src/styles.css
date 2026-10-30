@@ -299,3 +299,38 @@ table.plain td { padding: 4px 10px 4px 0; }
 .finding-row .ftitle { flex: 0 1 auto; } .finding-row .spacer { flex: 1; }
 .finding-row .meter { flex: 0 0 80px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden; } .finding-row .meter i { display: block; height: 100%; background: #d9a21b; }
 .finding-el { border-top: 1px solid var(--line); padding-top: 4px; } .finding-el:first-child { border-top: 0; } .finding-el .finding-row { border-top: 0; }
+.layer-filter { display: flex; gap: 4px; margin-bottom: 8px; } .layer-filter button.on { border-color: var(--accent); color: var(--accent); }
+.layer-filter i { font-style: normal; color: var(--muted); font-size: 11px; margin-left: 3px; }
+.layer { font-size: 11px; font-weight: 600; border-radius: 4px; padding: 0 5px; }
+.l-domain { color: #2a7d4f; } .l-signal { color: #b7791f; } .l-belief { color: #3d6fb6; } .l-internal { color: #7d5ba6; }
+.varmap-wrap { overflow: auto; } .varmap th:first-child { text-align: left; } .varmap td { text-align: left; min-width: 120px; }
+.varmap td.gap { background: color-mix(in srgb, var(--danger) 12%, transparent); } .varmap td.warn { background: color-mix(in srgb, #e0b04a 16%, transparent); }
+.varmap .via { margin-top: 3px; font-size: 12px; } .cell-add { display: flex; gap: 4px; margin-top: 3px; }
+.varmap .add { font-size: 11px; padding: 0 6px; color: var(--muted); }
+.trace-panel { border-top: 2px solid var(--line); flex: 0 0 auto; max-height: 62%; overflow: auto; padding-bottom: 16px; }
+.trace-title { align-self: center; margin-right: 8px; }
+.trace-checks { display: flex; flex-direction: column; gap: 2px; font-size: 13px; margin: 4px 0 8px; }
+.trace-checks .ok { color: #2a7d4f; } .trace-checks .bad { color: var(--danger); } .trace-checks .unk { color: var(--muted); }
+.trace-wrap { overflow: auto; }
+.trace-grid th, .trace-grid td { text-align: left; min-width: 130px; } .trace-grid th:first-child { min-width: 200px; }
+.trace-grid td.carried select, .trace-grid td.carried input { color: var(--muted); font-style: italic; }
+.trace-grid td.mm { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.trace-grid .act { box-shadow: inset 0 0 0 2px var(--accent); }
+.trace-grid .layer-row th { background: var(--bg); font-size: 11px; padding: 2px 8px; }
+.trace-grid .step-t { width: 70px; font-weight: 600; } .trace-grid .ev { display: flex; gap: 4px; align-items: center; margin-bottom: 3px; }
+.trace-grid .ctx.ok { color: var(--danger); font-weight: 600; } .trace-grid .ctx.no, .trace-grid .ctx.unk { color: var(--muted); }
+.trace-grid td.note { min-width: 200px; }
+.player-bar { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.player-bar .steps { display: flex; gap: 3px; } .player-bar .dot { border-radius: 12px; font-size: 12px; padding: 1px 9px; }
+.player-bar .dot.on { background: var(--accent); color: #fff; border-color: var(--accent); } .player-bar .dot.act { border-color: var(--danger); }
+.player-caption { min-height: 42px; margin-bottom: 6px; } .ctxline { color: var(--muted); font-size: 13px; margin-top: 3px; } .ctxline.on { color: var(--danger); font-weight: 600; }
+.stage { position: relative; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
+.stage svg { display: block; width: 100%; height: 440px; } .stage svg.overlay { position: absolute; inset: 0; pointer-events: none; }
+.callout { font: 11px/1.3 -apple-system, sans-serif; color: #1c2430; display: flex; flex-direction: column; gap: 2px; }
+.cv { background: #ffffffe6; border: 1px solid #d0d6de; border-left-width: 4px; border-radius: 4px; padding: 1px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .3s; }
+.cv .layer { padding: 0; font-weight: 400; color: #6b7686; }
+.cv.l-domain { border-left-color: #2a7d4f; } .cv.l-signal { border-left-color: #b7791f; } .cv.l-belief { border-left-color: #3d6fb6; } .cv.l-internal { border-left-color: #7d5ba6; }
+.cv.changed { animation: flash 1s ease-out; } .cv.bad { background: #ffe3e3; border-color: #c92a2a; }
+@keyframes flash { from { background: #fff1a8; } }
+@media (prefers-reduced-motion: reduce) { .cv.changed { animation: none; } }
+.player-state { margin-top: 8px; } .player-state th, .player-state td { text-align: left; } .player-state tr.changed td { font-weight: 700; } .player-state tr.bad td { color: var(--danger); }
