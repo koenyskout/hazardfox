@@ -3,7 +3,7 @@ import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateO
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
-import { CARDINALITIES, CARDINALITY_PAIRS, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
 import { VariableRangeDialog } from './RangeTypes'
@@ -217,12 +217,6 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="From"><div style={{ display: 'flex', gap: 6 }}><div style={{ flex: 1, minWidth: 0 }}><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></div><CardSelect value={it.fromCard} onChange={(v) => set({ fromCard: v })} /></div></Field>
             <Field label="To"><div style={{ display: 'flex', gap: 6 }}><div style={{ flex: 1, minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div></Field>
           </div>
-          <Field single label="Cardinality preset" hint="Read From → To: 1 — * means one From entity is related to many To entities (* = zero or more). The selects next to From / To set each end.">
-            <select value={`${it.fromCard}|${it.toCard}`} onChange={(e) => { const [fromCard, toCard] = e.target.value.split('|'); set({ fromCard, toCard }) }}>
-              {!CARDINALITY_PAIRS.some(([a, b]) => a === it.fromCard && b === it.toCard) && <option value={`${it.fromCard}|${it.toCard}`}>{it.fromCard} — {it.toCard}</option>}
-              {CARDINALITY_PAIRS.map(([a, b]) => <option key={a + b} value={`${a}|${b}`}>{a} — {b}</option>)}
-            </select>
-          </Field>
           <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
             {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
               : <button className="link" onClick={() => commit((q) => createItem(q, 'variable', { parent: it.id, type: 'boolean' }, 0).project)}>+ add predicate variable</button>}
