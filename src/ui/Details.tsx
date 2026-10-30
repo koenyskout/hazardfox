@@ -377,7 +377,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         const valueInput = (key: 'state' | 'to', placeholder: string) =>
           values ? (
             <select value={c[key] ?? ''} onChange={(e) => upd(i, { [key]: e.target.value })}>
-              <option value="">{placeholder}</option>
+              <option value="" disabled hidden>{placeholder}</option>
               {values.map((s) => <option key={s}>{s}</option>)}
             </select>
           ) : (
