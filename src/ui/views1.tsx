@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isPredicate } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { conditionComplete, conditionText, describeStates } from '../model/variables'
 import { byLabel } from '../model/labels'
@@ -92,7 +93,7 @@ export function Domain() {
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
-        <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length}</i></button>
+        <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length + Object.keys(p.enumTypes ?? {}).length}</i></button>
       </div>
       {tab === 'diagram' && <DomainDiagram />}
       {tab === 'entity' && (
@@ -112,7 +113,7 @@ export function Domain() {
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}
-            items={vars.filter((v) => !layer || v.layer === layer).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
+            items={vars.filter((v) => (!layer || v.layer === layer) && !isPredicate(p, v)).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
             columns={[
               { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },
             ]} />

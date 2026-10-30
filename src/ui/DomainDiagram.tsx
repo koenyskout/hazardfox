@@ -102,7 +102,7 @@ export function DomainDiagram() {
                 <rect width={b.w} height={head} rx={3} fill="#dbeafe" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} />
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
                 <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
-                {b.attrs.map((a, i) => <text key={a.id} x={pad} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}</text>)}
+                {b.attrs.map((a, i) => <text key={a.id} x={pad} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}
                 {b.ops.length > 0 && b.attrs.length > 0 && <line x1={0} x2={b.w} y1={y} y2={y} stroke="#9ca3af" />}
                 {b.ops.map((o, i) => <text key={i} x={pad} y={opY + i * row} fill="#374151" fontSize={12}>{o}()</text>)}
               </g>

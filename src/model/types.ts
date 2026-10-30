@@ -143,6 +143,8 @@ export interface Variable extends Base {
   max: number | null
   /** Name of the project's `rangeTypes` entry that `min`/`max`/`unit` follow ('' = custom bounds) */
   rangeType: string
+  /** Name of the project's `enumTypes` entry that `states` follow ('' = own states) */
+  enumType: string
   /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
   rules: Rule[]
   otherwise: string
@@ -333,5 +335,7 @@ export interface Project {
   reviews?: Record<Id, SavedReview>
   /** Named numeric types (min / max / unit) that range variables can share. */
   rangeTypes?: Record<string, RangeType>
+  /** Named reusable state lists for enum variables */
+  enumTypes?: Record<string, string[]>
   /** Mentioned tags registry is derived; nothing stored. */
 }

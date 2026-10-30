@@ -7,7 +7,8 @@ import { guideApplies } from '../model/uca'
 import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
-import { createItem, updateItem } from '../model/ops'
+import { updateItem } from '../model/ops'
+import { defineEnumType } from '../model/ops'
 import { VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
@@ -204,7 +205,8 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Select>
           </Field>
           {it.type === 'enum' && (
-            <Field label="States" hint="Named values. Enter adds a state.">
+            <Field label="States" hint="Named values. Enter adds a state. Pick a shared type to reuse a state list across variables.">
+              <EnumTypePicker v={it} />
               <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
             </Field>
           )}
@@ -228,7 +230,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           </div>
           <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
             {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
-              : <button className="link" onClick={() => commit((q) => createItem(q, 'variable', { parent: it.id, type: 'boolean' }, 0).project)}>+ add predicate variable</button>}
+              : <span className="muted">implied; created when first used</span>}
           </Field>
           <Field single label="Other variables" hint="State of the link itself, e.g. the distance between the two entities.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
@@ -666,4 +668,23 @@ function VariableLinks({ v }: { v: Variable }) {
       <div className="reflist">{ids.length ? ids.map((id) => <Ref key={id} id={id} />) : <span className="muted">none</span>}</div>
     </Field>
   ))
+}
+
+/** Choose a named, reusable state list for an enum variable, or save its own states as one. */
+function EnumTypePicker({ v }: { v: Variable }) {
+  const p = useProject()
+  const names = Object.keys(p.enumTypes ?? {}).sort()
+  const save = () => {
+    const n = window.prompt('Name for this state list (e.g. On/Off, Severity)', v.title)?.trim()
+    if (n && !p.enumTypes?.[n]) commit((q) => updateItem(defineEnumType(q, n, v.states), v.id, { enumType: n }))
+  }
+  return (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+      <Select value={v.enumType} onChange={(e) => commit((q) => updateItem(q, v.id, { enumType: e.target.value }))}>
+        <option value="">Own states</option>
+        {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
+      </Select>
+      {!v.enumType && v.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
+    </div>
+  )
 }

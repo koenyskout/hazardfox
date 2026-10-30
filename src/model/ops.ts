@@ -60,9 +60,36 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
       else if ('rangeType' in patch) Object.assign(v, t)
       else if ('min' in patch || 'max' in patch || 'unit' in patch) setRangeType(d, v.rangeType, { min: v.min, max: v.max, unit: v.unit })
     }
+    if (v.kind === 'variable') {
+      const e = d.enumTypes?.[v.enumType]
+      if (v.type !== 'enum' || !e) v.enumType = ''
+      else if ('enumType' in patch) v.states = [...e]
+      else if ('states' in patch) setEnumType(d, v.enumType, v.states)
+    }
     renormalize(d)
   })
 }
+
+/** Create or change a named enum type; variables using it follow. Works on a draft. */
+function setEnumType(d: Draft, name: string, states: string[]) {
+  ;(d.enumTypes ??= {})[name] = [...states]
+  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === name) it.states = [...states]
+}
+export const defineEnumType = (p: Project, name: string, states: string[]): Project => produce(p, (d) => setEnumType(d, name, states))
+export const renameEnumType = (p: Project, from: string, to: string): Project => {
+  if (!to || to === from || !p.enumTypes?.[from] || p.enumTypes[to]) return p
+  return produce(p, (d) => {
+    d.enumTypes![to] = d.enumTypes![from]
+    delete d.enumTypes![from]
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === from) it.enumType = to
+  })
+}
+/** Remove an enum type; its variables keep their states as their own. */
+export const deleteEnumType = (p: Project, name: string): Project =>
+  produce(p, (d) => {
+    delete d.enumTypes?.[name]
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === name) it.enumType = ''
+  })
 
 /** Create or change a named range type; variables using it follow. Works on a draft. */
 function setRangeType(d: Draft, name: string, t: RangeType) {

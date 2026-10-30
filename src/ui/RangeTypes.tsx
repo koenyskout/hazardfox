@@ -1,6 +1,7 @@
 import { Select } from './Select'
 import { useState } from 'react'
-import { defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
+import { StringList } from './StringList'
+import { defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
 import { describeStates } from '../model/variables'
 import type { RangeType, Variable } from '../model/types'
 import { commit, useProject } from './hooks'
@@ -102,6 +103,7 @@ export function RangeTypes() {
           </tbody>
         </table>
       )}
+      <EnumTypes />
       {edit !== undefined && <RangeTypeDialog name={edit} onClose={() => setEdit(undefined)} />}
     </div>
   )
@@ -116,5 +118,30 @@ export function RangeCell({ v }: { v: Variable }) {
       <button className="btn" title={`Change range type (${v.rangeType || 'custom'})`} style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 11, padding: '1px 6px' }} onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType} </b> : null}{describeStates(v)}</button>
       {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
     </>
+  )
+}
+
+/** Reusable state lists of enum variables, editable here; users follow the change. */
+function EnumTypes() {
+  const p = useProject()
+  const names = Object.keys(p.enumTypes ?? {}).sort()
+  if (!names.length) return <p className="hint">Enum types are shared state lists: in a variable’s States field choose “Save as type…”.</p>
+  return (
+    <table className="grid">
+      <thead><tr><th>Enum type</th><th>States</th><th>Used by</th><th /></tr></thead>
+      <tbody>
+        {names.map((n) => {
+          const users = Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)
+          return (
+            <tr key={n}>
+              <td><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} /></td>
+              <td><StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" /></td>
+              <td>{users.map((v) => <Ref key={v.id} id={v.id} />)}{!users.length && <span className="muted">—</span>}</td>
+              <td><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }

@@ -6,7 +6,7 @@ import { itemsOfKind } from './tree'
 import type { Id, Labels, Project } from './types'
 import { describeStates } from './variables'
 
-export interface DomainBox { id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string }[]; ops: string[] }
+export interface DomainBox { id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string }[]; ops: string[] }
 export interface DomainEdge { id: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
@@ -18,10 +18,10 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   const entities = itemsOfKind(p, 'entity').sort((a, b) => a.rank - b.rank)
   const boxes: Record<Id, DomainBox> = {}
   for (const e of entities) {
-    const attrs = variablesIn(p, 'domain', e.id).map((v) => ({ id: v.id, text: `${variableName(p, v)} : ${describeStates(v)}` }))
+    const attrs = variablesIn(p, 'domain', e.id).map((v) => ({ id: v.id, text: variableName(p, v), detail: v.type === 'enum' && v.states.length > 3 ? `: ${v.states.slice(0, 3).join(' | ')} …` : `: ${describeStates(v)}` }))
     const head = labels[e.id] ?? ''
     const title = e.title.trim() || '(untitled)'
-    const w = Math.max(120, ...[title, head, ...attrs.map((a) => a.text), ...e.operations.map((o) => o + '()')].map((s) => s.length * DOM.charW + 2 * DOM.pad))
+    const w = Math.max(120, ...[title, head, ...attrs.map((a) => a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : '')), ...e.operations.map((o) => o + '()')].map((s) => s.length * DOM.charW + 2 * DOM.pad))
     const rows = attrs.length + e.operations.length
     boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + (e.operations.length ? 8 : 0) + 4, head, title, attrs, ops: e.operations }
   }
