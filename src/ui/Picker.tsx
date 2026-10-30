@@ -8,6 +8,9 @@ import { VIEW_OF } from './Fields'
 import { useIds, useLabels, useProject } from './hooks'
 import { ItemCard, summary } from './ItemCard'
 
+/** Kinds whose chip already shows the name, so the title line is left out. */
+export const NAMED = new Set<string>(['variable', 'entity'])
+
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */
 export function Picker({ options, onPick, children, className, create }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void } }) {
   const p = useProject()
@@ -62,7 +65,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
                 <li key={o.id} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
                   <span className={'chip k-' + o.kind}><ChipLabel it={o} label={labels[o.id]} /></span>
                   <span className="pk-main">
-                    <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>
+                    {!NAMED.has(o.kind) && <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>}
                     <span className="pk-sub">{[mixed && KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
                   </span>
                 </li>

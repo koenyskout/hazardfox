@@ -221,6 +221,12 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   )
 }
 
+const ownerName = (p: Project, id: Id, l: (id: Id | null) => string) => {
+  const o = p.items[id]
+  if (o?.kind === 'relationship') return [p.items[o.from]?.title, o.title, p.items[o.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  return o?.title.trim() || l(id)
+}
+
 /** One-line description of what an item is or links to, for lists and pickers. */
 export function summary(p: Project, labels: Labels, it: Item): string {
   const l = (id: Id | null) => (id && labels[id]) || ''
@@ -232,7 +238,7 @@ export function summary(p: Project, labels: Labels, it: Item): string {
     case 'assumption': return ls(it.about) && 'about ' + ls(it.about)
     case 'node': return it.role
     case 'ca': case 'feedback': case 'relationship': return `${l(it.from)} → ${l(it.to)}`
-    case 'variable': return it.parent ? 'of ' + (p.items[it.parent]?.title.trim() || l(it.parent)) : ''
+    case 'variable': return it.parent ? 'of ' + ownerName(p, it.parent, l) : ''
     case 'uca': return `${GUIDE_WORD_LABELS[it.guide]} · ${l(it.ca)}`
     case 'scenario': return (it.scenarioType === 'uca' ? l(it.uca) : l(it.ca)) + (it.cause ? ' · ' + CAUSE_LABELS[it.cause] : '')
     default: return ''
