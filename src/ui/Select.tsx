@@ -1,15 +1,16 @@
 import { Children, Fragment, isValidElement, useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-interface Opt { value: string; label: ReactNode; disabled: boolean }
+interface Opt { value: string; label: ReactNode; disabled: boolean; group?: boolean }
 
 const textOf = (n: ReactNode): string => Children.toArray(n).map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c) : isValidElement(c) ? textOf((c.props as { children?: ReactNode }).children) : '')).join('')
 
 function options(children: ReactNode): Opt[] {
   return Children.toArray(children).flatMap((c): Opt[] => {
     if (!isValidElement(c)) return []
-    const p = c.props as { value?: string | number; children?: ReactNode; disabled?: boolean }
+    const p = c.props as { value?: string | number; children?: ReactNode; disabled?: boolean; label?: string }
     if (c.type === Fragment) return options(p.children)
+    if (c.type === 'optgroup') return [{ value: '', label: p.label, disabled: true, group: true }, ...options(p.children)]
     return [{ value: p.value !== undefined ? String(p.value) : textOf(p.children), label: p.children, disabled: !!p.disabled }]
   })
 }
@@ -20,7 +21,7 @@ export function Select({ value, onChange, children, className, style, title, dis
 }) {
   const opts = options(children)
   const v = String(value)
-  const idx = opts.findIndex((o) => o.value === v)
+  const idx = opts.findIndex((o) => !o.group && o.value === v)
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number; w: number; up: boolean } | null>(null)
   const [hi, setHi] = useState(0)
@@ -42,10 +43,11 @@ export function Select({ value, onChange, children, className, style, title, dis
     window.addEventListener('resize', close)
     return () => { window.removeEventListener('mousedown', down); window.removeEventListener('scroll', away, true); window.removeEventListener('resize', close) }
   }, [at])
+  const step = (h: number, d: number) => { let n = h + d; while (opts[n]?.disabled) n += d; return n < 0 || n >= opts.length ? h : n }
   const key = (e: React.KeyboardEvent) => {
     if (!at) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); open() } return }
-    if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => Math.min(h + 1, opts.length - 1)) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHi((h) => step(h, 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((h) => step(h, -1)) }
     else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (opts[hi]) pick(opts[hi]) }
     else if (e.key === 'Escape' || e.key === 'Tab') close()
   }
@@ -57,7 +59,7 @@ export function Select({ value, onChange, children, className, style, title, dis
       {at && createPortal(
         <ul className="select-pop" style={{ left: at.x, minWidth: at.w, ...(at.up ? { bottom: window.innerHeight - at.y } : { top: at.y }), maxHeight: Math.max(160, at.up ? at.y - 12 : window.innerHeight - at.y - 12) }}>
           {opts.map((o, n) => (
-            <li key={n} className={(n === hi ? 'hi ' : '') + (o.value === v ? 'cur ' : '') + (o.disabled ? 'off' : '')} ref={(el) => { if (el && n === hi) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setHi(n)} onClick={() => pick(o)}>{o.label}</li>
+            <li key={n} className={o.group ? 'grp' : (n === hi ? 'hi ' : '') + (o.value === v ? 'cur ' : '') + (o.disabled ? 'off' : '')} ref={(el) => { if (el && n === hi) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => !o.disabled && setHi(n)} onClick={() => pick(o)}>{o.label}</li>
           ))}
         </ul>,
         document.body,
