@@ -25,6 +25,8 @@ export function FlatTable<K extends Kind>(props: {
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
   /** Second line under the title. */
   sub?: (it: ItemOf<K>) => ReactNode
+  /** Shown on the title line, after the title. */
+  tail?: (it: ItemOf<K>) => ReactNode
   /** Adds a button to each group header that creates an item with this patch (first item of the group given). */
   groupAdd?: (group: Id | null, first?: ItemOf<K>) => Patch<K>
   /** Groups always shown (in this order, before any others), also when they have no items. */
@@ -98,8 +100,9 @@ export function FlatTable<K extends Kind>(props: {
                 />
                 <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
+                {props.tail?.(it)}
                 </span>
-                {props.sub && <div className="subline">{props.sub(it)}</div>}
+                {props.sub?.(it) != null && <div className="subline">{props.sub(it)}</div>}
               </span>
             )}
             {props.columns.map((c) => (
