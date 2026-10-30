@@ -6,7 +6,7 @@ import { diagnose, ruleConflicts, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
-import { conditionError, valuesOf } from './variables'
+import { conditionError, leaves, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -122,7 +122,7 @@ export function validate(p: Project): Issue[] {
     if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
     for (const r of v.rules) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
-        : r.when.map((c) => { const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c) }).find(Boolean)
+        : leaves(r.when).map((c) => { const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {

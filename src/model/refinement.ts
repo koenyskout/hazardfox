@@ -1,8 +1,8 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { stepOf, valuesOf } from './variables'
-import type { Condition, Id, Project, Variable } from './types'
+import { isGroup, stepOf, valuesOf } from './variables'
+import type { Condition, Id, Project, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
@@ -33,6 +33,12 @@ const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
   const other = vals?.length === 2 && c.op === '=' ? vals.find((x) => x !== c.state) : undefined
   return [other !== undefined ? { ...c, state: other } : { ...c, op: NEGATE[c.op] }]
 })
+/** A condition tree (or its negation) in DNF. */
+const dnf = (p: Project, w: When, neg = false): Dnf => {
+  if (!isGroup(w)) return neg ? not(p, [w]) : [[w]]
+  const parts = w.of.map((x) => dnf(p, x, neg))
+  return w.any === neg ? parts.reduce((a, b) => and(p, a, b), [[]]) : simplify(parts.flat())
+}
 /** Drop duplicate alternatives and those that contain another one (absorption). */
 const simplify = (d: Dnf): Dnf => {
   const ks = d.map((x) => new Set(x.map(key)))
@@ -47,8 +53,8 @@ export function expand(p: Project, v: Variable, c: Condition, max = 64): Dnf | n
   if (!v.rules.length) return null
   const out: Dnf = []
   for (const s of ruleValues(v).filter((x) => holds(v, c, x))) {
-    const guard = (upto: number): Dnf => v.rules.slice(0, upto).filter((r) => r.state !== s).reduce<Dnf>((acc, r) => and(p, acc, not(p, r.when)), [[]])
-    v.rules.forEach((r, i) => { if (r.state === s) out.push(...and(p, [r.when], guard(i))) })
+    const guard = (upto: number): Dnf => v.rules.slice(0, upto).filter((r) => r.state !== s).reduce<Dnf>((acc, r) => and(p, acc, dnf(p, r.when, true)), [[]])
+    v.rules.forEach((r, i) => { if (r.state === s) out.push(...and(p, dnf(p, r.when), guard(i))) })
     if (v.otherwise === s) out.push(...guard(v.rules.length))
     if (out.length > max) break
   }

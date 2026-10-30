@@ -1,3 +1,4 @@
+import { leaves, mapLeaves } from './variables'
 import type { Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
@@ -70,7 +71,7 @@ export function refsOf(it: Item): Id[] {
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
   if (it.kind === 'uca') for (const c of it.conditions) out.push(c.variable)
-  if (it.kind === 'variable') for (const r of it.rules) for (const c of r.when) out.push(c.variable)
+  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).map((c) => c.variable))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
@@ -106,7 +107,7 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
       c.variable !== from ? [c] : to ? [{ ...c, variable: to }] : [],
     )
   }
-  if (it.kind === 'variable') for (const r of it.rules) r.when = r.when.flatMap((c) => (c.variable !== from ? [c] : to ? [{ ...c, variable: to }] : []))
+  if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => (c.variable !== from ? c : to ? { ...c, variable: to } : null))
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
     t.lanes = [...new Set(t.lanes.flatMap((x) => (x !== from ? [x] : to ? [to] : [])))]

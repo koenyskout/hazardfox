@@ -2,8 +2,8 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { isSetOp, stepOf, valuesOf } from './variables'
-import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable } from './types'
+import { isGroup, isSetOp, stepOf, valuesOf } from './variables'
+import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
 export function valueAt(t: Trace, i: number, id: Id): { value: string | undefined; set: boolean } {
@@ -38,19 +38,19 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
   return null
 }
 
-/** Value of a refined variable from its rules (first rule whose conditions all hold, else `otherwise`); undefined while a needed part is unknown. */
+/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); conditions without a variable are ignored. */
+export function whenHolds(p: Project, w: When, get: (id: Id) => string | undefined): boolean | null | undefined {
+  if (!isGroup(w)) { const v = p.items[w.variable]; return v?.kind === 'variable' ? holds(v, w, get(w.variable)) : undefined }
+  const hs = w.of.map((x) => whenHolds(p, x, get)).filter((h) => h !== undefined)
+  return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
+}
+
+/** Value of a refined variable from its rules (first rule whose condition holds, else `otherwise`); undefined while a needed part is unknown. */
 export function ruleValue(p: Project, v: Variable, get: (id: Id) => string | undefined): string | undefined {
   for (const r of v.rules) {
-    let all: boolean | null = true
-    for (const c of r.when) {
-      const w = p.items[c.variable]
-      if (w?.kind !== 'variable') continue
-      const h = holds(w, c, get(c.variable))
-      if (h === false) { all = false; break }
-      if (h === null) all = null
-    }
-    if (all) return r.state
-    if (all === null) return undefined
+    const h = whenHolds(p, r.when, get)
+    if (h === null) return undefined
+    if (h !== false) return r.state
   }
   return v.otherwise || undefined
 }

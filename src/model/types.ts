@@ -134,12 +134,15 @@ export interface Variable extends Base {
   unit: string
   min: number | null
   max: number | null
-  /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose conditions all hold gives the value, else `otherwise` ('' = undefined). */
+  /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
   rules: Rule[]
   otherwise: string
 }
-/** The refined variable has value `state` when all `when` conditions hold. */
-export interface Rule { state: string; when: Condition[] }
+/** Condition tree: all (`any` false) or any of its conditions and nested groups hold. */
+export interface Group { any: boolean; of: When[] }
+export type When = Condition | Group
+/** The refined variable has value `state` when `when` holds. */
+export interface Rule { state: string; when: Group }
 
 /** Control structure node; `parent` nests nodes (hierarchy / subsystems). */
 export interface CsNode extends Base {
