@@ -373,6 +373,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         const v = p.items[c.variable]
         const vr = v?.kind === 'variable' ? v : undefined
         const values = valuesOf(vr)
+        const bar = vr?.type === 'range' && vr.min !== null && vr.max !== null && vr.max > vr.min
         const err = vr && (c.state || c.set?.length) ? conditionError(vr, c) : null
         const valueInput = (key: 'state' | 'to', placeholder: string) =>
           values ? (
@@ -394,12 +395,12 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
             </select>
             {isSetOp(c.op)
               ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
-              : valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-            {isRangeOp(c.op) && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
-            {vr?.type === 'range' && vr.unit && <span className="muted">{vr.unit}</span>}
+              : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
+            {isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
+            {vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
             <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
-            {vr?.type === 'range' && vr.min !== null && vr.max !== null && vr.max > vr.min && (
-              <RangeBar min={vr.min} max={vr.max} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(i, isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
+            {bar && vr && (
+              <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(i, isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
             )}
             {err && <small className="cond-err">{err}</small>}
           </div>
