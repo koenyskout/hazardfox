@@ -393,15 +393,15 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
             <select value={c.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp })}>
               {opsFor(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
             </select>
+            {bar && vr && (
+              <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(i, isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
+            )}
             {isSetOp(c.op)
               ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
               : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
             {isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
             {vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
             <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
-            {bar && vr && (
-              <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(i, isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
-            )}
             {err && <small className="cond-err">{err}</small>}
           </div>
         )
