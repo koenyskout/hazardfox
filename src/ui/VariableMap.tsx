@@ -1,4 +1,4 @@
-import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refinedBy, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
+import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
 import type { Project, Variable } from '../model/types'
 import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
@@ -7,21 +7,11 @@ import { LayerIcon } from './Icon'
 import { addItemInDialog, commit, useProject } from './hooks'
 import { Picker } from './Picker'
 
-/** World variables depth-first, each refined variable followed by its parts (a part shared by several wholes is listed under each). */
-function hierarchy(p: Project, world: Variable[]): [Variable, number, string][] {
-  const ids = new Set(world.map((w) => w.id))
-  const out: [Variable, number, string][] = []
-  const seen = new Set<string>()
-  const visit = (w: Variable, d: number, path: string[]) => {
-    if (path.includes(w.id)) return
-    seen.add(w.id)
-    out.push([w, d, [...path, w.id].join('/')])
-    for (const id of refines(p, w)) { const x = p.items[id]; if (x?.kind === 'variable' && ids.has(id)) visit(x, d + 1, [...path, w.id]) }
-  }
-  for (const w of world) if (!refinedBy(p, w.id).some((x) => ids.has(x.id))) visit(w, 0, [])
-  for (const w of world) if (!seen.has(w.id)) visit(w, 0, [])
-  return out
-}
+/** Variables defined from lower-level ones (refinement rules) are computed; the others are raw. */
+const isComputed = (p: Project, w: Variable) => w.rules.length > 0 || refines(p, w).length > 0
+
+/** One row per variable; within an owner the raw ones first, then the computed ones. */
+const ordered = (p: Project, world: Variable[]) => [...world.filter((w) => !isComputed(p, w)), ...world.filter((w) => isComputed(p, w))]
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
 export function VariableMap() {
@@ -46,9 +36,9 @@ export function VariableMap() {
         <tbody>
           {owners.flatMap((o) => [
             <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
-            ...hierarchy(p, world.filter((w) => (w.parent ?? '') === o)).map(([w, d, key]) => (
-            <tr key={key}>
-              <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
+            ...ordered(p, world.filter((w) => (w.parent ?? '') === o)).map((w) => (
+            <tr key={w.id} className={isComputed(p, w) ? 'computed' : ''}>
+              <th><Ref id={w.id} />{isComputed(p, w) && <span className="calc" title="Computed from lower-level world variables">ƒ computed</span>}<br /><small className="muted">{describeStates(w)}</small>{isComputed(p, w) && <div className="via"><span className="muted">from</span> {refines(p, w).map((id) => <Ref key={id} id={id} />)}</div>}</th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
