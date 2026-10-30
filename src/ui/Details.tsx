@@ -200,7 +200,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               })}
             </Field>
           )}
-          {it.bend && <button onClick={() => set({ bend: null })}>Reset manual routing</button>}
+          {(it.bend || it.labelShift) && <button onClick={() => set({ bend: null, labelShift: null })}>Reset manual routing</button>}
         </>
       )
     }

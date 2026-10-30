@@ -391,7 +391,8 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {
     const lab = labs[e.id]
-    edges[i] = { ...e, device: devs[e.id] ?? null, label: lab ?? null }
+    const it = p.items[e.id], sh = it && (it.kind === 'ca' || it.kind === 'feedback') ? it.labelShift : null
+    edges[i] = { ...e, device: devs[e.id] ?? null, label: lab ? (sh ? { ...lab, x: lab.x + sh.dx, y: lab.y + sh.dy } : lab) : null }
   })
   const xs = [...nodes.flatMap((n) => [n.x, n.x + n.w]), ...edges.flatMap((e) => [...e.points.map((q) => q.x), ...(e.label ? [e.label.x, e.label.x + e.label.w] : [])])]
   const ys = [...nodes.flatMap((n) => [n.y, n.y + n.h]), ...edges.flatMap((e) => [...e.points.map((q) => q.y), ...(e.label ? [e.label.y, e.label.y + e.label.h] : [])])]

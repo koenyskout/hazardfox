@@ -128,6 +128,8 @@ export interface ControlAction extends Base {
   /** Guide words that make no sense for this control action (with a reason); not to be analysed */
   notApplicable: { guide: GuideWord; reason: string }[]
   bend: Offset | null
+  /** Manual label offset from its automatic place beside the arrow */
+  labelShift: Offset | null
 }
 export interface Feedback extends Base {
   kind: 'feedback'
@@ -138,6 +140,7 @@ export interface Feedback extends Base {
   /** Sensor that produces this feedback (name; an attribute of the arrow, not a node) */
   sensor: string
   bend: Offset | null
+  labelShift: Offset | null
 }
 
 export interface Condition {

@@ -82,7 +82,7 @@ function Diagram() {
     return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, x: resize.nudge ? n.x + resize.nudge.dx - (it.nudge?.dx ?? 0) : n.x, w: resize.wide === undefined ? n.w : Math.max(n.minW, n.defW + resize.wide), h: resize.tall === undefined ? n.h : n.minH + resize.tall } : n)) } : d
   }, [p, layout, resize])
   const floor = (id: Id) => { const n = layout?.nodes[id]; return n && !n.compound ? n.minW - n.defW : 0 }
-  const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)
+  const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL' | 'label'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)
 
   const fit = () => {
     if (!drawn || !box.current) return
@@ -99,7 +99,7 @@ function Diagram() {
     const at = it.kind === 'node' ? { left: r.left, top: r.top, bottom: r.bottom } : { left: e.clientX, top: e.clientY, bottom: e.clientY + 8 }
     hc.open(() => at, () => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />)
   }
-  const down = (e: MouseEvent, kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL', id?: Id) => {
+  const down = (e: MouseEvent, kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL' | 'label', id?: Id) => {
     e.stopPropagation()
     hc.close()
     let ox = 0, oy = 0
@@ -108,7 +108,8 @@ function Diagram() {
     if (kind === 'resizeL' && it?.kind === 'node') { ox = it.wide; oy = it.nudge?.dx ?? 0 }
     if (kind === 'resizeH' && it?.kind === 'node') oy = it.tall
     if (kind !== 'resize' && kind !== 'resizeH' && kind !== 'resizeL' && it?.kind === 'node' && it.nudge) { ox = it.nudge.dx; oy = it.nudge.dy }
-    if ((it?.kind === 'ca' || it?.kind === 'feedback') && it.bend) { ox = it.bend.dx; oy = it.bend.dy }
+    if (kind === 'label' && (it?.kind === 'ca' || it?.kind === 'feedback') && it.labelShift) { ox = it.labelShift.dx; oy = it.labelShift.dy }
+    if (kind === 'edge' && (it?.kind === 'ca' || it?.kind === 'feedback') && it.bend) { ox = it.bend.dx; oy = it.bend.dy }
     drag.current = { kind, id, sx: e.clientX, sy: e.clientY, ox: kind === 'pan' ? view.x : ox, oy: kind === 'pan' ? view.y : oy, moved: false }
     if (id) select(id)
   }
@@ -125,6 +126,7 @@ function Diagram() {
     if (d.kind === 'resizeH') return setResize({ id: d.id!, tall: Math.max(0, Math.round(d.oy + dy / view.k)) })
     if (d.kind === 'resize') return setResize({ id: d.id!, wide: Math.max(floor(d.id!), Math.round(d.ox + dx / view.k)) })
     if (d.kind === 'pan') return setView((v) => ({ ...v, x: d.ox + dx, y: d.oy + dy }))
+    if (d.kind === 'label') return commit((q) => updateItem(q, d.id!, { labelShift: { dx: d.ox + dx / view.k, dy: d.oy + dy / view.k } }), 'label:' + d.id)
     const patch = d.kind === 'node' ? { nudge: { dx: d.ox + dx / view.k, dy: d.oy + dy / view.k } } : { bend: { dx: d.ox + dx / view.k, dy: d.oy + dy / view.k } }
     commit((q) => updateItem(q, d.id!, patch), 'drag:' + d.id)
   }
@@ -144,8 +146,8 @@ function Diagram() {
     })
   }
   const addNode = () => addItem('node', { title: 'New element', parent: selected && p.items[selected]?.kind === 'node' ? selected : null })
-  const hasBends = Object.values(p.items).some((i) => (i.kind === 'ca' || i.kind === 'feedback') && i.bend)
-  const hasNudges = Object.values(p.items).some((i) => (i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && i.bend))
+  const hasBends = Object.values(p.items).some((i) => (i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift))
+  const hasNudges = Object.values(p.items).some((i) => (i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift)))
 
   return (
     <div className="diagram-wrap" tabIndex={-1} onKeyDown={(e) => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); setDeleting(sel) } }}>
@@ -154,23 +156,23 @@ function Diagram() {
         <button onClick={fit}>Fit</button>
         <button disabled={!hasNudges} onClick={() => commit((q) => {
           let n = q
-          for (const i of Object.values(q.items)) if ((i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && i.bend)) n = updateItem(n, i.id, i.kind === 'node' ? { nudge: null } : { bend: null })
+          for (const i of Object.values(q.items)) if ((i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift))) n = updateItem(n, i.id, i.kind === 'node' ? { nudge: null } : { bend: null, labelShift: null })
           return n
         })}>Reset manual positions</button>
         <button disabled={!hasBends} title="Discard manually dragged arrows and labels; re-route arrows automatically" onClick={() => commit((q) => {
           let n = q
-          for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && i.bend) n = updateItem(n, i.id, { bend: null })
+          for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift)) n = updateItem(n, i.id, { bend: null, labelShift: null })
           return n
         })}>Auto-arrange arrows</button>
         <button title="Show or hide the sensors and actuators drawn on the arrows" onClick={toggleDevices}>{devices ? 'Hide' : 'Show'} sensors/actuators</button>
         <button onClick={async () => { const s = await structureSvg(p); if (s) download('control-structure.svg', s.svg, 'image/svg+xml') }}>Export SVG</button>
-        <span className="hint">Select + Delete to remove · drag elements or labels to nudge · wheel to zoom · drag background to pan</span>
+        <span className="hint">Select + Delete to remove · drag elements, arrows or labels to move them · wheel to zoom · drag background to pan</span>
       </div>
       <div className="canvas" ref={box} onMouseDown={(e) => down(e, 'pan')} onMouseMove={move} onMouseUp={up} onMouseLeave={up} onWheel={wheel}>
         {err && <div className="empty">{err}</div>}
         {!drawn || drawn.nodes.length === 0 ? <div className="empty">Add control structure elements and control actions to see the diagram.</div> : (
           <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, transformOrigin: '0 0', width: drawn.width, height: drawn.height }}>
-            <StructureSvg p={p} d={drawn} h={{ selected, onHover: hover, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onResizeHDown: (e, id) => down(e, 'resizeH', id), onResizeLDown: (e, id) => down(e, 'resizeL', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
+            <StructureSvg p={p} d={drawn} h={{ selected, onHover: hover, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onResizeHDown: (e, id) => down(e, 'resizeH', id), onResizeLDown: (e, id) => down(e, 'resizeL', id), onEdgeDown: (e, id) => down(e, 'edge', id), onLabelDown: (e, id) => down(e, 'label', id) }} />
           </div>
         )}
         {hc.node}

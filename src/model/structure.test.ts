@@ -38,6 +38,11 @@ describe('control structure layout', () => {
     const slid = applyOverrides(updateItem(p, ca, { bend: { dx: 15, dy: 0 } }), l).edges.find((x) => x.id === ca)!
     expect(slid.points[0].x).toBeGreaterThan(x0)
     expect(slid.points[0].x).toBe(slid.points[1].x)
+    // a label can be moved relative to its arrow; it keeps the offset when the arrow moves
+    const l0 = d.edges.find((x) => x.id === ca)!.label!
+    const l1 = applyOverrides(updateItem(p, ca, { labelShift: { dx: 30, dy: -12 } }), l).edges.find((x) => x.id === ca)!.label!
+    expect(l1.x - l0.x).toBeCloseTo(30)
+    expect(l1.y - l0.y).toBeCloseTo(-12)
     const far = applyOverrides(updateItem(p, ca, { bend: { dx: 5000, dy: 0 } }), l)
     const cb = far.nodes.find((n) => n.id === c)!
     expect(far.edges.find((x) => x.id === ca)!.points[0].x).toBeLessThanOrEqual(cb.x + cb.w)

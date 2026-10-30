@@ -8,6 +8,7 @@ export interface SvgHandlers {
   onResizeLDown?: (e: MouseEvent, id: Id) => void
   onResizeHDown?: (e: MouseEvent, id: Id) => void
   onEdgeDown?: (e: MouseEvent, id: Id) => void
+  onLabelDown?: (e: MouseEvent, id: Id) => void
   /** Pointer entered (id) or left (null) a box or arrow. */
   onHover?: (id: Id | null, e: MouseEvent) => void
   selected?: Id | null
@@ -80,10 +81,10 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
               const l = labelLeader(e.label, e.points)
               return l && <line x1={l.from.x} y1={l.from.y} x2={l.to.x} y2={l.to.y} stroke="#9ca3af" strokeWidth={0.75} />
             })()}
-            {e.text && e.label && <rect x={e.label.x} y={e.label.y} width={e.label.w} height={e.label.h} rx={2} fill="#ffffff" fillOpacity={0.92} />}
+            {e.text && e.label && <rect x={e.label.x} y={e.label.y} width={e.label.w} height={e.label.h} rx={2} fill="#ffffff" fillOpacity={0.92} style={{ cursor: h.onLabelDown ? 'move' : undefined }} onMouseDown={(ev) => h.onLabelDown?.(ev, e.id)} />}
             {e.text && e.label && (
               <text x={e.label.x + e.label.w / 2} y={e.label.y + 11} textAnchor="middle" fontSize={11} fill={edgeColor(e)} fontStyle={e.kind === 'feedback' ? 'italic' : undefined}
-                stroke="#ffffff" strokeWidth={3} paintOrder="stroke">
+                stroke="#ffffff" strokeWidth={3} paintOrder="stroke" style={{ cursor: h.onLabelDown ? 'move' : undefined }} onMouseDown={(ev) => h.onLabelDown?.(ev, e.id)}>
                 {e.label.lines.map((l, i) => <tspan key={i} x={e.label!.x + e.label!.w / 2} dy={i ? 13 : 0}>{l}</tspan>)}
               </text>
             )}
