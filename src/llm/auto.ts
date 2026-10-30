@@ -76,15 +76,24 @@ export function reviewProgress(p: Project): { done: number; total: number } {
   return { done: items.filter((it) => freshReview(p, L, it.id)).length, total: items.length }
 }
 
-/** Validation findings from the saved AI reviews: one per item with a failing (warning) or unsure (info) check. */
-export function aiIssues(p: Project): Issue[] {
+/** Saved AI reviews that are current and not all-pass, with their unmet checks. */
+export function aiFindings(p: Project): { item: Id; kind: Item['kind']; review: ItemReview }[] {
   const L = computeLabels(p)
-  const out: Issue[] = []
+  const out: { item: Id; kind: Item['kind']; review: ItemReview }[] = []
   for (const it of Object.values(p.items)) {
-    const r = freshReview(p, L, it.id)
-    if (!r || r.verdict === 'pass') continue
-    const bad = r.checks.filter((c) => c.verdict !== 'pass').map((c) => `${c.label} (${Math.round(c.p * 100)}%)`)
-    out.push({ severity: r.verdict === 'fail' ? 'warning' : 'info', item: it.id, source: 'ai', message: `${L[it.id]} ${it.title}: ${bad.join('; ')}`.replace(/\s+:/, ':') })
+    const review = freshReview(p, L, it.id)
+    if (review && review.verdict !== 'pass') out.push({ item: it.id, kind: it.kind, review })
   }
   return out
+}
+
+/** The same as validation issues: a failing check is a warning, an unsure one info. */
+export function aiIssues(p: Project): Issue[] {
+  const L = computeLabels(p)
+  return aiFindings(p).map(({ item, review }) => ({
+    severity: review.verdict === 'fail' ? 'warning' : 'info',
+    item,
+    source: 'ai',
+    message: `${L[item]} ${p.items[item].title}: ${review.checks.filter((c) => c.verdict !== 'pass').map((c) => `${c.label} (${Math.round(c.p * 100)}%)`).join('; ')}`.replace(/\s+:/, ':'),
+  }))
 }

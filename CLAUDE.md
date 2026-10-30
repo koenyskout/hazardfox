@@ -68,7 +68,7 @@ background 1.5 s after edits; results are saved in `project.reviews` (`{key, p}`
 questions, outside undo history, written to the file) so only new/changed items are re-checked. `ReviewDot` marks
 non-passing items in lists. d1 questions must stay short (one rule sentence + one question): long, example-laden
 questions made d1 answer "yes" to everything. Detailed guidance (`fix`, `WRITE_GUIDE`) goes only to the writer model.
-AI findings are part of validation: `aiIssues` (`llm/auto.ts`) turns fresh saved reviews into `Issue`s (`source: 'ai'`; fail → warning, unsure → info), merged in the Validation view and nav badge; the Validation page also hosts `AiStatus` and the per-kind details/rewrite runner (`ReviewView embedded`; the `review` view just opens that tab). `ui/Criteria.tsx` shows criteria, fixes, primer and Handbook examples in-app (`CriteriaButton`, per-check ⓘ).
+AI findings are part of validation: `aiIssues` (`llm/auto.ts`) turns fresh saved reviews into `Issue`s (`source: 'ai'`; fail → warning, unsure → info), shown in the Validation view (`ui/Validation.tsx`) and counted in the nav badge; every rule finding carries a `rule` key into `RULES` (`validate.ts`: title, why, fix), so new `validate` findings need an entry there; the view groups by problem or by element, with Open / one-click add actions (`ACTIONS`) and severity icons (`SevIcon`); the Validation page also hosts `AiStatus` and the per-kind details/rewrite runner (`ReviewView embedded`; the `review` view just opens that tab). `ui/Criteria.tsx` shows criteria, fixes, primer and Handbook examples in-app (`CriteriaButton`, per-check ⓘ).
 Needs Ollama running; if CORS blocks, start with `OLLAMA_ORIGINS=http://localhost:5173`.
 
 ## Handbook examples and LLM test suite

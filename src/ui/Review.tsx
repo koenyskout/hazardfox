@@ -4,7 +4,7 @@ import { itemsOfKind } from '../model/tree'
 import { KIND_NAMES, type Id, type Kind, type Item } from '../model/types'
 import { chat, decide, defaultLlm, listDecisionModels, loadLlm, saveLlm, type LlmSettings } from '../llm/ollama'
 import { CHECKS, FAIL, PASS, REVIEW_KINDS, WRITER_SYSTEM, canSuggest, cleanSuggestion, decisionRequest, suggestionPrompt, summarise, withTitle, type CheckResult, type ItemReview, type Verdict } from '../llm/review'
-import { aiIssues, freshReview, reviewProgress, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
+import { aiFindings, aiIssues, freshReview, reviewProgress, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
 import { updateItem } from '../model/ops'
 import { commit, useLabels, useProject } from './hooks'
 import { Icon } from './Icon'
@@ -274,4 +274,10 @@ export function AiStatus() {
       <CriteriaButton />
     </div>
   )
+}
+
+export function useAiFindings() {
+  const p = useProject()
+  useAuto()
+  return useMemo(() => aiFindings(p), [p.items, p.reviews]) // eslint-disable-line react-hooks/exhaustive-deps
 }
