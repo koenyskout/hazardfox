@@ -42,7 +42,7 @@ export function VariableMap() {
                     <div className="cell-add">
                       {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ <LayerIcon layer="belief" />belief</button>}
                       {!sig.length && fbs.length > 0 && (
-                        <Picker options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span className="add" title="Let an incoming feedback report this variable">+ <LayerIcon layer="signal" />signal</span></Picker>
+                        <Picker className="add" options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span title="Let an incoming feedback report this variable">+ <LayerIcon layer="signal" />signal</span></Picker>
                       )}
                     </div>
                   </td>
