@@ -74,15 +74,15 @@ function Diagram() {
 
   const [devices, setDevices] = useState(() => { try { return localStorage.getItem('hazardfox.devices') !== '0' } catch { return true } })
   const toggleDevices = () => setDevices((v) => { try { localStorage.setItem('hazardfox.devices', v ? '0' : '1') } catch { /* ignore */ } return !v })
-  const [resize, setResize] = useState<{ id: Id; wide?: number; tall?: number } | null>(null)
+  const [resize, setResize] = useState<{ id: Id; wide?: number; tall?: number; nudge?: { dx: number; dy: number } } | null>(null)
   const drawn = useMemo(() => {
     if (!layout) return null
     const d = applyOverrides(p, layout)
     const it = resize && p.items[resize.id]
-    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, w: resize.wide === undefined ? n.w : Math.max(n.minW, n.defW + resize.wide), h: resize.tall === undefined ? n.h : n.minH + resize.tall } : n)) } : d
+    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, x: resize.nudge ? n.x + resize.nudge.dx - (it.nudge?.dx ?? 0) : n.x, w: resize.wide === undefined ? n.w : Math.max(n.minW, n.defW + resize.wide), h: resize.tall === undefined ? n.h : n.minH + resize.tall } : n)) } : d
   }, [p, layout, resize])
   const floor = (id: Id) => { const n = layout?.nodes[id]; return n && !n.compound ? n.minW - n.defW : 0 }
-  const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)
+  const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)
 
   const fit = () => {
     if (!drawn || !box.current) return
@@ -99,14 +99,15 @@ function Diagram() {
     const at = it.kind === 'node' ? { left: r.left, top: r.top, bottom: r.bottom } : { left: e.clientX, top: e.clientY, bottom: e.clientY + 8 }
     hc.open(() => at, () => <ItemCard it={it} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} />)
   }
-  const down = (e: MouseEvent, kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH', id?: Id) => {
+  const down = (e: MouseEvent, kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH' | 'resizeL', id?: Id) => {
     e.stopPropagation()
     hc.close()
     let ox = 0, oy = 0
     const it = id ? p.items[id] : null
     if (kind === 'resize' && it?.kind === 'node') ox = it.wide
+    if (kind === 'resizeL' && it?.kind === 'node') { ox = it.wide; oy = it.nudge?.dx ?? 0 }
     if (kind === 'resizeH' && it?.kind === 'node') oy = it.tall
-    if (kind !== 'resize' && kind !== 'resizeH' && it?.kind === 'node' && it.nudge) { ox = it.nudge.dx; oy = it.nudge.dy }
+    if (kind !== 'resize' && kind !== 'resizeH' && kind !== 'resizeL' && it?.kind === 'node' && it.nudge) { ox = it.nudge.dx; oy = it.nudge.dy }
     if ((it?.kind === 'ca' || it?.kind === 'feedback') && it.bend) { ox = it.bend.dx; oy = it.bend.dy }
     drag.current = { kind, id, sx: e.clientX, sy: e.clientY, ox: kind === 'pan' ? view.x : ox, oy: kind === 'pan' ? view.y : oy, moved: false }
     if (id) select(id)
@@ -117,6 +118,10 @@ function Diagram() {
     const dx = e.clientX - d.sx, dy = e.clientY - d.sy
     if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
     d.moved = true
+    if (d.kind === 'resizeL') {
+      const wide = Math.max(floor(d.id!), Math.round(d.ox - dx / view.k)), cur = p.items[d.id!]
+      return setResize({ id: d.id!, wide, nudge: { dx: d.oy - (wide - d.ox), dy: cur?.kind === 'node' ? cur.nudge?.dy ?? 0 : 0 } })
+    }
     if (d.kind === 'resizeH') return setResize({ id: d.id!, tall: Math.max(0, Math.round(d.oy + dy / view.k)) })
     if (d.kind === 'resize') return setResize({ id: d.id!, wide: Math.max(floor(d.id!), Math.round(d.ox + dx / view.k)) })
     if (d.kind === 'pan') return setView((v) => ({ ...v, x: d.ox + dx, y: d.oy + dy }))
@@ -126,7 +131,7 @@ function Diagram() {
   const up = () => {
     const d = drag.current
     drag.current = null
-    if ((d?.kind === 'resize' || d?.kind === 'resizeH') && resize) { const { id, ...patch } = resize; commit((q) => updateItem(q, id, patch)) }
+    if ((d?.kind === 'resize' || d?.kind === 'resizeH' || d?.kind === 'resizeL') && resize) { const { id, ...patch } = resize; commit((q) => updateItem(q, id, patch)) }
     setResize(null)
   }
   const wheel = (e: WheelEvent) => {
@@ -165,7 +170,7 @@ function Diagram() {
         {err && <div className="empty">{err}</div>}
         {!drawn || drawn.nodes.length === 0 ? <div className="empty">Add control structure elements and control actions to see the diagram.</div> : (
           <div style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, transformOrigin: '0 0', width: drawn.width, height: drawn.height }}>
-            <StructureSvg p={p} d={drawn} h={{ selected, onHover: hover, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onResizeHDown: (e, id) => down(e, 'resizeH', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
+            <StructureSvg p={p} d={drawn} h={{ selected, onHover: hover, hideDevices: !devices, onNodeDown: (e, id) => down(e, 'node', id), onResizeDown: (e, id) => down(e, 'resize', id), onResizeHDown: (e, id) => down(e, 'resizeH', id), onResizeLDown: (e, id) => down(e, 'resizeL', id), onEdgeDown: (e, id) => down(e, 'edge', id) }} />
           </div>
         )}
         {hc.node}
