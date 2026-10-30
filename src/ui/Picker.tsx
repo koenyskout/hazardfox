@@ -24,6 +24,8 @@ export function Picker({ options, onPick, children, className, create }: { optio
   }, [q, options, labels, p])
   const close = () => { setAt(null); setQ(''); setSel(0) }
   const pick = (id: Id | null) => { onPick(id); close() }
+  const editors = useStore((s) => s.editing.length)
+  useEffect(close, [editors]) // eslint-disable-line react-hooks/exhaustive-deps -- an editor opened from the preview card replaces the picker
   useEffect(() => {
     if (!at) return
     const down = (e: MouseEvent) => { if (!(e.target as Element).closest('.picker-pop') && !btn.current?.contains(e.target as Node)) close() }
