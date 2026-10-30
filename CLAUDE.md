@@ -32,6 +32,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - `llm/` – `ollama.ts` (browser → http://localhost:11434, streaming), `review.ts` (per-kind STPA Handbook rules, prompts).
 
 ## Invariants / conventions
+- **Principle: use as much formalism as you want.** Everything must be doable with plain text (titles, rich-text descriptions, free-text UCA context, no domain model, no variables, no precise conditions, no traces); the formal layers (domain model, typed variables, conditions on hazards/UCAs, belief/signal layers, scenario traces) are optional add-ons that give extra checks and derived output when used. Consequences: formal fields default to empty and a free-text equivalent exists next to each; text and formal parts combine (e.g. UCA `context` + `conditions`); validation of formal data fires only where that data exists, and a text-only project must never be nagged to formalize (at most `info`, and not for data it never started); formal data never replaces or hides the text. New features: ask "can this be done in text only?" first.
 - `items: Record<Id, Item>`, ids are immutable UUIDs. **Labels are derived, never stored** (L-, H-, SC-, R-, E-, CS-,
   V-, CA-, FB-, REL-, A-, UCA-n, LS-n.m for UCA scenarios, LS-CA-n.m for control-action scenarios).
   Free text references items as `@[id]`, rendered as live labels.
