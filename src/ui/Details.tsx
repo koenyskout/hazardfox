@@ -20,7 +20,7 @@ import { StringList } from './StringList'
 import { useEffect, useState, type ReactNode } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
-import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, NumberInput, BoundedNumber, RangeBar } from './Fields'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
 
 export function Details() {
   const p = useProject()
@@ -385,7 +385,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
 
 /** Multiplicity of one relationship end: predefined values, plus whatever an older file holds. */
 const CardSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <select value={value} onChange={(e) => onChange(e.target.value)}>
+  <select style={{ width: 'auto', flex: 'none' }} value={value} onChange={(e) => onChange(e.target.value)}>
     {!(CARDINALITIES as readonly string[]).includes(value) && <option>{value}</option>}
     {CARDINALITIES.map((c) => <option key={c}>{c}</option>)}
   </select>
