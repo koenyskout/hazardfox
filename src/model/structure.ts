@@ -18,6 +18,9 @@ export interface EdgeRoute {
 }
 export interface Layout { nodes: Record<Id, NodeBox>; edges: EdgeRoute[]; width: number; height: number }
 
+/** Minimum distance between parallel arrows on one side of a box, and between an arrow and the corner of its box. */
+const SEP = 14
+const MARGIN = 10
 const CHAR_W = 7.2
 const wrap = (text: string, max: number): string[] => {
   const words = text.split(/\s+/).filter(Boolean)
@@ -155,7 +158,10 @@ const uncross = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
           const between = (a.x - k.x) * (a.x - nx.x) < 0
           const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)]
           if (!between || k.y < y0 || k.y > y1) continue
-          const x = [14, 10, 6].map((g) => a.x + side * g).find((c) => c >= box.x + 4 && c <= box.x + box.w - 4) ?? NaN
+          let x = a.x + side * SEP
+          if (side > 0 && x > box.x + box.w - MARGIN && widen(box, x + MARGIN - box.x, nodes)) x = a.x + side * SEP
+          const x2 = x >= box.x + MARGIN && x <= box.x + box.w - MARGIN ? x : NaN
+          x = x2
           if (!isNaN(x)) {
             r.points[end] = { ...e, x }
             r.points[end + dir] = { ...k, x }
@@ -163,10 +169,73 @@ const uncross = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
           }
           // no room: slide the straight crossed arrow to the near side instead
           const A = nodes[o.from], B = nodes[o.to]
-          const lo = Math.max(A.x, B.x) + 8, hi = Math.min(A.x + A.w, B.x + B.w) - 8
-          const nxx = e.x - side * 14
+          const lo = Math.max(A.x, B.x) + MARGIN, hi = Math.min(A.x + A.w, B.x + B.w) - MARGIN
+          const nxx = e.x - side * SEP
           if (o.points.length === 2 && nxx >= lo && nxx <= hi) o.points = o.points.map((q) => ({ ...q, x: nxx }))
         }
+      }
+    }
+  }
+}
+
+/** Make a box wider to the right (to `w`) if no other box is in the way. */
+const widen = (box: NodeBox, w: number, nodes: Record<Id, NodeBox>): boolean => {
+  if (w <= box.w) return true
+  const free = Object.values(nodes).every((o) => o === box || o.compound || o.y >= box.y + box.h || o.y + o.h <= box.y || o.x + o.w <= box.x + box.w || o.x >= box.x + w + 24)
+  if (free) box.w = w
+  return free
+}
+
+/**
+ * Arrows that meet the same side of a box keep at least SEP between them and MARGIN from the corners
+ * (order is kept; a straight arrow also stays inside the other box). A box that is too narrow for its arrows grows.
+ */
+const placePorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
+  interface Port { r: EdgeRoute; i: number; j: number; ax: 'x' | 'y'; lo: number; hi: number }
+  for (let round = 0; round < 3; round++) {
+    const groups = new Map<string, { box: NodeBox; ax: 'x' | 'y'; ports: Port[] }>()
+    for (const r of routes) {
+      const n = r.points.length
+      for (const [i, j, id] of [[0, 1, r.from], [n - 1, n - 2, r.to]] as const) {
+        const box = nodes[id], e = r.points[i], k = r.points[j]
+        if (!box || box.compound) continue
+        const ax = Math.abs(e.x - k.x) < 1 && Math.abs(e.y - k.y) >= 1 ? 'x' : Math.abs(e.y - k.y) < 1 && Math.abs(e.x - k.x) >= 1 ? 'y' : null
+        if (!ax) continue
+        const side = ax === 'x' ? (Math.abs(e.y - box.y) < 1 ? 't' : Math.abs(e.y - box.y - box.h) < 1 ? 'b' : '') : (Math.abs(e.x - box.x) < 1 ? 'l' : Math.abs(e.x - box.x - box.w) < 1 ? 'r' : '')
+        if (!side) continue
+        const key = id + side
+        const g = groups.get(key) ?? { box, ax, ports: [] }
+        g.ports.push({ r, i, j, ax, lo: -Infinity, hi: Infinity })
+        groups.set(key, g)
+      }
+    }
+    for (const { box, ax, ports } of groups.values()) {
+      const size = ax === 'x' ? box.w : box.h
+      const need = 2 * MARGIN + (ports.length - 1) * SEP
+      if (size < need && ax === 'x') widen(box, need, nodes)
+      for (const q of ports) {
+        const [a0, a1] = ax === 'x' ? [box.x, box.x + box.w] : [box.y, box.y + box.h]
+        q.lo = a0 + MARGIN
+        q.hi = a1 - MARGIN
+        if (q.r.points.length === 2) {
+          const o = nodes[q.i === 0 ? q.r.to : q.r.from]
+          if (o) {
+            const [b0, b1] = ax === 'x' ? [o.x, o.x + o.w] : [o.y, o.y + o.h]
+            if (Math.min(a1, b1) - Math.max(a0, b0) >= 2 * MARGIN) { q.lo = Math.max(q.lo, b0 + MARGIN); q.hi = Math.min(q.hi, b1 - MARGIN) }
+          }
+        }
+      }
+      const val = (q: Port) => q.r.points[q.i][ax]
+      ports.sort((a, b) => val(a) - val(b))
+      const set = (q: Port, v: number) => { q.r.points[q.i] = { ...q.r.points[q.i], [ax]: v }; q.r.points[q.j] = { ...q.r.points[q.j], [ax]: v } }
+      ports.forEach((q, i) => {
+        let v = Math.max(q.lo, Math.min(q.hi, val(q)))
+        if (i && v < val(ports[i - 1]) + SEP) v = Math.min(q.hi, val(ports[i - 1]) + SEP)
+        if (v !== val(q)) set(q, v)
+      })
+      for (let i = ports.length - 2; i >= 0; i--) {
+        const q = ports[i]
+        if (val(ports[i + 1]) - val(q) < SEP) { const v = Math.max(q.lo, val(ports[i + 1]) - SEP); if (v !== val(q)) set(q, v) }
       }
     }
   }
@@ -189,7 +258,7 @@ const separateVertical = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
       const a = r.points[i], b = r.points[i + 1]
       if (Math.abs(a.x - b.x) > 1 || !clash(r, i, a.x)) continue
       const ends = [i === 0 ? nodes[r.from] : null, i + 1 === r.points.length - 1 ? nodes[r.to] : null].filter(Boolean) as NodeBox[]
-      const lo = Math.max(-Infinity, ...ends.map((n) => n.x + 8)), hi = Math.min(Infinity, ...ends.map((n) => n.x + n.w - 8))
+      const lo = Math.max(-Infinity, ...ends.map((n) => n.x + MARGIN)), hi = Math.min(Infinity, ...ends.map((n) => n.x + n.w - MARGIN))
       const x = [14, -14, 28, -28, 42, -42].map((d) => a.x + d).find((c) => c >= lo && c <= hi && !clash(r, i, c))
       if (x !== undefined) { r.points[i] = { ...a, x }; r.points[i + 1] = { ...b, x } }
     }
@@ -240,7 +309,7 @@ const routeBetween = (a: NodeBox, b: NodeBox, slot: number): Pt[] => {
   const span = (a0: number, a1: number, b0: number, b1: number, want: number) => {
     const lo = Math.max(a0, b0), hi = Math.min(a1, b1)
     if (hi - lo < 4) return null
-    const m = Math.min(8, (hi - lo) / 4)
+    const m = Math.min(MARGIN, (hi - lo) / 4)
     return Math.max(lo + m, Math.min(hi - m, want))
   }
   const aboveB = a.y + a.h <= b.y, belowB = b.y + b.h <= a.y
@@ -251,7 +320,7 @@ const routeBetween = (a: NodeBox, b: NodeBox, slot: number): Pt[] => {
   if (y !== null && (leftOfB || rightOfB)) return [{ x: leftOfB ? a.x + a.w : a.x, y }, { x: leftOfB ? b.x : b.x + b.w, y }]
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
   if (aboveB || belowB) {
-    const x1 = clamp(a.x + a.w / 2 + slot, a.x + 8, a.x + a.w - 8), x2 = clamp(b.x + b.w / 2 + slot, b.x + 8, b.x + b.w - 8)
+    const x1 = clamp(a.x + a.w / 2 + slot, a.x + MARGIN, a.x + a.w - MARGIN), x2 = clamp(b.x + b.w / 2 + slot, b.x + MARGIN, b.x + b.w - MARGIN)
     const y1 = aboveB ? a.y + a.h : a.y, y2 = aboveB ? b.y : b.y + b.h
     const ym = (y1 + y2) / 2 + slot
     return [{ x: x1, y: y1 }, { x: x1, y: ym }, { x: x2, y: ym }, { x: x2, y: y2 }]
@@ -267,7 +336,7 @@ const unjogEnd = (pts: Pt[], b: NodeBox | undefined, obstacles: NodeBox[]): Pt[]
   if (n < 4 || !b) return pts
   const [p0, p1, p2, p3] = pts.slice(n - 4)
   if (Math.abs(p2.x - p3.x) > 1 || Math.abs(p1.y - p2.y) > 1 || Math.abs(p0.x - p1.x) > 1 || Math.abs(p1.x - p2.x) > 60 || Math.abs(p1.x - p2.x) < 1) return pts
-  if (p1.x >= b.x + 8 && p1.x <= b.x + b.w - 8) return [...pts.slice(0, n - 3), { x: p1.x, y: p3.y }]
+  if (p1.x >= b.x + MARGIN && p1.x <= b.x + b.w - MARGIN) return [...pts.slice(0, n - 3), { x: p1.x, y: p3.y }]
   const x = p3.x
   const y0 = Math.min(p0.y, p3.y), y1 = Math.max(p0.y, p3.y)
   if (n > 4 && obstacles.every((o) => o.y >= y1 || o.y + o.h <= y0 || x + 6 < o.x || x - 6 > o.x + o.w)) return [...pts.slice(0, n - 4), { x, y: p0.y }, { x, y: p3.y }]
@@ -282,7 +351,7 @@ const straighten = (pts: Pt[], a: NodeBox | undefined, b: NodeBox | undefined, o
   if (Math.abs(first.x - pts[1].x) > 1e-6 || Math.abs(last.x - pts[pts.length - 2].x) > 1e-6) return pts
   const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w)
   if (hi - lo < 4) return pts
-  const m = Math.min(8, (hi - lo) / 4)
+  const m = Math.min(MARGIN, (hi - lo) / 4)
   const y0 = Math.min(first.y, last.y), y1 = Math.max(first.y, last.y)
   const between = obstacles.filter((n) => n.y < y1 && n.y + n.h > y0)
   const free = (x: number) => between.every((n) => x + 6 < n.x || x - 6 > n.x + n.w)
@@ -413,8 +482,9 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     })
   }
   spreadPorts([...routes.values()], out.nodes)
-  uncross([...routes.values()], out.nodes)
   separateVertical([...routes.values()], out.nodes)
+  placePorts([...routes.values()], out.nodes)
+  uncross([...routes.values()], out.nodes)
   const devs = placeDevices([...routes.values()].flatMap((r) => { const d = deviceOf(p, r.id); return d ? [{ id: r.id, points: r.points, ...d }] : [] }), Object.values(out.nodes))
   const labs = placeLabels([...routes.values()].filter((r) => r.text).map((r) => ({ id: r.id, kind: r.kind, points: r.points, lines: labelLines[r.id] ?? wrapLabel(r.text, 26) })), Object.values(out.nodes), Object.values(devs))
   for (const r of routes.values()) { r.label = labs[r.id] ?? null; r.device = devs[r.id] ?? null }
@@ -449,13 +519,13 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     if (!bend || pts.length !== 2) return pts
     const A = box[e.from], B = box[e.to]
     if (Math.abs(pts[0].x - pts[1].x) < 1) {
-      const lo = Math.max(A.x, B.x) + 8, hi = Math.min(A.x + A.w, B.x + B.w) - 8
+      const lo = Math.max(A.x, B.x) + MARGIN, hi = Math.min(A.x + A.w, B.x + B.w) - MARGIN
       if (hi < lo) return pts
       const x = Math.max(lo, Math.min(hi, pts[0].x + bend.dx))
       return pts.map((q) => ({ ...q, x }))
     }
     if (Math.abs(pts[0].y - pts[1].y) < 1) {
-      const lo = Math.max(A.y, B.y) + 8, hi = Math.min(A.y + A.h, B.y + B.h) - 8
+      const lo = Math.max(A.y, B.y) + MARGIN, hi = Math.min(A.y + A.h, B.y + B.h) - MARGIN
       if (hi < lo) return pts
       const y = Math.max(lo, Math.min(hi, pts[0].y + bend.dy))
       return pts.map((q) => ({ ...q, y }))
@@ -482,6 +552,8 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     return { ...e, points: slide(points, e, bend) }
   })
   // re-routed arrows (after moving nodes) get the same crossing fix as the automatic layout
+  separateVertical(edges, box)
+  placePorts(edges, box)
   uncross(edges, box)
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))

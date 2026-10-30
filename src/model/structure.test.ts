@@ -55,8 +55,14 @@ describe('control structure layout', () => {
         if (v.e === h.e || Math.abs(v.a.x - v.b.x) > 1 || Math.abs(h.a.y - h.b.y) > 1) continue
         if (v.a.x > Math.min(h.a.x, h.b.x) + 1 && v.a.x < Math.max(h.a.x, h.b.x) - 1 && h.a.y > Math.min(v.a.y, v.b.y) + 1 && h.a.y < Math.max(v.a.y, v.b.y) - 1) n++
       }
+      for (const u of sg) for (const v of sg) {
+        if (u.e.id >= v.e.id || Math.abs(u.a.x - u.b.x) > 1 || Math.abs(v.a.x - v.b.x) > 1 || Math.abs(u.a.x - v.a.x) > 4) continue
+        if (Math.min(Math.max(u.a.y, u.b.y), Math.max(v.a.y, v.b.y)) - Math.max(Math.min(u.a.y, u.b.y), Math.min(v.a.y, v.b.y)) > 6) n++
+      }
       return n
     }
-    for (const dx of [-250, -150, -60, 60, 150]) expect(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })), 'dx ' + dx).toBe(0)
+    const bad: number[] = []
+    for (let dx = -300; dx <= 300; dx += 10) bad.push(...(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })) ? [dx] : []))
+    expect(bad).toEqual([])
   })
 })

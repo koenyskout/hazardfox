@@ -182,12 +182,31 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
       <LexicalComposer initialConfig={config}>
         <Toolbar />
         <RichTextPlugin
-          contentEditable={<ContentEditable className="rich-edit" style={{ minHeight: (props.rows ?? 3) * 1.35 + 'em' }} aria-placeholder={props.placeholder ?? ''} placeholder={<div className="rich-ph">{props.placeholder}</div>} />}
+          contentEditable={<ContentEditable className="rich-edit" style={{ minHeight: ((props.rows ?? 3) + 2) * 1.35 + 'em' }} aria-placeholder={props.placeholder ?? ''} placeholder={<div className="rich-ph">{props.placeholder}</div>} />}
           ErrorBoundary={LexicalErrorBoundary}
         />
+        <ClickToEnd />
         <Sync value={props.value} onChange={props.onChange} />
         <MentionMenu options={options} />
       </LexicalComposer>
     </div>
   )
+}
+
+/** Clicking the empty area below the text puts the caret at the end. */
+function ClickToEnd() {
+  const [editor] = useLexicalComposerContext()
+  useEffect(() => {
+    const root = editor.getRootElement()
+    if (!root) return
+    const h = (e: MouseEvent) => {
+      if (e.target !== root) return
+      e.preventDefault()
+      root.focus()
+      editor.update(() => { $getRoot().selectEnd() })
+    }
+    root.addEventListener('mousedown', h)
+    return () => root.removeEventListener('mousedown', h)
+  }, [editor])
+  return null
 }

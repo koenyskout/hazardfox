@@ -202,7 +202,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .rich-tools { display: flex; gap: 2px; margin-bottom: 3px; }
 .rich-tools button { min-width: 24px; padding: 0 6px; font-size: 12px; line-height: 20px; }
 .tb-b { font-weight: 700; } .tb-i { font-style: italic; }
-.rich-edit { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--panel); outline: none; font-size: 13px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rich-edit { cursor: text; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--panel); outline: none; font-size: 13px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rich-edit:focus { border-color: var(--accent); }
 .rich-edit p { margin: 0; }
 .rich-ph { position: absolute; top: 28px; left: 9px; color: var(--muted); pointer-events: none; font-size: 13px; }
