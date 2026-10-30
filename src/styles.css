@@ -94,7 +94,7 @@ a.chip:hover, button.chip:hover { border-color: currentColor; }
 .rules { display: flex; flex-direction: column; gap: 6px; }
 .rule { border-left: 2px solid var(--border, #ddd); padding-left: 8px; }
 .rule .conds { margin: 4px 0 0 12px; }
-.rule-head { display: flex; align-items: center; gap: 6px; }
+.rule-head { display: flex; align-items: center; gap: 6px; } .rule-head select, .rule-head input { width: auto; flex: none; } .rules button { white-space: nowrap; } .rules .conds > button { align-self: flex-start; width: auto; }
 .cond { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .cond select, .cond input.num { width: auto; min-width: 60px; max-width: 110px; } .cond input.num { width: 70px; } .cond .picker-btn { width: auto; max-width: 200px; } .cond select { max-width: 150px; } .cond-word { color: var(--muted); font-size: 13px; min-width: 34px; } .cond .x { margin-left: auto; align-self: center; } .cond { padding: 4px 0; border-bottom: 1px solid var(--line); } .setpick { flex: 1 1 200px; }
 .cond-err { flex-basis: 100%; color: var(--danger); }
 

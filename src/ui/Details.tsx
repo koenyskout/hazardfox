@@ -185,7 +185,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
           {it.layer === 'domain' && (
             <Field label="Computed from parts" hint="Refinement: the value follows from lower-level world variables. Rules are tried in order; the first that holds gives the value.">
-              <RulesEditor it={it} set={set} />
+              <RulesSummary it={it} set={set} />
             </Field>
           )}
           <VariableLinks v={it} />
@@ -467,6 +467,30 @@ function ConditionList({ conditions, onChange, vars, first = 'When' }: { conditi
         )
       })}
       <button onClick={() => onChange([...conditions, { variable: '', op: '=', state: '' }])}>+ condition</button>
+    </div>
+  )
+}
+
+function RulesSummary({ it, set }: { it: Variable; set: Set }) {
+  const p = useProject()
+  const [open, setOpen] = useState(false)
+  const lines = it.rules.map((r) => `${r.state || '?'} when ${r.when.filter(conditionComplete).map((c) => conditionText(p, c)).join(' and ') || '?'}`)
+  return (
+    <div className="ctx-summary">
+      {lines.length ? (
+        <ul>
+          {lines.map((l, i) => <li key={i}>{i ? 'else ' : ''}{l}</li>)}
+          <li>otherwise {it.otherwise || 'unknown'}</li>
+        </ul>
+      ) : <span className="muted">Not computed: set directly</span>}
+      <button type="button" onClick={() => setOpen(true)}>Edit rules…</button>
+      {open && (
+        <Modal title={`Compute ${it.title || 'variable'} from its parts`} onClose={() => setOpen(false)} wide>
+          <p className="muted">Rules are tried in order; the first whose conditions all hold gives the value.</p>
+          <RulesEditor it={it} set={set} />
+          <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
+        </Modal>
+      )}
     </div>
   )
 }
