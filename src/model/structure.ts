@@ -65,11 +65,11 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
     order.forEach((sg, si) => {
       const vertical = Math.abs(sg.a.x - sg.b.x) < 1
       for (const side of it.kind === 'ca' ? [-1, 1] : [1, -1]) {
-        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 40, 90, 150, 230]) for (const sh of [0, -1, 1]) {
+        for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 16, 28, 44, 70, 110, 170]) for (const sh of [0, -1, 1]) {
           const mx = sg.a.x + (sg.b.x - sg.a.x) * t + (vertical ? 0 : sh * w * 0.6), my = sg.a.y + (sg.b.y - sg.a.y) * t + (vertical ? sh * h * 0.7 : 0)
           const r: Rect = vertical ? { x: side < 0 ? mx - w - gap : mx + gap, y: my - h / 2, w, h } : { x: mx - w / 2, y: side < 0 ? my - h - 3 : my + 3, w, h }
           const pad = { x: r.x - 2, y: r.y - 2, w: w + 4, h: h + 4 }
-          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 + gap / 40 : 0) + Math.abs(sh) * 2 + (sg.len < h + 10 && vertical ? 20 : 0)
+          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 + gap / 10 : 0) + Math.abs(sh) * 2 + (sg.len < h + 10 && vertical ? 20 : 0)
           score += nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
           for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 15
           if (!best || score < best.score) best = { ...r, score }
@@ -620,9 +620,9 @@ export const ROLE_STROKE: Record<NodeRole, string> = {
 /** Sensors and actuators are drawn as small markers on their arrow, not as boxes. */
 export const DEVICE_STYLE = { actuator: { fill: '#fef3c7', stroke: '#d97706' }, sensor: { fill: '#dcfce7', stroke: '#16a34a' } }
 
-/** Thin leader from a label to the nearest point of its arrow, or null when the label touches the arrow. */
+/** Thin slanted leader from a label to its arrow (never axis-aligned, so it cannot be mistaken for an arrow), or null when the label touches the arrow. */
 export function labelLeader(label: { x: number; y: number; w: number; h: number }, pts: Pt[]): { from: Pt; to: Pt } | null {
-  let best: { from: Pt; to: Pt; d: number } | null = null
+  let best: { from: Pt; to: Pt; d: number; a: Pt; b: Pt } | null = null
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i]
     const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4))
@@ -630,10 +630,20 @@ export function labelLeader(label: { x: number; y: number; w: number; h: number 
       const q = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n }
       const c = { x: Math.max(label.x, Math.min(label.x + label.w, q.x)), y: Math.max(label.y, Math.min(label.y + label.h, q.y)) }
       const d = Math.hypot(q.x - c.x, q.y - c.y)
-      if (!best || d < best.d) best = { from: c, to: q, d }
+      if (!best || d < best.d) best = { from: c, to: q, d, a, b }
     }
   }
-  return best && best.d >= 5 ? { from: best.from, to: best.to } : null
+  if (!best || best.d < 5) return null
+  // aim at a point a little further along the arrow, toward the label's centre
+  const { a, b, to } = best
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
+  const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len
+  const toward = (label.x + label.w / 2 - to.x) * ux + (label.y + label.h / 2 - to.y) * uy >= 0 ? 1 : -1
+  for (const dir of [toward, -toward]) {
+    const t = (to.x - a.x) * ux + (to.y - a.y) * uy + dir * 9
+    if (t >= 0 && t <= len) return { from: best.from, to: { x: a.x + ux * t, y: a.y + uy * t } }
+  }
+  return { from: best.from, to }
 }
 
 /** Point at fraction t of the polyline's length. */
