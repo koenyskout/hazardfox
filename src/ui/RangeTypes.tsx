@@ -1,9 +1,10 @@
+import { Select } from './Select'
 import { useState } from 'react'
 import { defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
 import { describeStates } from '../model/variables'
 import type { RangeType, Variable } from '../model/types'
 import { commit, useProject } from './hooks'
-import { Field, NumberInput, TextInput } from './Fields'
+import { Field, NumberInput, Ref, TextInput } from './Fields'
 import { Modal } from './Modal'
 import { Icon } from './Icon'
 
@@ -56,10 +57,10 @@ export function VariableRangeDialog({ v, onClose }: { v: Variable; onClose: () =
     <Modal title={`Range of ${v.title || 'variable'}`} onClose={onClose}>
       <Field single label="Type">
         <div style={{ display: 'flex', gap: 6 }}>
-          <select value={type} onChange={(e) => setType(e.target.value)}>
+          <Select value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">Custom</option>
             {types.map((x) => <option key={x} value={x}>{x} ({show(p.rangeTypes![x])})</option>)}
-          </select>
+          </Select>
           <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> New type…</button>
         </div>
       </Field>
@@ -94,7 +95,7 @@ export function RangeTypes() {
             {names.map((n) => (
               <tr key={n}>
                 <td>{n}</td><td>{show(p.rangeTypes![n])}</td>
-                <td className="muted">{usersOf(p.items, n).map((v) => v.title || '(untitled)').join(', ') || '—'}</td>
+                <td>{usersOf(p.items, n).map((v) => <Ref key={v.id} id={v.id} />) }{!usersOf(p.items, n).length && <span className="muted">—</span>}</td>
                 <td><button className="btn" onClick={() => setEdit(n)}>Edit…</button></td>
               </tr>
             ))}
