@@ -43,7 +43,7 @@ describe('control structure layout', () => {
     expect(far.edges.find((x) => x.id === ca)!.points[0].x).toBeLessThanOrEqual(cb.x + cb.w)
   })
 
-  it('moving a controller sideways does not make its arrows cross', async () => {
+  it('moving a controller sideways keeps arrows apart (no crossing, overlap, or crowding)', async () => {
     const p0 = publishedExampleProject('pub-aeb')
     const l = await layoutStructure(p0)
     const aeb = Object.values(p0.items).find((x) => x.kind === 'node' && x.title === 'AEB controller')!.id
@@ -59,6 +59,17 @@ describe('control structure layout', () => {
         if (u.e.id >= v.e.id || Math.abs(u.a.x - u.b.x) > 1 || Math.abs(v.a.x - v.b.x) > 1 || Math.abs(u.a.x - v.a.x) > 4) continue
         if (Math.min(Math.max(u.a.y, u.b.y), Math.max(v.a.y, v.b.y)) - Math.max(Math.min(u.a.y, u.b.y), Math.min(v.a.y, v.b.y)) > 6) n++
       }
+      // arrows keep SEP between them and MARGIN from the corner of the box they meet
+      const ends: Record<string, number[]> = {}
+      for (const e of d.edges) for (const [i, j, id] of [[0, 1, e.from], [e.points.length - 1, e.points.length - 2, e.to]] as const) {
+        const nb = d.nodes.find((x) => x.id === id)!, q = e.points[i], k = e.points[j]
+        const v = Math.abs(q.x - k.x) < 1
+        const t = v ? q.x : q.y, lo = v ? nb.x : nb.y, hi = v ? nb.x + nb.w : nb.y + nb.h
+        if (t - lo < 9.5 || hi - t < 9.5) n++
+        const key = id + (v ? (Math.abs(q.y - nb.y) < 1 ? 't' : 'b') : (Math.abs(q.x - nb.x) < 1 ? 'l' : 'r'))
+        ;(ends[key] ??= []).push(t)
+      }
+      for (const w of Object.values(ends)) { w.sort((a, b) => a - b); for (let i = 1; i < w.length; i++) if (w[i] - w[i - 1] < 13.5) n++ }
       return n
     }
     const bad: number[] = []

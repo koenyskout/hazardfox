@@ -33,7 +33,6 @@ export class MentionNode extends DecoratorNode<JSX.Element> {
   createDOM(_c: EditorConfig) { const s = document.createElement('span'); s.className = 'mention-slot'; return s }
   updateDOM() { return false }
   isInline() { return true }
-  isIsolated() { return true }
   getTextContent() { return '' }
   decorate() { return <Ref id={this.__id} /> }
 }
@@ -103,8 +102,12 @@ function MentionMenu({ options }: { options: Item[] }) {
       options={hits}
       onSelectOption={(o, node: TextNode | null, close) => {
         editor.update(() => {
-          node?.remove()
-          $insertNodes([$createMention(o.item.id), $createTextNode(' ')])
+          const m = $createMention(o.item.id)
+          const space = $createTextNode(' ')
+          if (node) node.replace(m)
+          else $insertNodes([m])
+          m.insertAfter(space)
+          space.select()
           close()
         })
       }}
@@ -153,7 +156,7 @@ function Sync({ value, onChange }: { value: string; onChange: (v: string) => voi
 function Toolbar() {
   const [editor] = useLexicalComposerContext()
   const btn = (label: string, title: string, run: () => void, cls = '') => (
-    <button type="button" className={cls} title={title} onMouseDown={(e) => { e.preventDefault(); run() }}>{label}</button>
+    <button type="button" tabIndex={-1} className={cls} title={title} onMouseDown={(e) => { e.preventDefault(); run() }}>{label}</button>
   )
   return (
     <div className="rich-tools">
@@ -178,7 +181,7 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
     editorState: () => $load(initial),
   }), [initial])
   return (
-    <div className="rich">
+    <div className="rich" onClick={(e) => e.preventDefault() /* the enclosing <label> would forward the click to the first toolbar button */}>
       <LexicalComposer initialConfig={config}>
         <Toolbar />
         <RichTextPlugin
