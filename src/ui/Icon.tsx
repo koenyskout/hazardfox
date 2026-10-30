@@ -31,6 +31,8 @@ const PATHS: Record<string, ReactNode> = {
   'layer-internal': <><rect x="4.5" y="4.5" width="7" height="7" rx="1" /><path d="M6.5 2.5v2M9.5 2.5v2M6.5 11.5v2M9.5 11.5v2M2.5 6.5h2M2.5 9.5h2M11.5 6.5h2M11.5 9.5h2" /></>,
   /** domain entity: class box */
   entity: <><rect x="2.5" y="3" width="11" height="10" rx="1.2" /><path d="M2.5 6.5h11M2.5 9.8h11" /></>,
+  /** relationship: two boxes joined by a line */
+  relationship: <><rect x="1.5" y="5.5" width="4" height="5" rx="1" /><rect x="10.5" y="5.5" width="4" height="5" rx="1" /><path d="M5.5 8h5" /></>,
   gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
 }
 
@@ -59,7 +61,10 @@ export function ChipLabel({ it, label }: { it: Item; label: string }) {
     const [, first, rest] = /^(\S*)([^]*)$/.exec(it.title.trim() || label)!
     return <><span className="nowrap"><span className="layer-ico l-entity" title="Entity"><Icon name="entity" size={12} /></span>{first}</span>{rest}</>
   }
-  if (it.kind === 'relationship') return <>{[p.items[it.from]?.title, it.title, p.items[it.to]?.title].map((x) => x?.trim() || '?').join(' ')}</>
+  if (it.kind === 'relationship') {
+    const [, first, rest] = /^(\S*)([^]*)$/.exec([p.items[it.from]?.title, it.title, p.items[it.to]?.title].map((x) => x?.trim() || '?').join(' '))!
+    return <><span className="nowrap"><span className="layer-ico l-relationship" title="Relationship"><Icon name="relationship" size={12} /></span>{first}</span>{rest}</>
+  }
   if (it.kind !== 'variable') return <>{label}</>
   if (label === variableName(p, it)) label = shortName(p, it) || label
   // icon stays on one line with the first word
