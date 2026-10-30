@@ -228,11 +228,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
             <div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div>
           </div>
-          <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
-            {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
-              : <span className="muted">implied; created when first used</span>}
-          </Field>
-          <Field single label="Other variables" hint="State of the link itself, e.g. the distance between the two entities.">
+          <Field single label="Variables" hint="Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
           </Field>
         </>
