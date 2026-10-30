@@ -79,7 +79,7 @@ a.chip:hover, button.chip:hover { border-color: var(--accent); }
 /* one hue per item kind (loss red, hazard orange, feedback green, ...) */
 .chip[class*=" k-"] { background: hsl(var(--h) var(--cs, 85%) 92%); color: hsl(var(--h) var(--cs, 85%) 26%); }
 .chip.k-loss { --h: 0; } .chip.k-hazard { --h: 27; } .chip.k-variable { --h: 70; } .chip.k-feedback { --h: 140; }
-.chip.k-constraint { --h: 172; } .chip.k-requirement { --h: 195; } .chip.k-ca { --h: 215; } .chip.k-node { --h: 235; }
+.chip.k-constraint { --h: 172; } .chip.k-requirement { --h: 195; } .chip.k-ca { --h: 215; } .chip.k-node { --h: 212; --cs: 30%; }
 .chip.k-entity { --h: 255; } .chip.k-uca { --h: 275; } .chip.k-relationship { --h: 300; } .chip.k-scenario { --h: 330; }
 .chip.k-assumption { --h: 220; --cs: 10%; }
 @media (prefers-color-scheme: dark) { .chip[class*=" k-"] { background: hsl(var(--h) calc(var(--cs, 85%) * .45) 22%); color: hsl(var(--h) var(--cs, 85%) 80%); } }
