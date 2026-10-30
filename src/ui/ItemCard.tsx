@@ -1,4 +1,5 @@
 import { Icon } from './Icon'
+import { useStore } from '../model/store'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
 import { byLabel, DELETED } from '../model/labels'
@@ -145,6 +146,7 @@ function Review({ it, c }: { it: Item; c: Ctx }) {
 
 export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   const c: Ctx = { p, labels, go }
+  const setEditing = useStore((s) => s.setEditing)
   const edge = it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'relationship' ? it : null
   const ends = edge ? [edge.from, edge.to] : []
   const refs = [...(it.parent ? [it.parent] : []), ...refsOf(it), ...(it.kind === 'hazard' ? effectiveLosses(p, it.id) : [])]
@@ -171,6 +173,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
         <span className="hc-badges">
           {badges}
           <span className={'hc-badge st-' + it.status}><Icon name={it.status} size={12} /> {it.status}</span>
+          <button className="hc-edit" title="Edit" onClick={() => setEditing(it.id)}><Icon name="draft" size={13} /></button>
         </span>
       </div>
       <div className="hc-title">{title || <span className="muted">(untitled)</span>}</div>

@@ -9,6 +9,7 @@ import { useStore } from '../model/store'
 import { commit, useLabels, useProject } from './hooks'
 import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
+import { Modal } from './Modal'
 import { useState } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
@@ -16,17 +17,38 @@ import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } 
 
 export function Details() {
   const p = useProject()
-  const labels = useLabels()
   const id = useStore((s) => s.selected)
-  const [deleting, setDeleting] = useState(false)
   const it = id ? p.items[id] : null
   if (!it) return <aside className="details"><p className="hint">Select an item to edit its details.</p></aside>
+  return <aside className="details"><DetailsForm it={it} /></aside>
+}
+
+/** Quick-edit popup for one item (same form as the side panel). */
+export function EditDialog() {
+  const p = useProject()
+  const labels = useLabels()
+  const id = useStore((s) => s.editing)
+  const setEditing = useStore((s) => s.setEditing)
+  const it = id ? p.items[id] : null
+  if (!it) return null
+  return (
+    <Modal title={`Edit ${labels[it.id]}`} onClose={() => setEditing(null)} wide>
+      <div className="details inline"><DetailsForm it={it} popup /></div>
+    </Modal>
+  )
+}
+
+function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
+  const p = useProject()
+  const labels = useLabels()
+  const setEditing = useStore((s) => s.setEditing)
+  const [deleting, setDeleting] = useState(false)
   const set: Set = (patch, key) => commit((q) => updateItem(q, it.id, patch), key ? `${it.id}:${key}` : undefined)
   const text = (f: 'title' | 'description' | 'notes') => (v: string) => set({ [f]: v }, f)
   const used = incoming(p, it.id).filter((o) => o.parent !== it.id)
 
   return (
-    <aside className="details">
+    <>
       <h3>
         <ItemHover id={it.id}><span className={'chip k-' + it.kind}>{labels[it.id]}</span></ItemHover> {KIND_NAMES[it.kind]}
       </h3>
@@ -51,8 +73,8 @@ export function Details() {
         </Field>
       )}
       <div className="actions"><button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button></div>
-      {deleting && <DeleteDialog ids={[it.id]} onClose={() => setDeleting(false)} />}
-    </aside>
+      {deleting && <DeleteDialog ids={[it.id]} onClose={() => { setDeleting(false); if (popup) setEditing(null) }} />}
+    </>
   )
 }
 

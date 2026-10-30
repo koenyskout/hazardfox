@@ -141,6 +141,12 @@ describe('element height', () => {
     const c = d.nodes.find((x) => x.id === ids[0])!, o = d.nodes.find((x) => x.id === n.id)!
     expect(o.x + o.w).toBeGreaterThanOrEqual(c.x + c.w)
     expect(o.y + o.h).toBeGreaterThanOrEqual(c.y + c.h)
+    // ...and pushes other boxes away instead of overlapping them
+    const sib = (a: { id: string }, b: { id: string }) => project.items[a.id].parent === project.items[b.id].parent
+    for (const a of d.nodes) for (const b of d.nodes) {
+      if (a.id >= b.id || !sib(a, b)) continue
+      expect(Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0).toBe(false)
+    }
   })
   it('a split element is only as tall as its children need', async () => {
     const { split } = await import('./ops')

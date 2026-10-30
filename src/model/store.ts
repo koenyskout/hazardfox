@@ -27,6 +27,8 @@ interface State {
   view: View
   selected: Id | null
   paletteOpen: boolean
+  /** Item shown in the edit dialog (opened from hover cards). */
+  editing: Id | null
   lastKey: string
   lastAt: number
 
@@ -43,6 +45,7 @@ interface State {
   select: (id: Id | null) => void
   goto: (view: View, id: Id | null) => void
   setPalette: (o: boolean) => void
+  setEditing: (id: Id | null) => void
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -55,6 +58,7 @@ export const useStore = create<State>((set, get) => ({
   view: 'overview',
   selected: null,
   paletteOpen: false,
+  editing: null,
   lastKey: '',
   lastAt: 0,
 
@@ -99,4 +103,5 @@ export const useStore = create<State>((set, get) => ({
   select: (selected) => set({ selected }),
   goto: (view, selected) => set({ view, selected }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
+  setEditing: (editing) => set({ editing }),
 }))

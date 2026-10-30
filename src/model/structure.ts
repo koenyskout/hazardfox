@@ -368,14 +368,36 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     .filter((n) => p.items[n.id])
     .map((n) => { const d = cumulative(p, n.id); return { ...n, x: n.x + d.x, y: n.y + d.y } })
   const box = Object.fromEntries(nodes.map((n) => [n.id, n]))
-  // a child moved out of its container makes the container grow to contain it again (deepest containers first)
-  for (const n of [...nodes].filter((q) => q.compound).sort((x, y) => y.depth - x.depth)) {
-    for (const k of children(p, n.id, 'node')) {
-      const c = box[k.id]
-      if (!c) continue
-      const x0 = Math.min(n.x, c.x - 16), y0 = Math.min(n.y, c.y - 40), x1 = Math.max(n.x + n.w, c.x + c.w + 16), y1 = Math.max(n.y + n.h, c.y + c.h + 16)
-      n.x = x0; n.y = y0; n.w = x1 - x0; n.h = y1 - y0
+  // a child moved out of its container makes the container grow; overlapping boxes are pushed apart (siblings only; descendants move along)
+  const kidsOf = (id: Id | null) => children(p, id, 'node').map((k) => box[k.id]).filter(Boolean)
+  const subtree = (n: (typeof nodes)[number]): (typeof nodes)[number][] => [n, ...kidsOf(n.id).flatMap(subtree)]
+  const pinned = (n: (typeof nodes)[number]) => subtree(n).some((q) => { const it = p.items[q.id]; return it?.kind === 'node' && it.nudge })
+  const groups: (Id | null)[] = [null, ...nodes.filter((q) => q.compound).map((q) => q.id)]
+  for (let it = 0; it < 100; it++) {
+    for (const n of [...nodes].filter((q) => q.compound).sort((x, y) => y.depth - x.depth)) {
+      for (const c of kidsOf(n.id)) {
+        const x0 = Math.min(n.x, c.x - 16), y0 = Math.min(n.y, c.y - 40), x1 = Math.max(n.x + n.w, c.x + c.w + 16), y1 = Math.max(n.y + n.h, c.y + c.h + 16)
+        n.x = x0; n.y = y0; n.w = x1 - x0; n.h = y1 - y0
+      }
     }
+    let moved = false
+    for (const g of groups) {
+      const ks = kidsOf(g)
+      for (let a = 0; a < ks.length && !moved; a++) for (let b = a + 1; b < ks.length && !moved; b++) {
+        const A = ks[a], B = ks[b]
+        const ox = Math.min(A.x + A.w, B.x + B.w) - Math.max(A.x, B.x), oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y)
+        if (ox <= 0 || oy <= 0) continue
+        const horiz = ox < oy
+        // move the box that was not placed by hand (else the one further along the axis)
+        const farB = horiz ? B.x + B.w / 2 >= A.x + A.w / 2 : B.y + B.h / 2 >= A.y + A.h / 2
+        const mover = pinned(A) !== pinned(B) ? (pinned(A) ? B : A) : farB ? B : A
+        const dir = mover === B ? (farB ? 1 : -1) : farB ? -1 : 1
+        const d = (horiz ? ox : oy) + 20
+        for (const q of subtree(mover)) { if (horiz) q.x += dir * d; else q.y += dir * d }
+        moved = true
+      }
+    }
+    if (!moved) break
   }
   const live = l.edges.filter((e) => p.items[e.id] && l.nodes[e.from] && l.nodes[e.to])
   /** A straight arrow slides sideways (vertical) or up/down (horizontal) with the bend offset, staying within both boxes. */
@@ -401,10 +423,10 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
   const base = new Map<string, Pt[]>()
   const dirty: EdgeRoute[] = []
   for (const e of live) {
-    const a = cumulative(p, e.from), b = cumulative(p, e.to)
     const pts = slide(bendRoute(e.points, bendOf(e), box[e.from], box[e.to]), e, bendOf(e))
     const hits = pts.slice(1).some((q, i) => solid.some((n) => n.id !== e.from && n.id !== e.to && segHitsBox(pts[i], q, n)))
-    if (a.x || a.y || b.x || b.y || hits) dirty.push(e); else base.set(e.id, pts)
+    const mv = (id: Id) => { const o = l.nodes[id], q = box[id]; return o.x !== q.x || o.y !== q.y || o.w !== q.w || o.h !== q.h }
+    if (mv(e.from) || mv(e.to) || hits) dirty.push(e); else base.set(e.id, pts)
   }
   const routed = routeSet(box, live, base, dirty.map((e) => e.id), (e, pts) => slide(bendRoute(pts, bendOf(e), box[e.from], box[e.to]), e, bendOf(e)))
   const edges = live.map((e) => ({ ...e, points: routed.get(e.id) ?? base.get(e.id)! }))

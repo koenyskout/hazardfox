@@ -6,7 +6,7 @@ import { validate } from './model/validate'
 import { exampleProject } from './model/example'
 import { HANDBOOK_EXAMPLES, handbookExampleProject } from './model/handbookExamples'
 import { PUBLISHED_EXAMPLES, publishedExampleProject } from './model/publishedExamples'
-import { Details } from './ui/Details'
+import { Details, EditDialog } from './ui/Details'
 import { useProject } from './ui/hooks'
 import { Palette } from './ui/Palette'
 import { Structure } from './ui/Structure'
@@ -96,6 +96,7 @@ export default function App() {
       <main><Suspense fallback={<p className="muted" style={{ padding: 16 }}>Loading…</p>}>{body}</Suspense></main>
       {wideDetails && <Details />}
       <Palette />
+      <EditDialog />
     </div>
   )
 }
