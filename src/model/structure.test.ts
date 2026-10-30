@@ -131,6 +131,17 @@ describe('moved diagrams', () => {
 })
 
 describe('element height', () => {
+  it('a container grows to contain a child moved outside it', async () => {
+    const { split } = await import('./ops')
+    const p0 = (await import('./handbookExamples')).handbookExampleProject('hb-cs-proscan')
+    const n = Object.values(p0.items).find((x) => x.kind === 'node' && x.title.startsWith('Operations'))!
+    const { project, ids } = split(p0, n.id, ['x1', 'x2'])
+    const l = await layoutStructure(project)
+    const d = applyOverrides(updateItem(project, ids[0], { nudge: { dx: 300, dy: 200 } }), l)
+    const c = d.nodes.find((x) => x.id === ids[0])!, o = d.nodes.find((x) => x.id === n.id)!
+    expect(o.x + o.w).toBeGreaterThanOrEqual(c.x + c.w)
+    expect(o.y + o.h).toBeGreaterThanOrEqual(c.y + c.h)
+  })
   it('a split element is only as tall as its children need', async () => {
     const { split } = await import('./ops')
     const p0 = (await import('./handbookExamples')).handbookExampleProject('hb-cs-proscan')

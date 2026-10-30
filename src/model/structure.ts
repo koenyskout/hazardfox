@@ -368,6 +368,15 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     .filter((n) => p.items[n.id])
     .map((n) => { const d = cumulative(p, n.id); return { ...n, x: n.x + d.x, y: n.y + d.y } })
   const box = Object.fromEntries(nodes.map((n) => [n.id, n]))
+  // a child moved out of its container makes the container grow to contain it again (deepest containers first)
+  for (const n of [...nodes].filter((q) => q.compound).sort((x, y) => y.depth - x.depth)) {
+    for (const k of children(p, n.id, 'node')) {
+      const c = box[k.id]
+      if (!c) continue
+      const x0 = Math.min(n.x, c.x - 16), y0 = Math.min(n.y, c.y - 40), x1 = Math.max(n.x + n.w, c.x + c.w + 16), y1 = Math.max(n.y + n.h, c.y + c.h + 16)
+      n.x = x0; n.y = y0; n.w = x1 - x0; n.h = y1 - y0
+    }
+  }
   const live = l.edges.filter((e) => p.items[e.id] && l.nodes[e.from] && l.nodes[e.to])
   /** A straight arrow slides sideways (vertical) or up/down (horizontal) with the bend offset, staying within both boxes. */
   const slide = (pts: Pt[], e: EdgeRoute, bend: Offset | null): Pt[] => {
