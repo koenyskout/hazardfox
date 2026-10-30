@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
-import { contextHolds, diagnose, draftTrace, mismatches, stateAt, valueAt, witness } from '../model/traces'
+import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, traceState, valueAt, witness } from '../model/traces'
 import { controlledBy, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
@@ -55,6 +55,8 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const delLane = (id: Id) => save(s, { lanes: t.lanes.filter((x) => x !== id), steps: t.steps.map((st) => { const values = { ...st.values }; delete values[id]; return { ...st, values } }) })
   const setValue = (i: number, id: Id, v: string) => save(s, setStep(t, i, (st) => { const values = { ...st.values }; if (v === '') delete values[id]; else values[id] = v; return { values } }), `${i}:${id}`)
   const mm = t.steps.map((_, i) => new Map(mismatches(p, t, i).map((m) => [m.id, m])))
+  const computed = t.steps.map((_, i) => traceState(p, t, i))
+  const conflicts = t.steps.map((_, i) => new Map(ruleConflicts(p, t, i).map(([id, , x]) => [id, x])))
   return (
     <div className="trace">
       <div className="toolbar">
@@ -90,9 +92,11 @@ export function TraceEditor({ s }: { s: Scenario }) {
                         {t.steps.map((_, i) => {
                           const { value, set } = valueAt(t, i, v.id)
                           const m = mm[i].get(v.id)
+                          const c = conflicts[i].get(v.id)
+                          const derived = !set && computed[i][v.id] !== undefined && computed[i][v.id] !== value
                           return (
-                            <td key={i} className={(set ? 'set' : 'carried') + (m ? ' mm' : '') + (i === actionAt ? ' act' : '')} title={m ? `Differs from the world (${labels[m.world]} = ${m.actual})` : undefined}>
-                              <ValueInput v={v} value={set ? value ?? '' : ''} carried={set ? undefined : value} onChange={(x) => setValue(i, v.id, x)} />
+                            <td key={i} className={(set ? 'set' : 'carried') + (derived ? ' computed' : '') + (m ? ' mm' : '') + (c ? ' conflict' : '') + (i === actionAt ? ' act' : '')} title={c ? `Contradicts its parts, which give ${c}` : m ? `Differs from the world (${labels[m.world]} = ${m.actual})` : derived ? 'Computed from its parts' : undefined}>
+                              <ValueInput v={v} value={set ? value ?? '' : ''} carried={set ? undefined : derived ? computed[i][v.id] : value} onChange={(x) => setValue(i, v.id, x)} />
                             </td>
                           )
                         })}
@@ -123,7 +127,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                 <tr>
                   <th className="muted">Context of {labels[uca.id]}</th>
                   {t.steps.map((_, i) => {
-                    const h = contextHolds(p, uca, stateAt(t, i))
+                    const h = contextHolds(p, uca, computed[i])
                     return <td key={i} className={'ctx ' + (h ? 'ok' : h === false ? 'no' : 'unk') + (i === actionAt ? ' act' : '')}>{h ? 'holds' : h === false ? 'does not hold' : 'unknown'}</td>
                   })}
                 </tr>
@@ -215,8 +219,8 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   if (!t.steps.length) return null
   if (!d) return <p className="empty">Laying out the control structure…</p>
   const cur = t.steps[step]
-  const before = step > 0 ? stateAt(t, step - 1) : {}
-  const after = stateAt(t, step)
+  const before = step > 0 ? traceState(p, t, step - 1) : {}
+  const after = traceState(p, t, step)
   const fbDone = prog >= 0.5
   const shown = (v: Variable): string | undefined => (v.layer === 'domain' || v.layer === 'internal' ? after : fbDone ? after : before)[v.id]
   const mm = new Map(mismatches(p, t, step).map((m) => [m.id, m]))

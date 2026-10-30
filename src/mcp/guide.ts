@@ -25,7 +25,10 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
   domain = actual world state (parent = entity); signal = what a feedback carries (parent = feedback, about = the world variable it observes);
   belief = the controller's process model (parent = controller node, about = the world variable it stands for); internal = controller mode/timer (parent = node).
   definition (rich text) states the meaning: the abstraction for derived world variables (moving := |speed| > 0), the interface semantics of a signal, the
-  world predicate a belief designates. A belief is updated by signals about the same world variable on feedback into its controller.
+  world predicate a belief designates. A belief is updated by signals about the same world variable (or one of its parts) on feedback into its controller.
+  Hierarchical (refined) world variables: rules [{state, when: [conditions over lower-level world variables]}] tried in order, otherwise = the value when none holds
+  (Emergency = evacuation required when Fire = true; … otherwise no emergency). Traces compute such variables (and controller beliefs about them) from their parts;
+  A UCA refined by substituting such rules into its context links its higher-level UCA in refines.
 - node: controller | process | external (sensors and actuators are NOT nodes); nest with parent (subsystems). entities optionally links the domain entities it represents (a process may comprise several).
 - ca (control action): from controller node to node; named as a verb phrase ("Set rate"); optional "actuator" names the actuator that
   carries it out; affects lists the world variables it controls. feedback: from node to node; its signals are variables with parent = the feedback; optional "sensor" names the sensor producing it.

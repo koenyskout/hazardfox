@@ -1,12 +1,13 @@
 import { renderText } from '../model/labels'
-import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
+import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { conditionComplete, conditionError, conditionText, isRangeOp, isSetOp, OP_LABELS, opsFor, stepOf, valuesOf } from '../model/variables'
-import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Rule, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
+import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
@@ -182,6 +183,11 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <RichText value={it.definition} onChange={(v) => set({ definition: v }, 'definition')} rows={2} />
             </Field>
           )}
+          {it.layer === 'domain' && (
+            <Field label="Computed from parts" hint="Refinement: the value follows from lower-level world variables. Rules are tried in order; the first that holds gives the value.">
+              <RulesEditor it={it} set={set} />
+            </Field>
+          )}
           <VariableLinks v={it} />
           <Field single label="Type">
             <select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
@@ -319,6 +325,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Hazards (leaf)">
             <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
           </Field>
+          <UcaRefinement it={it} set={set} />
           <Field label="Controller constraint"><RichText value={it.constraint} onChange={(v) => set({ constraint: v }, 'constraint')} rows={2} /></Field>
         </>
       )
@@ -410,15 +417,19 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 
 function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
-  const labels = useLabels()
   const ca = p.items[it.ca]
   // The context is actual state: world variables and the controller's own internal state, not beliefs or signals.
   const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
-  const upd = (i: number, patch: Partial<(typeof it.conditions)[number]>) =>
-    set({ conditions: it.conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)) })
+  return <ConditionList conditions={it.conditions} onChange={(conditions) => set({ conditions })} vars={vars} />
+}
+
+function ConditionList({ conditions, onChange, vars, first = 'When' }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; first?: string }) {
+  const p = useProject()
+  const labels = useLabels()
+  const upd = (i: number, patch: Partial<Condition>) => onChange(conditions.map((c, j) => (j === i ? { ...c, ...patch } : c)))
   return (
     <div className="conds">
-      {it.conditions.map((c, i) => {
+      {conditions.map((c, i) => {
         const v = p.items[c.variable]
         const vr = v?.kind === 'variable' ? v : undefined
         const values = valuesOf(vr)
@@ -435,7 +446,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
           )
         return (
           <div key={i} className="cond">
-            <span className="cond-word">{i === 0 ? 'When' : 'and'}</span>
+            <span className="cond-word">{i === 0 ? first : 'and'}</span>
             <Picker options={vars} create={{ label: '+ New variable…', run: () => upd(i, { variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
               {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
@@ -450,13 +461,66 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
               : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
             {isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
             {vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
-            <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
+            <button className="x" onClick={() => onChange(conditions.filter((_, j) => j !== i))}>×</button>
             {err && <small className="cond-err">{err}</small>}
           </div>
         )
       })}
-      <button onClick={() => set({ conditions: [...it.conditions, { variable: '', op: '=', state: '' }] })}>+ condition</button>
+      <button onClick={() => onChange([...conditions, { variable: '', op: '=', state: '' }])}>+ condition</button>
     </div>
+  )
+}
+
+/** Refinement: the variable's value as a function of lower-level world variables; rules are tried in order. */
+function RulesEditor({ it, set }: { it: Variable; set: Set }) {
+  const p = useProject()
+  const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' && v.id !== it.id)
+  const values = valuesOf(it)
+  const value = (v: string, on: (v: string) => void, placeholder: string) => values
+    ? <select value={v} onChange={(e) => on(e.target.value)}><option value="">{placeholder}</option>{values.map((s) => <option key={s}>{s}</option>)}</select>
+    : <TextInput value={v} onChange={on} placeholder={placeholder} />
+  const upd = (i: number, r: Partial<Rule>) => set({ rules: it.rules.map((x, j) => (j === i ? { ...x, ...r } : x)) })
+  return (
+    <div className="rules">
+      {it.rules.map((r, i) => (
+        <div key={i} className="rule">
+          <div className="rule-head">
+            <span className="cond-word">{i ? 'else' : ''}</span>
+            {value(r.state, (v) => upd(i, { state: v }), 'value…')}
+            <button className="x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}>×</button>
+          </div>
+          <ConditionList conditions={r.when} onChange={(when) => upd(i, { when })} vars={vars} first="when" />
+        </div>
+      ))}
+      <div className="rule-head">
+        <button onClick={() => set({ rules: [...it.rules, { state: '', when: [{ variable: '', op: '=', state: '' }] }] })}>+ rule</button>
+        {it.rules.length > 0 && <><span className="cond-word">otherwise</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</>}
+      </div>
+    </div>
+  )
+}
+
+/** UCAs refined from this one (and the one it refines), with a button per context condition whose variable has rules. */
+function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
+  const p = useProject()
+  const kids = itemsOfKind(p, 'uca').filter((u) => u.refines === it.id)
+  const refinable = it.conditions.map((c, i) => [c, i] as const).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && v.rules.length > 0 && conditionComplete(c) })
+  return (
+    <>
+      {it.refines && (
+        <Field label="Refines" hint="The higher-level UCA whose context this one states over lower-level variables.">
+          <SingleRef value={it.refines} options={itemsOfKind(p, 'uca').filter((u) => u.id !== it.id)} onChange={(v) => set({ refines: v })} />
+        </Field>
+      )}
+      {(refinable.length > 0 || kids.length > 0) && (
+        <Field label="Refined into" hint="Substitutes the rules of a refined variable: one lower-level UCA per way the condition can hold.">
+          <div className="reflist">
+            {kids.map((u) => <Ref key={u.id} id={u.id} />)}
+            {refinable.map(([c, i]) => <button key={i} className="link" onClick={() => commit((q) => refineUca(q, it.id, i).project)}>Refine on {p.items[c.variable].title}</button>)}
+          </div>
+        </Field>
+      )}
+    </>
   )
 }
 
@@ -483,7 +547,7 @@ function VariableLinks({ v }: { v: Variable }) {
   const p = useProject()
   const all = itemsOfKind(p, 'variable')
   const rows: [string, Id[]][] = v.layer === 'domain'
-    ? [['Observed as', all.filter((x) => x.layer === 'signal' && x.about === v.id).map((x) => x.id)], ['Believed as', all.filter((x) => x.layer === 'belief' && x.about === v.id).map((x) => x.id)], ['Controlled by', controlledBy(p, v.id).map((c) => c.id)]]
+    ? [['Part of', refinedBy(p, v.id).map((x) => x.id)], ['Observed as', all.filter((x) => x.layer === 'signal' && x.about === v.id).map((x) => x.id)], ['Believed as', all.filter((x) => x.layer === 'belief' && x.about === v.id).map((x) => x.id)], ['Controlled by', controlledBy(p, v.id).map((c) => c.id)]]
     : v.layer === 'signal' ? [['Updates beliefs', updates(p, v).map((x) => x.id)]]
     : v.layer === 'belief' ? [['Updated from signals', updatedBy(p, v).map((x) => x.id)]] : []
   return rows.map(([label, ids]) => (
