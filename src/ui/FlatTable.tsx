@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { deleteItems, shift, updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
+import { Ref } from './Fields'
 import { addItem, commit, select, useIds } from './hooks'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
@@ -19,6 +20,8 @@ export function FlatTable<K extends Kind>(props: {
   columns: Column<K>[]
   init?: Patch<K>
   titleEditable?: boolean
+  /** Items must be ordered so that equal groups are adjacent; a header row (a reference to the group) is shown whenever it changes. */
+  groupBy?: (it: ItemOf<K>) => Id | null | undefined
   addLabel?: string
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
@@ -50,8 +53,13 @@ export function FlatTable<K extends Kind>(props: {
           ))}
         </div>
         {props.items.length === 0 && <div className="empty">Nothing here yet.</div>}
-        {props.items.map((it) => (
-          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
+        {props.items.map((it, i) => {
+          const g = props.groupBy?.(it)
+          const header = props.groupBy && (i === 0 || props.groupBy(props.items[i - 1]) !== g)
+          return (
+          <Fragment key={it.id}>
+          {header && <div className="row group">{g ? <Ref id={g} /> : <span className="muted">No owner</span>}</div>}
+          <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
             <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className="ttl">
@@ -69,7 +77,9 @@ export function FlatTable<K extends Kind>(props: {
               <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.cell(it)}</span>
             ))}
           </div>
-        ))}
+          </Fragment>
+          )
+        })}
       </div>
     </div>
   )

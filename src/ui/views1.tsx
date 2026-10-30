@@ -108,10 +108,10 @@ export function Domain() {
             ))}
           </div>
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
-            items={vars.filter((v) => !layer || v.layer === layer).sort(byLabel(labels))}
+            groupBy={(v) => v.parent}
+            items={vars.filter((v) => !layer || v.layer === layer).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
             columns={[
               { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },
-              { head: 'Owner', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
               { head: 'About', cell: (v) => (v.about ? <Ref id={v.about} /> : null), width: '80px' },
               { head: 'States', cell: (v) => <span className="muted">{describeStates(v)}</span> },
             ]} />
