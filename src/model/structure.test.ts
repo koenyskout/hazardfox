@@ -76,4 +76,29 @@ describe('control structure layout', () => {
     for (let dx = -300; dx <= 300; dx += 10) bad.push(...(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })) ? [dx] : []))
     expect(bad).toEqual([])
   })
+
+  it('control actions leave the bottom and arrive at the top, feedback the reverse, also after moving nodes', async () => {
+    const p0 = publishedExampleProject('pub-aeb')
+    const l = await layoutStructure(p0)
+    const nodes = Object.values(p0.items).filter((x) => x.kind === 'node')
+    for (const n of nodes) for (const [dx, dy] of [[0, 0], [-200, 0], [150, 0], [0, 300], [-120, 250], [0, -80]]) {
+      const d = applyOverrides(updateItem(p0, n.id, { nudge: { dx, dy } }), l)
+      for (const e of d.edges) {
+        const a = d.nodes.find((x) => x.id === e.from)!, b = d.nodes.find((x) => x.id === e.to)!
+        const s = e.points[0], t = e.points[e.points.length - 1]
+        expect(Math.abs(s.y - (e.kind === 'ca' ? a.y + a.h : a.y)) < 1 && Math.abs(t.y - (e.kind === 'ca' ? b.y : b.y + b.h)) < 1, `${n.title} ${dx},${dy} ${e.kind}`).toBe(true)
+        e.points.slice(1).forEach((q, i) => expect(q.x === e.points[i].x || q.y === e.points[i].y).toBe(true))
+      }
+    }
+  })
+
+  it('dragging an arrow keeps every segment horizontal or vertical', async () => {
+    const p0 = publishedExampleProject('pub-aeb')
+    const l = await layoutStructure(p0)
+    const arrows = Object.values(p0.items).filter((x) => x.kind === 'ca' || x.kind === 'feedback')
+    for (const it of arrows) for (const [dx, dy] of [[30, 0], [-60, 20], [0, 40], [500, -90], [-500, 90]]) {
+      const e = applyOverrides(updateItem(p0, it.id, { bend: { dx, dy } }), l).edges.find((x) => x.id === it.id)!
+      e.points.slice(1).forEach((q, i) => expect(q.x === e.points[i].x || q.y === e.points[i].y, `${it.kind} ${dx},${dy}`).toBe(true))
+    }
+  })
 })

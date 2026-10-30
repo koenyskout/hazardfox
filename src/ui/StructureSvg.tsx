@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react'
-import { DEVICE_STYLE, ROLE_FILL, ROLE_STROKE, type Drawn, type EdgeRoute, type Pt } from '../model/structure'
+import { DEVICE_STYLE, labelLeader, ROLE_FILL, ROLE_STROKE, type Drawn, type EdgeRoute, type Pt } from '../model/structure'
 import type { Id, Project } from '../model/types'
 
 export interface SvgHandlers {
@@ -66,6 +66,10 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
                 <text x={e.device.x + e.device.w / 2} y={e.device.y + 11.5} textAnchor="middle" fontSize={10} fill="#111827">{e.device.name}</text>
               </g>
             )}
+            {e.text && e.label && (() => {
+              const l = labelLeader(e.label, e.points)
+              return l && <line x1={l.from.x} y1={l.from.y} x2={l.to.x} y2={l.to.y} stroke="#9ca3af" strokeWidth={0.75} />
+            })()}
             {e.text && e.label && (
               <text x={e.label.x + e.label.w / 2} y={e.label.y + 11} textAnchor="middle" fontSize={11} fill={edgeColor(e)} fontStyle={e.kind === 'feedback' ? 'italic' : undefined}
                 stroke="#ffffff" strokeWidth={3} paintOrder="stroke">

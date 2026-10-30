@@ -315,50 +315,58 @@ const spreadPorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
   }
 }
 
-/** One-bend route (leave `a` vertically, arrive at the facing side of `b`) for boxes that are apart both ways, or null. */
-const routeL = (a: NodeBox, b: NodeBox, slot: number): Pt[] | null => {
+/**
+ * Route that obeys the drawing convention: a control action leaves the bottom of `a` and arrives at the top of `b`,
+ * feedback leaves the top of `a` and arrives at the bottom of `b` (`up` mirrors everything vertically).
+ * Straight when the boxes share enough width, else one jog; when `b` is not below `a`, around the outside.
+ */
+const routeVertical = (a: NodeBox, b: NodeBox, up: boolean, slot: number): Pt[] => {
+  const f = (n: NodeBox): NodeBox => (up ? { ...n, y: -(n.y + n.h) } : n)
+  const A = f(a), B = f(b)
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-  const aboveB = a.y + a.h <= b.y, belowB = b.y + b.h <= a.y, leftOfB = a.x + a.w <= b.x, rightOfB = b.x + b.w <= a.x
-  if (!(aboveB || belowB) || !(leftOfB || rightOfB)) return null
-  const yb = clamp(b.y + b.h / 2 + slot, b.y + MARGIN, b.y + b.h - MARGIN), ya = aboveB ? a.y + a.h : a.y
-  const xa = clamp(leftOfB ? a.x + a.w - 2 * MARGIN : a.x + 2 * MARGIN, a.x + MARGIN, a.x + a.w - MARGIN), xb = leftOfB ? b.x : b.x + b.w
-  return Math.abs(yb - ya) >= 24 && Math.abs(xb - xa) >= 24 ? [{ x: xa, y: ya }, { x: xa, y: yb }, { x: xb, y: yb }] : null
+  const ya = A.y + A.h, yb = B.y
+  let pts: Pt[]
+  const lo = Math.max(A.x, B.x), hi = Math.min(A.x + A.w, B.x + B.w)
+  if (yb - ya >= 40) {
+    if (hi - lo >= 2 * MARGIN) {
+      const x = clamp((lo + hi) / 2 + slot, lo + MARGIN, hi - MARGIN)
+      pts = [{ x, y: ya }, { x, y: yb }]
+    } else {
+      const xa = clamp(B.x + B.w / 2 + slot, A.x + MARGIN, A.x + A.w - MARGIN), xb = clamp(A.x + A.w / 2 + slot, B.x + MARGIN, B.x + B.w - MARGIN)
+      const ym = (ya + yb) / 2 + slot
+      pts = [{ x: xa, y: ya }, { x: xa, y: ym }, { x: xb, y: ym }, { x: xb, y: yb }]
+    }
+  } else {
+    const xa = clamp(A.x + A.w / 2 + slot, A.x + MARGIN, A.x + A.w - MARGIN), xb = clamp(B.x + B.w / 2 + slot, B.x + MARGIN, B.x + B.w - MARGIN)
+    const right = Math.max(A.x + A.w, B.x + B.w) + 30, left = Math.min(A.x, B.x) - 30
+    const xo = Math.abs(xa - right) + Math.abs(xb - right) <= Math.abs(xa - left) + Math.abs(xb - left) ? right : left
+    pts = [{ x: xa, y: ya }, { x: xa, y: ya + 24 }, { x: xo, y: ya + 24 }, { x: xo, y: yb - 24 }, { x: xb, y: yb - 24 }, { x: xb, y: yb }]
+  }
+  return up ? pts.map((q) => ({ x: q.x, y: -q.y })) : pts
 }
 
-const crossCount = (routes: EdgeRoute[]) => {
-  const sg = routes.flatMap((e) => e.points.slice(1).map((q, i) => ({ e, a: e.points[i], b: q })))
-  let n = 0
-  for (const v of sg) for (const h of sg) {
-    if (v.e === h.e || Math.abs(v.a.x - v.b.x) > 1 || Math.abs(h.a.y - h.b.y) > 1) continue
-    if (v.a.x > Math.min(h.a.x, h.b.x) + 1 && v.a.x < Math.max(h.a.x, h.b.x) - 1 && h.a.y > Math.min(v.a.y, v.b.y) + 1 && h.a.y < Math.max(v.a.y, v.b.y) - 1) n++
+/**
+ * Dragging a route shifts its inner corners; the end points slide along their box side so every segment stays horizontal or vertical
+ * (the end point stops at the box margin and the corner follows it).
+ */
+const bendRoute = (pts: Pt[], bend: Offset | null, a: NodeBox, b: NodeBox): Pt[] => {
+  if (!bend || pts.length < 3) return pts
+  const n = pts.length
+  const out = pts.map((q, i) => (i > 0 && i < n - 1 ? { x: q.x + bend.dx, y: q.y + bend.dy } : { ...q }))
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+  for (const [i, j, box] of [[0, 1, a], [n - 1, n - 2, b]] as const) {
+    if (!box) continue
+    if (Math.abs(pts[i].x - pts[j].x) < 1) { const x = clamp(pts[i].x + bend.dx, box.x + MARGIN, box.x + box.w - MARGIN); out[i].x = x; out[j].x = x }
+    else { const y = clamp(pts[i].y + bend.dy, box.y + MARGIN, box.y + box.h - MARGIN); out[i].y = y; out[j].y = y }
   }
-  return n
+  return out
 }
 
-/** Orthogonal route between two boxes; `slot` offsets parallel edges. */
-const routeBetween = (a: NodeBox, b: NodeBox, slot: number): Pt[] => {
-  // shared span of two intervals, if wide enough for a straight line; `want` is the preferred position
-  const span = (a0: number, a1: number, b0: number, b1: number, want: number) => {
-    const lo = Math.max(a0, b0), hi = Math.min(a1, b1)
-    if (hi - lo < 2 * MARGIN) return null
-    const m = MARGIN
-    return Math.max(lo + m, Math.min(hi - m, want))
-  }
-  const aboveB = a.y + a.h <= b.y, belowB = b.y + b.h <= a.y
-  const x = span(a.x, a.x + a.w, b.x, b.x + b.w, (Math.max(a.x, b.x) + Math.min(a.x + a.w, b.x + b.w)) / 2 + slot)
-  if (x !== null && (aboveB || belowB)) return [{ x, y: aboveB ? a.y + a.h : a.y }, { x, y: aboveB ? b.y : b.y + b.h }]
-  const leftOfB = a.x + a.w <= b.x, rightOfB = b.x + b.w <= a.x
-  const y = span(a.y, a.y + a.h, b.y, b.y + b.h, (Math.max(a.y, b.y) + Math.min(a.y + a.h, b.y + b.h)) / 2 + slot)
-  if (y !== null && (leftOfB || rightOfB)) return [{ x: leftOfB ? a.x + a.w : a.x, y }, { x: leftOfB ? b.x : b.x + b.w, y }]
-  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-  if (aboveB || belowB) {
-    const x1 = clamp(a.x + a.w / 2 + slot, a.x + MARGIN, a.x + a.w - MARGIN), x2 = clamp(b.x + b.w / 2 + slot, b.x + MARGIN, b.x + b.w - MARGIN)
-    const y1 = aboveB ? a.y + a.h : a.y, y2 = aboveB ? b.y : b.y + b.h
-    const ym = (y1 + y2) / 2 + slot
-    return [{ x: x1, y: y1 }, { x: x1, y: ym }, { x: x2, y: ym }, { x: x2, y: y2 }]
-  }
-  // overlapping boxes: fall back to a straight line between centres
-  return [{ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 }]
+/** Does the route leave/arrive on the sides the convention asks for? */
+const sidesOk = (r: EdgeRoute, a: NodeBox, b: NodeBox) => {
+  const s = r.points[0], t = r.points[r.points.length - 1]
+  const [ys, yt] = r.kind === 'ca' ? [a.y + a.h, b.y] : [a.y, b.y + b.h]
+  return Math.abs(s.y - ys) < 1 && Math.abs(t.y - yt) < 1
 }
 
 /** Replace a jogged route by one straight vertical line (moving the ends a little) when the nodes overlap horizontally and nothing is in the way. */
@@ -513,6 +521,10 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       label: null, device: null,
     })
   }
+  for (const r of routes.values()) {
+    const a = out.nodes[r.from], b = out.nodes[r.to]
+    if (a && b && !sidesOk(r, a, b)) r.points = routeVertical(a, b, r.kind === 'feedback', 0)
+  }
   spreadPorts([...routes.values()], out.nodes)
   separateVertical([...routes.values()], out.nodes)
   placePorts([...routes.values()], out.nodes)
@@ -571,32 +583,13 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     if (a.x || a.y || b.x || b.y) {
       // an end moved: re-route between the actual boxes instead of stretching the old route
       const g = groups.get(pairKey(e))!
-      let pts = routeBetween(box[e.from], box[e.to], (g.indexOf(e) - (g.length - 1) / 2) * 22)
-      if (bend && pts.length > 2) pts = pts.map((q, i) => (i > 0 && i < pts.length - 1 ? { x: q.x + bend.dx, y: q.y + bend.dy } : q))
+      let pts = routeVertical(box[e.from], box[e.to], e.kind === 'feedback', (g.indexOf(e) - (g.length - 1) / 2) * 22)
+      pts = bendRoute(pts, bend, box[e.from], box[e.to])
       return { ...e, points: slide(pts, e, bend) }
     }
-    const n = e.points.length
-    const points = e.points.map((q, i) => {
-      const t = n > 1 ? i / (n - 1) : 0
-      const mid = i > 0 && i < n - 1
-      return { x: q.x + a.x + (b.x - a.x) * t + (mid && bend ? bend.dx : 0), y: q.y + a.y + (b.y - a.y) * t + (mid && bend ? bend.dy : 0) }
-    })
+    const points = bendRoute(e.points, bend, box[e.from], box[e.to])
     return { ...e, points: slide(points, e, bend) }
   })
-  // fewer bends: a re-routed two-bend arrow becomes a one-bend arrow when that creates no crossing
-  for (const [i, e] of edges.entries()) {
-    const it = p.items[e.id]
-    if (e.points.length !== 4 || (it?.kind === 'ca' || it?.kind === 'feedback' ? it.bend : null)) continue
-    const a = cumulative(p, e.from), b = cumulative(p, e.to)
-    if (!(a.x || a.y || b.x || b.y)) continue
-    const g = groups.get(pairKey(e))!
-    const l1 = routeL(box[e.from], box[e.to], (g.indexOf(live[i]) - (g.length - 1) / 2) * 22)
-    if (!l1) continue
-    const before = crossCount(edges)
-    const old = e.points
-    e.points = l1
-    if (crossCount(edges) > before) e.points = old
-  }
   // re-routed arrows (after moving nodes) get the same crossing fix as the automatic layout
   separateVertical(edges, box)
   placePorts(edges, box)
@@ -626,6 +619,22 @@ export const ROLE_STROKE: Record<NodeRole, string> = {
 
 /** Sensors and actuators are drawn as small markers on their arrow, not as boxes. */
 export const DEVICE_STYLE = { actuator: { fill: '#fef3c7', stroke: '#d97706' }, sensor: { fill: '#dcfce7', stroke: '#16a34a' } }
+
+/** Thin leader from a label to the nearest point of its arrow, or null when the label touches the arrow. */
+export function labelLeader(label: { x: number; y: number; w: number; h: number }, pts: Pt[]): { from: Pt; to: Pt } | null {
+  let best: { from: Pt; to: Pt; d: number } | null = null
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i]
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4))
+    for (let k = 0; k <= n; k++) {
+      const q = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n }
+      const c = { x: Math.max(label.x, Math.min(label.x + label.w, q.x)), y: Math.max(label.y, Math.min(label.y + label.h, q.y)) }
+      const d = Math.hypot(q.x - c.x, q.y - c.y)
+      if (!best || d < best.d) best = { from: c, to: q, d }
+    }
+  }
+  return best && best.d >= 5 ? { from: best.from, to: best.to } : null
+}
 
 /** Point at fraction t of the polyline's length. */
 export function pointAt(pts: Pt[], t: number): Pt {
