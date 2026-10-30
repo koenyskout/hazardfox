@@ -3,7 +3,7 @@ import { deleteItems, shift, updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
 import { Ref } from './Fields'
-import { addItem, commit, select, useIds, useProject } from './hooks'
+import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
 
@@ -28,7 +28,10 @@ export function FlatTable<K extends Kind>(props: {
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
 }) {
-  const idLabels = useIds()
+  const ids = useIds()
+  const names = useLabels()
+  /** variables show their name pill, as everywhere else */
+  const idLabels = props.kind === 'variable' ? names : ids
   const selected = useStore((s) => s.selected)
   return (
     <div className="tree">
@@ -48,7 +51,7 @@ export function FlatTable<K extends Kind>(props: {
       </div>
       <div className="rows">
         <div className="row head">
-          <span className="lbl">ID</span>
+          <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}>ID</span>
           {props.titleEditable !== false && <span className="ttl">Title</span>}
           {props.columns.map((c) => (
             <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.head}</span>
@@ -62,7 +65,7 @@ export function FlatTable<K extends Kind>(props: {
           <Fragment key={it.id}>
           {header && <div className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}</div>}
           <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
-            <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
+            <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <span className="tline">
