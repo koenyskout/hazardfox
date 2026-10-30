@@ -13,7 +13,6 @@ import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
-import { VariableMap } from './VariableMap'
 import { LayerIcon, LayerTag } from './Icon'
 import { RangeCell, RangeTypes } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
@@ -83,7 +82,7 @@ export function Domain() {
   const selected = useStore((s) => s.selected)
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
-  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'map' | 'relationship' | 'types'>('diagram')
+  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'types'>('diagram')
   const [layer, setLayer] = useState<VariableLayer | ''>('')
   const vars = itemsOfKind(p, 'variable')
   return (
@@ -92,7 +91,6 @@ export function Domain() {
         <button className={tab === 'diagram' ? 'on' : ''} onClick={() => setTab('diagram')}>Diagram</button>
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
-        <button className={tab === 'map' ? 'on' : ''} onClick={() => setTab('map')}>Variable map <i>{vars.filter((v) => v.layer === 'domain').length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
         <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length}</i></button>
       </div>
@@ -120,7 +118,6 @@ export function Domain() {
             ]} />
         </>
       )}
-      {tab === 'map' && <VariableMap />}
       {tab === 'types' && <RangeTypes />}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable

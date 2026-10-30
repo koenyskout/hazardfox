@@ -1,3 +1,4 @@
+import { ControllerEditorButton } from './VariableMap'
 import { Select } from './Select'
 import { renderText } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
@@ -246,6 +247,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <Field label="Process model (beliefs)" hint="What this controller believes about the world. Fed by signals on its incoming feedback.">
                 <OwnedVars vars={beliefsOf(p, it.id)} add="+ belief about…" options={of('variable').filter((v) => v.layer === 'domain' && !beliefsAbout(p, it.id, v.id).length)} onAdd={(w) => commit((q) => addBelief(q, it.id, w).project)} />
               </Field>
+              <Field single label="Variable editor" hint="Edit beliefs, signals and internal state of this controller in one table."><ControllerEditorButton id={it.id} /></Field>
               <Field label="Internal state" hint="Modes, timers and counters of the control algorithm itself.">
                 <OwnedVars vars={variablesIn(p, 'internal', it.id)} add="+ new internal variable" onNew={() => addItemInDialog('variable', { layer: 'internal', parent: it.id })} />
               </Field>
@@ -362,7 +364,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Select>
           </Field>
           <Field label="Where in the control structure"><SingleRef value={it.element} options={of('node')} onChange={(v) => set({ element: v })} none="— not specified —" /></Field>
-          <Field single label="Title"><TextInput value={it.title} onChange={(v) => set({ title: v }, 'title')} /></Field>
+          <Field single label="Title"><TextInput multiline value={it.title} onChange={(v) => set({ title: v }, 'title')} /></Field>
           <label className="check"><input type="checkbox" checked={it.adversarial} onChange={(e) => set({ adversarial: e.target.checked })} /> Adversarial (STPA-Sec)</label>
           {p.meta.strideEnabled && (
             <Field label="STRIDE">

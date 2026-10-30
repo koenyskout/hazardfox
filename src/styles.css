@@ -369,7 +369,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .nowrap { white-space: nowrap; }
 .varmap tr.group th { text-align: left; background: var(--bg-alt, rgba(128,128,128,.12)); padding: 6px; position: sticky; left: 0; }
 .row.group { background: var(--bg); font-weight: 600; min-height: 28px; }
-.row .ttl .tline { display: flex; align-items: center; flex: 1; min-width: 0; } .row .ttl .tline input { flex: 1; min-width: 0; }
+.row .ttl .tline { display: flex; align-items: center; flex: 1; min-width: 0; } .row .ttl .tline input, .row .ttl .tline textarea { flex: 1; min-width: 0; }
 .row .ttl.wrap { flex-direction: column; align-items: stretch; justify-content: center; } .row .ttl .subline { font-size: 12px; color: var(--muted); padding: 0 8px 4px; }
 .row .lbl.wide { flex-basis: 150px; min-width: 0; }
 .row.group .gtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }

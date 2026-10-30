@@ -92,12 +92,12 @@ export function FlatTable<K extends Kind>(props: {
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <span className="tline">
-                <input
+                {it.kind === 'scenario' ? <textarea rows={2} value={it.title} placeholder={`${KIND_NAMES[it.kind]} title`} onFocus={() => select(it.id)} onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)} /> : <input
                   value={it.title}
                   placeholder={`${KIND_NAMES[it.kind]} title`}
                   onFocus={() => select(it.id)}
                   onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)}
-                />
+                />}
                 <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
                 {props.tail?.(it)}

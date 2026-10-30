@@ -8,6 +8,7 @@ import { Ref } from './Fields'
 import { LayerIcon } from './Icon'
 import { addItemInDialog, commit, isComputed, useProject } from './hooks'
 import { Picker } from './Picker'
+import { Modal } from './Modal'
 
 /** One row per variable; within an owner the raw ones first, then the computed ones. */
 const ordered = (p: Project, world: Variable[]) => [...world.filter((w) => !isComputed(p, w)), ...world.filter((w) => isComputed(p, w))]
@@ -26,10 +27,10 @@ function AddSignal({ c, w }: { c: string; w: string }) {
 }
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
-export function VariableMap() {
+export function VariableMap({ only }: { only?: string } = {}) {
   const p = useProject()
   const world = variablesIn(p, 'domain')
-  const ctrls = itemsOfKind(p, 'node').filter((n) => n.role === 'controller').sort((a, b) => a.rank - b.rank)
+  const ctrls = itemsOfKind(p, 'node').filter((n) => n.role === 'controller' && (!only || n.id === only)).sort((a, b) => a.rank - b.rank)
   const ucas = itemsOfKind(p, 'uca')
   const owners = [...new Set(world.map((w) => w.parent ?? ''))]
   /** Is w part of the context of a UCA of a control action from controller c? */
@@ -84,5 +85,17 @@ export function VariableMap() {
         </tbody>
       </table>
     </div>
+  )
+}
+
+/** Button in a controller's details that opens its own variable map column in a dialog. */
+export function ControllerEditorButton({ id }: { id: string }) {
+  const [open, setOpen] = useState(false)
+  const p = useProject()
+  return (
+    <>
+      <button className="btn" onClick={() => setOpen(true)}>Open editor…</button>
+      {open && <Modal title={`Variables of ${p.items[id]?.title ?? ''}`} onClose={() => setOpen(false)} wide><VariableMap only={id} /></Modal>}
+    </>
   )
 }

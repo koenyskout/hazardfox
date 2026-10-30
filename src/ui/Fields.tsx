@@ -37,7 +37,8 @@ export function Field(props: { label: string; children: ReactNode; hint?: string
   )
 }
 
-export function TextInput(props: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+export function TextInput(props: { value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean }) {
+  if (props.multiline) return <textarea rows={3} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
   return <input value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
 }
 

@@ -12,10 +12,11 @@ import { useHoverCard } from './HoverCard'
 import { ItemCard } from './ItemCard'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
+import { VariableMap } from './VariableMap'
 import { StructureSvg } from './StructureSvg'
 import { DeleteDialog, TreeTable } from './TreeTable'
 
-type Tab = 'diagram' | 'nodes' | 'ca' | 'feedback'
+type Tab = 'diagram' | 'map' | 'nodes' | 'ca' | 'feedback'
 
 export function Structure() {
   const p = useProject()
@@ -24,6 +25,7 @@ export function Structure() {
   const tabs: [Tab, string, number][] = [
     ['diagram', 'Diagram', nodes.length],
     ['nodes', 'Elements', nodes.length],
+    ['map', 'Variable map', itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain').length],
     ['ca', 'Control actions', itemsOfKind(p, 'ca').length],
     ['feedback', 'Feedback', itemsOfKind(p, 'feedback').length],
   ]
@@ -34,6 +36,7 @@ export function Structure() {
         {tabs.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l} {k !== 'diagram' && <i>{n}</i>}</button>)}
       </div>
       {tab === 'diagram' && <Diagram />}
+      {tab === 'map' && <VariableMap />}
       {tab === 'nodes' && <TreeTable kind="node" empty="Add controllers, controlled processes and external elements. Nest elements to build the hierarchy. Sensors and actuators are set on the feedback and control action arrows." extraHeader="Role" extra={(n) => (n.kind === 'node' ? <span className="muted">{n.role}</span> : null)} />}
       {tab === 'ca' && (
         <FlatTable kind="ca" items={itemsOfKind(p, 'ca')} init={{ from: sel ?? '', to: nodes[1]?.id ?? '' }}
