@@ -6,13 +6,13 @@ export type TreeKind = (typeof TREE_KINDS)[number]
 
 export const isTreeKind = (k: Kind): k is TreeKind => (TREE_KINDS as readonly Kind[]).includes(k)
 
-/** Owner kind of a variable per layer. */
-export const VARIABLE_OWNER: Record<VariableLayer, Kind> = { domain: 'entity', signal: 'feedback', belief: 'node', internal: 'node' }
+/** Owner kinds of a variable per layer (world variables belong to an entity, V(e), or a relationship, R(e1, e2)). */
+export const VARIABLE_OWNER: Record<VariableLayer, Kind[]> = { domain: ['entity', 'relationship'], signal: ['feedback'], belief: ['node'], internal: ['node'] }
 
-/** Kinds a `parent` may have: tree kinds nest under their own kind, variables belong to an entity, feedback or node (by layer); others have none. */
-export const parentKinds = (k: Kind): Kind[] => (k === 'variable' ? ['entity', 'feedback', 'node'] : isTreeKind(k) ? [k] : [])
-/** Required owner kind of this item's parent. */
-export const ownerKind = (it: Item): Kind | null => (it.kind === 'variable' ? VARIABLE_OWNER[it.layer] : isTreeKind(it.kind) ? it.kind : null)
+/** Kinds a `parent` may have: tree kinds nest under their own kind, variables belong to an entity, relationship, feedback or node (by layer); others have none. */
+export const parentKinds = (k: Kind): Kind[] => (k === 'variable' ? ['entity', 'relationship', 'feedback', 'node'] : isTreeKind(k) ? [k] : [])
+/** Allowed owner kinds of this item's parent. */
+export const ownerKinds = (it: Item): Kind[] | null => (it.kind === 'variable' ? VARIABLE_OWNER[it.layer] : isTreeKind(it.kind) ? [it.kind] : null)
 
 /** Items that are siblings share a group key; ranks are 0..n-1 within a group. */
 export function groupKey(it: Item): string {

@@ -20,7 +20,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
 - constraint: invert a hazard: "<System> must <condition>". One+ hazards in hazards; link LEAF hazards only; no design solutions.
 
 ## Step 2 - Control structure
-- domain model (optional but needed for context-aware UCAs): entity (attributes, operations), relationship (from/to entities), variable
+- domain model (optional but needed for context-aware UCAs): entity (operations; its attributes are its world variables), relationship (from/to entities; a time-varying predicate R(from, to): creating one also creates its untitled boolean world variable, usable in UCA contexts and traces), variable
   (type enum with states[], boolean, or range with min/max/unit). Keep the layers apart (layer field):
   domain = actual world state (parent = entity); signal = what a feedback carries (parent = feedback, about = the world variable it observes);
   belief = the controller's process model (parent = controller node, about = the world variable it stands for); internal = controller mode/timer (parent = node).

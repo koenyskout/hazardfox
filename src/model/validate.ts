@@ -1,7 +1,7 @@
 import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { beliefsAbout, beliefsOf, refines, updatedBy, updates } from './formal'
+import { beliefsAbout, beliefsOf, isPredicate, refines, updatedBy, updates } from './formal'
 import { diagnose, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
@@ -69,7 +69,7 @@ export function validate(p: Project): Issue[] {
     for (const r of refsOf(it)) if (!p.items[r]) add('error', it, 'dangling-ref', `${nm(it)}: refers to a deleted item`)
     for (const f of [it.description, it.notes])
       for (const id of mentions(f)) if (!p.items[id]) add('error', it, 'dangling-mention', `${nm(it)}: dangling @-reference`)
-    if (!it.title.trim() && it.kind !== 'uca' && it.kind !== 'scenario') add('warning', it, 'no-title', `${L[it.id]}: has no title`)
+    if (!it.title.trim() && it.kind !== 'uca' && it.kind !== 'scenario' && !(it.kind === 'variable' && isPredicate(p, it))) add('warning', it, 'no-title', `${L[it.id]}: has no title`)
   }
 
   const hazards = itemsOfKind(p, 'hazard')
@@ -110,7 +110,7 @@ export function validate(p: Project): Issue[] {
   }
   for (const v of itemsOfKind(p, 'variable')) {
     const owner = v.parent ? p.items[v.parent] : null
-    if (owner && owner.kind !== VARIABLE_OWNER[v.layer]) add('error', v, 'variable-owner', `${nm(v)}: a ${LAYER_SHORT[v.layer].toLowerCase()} variable cannot belong to a ${owner.kind}`)
+    if (owner && !VARIABLE_OWNER[v.layer].includes(owner.kind)) add('error', v, 'variable-owner', `${nm(v)}: a ${LAYER_SHORT[v.layer].toLowerCase()} variable cannot belong to a ${owner.kind}`)
     if (v.layer === 'belief' && !v.about && !v.definition.trim()) add('info', v, 'belief-no-about', `${nm(v)}: not linked to the world variable it stands for`)
     if (v.layer === 'belief' && v.about && !updatedBy(p, v).length && !v.definition.trim()) add('info', v, 'belief-no-source', `${nm(v)}: no feedback updates this belief`, [v.about])
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {

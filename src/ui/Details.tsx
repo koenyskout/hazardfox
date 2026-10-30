@@ -1,11 +1,11 @@
 import { renderText } from '../model/labels'
-import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
+import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { conditionComplete, conditionError, conditionText, isRangeOp, isSetOp, OP_LABELS, opsFor, stepOf, valuesOf } from '../model/variables'
 import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
-import { updateItem } from '../model/ops'
+import { createItem, updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
@@ -146,8 +146,8 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
-          <Field single label="Attributes (one per line: name: type)">
-            <textarea rows={3} value={it.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n')} onChange={(e) => set({ attributes: e.target.value.split('\n').map((l) => { const [n, ...t] = l.split(':'); return { name: n.trim(), type: t.join(':').trim() } }).filter((a) => a.name) }, 'attrs')} />
+          <Field single label="Attributes" hint="The entity's world variables V(e): its state that can change over time.">
+            <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
           </Field>
           <Field single label="Operations (one per line)">
             <textarea rows={2} value={it.operations.join('\n')} onChange={(e) => set({ operations: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'ops')} />
@@ -155,12 +155,13 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
         </>
       )
     case 'variable': {
-      const ownerKind = VARIABLE_OWNER[it.layer]
-      const owners = ownerKind === 'node' ? of('node').filter((n) => n.role === 'controller') : of(ownerKind)
+      const ownerKind = VARIABLE_OWNER[it.layer][0]
+      const owners = ownerKind === 'node' ? of('node').filter((n) => n.role === 'controller') : ownerKind === 'entity' ? [...of('entity'), ...of('relationship')] : of(ownerKind)
       const world = of('variable').filter((v) => v.layer === 'domain' && v.id !== it.id)
       const pickLayer = (l: VariableLayer) => {
         const cur = it.parent ? p.items[it.parent] : null
-        const parent = cur?.kind === VARIABLE_OWNER[l] ? cur.id : (VARIABLE_OWNER[l] === 'node' ? of('node').find((n) => n.role === 'controller') : of(VARIABLE_OWNER[l])[0])?.id ?? null
+        const k = VARIABLE_OWNER[l][0]
+        const parent = cur && VARIABLE_OWNER[l].includes(cur.kind) ? cur.id : (k === 'node' ? of('node').find((n) => n.role === 'controller') : of(k)[0])?.id ?? null
         commit((q) => setLayer(q, it.id, l, parent))
       }
       return (
@@ -170,7 +171,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               {VARIABLE_LAYERS.map((l) => <option key={l} value={l}>{VARIABLE_LAYER_LABELS[l]}</option>)}
             </select>
           </Field>
-          <Field label={ownerKind === 'entity' ? 'Owner entity' : ownerKind === 'feedback' ? 'Carried by feedback' : 'Controller'}>
+          <Field label={ownerKind === 'entity' ? 'Owner (entity or relationship)' : ownerKind === 'feedback' ? 'Carried by feedback' : 'Controller'}>
             <SingleRef value={it.parent} options={owners} onChange={(v) => v && set({ parent: v })} />
           </Field>
           {(it.layer === 'signal' || it.layer === 'belief') && (
@@ -215,6 +216,13 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field single label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
             <Field single label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
           </div>
+          <Field single label="Holds" hint="Whether the relationship holds is a world variable R(from, to) (true / false, can change over time): use it in UCA contexts, beliefs and traces like any other.">
+            {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
+              : <button className="link" onClick={() => commit((q) => createItem(q, 'variable', { parent: it.id, type: 'boolean' }, 0).project)}>+ add predicate variable</button>}
+          </Field>
+          <Field single label="Other variables" hint="State of the link itself, e.g. the distance between the two entities.">
+            <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
+          </Field>
         </>
       )
     case 'node':
@@ -465,7 +473,7 @@ const LAYER_HINTS: Record<VariableLayer, string> = {
 function OwnedVars(props: { vars: Variable[]; add: string; options?: Item[]; onAdd?: (world: Id) => void; onNew?: () => void }) {
   return (
     <div className="reflist">
-      {props.vars.map((v) => <span key={v.id} className="chipwrap"><Ref id={v.id} /> <span className="muted">{v.title}</span></span>)}
+      {props.vars.map((v) => <Ref key={v.id} id={v.id} />)}
       {props.onNew ? <button className="link" onClick={props.onNew}>{props.add}</button>
         : <Picker options={props.options ?? []} onPick={(id) => id && props.onAdd?.(id)}><span className="muted">{props.add}</span></Picker>}
     </div>

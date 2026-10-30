@@ -223,7 +223,9 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   // Where each lane is drawn, right of its element: beliefs/internal on their controller, signals on their feedback, world values on the
   // process of their entity, else where they are sensed or acted on.
   const worldNode = (v: Variable) => {
-    const role = (n: { id: Id }, r?: string) => { const it = p.items[n.id]; return it?.kind === 'node' && it.entity === v.parent && (!r || it.role === r) }
+    const par = v.parent ? p.items[v.parent] : null
+    const ents = par?.kind === 'relationship' ? [par.from, par.to] : [v.parent]
+    const role = (n: { id: Id }, r?: string) => { const it = p.items[n.id]; return it?.kind === 'node' && !!it.entity && ents.includes(it.entity) && (!r || it.role === r) }
     const sensed = variablesIn(p, 'signal').find((x) => x.about === v.id && x.parent)
     const fb = sensed && p.items[sensed.parent!]
     const ca = controlledBy(p, v.id)[0]

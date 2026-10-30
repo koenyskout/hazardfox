@@ -38,6 +38,9 @@ export function computeLabels(p: Project): Labels {
   for (const { item: ent } of flatten(p, 'entity')) {
     for (const x of children(p, ent.id, 'variable')) out[x.id] = `V-${++v}`
   }
+  for (const r of itemsOfKind(p, 'relationship').sort((a, b) => a.rank - b.rank)) {
+    for (const x of children(p, r.id, 'variable')) out[x.id] = `V-${++v}`
+  }
   for (const { item: n } of flatten(p, 'node')) {
     for (const x of children(p, n.id, 'variable')) out[x.id] = `V-${++v}`
   }
@@ -78,9 +81,12 @@ export function computeLabels(p: Project): Labels {
   return out
 }
 
-/** Name of a variable as shown: world variables by name, the others namespaced by their owner ("Pump controller.Line occlusion"). */
-export const variableName = (p: Project, v: Variable) => {
-  const owner = v.layer !== 'domain' && v.parent ? p.items[v.parent]?.title.trim() : ''
+/** Name of a variable as shown: world variables by name, the others namespaced by their owner ("Pump controller.Line occlusion").
+ *  A relationship's untitled predicate is named after it ("Pump infuses Patient"). */
+export const variableName = (p: Project, v: Variable): string => {
+  const par = v.parent ? p.items[v.parent] : null
+  if (par?.kind === 'relationship' && !v.title.trim()) return [p.items[par.from]?.title, par.title, p.items[par.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  const owner = v.layer !== 'domain' && par ? par.title.trim() : ''
   return v.title.trim() && owner ? `${owner}.${v.title.trim()}` : v.title.trim()
 }
 

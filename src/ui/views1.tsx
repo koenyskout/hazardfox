@@ -92,9 +92,9 @@ export function Domain() {
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
       </div>
       {tab === 'entity' && (
-        <TreeTable kind="entity" extraHeader="Attributes / operations / variables"
+        <TreeTable kind="entity" extraHeader="Attributes (variables) / operations"
           empty="Entities model the things in the domain: controllers, controlled processes, devices, data…"
-          extra={(e) => <span className="muted">{e.attributes.length} attr · {e.operations.length} ops · {itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} vars</span>} />
+          extra={(e) => <span className="muted">{itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} attr · {e.operations.length} ops</span>} />
       )}
       {tab === 'variable' && (
         <>

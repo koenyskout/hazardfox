@@ -1,5 +1,6 @@
 import { produce } from 'immer'
 import { createItem } from './ops'
+import { variableName } from './labels'
 import { mentions } from './refs'
 import { itemsOfKind } from './tree'
 import type { Feedback, Id, Project, Variable, VariableLayer } from './types'
@@ -26,6 +27,10 @@ export const worldOf = (p: Project, v: Variable): Variable | null => {
   return a?.kind === 'variable' ? a : null
 }
 
+/** The predicate of a relationship: the untitled boolean world variable that says whether R(from, to) holds. */
+export const predicateOf = (p: Project, rel: Id) => variablesIn(p, 'domain', rel).find((v) => v.type === 'boolean' && !v.title.trim()) ?? null
+export const isPredicate = (p: Project, v: Variable) => p.items[v.parent ?? '']?.kind === 'relationship' && predicateOf(p, v.parent!)?.id === v.id
+
 /** Beliefs of a controller about a world variable. */
 export const beliefsAbout = (p: Project, node: Id, world: Id) => beliefsOf(p, node).filter((b) => b.about === world)
 
@@ -46,14 +51,14 @@ export const controlledBy = (p: Project, world: Id) => itemsOfKind(p, 'ca').filt
 export const refines = (p: Project, v: Variable) => mentions(v.definition).filter((id) => p.items[id]?.kind === 'variable')
 
 /** A variable of another layer about `world`, with the same type and value set. */
-const copyOf = (world: Variable) => ({ title: world.title, type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, about: world.id })
+const copyOf = (p: Project, world: Variable) => ({ title: variableName(p, world), type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, about: world.id })
 
 /** Add a belief about a world variable to a controller (no-op if it has one). */
 export function addBelief(p: Project, node: Id, world: Id): { project: Project; id: Id } {
   const have = beliefsAbout(p, node, world)[0]
   const w = p.items[world]
   if (have || w?.kind !== 'variable') return { project: p, id: have?.id ?? '' }
-  return createItem(p, 'variable', { ...copyOf(w), layer: 'belief', parent: node })
+  return createItem(p, 'variable', { ...copyOf(p, w), layer: 'belief', parent: node })
 }
 
 /** Let a feedback report a world variable: a signal on it, plus the receiving controller's belief when missing. */
@@ -63,7 +68,7 @@ export function addSignal(p: Project, fb: Id, world: Id): { project: Project; id
   if (f?.kind !== 'feedback' || w?.kind !== 'variable') return { project: p, id: '' }
   const have = signalsOf(p, fb).find((s) => s.about === world)
   if (have) return { project: p, id: have.id }
-  const r = createItem(p, 'variable', { ...copyOf(w), layer: 'signal', parent: fb })
+  const r = createItem(p, 'variable', { ...copyOf(p, w), layer: 'signal', parent: fb })
   const to = r.project.items[f.to]
   return { project: to?.kind === 'node' && to.role === 'controller' ? addBelief(r.project, f.to, world).project : r.project, id: r.id }
 }

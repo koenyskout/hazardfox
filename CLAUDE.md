@@ -44,10 +44,12 @@ Read `PLAN.md` for goals, decisions and milestone status.
   Mentions: use `mention`/`mentions`/`replaceMentions` from `refs.ts`, not the regex.
   Free text is rich: stored as a string (`**bold**`, `*italic*`, `@[id]`, `\` escapes, `\n` paragraphs; `model/richtext.ts`). Edit with `RichText` (`ui/RichEditor.tsx`, Lexical: reference pills, `@` completion, B/I); render with `parseRich`; `renderText` gives plain text.
 - Variables are typed (`type`: enum with `states`, boolean, range with `min`/`max`/`unit`); UCA conditions are `{variable, op, state, to?}` with `op` from `CONDITION_OPS` (`=`, `≠`; range also `<`, `≤`, `>`, `≥`, `between`). Helpers in `model/variables.ts` (`opsFor`, `conditionError`, `conditionText`, `describeStates`); old `negate` conditions migrate in `deserialize`.
-- Variable layers (`layer`, after the formalization in `docs/Process Variables…md`): `domain` (world x, parent = entity), `signal`
+- Variable layers (`layer`, after the formalization in `docs/Process Variables…md`): `domain` (world x, parent = entity or relationship), `signal`
   (o, parent = feedback), `belief` (x̂, parent = controller node), `internal` (q, parent = controller node). `about` = the world
   variable a signal/belief designates; `definition` (rich text) refines a world variable; `ca.affects` = controlled world variables.
-  Owner kinds per layer: `VARIABLE_OWNER` (`tree.ts`). UCA contexts may use only world variables and the issuing controller's internal
+  Entity attributes *are* its world variables (no separate `attributes` field; old files migrate in `deserialize`). A relationship is a
+  time-varying predicate R(from, to): `createItem` gives it an untitled boolean world variable (`predicateOf`/`isPredicate`, `formal.ts`;
+  named "From rel To" by `variableName`). Owner kinds per layer: `VARIABLE_OWNER` (`tree.ts`, a list). UCA contexts may use only world variables and the issuing controller's internal
   ones; each world variable in a context needs a belief in that controller (validation `context-unrepresented`, Variable map red cell).
   The old `processModel` (controller) and feedback `variables` fields migrate to beliefs / signals in `deserialize` (`migrateLayers`).
 - Scenario traces (`s.trace`: `lanes` = variable ids, sparse `steps` with `t`, `values`, `events` on CAs/feedback `occurs|absent|lost`,

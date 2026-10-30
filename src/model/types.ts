@@ -106,12 +106,12 @@ export interface Assumption extends Base {
   about: Id[]
 }
 
-/** Domain model entity (tree: a child may be a part/specialisation of its parent). */
+/** Domain model entity (tree: a child may be a part/specialisation of its parent). Its attributes are its world variables V(e). */
 export interface Entity extends Base {
   kind: 'entity'
-  attributes: { name: string; type: string }[]
   operations: string[]
 }
+/** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
   kind: 'relationship'
   from: Id

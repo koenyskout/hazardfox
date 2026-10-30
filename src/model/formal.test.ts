@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
 import { exampleProject } from './example'
 import { publishedExampleProject } from './publishedExamples'
-import { addBelief, addSignal, beliefsAbout, beliefsOf, signalsOf, updatedBy } from './formal'
+import { addBelief, addSignal, beliefsAbout, beliefsOf, predicateOf, signalsOf, updatedBy } from './formal'
+import { computeLabels, displayLabels } from './labels'
 import { createItem, deleteItems, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
 import { diagnose, draftTrace, holds, pickValue, valueAt, witness } from './traces'
@@ -95,5 +96,26 @@ describe('traces', () => {
       }
     }
     expect(validate(p).filter((i) => i.rule?.startsWith('trace-'))).toEqual([])
+  })
+
+  it('makes entity attributes world variables and relationships boolean predicates', () => {
+    let p = emptyProject()
+    const a = createItem(p, 'entity', { title: 'Person' }); p = a.project
+    const d = createItem(p, 'entity', { title: 'Door' }); p = d.project
+    const r = createItem(p, 'relationship', { title: 'is in doorway of', from: a.id, to: d.id }); p = r.project
+    const pred = predicateOf(p, r.id)!
+    expect(pred).toMatchObject({ layer: 'domain', type: 'boolean', parent: r.id })
+    expect(displayLabels(p, computeLabels(p))[pred.id]).toBe('Person is in doorway of Door')
+    const c = createItem(p, 'node', { title: 'Ctrl', role: 'controller' }); p = addBelief(c.project, c.id, pred.id).project
+    expect(beliefsAbout(p, c.id, pred.id)[0]).toMatchObject({ title: 'Person is in doorway of Door', type: 'boolean' })
+    expect(validate(p).filter((i) => i.rule === 'no-title' || i.rule === 'variable-owner')).toEqual([])
+    const old = JSON.parse(serialize(p))
+    for (const it of old.items) if (it.kind === 'entity') it.attributes = [{ name: 'Open', type: 'boolean' }, { name: 'Width', type: 'number' }]
+    old.items = old.items.filter((it: { parent?: string }) => it.parent !== r.id)
+    const q = deserialize(JSON.stringify(old))
+    const vars = itemsOfKind(q, 'variable').filter((v) => v.parent === d.id).map((v) => [v.title, v.type])
+    expect(vars).toEqual([['Open', 'boolean'], ['Width', 'range']])
+    expect(predicateOf(q, r.id)).toBeTruthy()
+    expect('attributes' in q.items[d.id]).toBe(false)
   })
 })

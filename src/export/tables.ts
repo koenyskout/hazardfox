@@ -55,8 +55,8 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1, 4, 1.2, 1.5, 2.5])
   push('step1', 'System constraints', ['ID', 'Constraint', 'Hazards', ...tailH], tree('constraint').map(({ item }) => [...common(item), lab(item.hazards), ...tail(item)]), [1, 3, 1.3, 4, 1.2, 1.5, 2.5])
 
-  push('domain', 'Entities', ['ID', 'Entity', 'Attributes', 'Operations', 'Description', 'Status', 'Tags'],
-    tree('entity').map(({ item: e }) => [...common(e), e.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
+  push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],
+    tree('entity').map(({ item: e }) => [...common(e), itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).map((v) => v.title).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
   push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Description', 'Status'],
     itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), T(v.description), v.status]))
   push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],

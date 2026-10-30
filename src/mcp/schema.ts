@@ -52,7 +52,6 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     const info: FieldInfo = { type: Array.isArray(v) ? 'string[]' : typeof v === 'object' && v !== null ? 'object' : typeof v }
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
-    if (f === 'attributes') info.type = '{name: string, type: string}[]'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
     if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}[]'
     if (f === 'min' || f === 'max') info.type = 'number | null'
@@ -187,9 +186,6 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       } else if (f === 'notApplicable') {
         if (!Array.isArray(v) || v.some((n: Rec) => !(GUIDE_WORDS as readonly string[]).includes(n?.guide as string))) throw new Error(`expected [{guide, reason}] with guide among ${GUIDE_WORDS.join(', ')}`)
         out[f] = [...new Map(v.map((n: Rec) => [n.guide, { guide: n.guide, reason: isStr(n.reason) ? n.reason : '' }])).values()]
-      } else if (f === 'attributes') {
-        if (!Array.isArray(v) || v.some((a: Rec) => !isStr(a?.name))) throw new Error('expected [{name, type}]')
-        out[f] = v.map((a: Rec) => ({ name: a.name, type: isStr(a.type) ? a.type : '' }))
       } else if (spec.type === 'string[]') {
         if (!Array.isArray(v) || v.some((x) => !isStr(x))) throw new Error('expected an array of strings')
         if (f === 'stride' && v.some((x) => !(STRIDE as readonly string[]).includes(x))) throw new Error(`values must be among ${STRIDE.join(', ')}`)

@@ -1,4 +1,5 @@
 import { beliefsAbout, feedbackInto, signalsOf, worldOf } from './formal'
+import { variableName } from './labels'
 import { mention } from './refs'
 import { isSetOp, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable } from './types'
@@ -125,12 +126,12 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
     if (w?.kind !== 'variable' || w.layer !== 'domain' || st[w.id] === undefined) continue
     const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about === w.id && st[x.id] !== undefined)
     const bel = beliefsAbout(p, ca.from, w.id).filter((b) => st[b.id] !== undefined)
-    if (sigs.some((x) => st[x.id] !== st[w.id])) return { cause: 'feedback', why: `the signal about ${w.title} differs from the world` }
+    if (sigs.some((x) => st[x.id] !== st[w.id])) return { cause: 'feedback', why: `the signal about ${variableName(p, w)} differs from the world` }
     for (const b of bel) {
       anyBelief = true
       if (st[b.id] === st[w.id]) continue
       if (sigs.length) return { cause: 'process-model', why: `${b.title} is not updated from a correct signal` }
-      return { cause: 'feedback', why: `no signal tells the controller about ${w.title}` }
+      return { cause: 'feedback', why: `no signal tells the controller about ${variableName(p, w)}` }
     }
   }
   return anyBelief ? { cause: 'control-algorithm', why: 'the controller believes the actual state and still acts unsafely' } : null

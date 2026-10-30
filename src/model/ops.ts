@@ -2,7 +2,7 @@ import { produce } from 'immer'
 import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
-import { children, descendants, groupKey, isTreeKind, ownerKind, parentKinds, siblings } from './tree'
+import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
 import type { Id, Item, ItemOf, Kind, Patch, Project } from './types'
 
 type Draft = Project
@@ -43,6 +43,8 @@ export function createItem<K extends Kind>(
   const project = produce(p, (d) => {
     d.items[item.id] = item
     placeAt(d, item.id, undefined, index ?? Number.MAX_SAFE_INTEGER)
+    // A relationship is a time-varying predicate R(from, to): it owns a boolean world variable (untitled; named after the relationship).
+    if (kind === 'relationship') { const v = makeItem('variable', { parent: item.id, type: 'boolean' }); d.items[v.id] = v; placeAt(d, v.id, undefined, 0) }
   })
   return { project, id: item.id }
 }
@@ -87,11 +89,11 @@ export function deleteItems(p: Project, ids: Id[], opts: { promote?: boolean } =
 
 export function moveItem(p: Project, id: Id, parent: Id | null, index: number): Project {
   const it = p.items[id]
-  const pk = it && ownerKind(it)
+  const pk = it && ownerKinds(it)
   if (!pk) return p
   if (parent) {
     const par = p.items[parent]
-    if (!par || par.id === id || par.kind !== pk || descendants(p, id).some((x) => x.id === parent)) return p
+    if (!par || par.id === id || !pk.includes(par.kind) || descendants(p, id).some((x) => x.id === parent)) return p
   } else if (!isTreeKind(it.kind)) return p
   return produce(p, (d) => placeAt(d, id, parent, index))
 }

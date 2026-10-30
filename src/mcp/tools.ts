@@ -179,8 +179,8 @@ export const TOOLS = [
           const init = internalize(r, spec.kind, (spec.fields ?? {}) as Rec, 'create')
           if (init.parent) {
             const par = p.items[init.parent as Id]
-            const want = spec.kind === 'variable' ? VARIABLE_OWNER[(init.layer as VariableLayer | undefined) ?? 'domain'] : spec.kind
-            if (par.kind !== want) throw new Error(`parent must be a ${want}`)
+            const want = spec.kind === 'variable' ? VARIABLE_OWNER[(init.layer as VariableLayer | undefined) ?? 'domain'] : [spec.kind]
+            if (!want.includes(par.kind)) throw new Error(`parent must be a ${want.join(' or ')}`)
           }
           const res = createItem(p, spec.kind, init, spec.index)
           p = res.project

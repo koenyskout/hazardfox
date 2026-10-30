@@ -27,7 +27,7 @@ export function VariableMap() {
         <tbody>
           {world.map((w) => (
             <tr key={w.id}>
-              <th><Ref id={w.id} /> {w.title}<br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}</small></th>
+              <th><Ref id={w.id} /><br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}</small></th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
