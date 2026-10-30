@@ -65,6 +65,7 @@ export function FlatTable<K extends Kind>(props: {
             <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
+                <span className="tline">
                 <input
                   value={it.title}
                   placeholder={`${KIND_NAMES[it.kind]} title`}
@@ -73,6 +74,7 @@ export function FlatTable<K extends Kind>(props: {
                 />
                 <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
+                </span>
                 {props.sub && <div className="subline">{props.sub(it)}</div>}
               </span>
             )}
