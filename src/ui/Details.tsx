@@ -133,7 +133,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'relationship':
       return (
         <>
-          <div className="two">
+          <div className="fromto">
             <Field label="From"><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></Field>
             <Field label="To"><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></Field>
           </div>
@@ -166,7 +166,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       const nodes = of('node')
       return (
         <>
-          <div className="two">
+          <div className="fromto">
             <Field label="From"><SingleRef value={it.from || null} options={nodes} onChange={(v) => set({ from: v ?? '' })} /></Field>
             <Field label="To"><SingleRef value={it.to || null} options={nodes} onChange={(v) => set({ to: v ?? '' })} /></Field>
           </div>
