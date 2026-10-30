@@ -27,15 +27,18 @@ export function Details() {
 export function EditDialog() {
   const p = useProject()
   const labels = useLabels()
-  const id = useStore((s) => s.editing[s.editing.length - 1])
+  const stack = useStore((s) => s.editing)
   const closeEditor = useStore((s) => s.closeEditor)
-  const it = id ? p.items[id] : null
-  useEffect(() => { if (id && !it) closeEditor() }, [id, it, closeEditor]) // deleted meanwhile
-  if (!it) return null
+  const top = stack[stack.length - 1]
+  useEffect(() => { if (top && !p.items[top]) closeEditor() }, [top, p, closeEditor]) // deleted meanwhile
   return (
-    <Modal key={it.id} title={`Edit ${labels[it.id]}`} onClose={closeEditor} wide>
-      <div className="details inline"><DetailsForm it={it} popup /></div>
-    </Modal>
+    <>
+      {stack.map((id, i) => p.items[id] && (
+        <Modal key={i + id} title={`Edit ${labels[id]}`} onClose={closeEditor} wide behind={stack.length - 1 - i} stacked={i > 0}>
+          <div className="details inline"><DetailsForm it={p.items[id]} popup /></div>
+        </Modal>
+      ))}
+    </>
   )
 }
 
