@@ -17,13 +17,13 @@ const path = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)}
 /** Pure SVG (presentation attributes only) so it can be serialised for export unchanged. */
 export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHandlers }) {
   const ordered = [...d.nodes].sort((a, b) => a.depth - b.depth)
-  const edgeColor = (e: EdgeRoute) => (e.kind === 'ca' ? '#1e3a8a' : '#4b5563')
+  const edgeColor = (e: EdgeRoute) => (e.kind === 'ca' ? '#1d4ed8' : '#15803d')
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width={d.width} height={d.height} viewBox={`${d.minX} ${d.minY} ${d.width} ${d.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12}>
       <defs>
         {['ca', 'fb'].map((k) => (
           <marker key={k} id={'arrow-' + k} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-            <path d="M0 0L10 5L0 10z" fill={k === 'ca' ? '#1e3a8a' : '#4b5563'} />
+            <path d="M0 0L10 5L0 10z" fill={k === 'ca' ? '#1d4ed8' : '#15803d'} />
           </marker>
         ))}
       </defs>

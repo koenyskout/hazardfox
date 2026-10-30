@@ -634,13 +634,13 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
 }
 
 export const ROLE_FILL: Record<NodeRole, string> = {
-  controller: '#dbeafe',
-  process: '#fee2e2',
+  controller: '#e0e3fb',
+  process: '#eceefa',
   external: '#e5e7eb',
 }
 export const ROLE_STROKE: Record<NodeRole, string> = {
-  controller: '#2563eb',
-  process: '#dc2626',
+  controller: '#4f46e5',
+  process: '#8b92c9',
   external: '#6b7280',
 }
 
