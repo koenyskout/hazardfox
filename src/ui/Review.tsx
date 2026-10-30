@@ -259,7 +259,7 @@ export function useAiIssues() {
 /** Status line for the AI part of validation: switch, progress, run now, criteria help. */
 export function AiStatus() {
   const p = useProject()
-  const { enabled, busy, error } = useAuto()
+  const { busy, error } = useAuto()
   const ac = useRef<AbortController | null>(null)
   useEffect(() => () => ac.current?.abort(), [])
   const { done, total } = useMemo(() => reviewProgress(p), [p.items, p.reviews]) // eslint-disable-line react-hooks/exhaustive-deps
