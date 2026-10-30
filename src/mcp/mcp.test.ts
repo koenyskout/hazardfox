@@ -72,7 +72,7 @@ describe('mcp tools', () => {
     ;({ p } = mk('park'))
     expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear = park')
     expect('parent' in run(p, 'describe_kinds', { kind: 'ca' }).r.ca.fields).toBe(false)
-    ;({ p } = run(p, 'update_items', { updates: [{ ref: 'CA-1', fields: { notApplicable: [{ guide: 'not-provided', reason: 'x' }, { guide: 'too-early-late', reason: 'x' }] } }] }))
+    ;({ p } = run(p, 'update_items', { updates: [{ ref: 'CA-1', fields: { duration: 'instantaneous', notApplicable: [{ guide: 'not-provided', reason: 'x' }, { guide: 'too-early-late', reason: 'x' }] } }] }))
     expect(run(p, 'project_summary').r.nextSteps.join()).not.toMatch(/lack at least one guide word/)
   })
 })
