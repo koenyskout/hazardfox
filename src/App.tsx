@@ -4,6 +4,7 @@ import { emptyProject } from './model/create'
 import { useStore, type View } from './model/store'
 import { validate } from './model/validate'
 import { exampleProject } from './model/example'
+import { medicationExampleProject } from './model/domainExample'
 import { HANDBOOK_EXAMPLES, handbookExampleProject } from './model/handbookExamples'
 import { PUBLISHED_EXAMPLES, publishedExampleProject } from './model/publishedExamples'
 import { Details, EditDialog } from './ui/Details'
@@ -73,9 +74,10 @@ export default function App() {
         <button onClick={() => { if (!dirty || confirm('Discard unsaved changes?')) load(emptyProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
-        <select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
+        <select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
           <option value="pump">Infusion pump (demo)</option>
+          <option value="medication">Hospital medication (large domain model)</option>
           <optgroup label="STPA Handbook, appendices">
             {HANDBOOK_EXAMPLES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
           </optgroup>

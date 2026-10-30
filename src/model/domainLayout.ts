@@ -30,7 +30,8 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   for (const e of entities) {
     if (e.parent && boxes[e.parent]) {
       meta['part:' + e.id] = { id: e.id, kind: 'part', label: '', fromCard: '', toCard: '', self: false }
-      edges.push({ id: 'part:' + e.id, sources: [e.id], targets: [e.parent] } as ElkExtendedEdge)
+      // laid out parent → child so that parents sit above their parts; drawn (reversed) with the arrow at the parent
+      edges.push({ id: 'part:' + e.id, sources: [e.parent], targets: [e.id] } as ElkExtendedEdge)
     }
   }
   for (const r of itemsOfKind(p, 'relationship')) {
@@ -45,8 +46,9 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     children: entities.map((e) => ({ id: e.id, width: boxes[e.id].w, height: boxes[e.id].h })),
     edges,
     layoutOptions: {
-      'elk.algorithm': 'layered', 'elk.direction': 'DOWN', 'elk.edgeRouting': 'ORTHOGONAL', 'elk.spacing.nodeNode': '60',
-      'elk.layered.spacing.nodeNodeBetweenLayers': '90', 'elk.spacing.edgeNode': '20', 'elk.padding': '[top=20,left=20,bottom=20,right=40]',
+      'elk.algorithm': 'layered', 'elk.direction': 'DOWN', 'elk.edgeRouting': 'ORTHOGONAL', 'elk.spacing.nodeNode': '40',
+      'elk.layered.spacing.nodeNodeBetweenLayers': '60', 'elk.spacing.edgeNode': '16', 'elk.spacing.edgeEdge': '10',
+      'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX', 'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH', 'elk.separateConnectedComponents': 'true', 'elk.padding': '[top=20,left=20,bottom=20,right=40]',
     },
   }
   const res = await elk.layout(graph)
@@ -54,7 +56,9 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   const out: DomainEdge[] = []
   for (const e of res.edges ?? []) {
     const s = (e as ElkExtendedEdge).sections?.[0]
-    if (s) out.push({ ...meta[e.id], pts: [s.startPoint, ...(s.bendPoints ?? []), s.endPoint] })
+    if (!s) continue
+    const pts = [s.startPoint, ...(s.bendPoints ?? []), s.endPoint]
+    out.push({ ...meta[e.id], pts: meta[e.id].kind === 'part' ? pts.reverse() : pts })
   }
   for (const [id, m] of Object.entries(meta)) {
     if (!m.self) continue

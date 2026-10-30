@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { DOM, layoutDomain, type DomainEdge, type DomainLayout } from '../model/domainLayout'
 import { useStore } from '../model/store'
 import type { Pt } from '../model/structure'
@@ -48,6 +48,17 @@ export function DomainDiagram() {
   const selected = useStore((s) => s.selected)
   const [layout, setLayout] = useState<DomainLayout | null>(null)
   const [err, setErr] = useState('')
+  const [zoom, setZoom] = useState<'fit' | number>('fit')
+  const box = useRef<HTMLDivElement>(null)
+  const [avail, setAvail] = useState(600)
+  useEffect(() => {
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setAvail(el.clientWidth))
+    ro.observe(el)
+    setAvail(el.clientWidth)
+    return () => ro.disconnect()
+  }, [layout])
   const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { to?: string }).to, (i as { operations?: string[] }).operations, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
   useEffect(() => {
     let live = true
@@ -59,11 +70,21 @@ export function DomainDiagram() {
   if (!layout) return <p className="empty">Laying out…</p>
   if (!layout.boxes.length) return <p className="empty">Add entities to see the domain model diagram.</p>
   const { row, head, pad } = DOM
+  const fit = Math.min(1, Math.max(0.1, (avail - 2) / layout.width))
+  const scale = zoom === 'fit' ? fit : zoom
+  const step = (f: number) => setZoom(Math.min(3, Math.max(0.1, +(scale * f).toFixed(2))))
   return (
     <div className="domain-diagram">
-      <p className="hint">Entities with their attributes (world variables) and operations; lines are relationships (name, cardinalities), dashed arrows lead to the parent entity. Click to select.</p>
-      <div className="stage" style={{ overflow: 'auto' }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width={layout.width} height={layout.height} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width, height: layout.height }} onMouseDown={() => select(null)}>
+      <div className="toolbar">
+        <button onClick={() => step(1 / 1.25)} title="Zoom out">−</button>
+        <button onClick={() => step(1.25)} title="Zoom in">+</button>
+        <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')}>Fit</button>
+        <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>100%</button>
+        <span className="muted">{Math.round(scale * 100)}%</span>
+        <span className="hint">Attributes are world variables; lines are relationships; dashed arrows lead to the parent entity. Click to select.</span>
+      </div>
+      <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
+        <svg xmlns="http://www.w3.org/2000/svg" width={layout.width * scale} height={layout.height * scale} viewBox={`0 0 ${layout.width} ${layout.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width * scale, height: layout.height * scale }} onMouseDown={() => select(null)}>
           <defs>
             <marker id="dom-tri" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto"><path d="M1 1L11 6L1 11z" fill="#fff" stroke="#374151" /></marker>
           </defs>
