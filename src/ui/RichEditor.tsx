@@ -11,7 +11,7 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { LexicalTypeaheadMenuPlugin, MenuOption } from '@lexical/react/LexicalTypeaheadMenuPlugin'
+import { LexicalTypeaheadMenuPlugin, MenuOption, useBasicTypeaheadTriggerMatch } from '@lexical/react/LexicalTypeaheadMenuPlugin'
 import { byLabel } from '../model/labels'
 import { isRef, parseRich, serializeRich, type Seg } from '../model/richtext'
 import { KIND_NAMES, type Id, type Item } from '../model/types'
@@ -90,14 +90,11 @@ function MentionMenu({ options }: { options: Item[] }) {
     return options.filter((o) => { const s = `${labels[o.id]} ${text(o)} ${KIND_NAMES[o.kind]}`.toLowerCase(); return t.every((w) => s.includes(w)) }).slice(0, 40).map((o) => new ItemOption(o))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, options, labels, p])
+  const trigger = useBasicTypeaheadTriggerMatch('@', { minLength: 0, maxLength: 60, punctuation: '@\\[\\]' })
   const mixed = new Set(options.map((o) => o.kind)).size > 1
   return (
     <LexicalTypeaheadMenuPlugin<ItemOption>
-      triggerFn={(s) => {
-        const m = /(?:^|[\s(])@([^\s@\]]*)$/.exec(s)
-        if (!m) return null
-        return { leadOffset: m.index + m[0].length - m[1].length - 1, matchingString: m[1], replaceableString: '@' + m[1] }
-      }}
+      triggerFn={trigger}
       onQueryChange={setQuery}
       options={hits}
       onSelectOption={(o, node: TextNode | null, close) => {
