@@ -214,7 +214,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field single label="Cardinality (from)"><TextInput value={it.fromCard} onChange={(v) => set({ fromCard: v }, 'fc')} /></Field>
             <Field single label="Cardinality (to)"><TextInput value={it.toCard} onChange={(v) => set({ toCard: v }, 'tc')} /></Field>
           </div>
-          <Field single label="Holds" hint="Whether the relationship holds is a world variable R(from, to) (true / false, can change over time): use it in UCA contexts, beliefs and traces like any other.">
+          <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
             {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
               : <button className="link" onClick={() => commit((q) => createItem(q, 'variable', { parent: it.id, type: 'boolean' }, 0).project)}>+ add predicate variable</button>}
           </Field>
@@ -461,10 +461,10 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 }
 
 const LAYER_HINTS: Record<VariableLayer, string> = {
-  domain: 'Actual state of the world (x). UCA contexts are stated over these.',
-  signal: 'An observation (o) carried by a feedback; may differ from the world when feedback is wrong, late or missing.',
-  belief: 'Part of a controller\'s process model (x̂); may differ from the world.',
-  internal: 'State of the control algorithm itself (q): modes, timers, counters.',
+  domain: 'Actual state of the world. UCA contexts are stated over these.',
+  signal: 'An observation carried by a feedback; may differ from the world when feedback is wrong, late or missing.',
+  belief: 'Part of a controller\'s process model; may differ from the world.',
+  internal: 'State of the control algorithm itself: modes, timers, counters.',
 }
 
 /** Variables owned by an item, with a picker to add one about a world variable (or a new one). */
