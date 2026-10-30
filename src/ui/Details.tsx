@@ -153,11 +153,6 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Process model (variables)">
             <RefList value={it.processModel} options={of('variable')} onChange={(v) => set({ processModel: v })} />
           </Field>
-          <Field label="Width">
-            <select value={it.wide} onChange={(e) => set({ wide: Number(e.target.value) })}>
-              {[[0, 'Automatic'], [80, 'Wider'], [180, 'Wide'], [320, 'Very wide']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </Field>
           {it.nudge && <button onClick={() => set({ nudge: null })}>Reset manual position</button>}
         </>
       )

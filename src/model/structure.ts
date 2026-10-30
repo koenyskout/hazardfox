@@ -3,7 +3,7 @@ import { children, itemsOfKind } from './tree'
 import type { CsNode, Id, NodeRole, Offset, Project } from './types'
 
 export interface Pt { x: number; y: number }
-export interface NodeBox { id: Id; x: number; y: number; w: number; h: number; compound: boolean; depth: number; lines: string[] }
+export interface NodeBox { id: Id; x: number; y: number; w: number; h: number; compound: boolean; depth: number; lines: string[]; minW: number; defW: number }
 export interface EdgeRoute {
   id: Id
   kind: 'ca' | 'feedback'
@@ -435,6 +435,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
   const nodes = itemsOfKind(p, 'node')
   const inTree = new Set(nodes.map((n) => n.id))
   const lines: Record<Id, string[]> = {}
+  const minW: Record<Id, number> = {}, defW: Record<Id, number> = {}
   const compound = new Set(nodes.filter((n) => nodes.some((c) => c.parent === n.id)).map((n) => n.id))
 
   const build = (n: CsNode): ElkNode => {
@@ -442,13 +443,16 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const ls = wrap(title, 22)
     lines[n.id] = ls
     if (compound.has(n.id)) {
+      minW[n.id] = Math.max(...ls.map((l) => l.length)) * CHAR_W + 32
       return {
         id: n.id,
         children: children(p, n.id, 'node').map(build),
-        layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + n.wide},60)` },
+        layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + Math.max(0, n.wide)},60)` },
       }
     }
-    const w = Math.max(n.role === 'process' ? 320 : 120, Math.max(...ls.map((l) => l.length)) * CHAR_W + 28, (deg[n.id] ?? 0) * 30 + 40) + n.wide
+    minW[n.id] = Math.max(Math.max(...ls.map((l) => l.length)) * CHAR_W + 28, (deg[n.id] ?? 0) * 30 + 40)
+    defW[n.id] = Math.max(n.role === 'process' ? 320 : 120, minW[n.id])
+    const w = Math.max(minW[n.id], defW[n.id] + n.wide)
     return { id: n.id, width: w, height: 30 + ls.length * 16 }
   }
   const roots = children(p, null, 'node')
@@ -511,7 +515,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     for (const c of n.children ?? []) {
       const x = ox + (c.x ?? 0), y = oy + (c.y ?? 0)
       abs[c.id] = { x, y }
-      out.nodes[c.id] = { id: c.id, x, y, w: c.width ?? 0, h: c.height ?? 0, compound: compound.has(c.id), depth, lines: lines[c.id] }
+      out.nodes[c.id] = { id: c.id, x, y, w: c.width ?? 0, h: c.height ?? 0, compound: compound.has(c.id), depth, lines: lines[c.id], minW: minW[c.id] ?? 0, defW: defW[c.id] ?? minW[c.id] ?? 0 }
       walk(c, x, y, depth + 1)
     }
   }

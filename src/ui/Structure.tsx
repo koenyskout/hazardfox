@@ -79,8 +79,9 @@ function Diagram() {
     if (!layout) return null
     const d = applyOverrides(p, layout)
     const it = resize && p.items[resize.id]
-    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, w: n.w - it.wide + resize.wide } : n)) } : d
+    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, w: Math.max(n.minW, n.defW + resize.wide) } : n)) } : d
   }, [p, layout, resize])
+  const floor = (id: Id) => { const n = layout?.nodes[id]; return n && !n.compound ? n.minW - n.defW : 0 }
   const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)
 
   const fit = () => {
@@ -115,7 +116,7 @@ function Diagram() {
     const dx = e.clientX - d.sx, dy = e.clientY - d.sy
     if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
     d.moved = true
-    if (d.kind === 'resize') return setResize({ id: d.id!, wide: Math.max(0, Math.round(d.ox + dx / view.k)) })
+    if (d.kind === 'resize') return setResize({ id: d.id!, wide: Math.max(floor(d.id!), Math.round(d.ox + dx / view.k)) })
     if (d.kind === 'pan') return setView((v) => ({ ...v, x: d.ox + dx, y: d.oy + dy }))
     const patch = d.kind === 'node' ? { nudge: { dx: d.ox + dx / view.k, dy: d.oy + dy / view.k } } : { bend: { dx: d.ox + dx / view.k, dy: d.oy + dy / view.k } }
     commit((q) => updateItem(q, d.id!, patch), 'drag:' + d.id)
