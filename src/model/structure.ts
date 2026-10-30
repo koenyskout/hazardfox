@@ -204,7 +204,7 @@ const widen = (box: NodeBox, w: number, nodes: Record<Id, NodeBox>): boolean => 
  */
 const placePorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
   interface Port { r: EdgeRoute; i: number; j: number; ax: 'x' | 'y'; lo: number; hi: number }
-  for (let round = 0; round < 4; round++) {
+  for (let round = 0; round < 6; round++) {
     const groups = new Map<string, { box: NodeBox; ax: 'x' | 'y'; ports: Port[] }>()
     for (const r of routes) {
       const n = r.points.length
@@ -259,6 +259,17 @@ const placePorts = (routes: EdgeRoute[], nodes: Record<Id, NodeBox>) => {
           if (!o || o.compound) continue
           const lim = box.x + box.w <= o.x + o.w ? box : o
           if (widen(lim, lim.w + SEP - gap, nodes)) break
+        }
+        // cannot widen: the right-hand arrow jogs sideways towards the box that reaches further right
+        const q = ports[i], r = q.r
+        if (r.points.length === 2 && val(q) - val(ports[i - 1]) < SEP - 0.5 && nodes[r.from] && nodes[r.to]) {
+          const [A, B] = [nodes[r.from], nodes[r.to]]
+          const big = A.x + A.w >= B.x + B.w ? A : B
+          const [s0, s1] = r.points
+          const x0 = s0.x, x1 = s1.x
+          const xb = Math.min(big.x + big.w - MARGIN, Math.max(x0, x1) + SEP)
+          const nx0 = big === A ? xb : x0, nx1 = big === A ? x1 : xb
+          if (Math.abs(nx0 - nx1) >= 1) { const ym = (s0.y + s1.y) / 2; r.points = [{ x: nx0, y: s0.y }, { x: nx0, y: ym }, { x: nx1, y: ym }, { x: nx1, y: s1.y }] }
         }
       }
     }
