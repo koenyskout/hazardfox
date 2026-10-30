@@ -5,13 +5,17 @@ import { generateUcaText } from '../model/uca'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type Item } from '../model/types'
 import { VIEW_OF } from './Fields'
-import { useIds as useLabels, useProject } from './hooks'
+import { useIds, useLabels, useProject } from './hooks'
 import { ItemCard, summary } from './ItemCard'
 
+/** Kinds whose chip already shows the name, so the title line is left out. */
+export const NAMED = new Set<string>(['variable', 'entity'])
+
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */
-export function Picker({ options, onPick, children, className, create }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void } }) {
+export function Picker({ options, onPick, children, className, create, autoOpen, onClose }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void }; /** open on mount (for a picker shown as a second step) */ autoOpen?: boolean; onClose?: () => void }) {
   const p = useProject()
   const labels = useLabels()
+  const ids = useIds()
   const goto = useStore((s) => s.goto)
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
@@ -20,13 +24,14 @@ export function Picker({ options, onPick, children, className, create }: { optio
   const text = (it: Item) => it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const hits = useMemo(() => {
     const t = q.toLowerCase().split(/\s+/).filter(Boolean)
-    return options.filter((o) => { const s = `${labels[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
+    return options.filter((o) => { const s = `${labels[o.id]} ${ids[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, options, labels, p])
-  const close = () => { setAt(null); setQ(''); setSel(0) }
+  const reset = () => { setAt(null); setQ(''); setSel(0) }
+  const close = () => { reset(); onClose?.() }
   const pick = (id: Id | null) => { onPick(id); close() }
   const editors = useStore((s) => s.editing.length)
-  useEffect(close, [editors]) // eslint-disable-line react-hooks/exhaustive-deps -- an editor opened from the preview card replaces the picker
+  useEffect(reset, [editors]) // eslint-disable-line react-hooks/exhaustive-deps -- an editor opened from the preview card replaces the picker
   useEffect(() => {
     if (!at) return
     const down = (e: MouseEvent) => { if (!(e.target as Element).closest('.picker-pop') && !btn.current?.contains(e.target as Node)) close() }
@@ -38,6 +43,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
     const w = window.innerWidth >= 780 ? 740 : 380
     setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)), y: r.bottom + 4 })
   }
+  useEffect(() => { if (autoOpen) open() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const mixed = new Set(options.map((o) => o.kind)).size > 1
   const cur = hits[Math.min(sel, hits.length - 1)]
   const wide = window.innerWidth >= 780
@@ -61,7 +67,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
                 <li key={o.id} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
                   <span className={'chip k-' + o.kind}><ChipLabel it={o} label={labels[o.id]} /></span>
                   <span className="pk-main">
-                    <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>
+                    {!NAMED.has(o.kind) && <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>}
                     <span className="pk-sub">{[mixed && KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
                   </span>
                 </li>

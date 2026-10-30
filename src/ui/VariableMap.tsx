@@ -1,26 +1,28 @@
-import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refinedBy, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
-import type { Project, Variable } from '../model/types'
+import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
+import { useState } from 'react'
+import { createItem } from '../model/ops'
+import type { Id, Project, Variable } from '../model/types'
 import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
 import { LayerIcon } from './Icon'
-import { addItemInDialog, commit, useProject } from './hooks'
+import { addItemInDialog, commit, isComputed, useProject } from './hooks'
 import { Picker } from './Picker'
 
-/** World variables depth-first, each refined variable followed by its parts (a part shared by several wholes is listed once). */
-function hierarchy(p: Project, world: Variable[]): [Variable, number][] {
-  const ids = new Set(world.map((w) => w.id))
-  const seen = new Set<string>()
-  const out: [Variable, number][] = []
-  const visit = (w: Variable, d: number) => {
-    if (seen.has(w.id)) return
-    seen.add(w.id)
-    out.push([w, d])
-    for (const id of refines(p, w)) { const x = p.items[id]; if (x?.kind === 'variable' && ids.has(id)) visit(x, d + 1) }
-  }
-  for (const w of world) if (!refinedBy(p, w.id).some((x) => ids.has(x.id))) visit(w, 0)
-  for (const w of world) visit(w, 0)
-  return out
+/** One row per variable; within an owner the raw ones first, then the computed ones. */
+const ordered = (p: Project, world: Variable[]) => [...world.filter((w) => !isComputed(p, w)), ...world.filter((w) => isComputed(p, w))]
+
+/** "+ signal": let an existing incoming feedback report the variable, or create a new feedback from a chosen node first. */
+function AddSignal({ c, w }: { c: string; w: string }) {
+  const p = useProject()
+  const [choosing, setChoosing] = useState(false)
+  const fbs = feedbackInto(p, c)
+  const sources = itemsOfKind(p, 'node').filter((n) => n.id !== c).sort((a, b) => a.rank - b.rank)
+  const label = <span title="Let a feedback report this variable">+ <LayerIcon layer="signal" />signal</span>
+  const create = (from: Id | null) => from && commit((q) => { const r = createItem(q, 'feedback', { from, to: c }); return addSignal(r.project, r.id, w).project })
+  return choosing
+    ? <Picker key="src" className="add" autoOpen options={sources} onPick={create} onClose={() => setChoosing(false)}>{label}</Picker>
+    : <Picker key="fb" className="add" options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w).project)} create={{ label: 'New feedback from…', run: () => setChoosing(true) }}>{label}</Picker>
 }
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
@@ -29,8 +31,9 @@ export function VariableMap() {
   const world = variablesIn(p, 'domain')
   const ctrls = itemsOfKind(p, 'node').filter((n) => n.role === 'controller').sort((a, b) => a.rank - b.rank)
   const ucas = itemsOfKind(p, 'uca')
+  const owners = [...new Set(world.map((w) => w.parent ?? ''))]
   /** Is w part of the context of a UCA of a control action from controller c? */
-  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.some((x) => x.variable === w))
+  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.some((x) => x.variable === w || x.other === w))
   if (!world.length) return <p className="empty">Add world variables (layer “World”) to entities first; then map what each controller observes and believes.</p>
   return (
     <div className="varmap-wrap">
@@ -43,14 +46,15 @@ export function VariableMap() {
           <tr><th><LayerIcon layer="domain" />World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
         </thead>
         <tbody>
-          {hierarchy(p, world).map(([w, d]) => (
-            <tr key={w.id}>
-              <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
+          {owners.flatMap((o) => [
+            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
+            ...ordered(p, world.filter((w) => (w.parent ?? '') === o)).map((w) => (
+            <tr key={w.id} className={isComputed(p, w) ? 'computed' : ''}>
+              <th><Ref id={w.id} />{isComputed(p, w) && <span className="calc" title="Computed from lower-level world variables">ƒ computed</span>}<br /><small className="muted">{describeStates(w)}</small>{isComputed(p, w) && <div className="via"><span className="muted">from</span> {refines(p, w).map((id) => <Ref key={id} id={id} />)}</div>}</th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
                 const sig = bel.length ? [...new Set(bel.flatMap((b) => updatedBy(p, b)))] : signalsInto(p, c.id).filter((s) => s.about === w.id)
-                const fbs = feedbackInto(p, c.id)
                 const cls = !bel.length ? (needed(c.id, w.id) ? 'gap' : '') : !sig.length ? 'warn' : 'ok'
                 return (
                   <td key={c.id} className={cls}>
@@ -58,17 +62,17 @@ export function VariableMap() {
                     {sig.length > 0 && <div className="via"><span className="muted">from</span> {sig.map((s) => <Ref key={s.id} id={s.id} />)}</div>}
                     <div className="cell-add">
                       {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ <LayerIcon layer="belief" />belief</button>}
-                      {!sig.length && fbs.length > 0 && (
-                        <Picker className="add" options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span title="Let an incoming feedback report this variable">+ <LayerIcon layer="signal" />signal</span></Picker>
-                      )}
+                      {!sig.length && <AddSignal c={c.id} w={w.id} />}
                     </div>
                   </td>
                 )
               })}
             </tr>
-          ))}
+            )),
+          ])}
+          <tr className="group"><th colSpan={2 + ctrls.length}><LayerIcon layer="internal" /> Internal state <small className="muted">modes, timers, counters – owned by each controller, not about the world</small></th></tr>
           <tr>
-            <th><LayerIcon layer="internal" />Internal state<br /><small className="muted">modes, timers, counters</small></th>
+            <th><small className="muted">per controller</small></th>
             <td />
             {ctrls.map((c) => (
               <td key={c.id}>

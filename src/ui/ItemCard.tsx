@@ -9,6 +9,8 @@ import { children } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { validate } from '../model/validate'
 import { freshReview } from '../llm/auto'
+import { refines } from '../model/formal'
+import { isComputed } from './hooks'
 import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 import { describeStates } from '../model/variables'
@@ -128,9 +130,12 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       row('Operations', list(it.operations))
       break
     case 'variable': {
+      const parts = refines(p, it)
       badges.push(<Badge key="l"><LayerTag layer={it.layer} /></Badge>)
+      if (isComputed(p, it)) badges.push(<Badge key="c">ƒ computed</Badge>)
       const owner = it.parent && p.items[it.parent]
       if (owner) row(OWNER_ROW[it.layer], <><ChipLink id={owner.id} {...c} /> {owner.title}</>)
+      row('Computed from', parts.length > 0 && isComputed(p, it) && <>{parts.map((id) => <ChipLink key={id} id={id} {...c} />)}</>)
       row('About', it.about && <ChipLink id={it.about} {...c} />)
       row('Type', VARIABLE_TYPE_LABELS[it.type].split(' (')[0])
       row('States', it.type === 'enum' ? list(it.states, 6) : describeStates(it))
@@ -221,6 +226,12 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   )
 }
 
+const ownerName = (p: Project, id: Id, l: (id: Id | null) => string) => {
+  const o = p.items[id]
+  if (o?.kind === 'relationship') return [p.items[o.from]?.title, o.title, p.items[o.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  return o?.title.trim() || l(id)
+}
+
 /** One-line description of what an item is or links to, for lists and pickers. */
 export function summary(p: Project, labels: Labels, it: Item): string {
   const l = (id: Id | null) => (id && labels[id]) || ''
@@ -232,7 +243,7 @@ export function summary(p: Project, labels: Labels, it: Item): string {
     case 'assumption': return ls(it.about) && 'about ' + ls(it.about)
     case 'node': return it.role
     case 'ca': case 'feedback': case 'relationship': return `${l(it.from)} → ${l(it.to)}`
-    case 'variable': return it.parent ? 'of ' + l(it.parent) : ''
+    case 'variable': return it.parent ? 'of ' + ownerName(p, it.parent, l) : ''
     case 'uca': return `${GUIDE_WORD_LABELS[it.guide]} · ${l(it.ca)}`
     case 'scenario': return (it.scenarioType === 'uca' ? l(it.uca) : l(it.ca)) + (it.cause ? ' · ' + CAUSE_LABELS[it.cause] : '')
     default: return ''

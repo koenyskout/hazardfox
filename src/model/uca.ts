@@ -1,5 +1,5 @@
 import { renderText } from './labels'
-import { conditionComplete, conditionText } from './variables'
+import { conditionComplete, conditionText, isText } from './variables'
 import type { ControlAction, GuideWord, Id, Project, Uca } from './types'
 
 const PHRASE: Record<Uca['guide'], string> = {
@@ -15,7 +15,7 @@ export function generateUcaText(p: Project, labels: Record<Id, string>, u: Uca):
   const ca = p.items[u.ca]
   const from = ca && ca.kind === 'ca' ? p.items[ca.from] : null
   const conds = u.conditions
-    .filter((c) => p.items[c.variable] && conditionComplete(c))
+    .filter((c) => (isText(c) || p.items[c.variable]) && conditionComplete(c))
     .map((c) => conditionText(p, c))
   const ctx = [...conds, renderText(labels, u.context).trim()].filter(Boolean).join(' and ')
   return `${from?.title || '⟨controller⟩'} ${PHRASE[u.guide]} ${ca?.title || '⟨control action⟩'}${ctx ? ' when ' + ctx : ''}`

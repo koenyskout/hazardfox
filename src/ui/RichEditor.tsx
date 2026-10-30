@@ -1,3 +1,4 @@
+import { NAMED } from './Picker'
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { ChipLabel } from './Icon'
 import { createPortal } from 'react-dom'
@@ -123,7 +124,7 @@ function MentionMenu({ options }: { options: Item[] }) {
                     onMouseEnter={() => setHighlightedIndex(n)} onMouseDown={(e) => { e.preventDefault(); selectOptionAndCleanUp(o) }}>
                     <span className={'chip k-' + o.item.kind}><ChipLabel it={o.item} label={labels[o.item.id]} /></span>
                     <span className="pk-main">
-                      <span className="pk-title">{text(o.item) || <i className="muted">{KIND_NAMES[o.item.kind]}</i>}</span>
+                      {!NAMED.has(o.item.kind) && <span className="pk-title">{text(o.item) || <i className="muted">{KIND_NAMES[o.item.kind]}</i>}</span>}
                       <span className="pk-sub">{[mixed && KIND_NAMES[o.item.kind], summary(p, labels, o.item)].filter(Boolean).join(' · ')}</span>
                     </span>
                   </li>

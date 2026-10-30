@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { deleteItems, shift, updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
-import { addItem, commit, select, useIds } from './hooks'
+import { Ref } from './Fields'
+import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
 
@@ -19,11 +20,20 @@ export function FlatTable<K extends Kind>(props: {
   columns: Column<K>[]
   init?: Patch<K>
   titleEditable?: boolean
+  /** Items must be ordered so that equal groups are adjacent; a header row (a reference to the group) is shown whenever it changes. */
+  groupBy?: (it: ItemOf<K>) => Id | null | undefined
+  /** Second line under the title. */
+  sub?: (it: ItemOf<K>) => ReactNode
+  /** Adds a button to each group header that creates an item with this patch (first item of the group given). */
+  groupAdd?: (group: Id | null, first: ItemOf<K>) => Patch<K>
   addLabel?: string
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
 }) {
-  const idLabels = useIds()
+  const ids = useIds()
+  const names = useLabels()
+  /** variables show their name pill, as everywhere else */
+  const idLabels = props.kind === 'variable' ? names : ids
   const selected = useStore((s) => s.selected)
   return (
     <div className="tree">
@@ -43,18 +53,24 @@ export function FlatTable<K extends Kind>(props: {
       </div>
       <div className="rows">
         <div className="row head">
-          <span className="lbl">ID</span>
+          <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}>ID</span>
           {props.titleEditable !== false && <span className="ttl">Title</span>}
           {props.columns.map((c) => (
             <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.head}</span>
           ))}
         </div>
         {props.items.length === 0 && <div className="empty">Nothing here yet.</div>}
-        {props.items.map((it) => (
-          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
-            <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
+        {props.items.map((it, i) => {
+          const g = props.groupBy?.(it)
+          const header = props.groupBy && (i === 0 || props.groupBy(props.items[i - 1]) !== g)
+          return (
+          <Fragment key={it.id}>
+          {header && <div className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g ?? null, it))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>}
+          <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
+            <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
-              <span className="ttl">
+              <span className={'ttl' + (props.sub ? ' wrap' : '')}>
+                <span className="tline">
                 <input
                   value={it.title}
                   placeholder={`${KIND_NAMES[it.kind]} title`}
@@ -63,14 +79,24 @@ export function FlatTable<K extends Kind>(props: {
                 />
                 <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
+                </span>
+                {props.sub && <div className="subline">{props.sub(it)}</div>}
               </span>
             )}
             {props.columns.map((c) => (
               <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.cell(it)}</span>
             ))}
           </div>
-        ))}
+          </Fragment>
+          )
+        })}
       </div>
     </div>
   )
+}
+
+/** Name next to an owner chip, for kinds whose chip shows only the label (entities and relationships already show theirs). */
+function GroupTitle({ id }: { id: Id }) {
+  const it = useProject().items[id]
+  return it && it.kind !== 'entity' && it.kind !== 'relationship' && it.title.trim() ? <span> {it.title}</span> : null
 }

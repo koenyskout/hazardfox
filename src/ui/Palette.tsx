@@ -4,7 +4,7 @@ import { byLabel, renderText } from '../model/labels'
 import { useStore } from '../model/store'
 import { KIND_NAMES } from '../model/types'
 import { ItemHover, VIEW_OF } from './Fields'
-import { useIds as useLabels, useProject } from './hooks'
+import { useIds, useLabels, useProject } from './hooks'
 
 export function Palette() {
   const open = useStore((s) => s.paletteOpen)
@@ -12,6 +12,7 @@ export function Palette() {
   const goto = useStore((s) => s.goto)
   const p = useProject()
   const labels = useLabels()
+  const ids = useIds()
   const [q, setQ] = useState('')
   const [i, setI] = useState(0)
   const ref = useRef<HTMLInputElement>(null)
@@ -19,11 +20,11 @@ export function Palette() {
   const hits = useMemo(() => {
     const t = q.trim().toLowerCase()
     return Object.values(p.items)
-      .map((it) => ({ it, text: `${labels[it.id]} ${it.title} ${renderText(labels, it.description)} ${it.tags.join(' ')}`.toLowerCase() }))
+      .map((it) => ({ it, text: `${labels[it.id]} ${ids[it.id]} ${it.title} ${renderText(labels, it.description)} ${it.tags.join(' ')}`.toLowerCase() }))
       .filter((x) => !t || t.split(/\s+/).every((w) => x.text.includes(w)))
-      .sort((a, b) => byLabel(labels)(a.it, b.it))
+      .sort((a, b) => byLabel(ids)(a.it, b.it))
       .slice(0, 40)
-  }, [p, labels, q])
+  }, [p, labels, ids, q])
   if (!open) return null
   const go = (n: number) => { const h = hits[n]; if (h) { goto(VIEW_OF[h.it.kind], h.it.id); setOpen(false) } }
   return (
