@@ -70,6 +70,7 @@ export function StructureSvg({ p, d, h = {} }: { p: Project; d: Drawn; h?: SvgHa
               const l = labelLeader(e.label, e.points)
               return l && <line x1={l.from.x} y1={l.from.y} x2={l.to.x} y2={l.to.y} stroke="#9ca3af" strokeWidth={0.75} />
             })()}
+            {e.text && e.label && <rect x={e.label.x} y={e.label.y} width={e.label.w} height={e.label.h} rx={2} fill="#ffffff" fillOpacity={0.92} />}
             {e.text && e.label && (
               <text x={e.label.x + e.label.w / 2} y={e.label.y + 11} textAnchor="middle" fontSize={11} fill={edgeColor(e)} fontStyle={e.kind === 'feedback' ? 'italic' : undefined}
                 stroke="#ffffff" strokeWidth={3} paintOrder="stroke">

@@ -64,12 +64,24 @@ const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lin
     let best: (Rect & { score: number }) | null = null
     order.forEach((sg, si) => {
       const vertical = Math.abs(sg.a.x - sg.b.x) < 1
+      // preferred: centred on the line (the white label background interrupts it)
+      for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8]) {
+        const mx = sg.a.x + (sg.b.x - sg.a.x) * t, my = sg.a.y + (sg.b.y - sg.a.y) * t
+        const r: Rect = { x: mx - w / 2, y: my - h / 2, w, h }
+        const pad = { x: r.x - 2, y: r.y - 2, w: w + 4, h: h + 4 }
+        let score = si * 3 + Math.abs(t - 0.5) * 4 + ((vertical ? sg.len < h + 16 : sg.len < w + 16) ? 25 : 0)
+        score += nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
+        for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 15
+        // the line's own other segments must not run under the label
+        for (let i = 1; i < it.points.length; i++) if (it.points[i - 1] !== sg.a && segHits(it.points[i - 1], it.points[i], pad)) score += 10
+        if (!best || score < best.score) best = { ...r, score }
+      }
       for (const side of it.kind === 'ca' ? [-1, 1] : [1, -1]) {
         for (const t of [0.5, 0.4, 0.6, 0.3, 0.7, 0.2, 0.8, 0.12, 0.88]) for (const gap of [6, 16, 28, 44, 70, 110, 170]) for (const sh of [0, -1, 1]) {
           const mx = sg.a.x + (sg.b.x - sg.a.x) * t + (vertical ? 0 : sh * w * 0.6), my = sg.a.y + (sg.b.y - sg.a.y) * t + (vertical ? sh * h * 0.7 : 0)
           const r: Rect = vertical ? { x: side < 0 ? mx - w - gap : mx + gap, y: my - h / 2, w, h } : { x: mx - w / 2, y: side < 0 ? my - h - 3 : my + 3, w, h }
           const pad = { x: r.x - 2, y: r.y - 2, w: w + 4, h: h + 4 }
-          let score = si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 + gap / 10 : 0) + Math.abs(sh) * 2 + (sg.len < h + 10 && vertical ? 20 : 0)
+          let score = 12 + si * 3 + Math.abs(t - 0.5) * 4 + (side === (it.kind === 'ca' ? -1 : 1) ? 0 : 2) + (gap > 6 ? 3 + gap / 10 : 0) + Math.abs(sh) * 2 + (sg.len < h + 10 && vertical ? 20 : 0)
           score += nodes.filter((n) => hitsRect(pad, n)).length * 100 + placed.filter((q) => hitsRect(pad, q)).length * 100
           for (const o of items) if (o !== it) for (let i = 1; i < o.points.length; i++) if (segHits(o.points[i - 1], o.points[i], pad)) score += 15
           if (!best || score < best.score) best = { ...r, score }
