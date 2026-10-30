@@ -26,6 +26,14 @@ export function describeStates(v: Variable): string {
   return v.unit ? `number (${v.unit})` : 'number'
 }
 
+/** Step for number inputs and sliders: 1 for integer bounds, else a power of ten giving about 100 steps. */
+export function stepOf(v: Variable): number {
+  if (v.min === null || v.max === null) return 1
+  const span = v.max - v.min
+  if (Number.isInteger(v.min) && Number.isInteger(v.max) && span >= 20) return 1
+  return 10 ** Math.floor(Math.log10(span / 100 || 1))
+}
+
 /** Whether the condition is complete enough to appear in a sentence. */
 export const conditionComplete = (c: Condition) => (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
@@ -47,5 +55,7 @@ export function conditionError(v: Variable, c: Condition): string | null {
   const bad = [c.state, ...(isRangeOp(c.op) ? [c.to ?? ''] : [])].find((x) => x.trim() === '' || !Number.isFinite(Number(x)))
   if (bad !== undefined) return `"${bad}" is not a number`
   if (isRangeOp(c.op) && Number(c.state) > Number(c.to)) return 'lower bound exceeds upper bound'
+  const out = [c.state, ...(isRangeOp(c.op) ? [c.to ?? ''] : [])].find((x) => (v.min !== null && Number(x) < v.min) || (v.max !== null && Number(x) > v.max))
+  if (out !== undefined) return `${out} is outside the range ${describeStates(v)}`
   return null
 }

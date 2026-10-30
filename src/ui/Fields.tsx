@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
-import type { Id, Item, Kind, Labels } from '../model/types'
+import type { ConditionOp, Id, Item, Kind, Labels } from '../model/types'
 import { useLabels, useProject } from './hooks'
 import { HoverCard } from './HoverCard'
 import { ItemCard } from './ItemCard'
@@ -45,6 +45,40 @@ export function NumberInput(props: { value: number | null; onChange: (v: number 
   const [text, setText] = useState(props.value === null ? '' : String(props.value))
   const shown = Number(text) === props.value && text.trim() !== '' ? text : props.value === null && !Number.isFinite(Number(text)) ? text : props.value === null ? '' : String(props.value)
   return <input inputMode="decimal" value={shown} onChange={(e) => { const t = e.target.value; setText(t); props.onChange(t.trim() !== '' && Number.isFinite(Number(t)) ? Number(t) : null) }} />
+}
+
+/** Number input with spinner within optional bounds. `value` is the text (may be empty or partial). */
+export function BoundedNumber(props: { value: string; onChange: (v: string) => void; min: number | null; max: number | null; step: number; placeholder?: string }) {
+  return <input className="num" type="number" min={props.min ?? undefined} max={props.max ?? undefined} step={props.step} placeholder={props.placeholder} value={props.value} onChange={(e) => props.onChange(e.target.value)} />
+}
+
+/** The variable's whole range as a bar with draggable handles; the highlighted part is what the condition selects (one handle for =, ≠, <, ≤, >, ≥; two for (not) between). */
+export function RangeBar(props: { min: number; max: number; step: number; op: ConditionOp; a: string; b: string; unit?: string; onChange: (a: string, b: string) => void }) {
+  const { min, max, step, op } = props
+  const dual = op === 'between' || op === 'not between'
+  const num = (t: string, d: number) => (t.trim() !== '' && Number.isFinite(Number(t)) ? Math.min(max, Math.max(min, Number(t))) : d)
+  const touched = props.a.trim() !== '' && (!dual || props.b.trim() !== '')
+  const a = num(props.a, dual ? min : (min + max) / 2)
+  const b = num(props.b, max)
+  const pct = (x: number) => ((x - min) / (max - min)) * 100
+  const at = (x: number) => `calc(${pct(x)}% + ${7 - 0.14 * pct(x)}px)`
+  const seg = (from: number, to: number) => <span className="rb-fill" style={{ left: at(from), width: `calc(${at(to)} - ${at(from)})` }} />
+  const fills =
+    op === '<' || op === '≤' ? seg(min, a) :
+    op === '>' || op === '≥' ? seg(a, max) :
+    op === 'between' ? seg(a, b) :
+    op === 'not between' ? <>{seg(min, a)}{seg(b, max)}</> : null
+  const out = (x: number) => String(Math.round(x / step) * step === x ? x : +x.toFixed(Math.max(0, -Math.floor(Math.log10(step)))))
+  return (
+    <div className={'rangebar' + (touched ? '' : ' untouched')}>
+      <span className="rb-track" />
+      {fills}
+      <input type="range" min={min} max={max} step={step} value={a} onChange={(e) => { const x = Number(e.target.value); props.onChange(out(dual ? Math.min(x, b) : x), dual ? props.b || out(b) : '') }} />
+      {dual && <input type="range" min={min} max={max} step={step} value={b} onChange={(e) => { const x = Number(e.target.value); props.onChange(props.a || out(a), out(Math.max(x, a))) }} />}
+      <span className="rb-lbl rb-min">{min}{props.unit ? ' ' + props.unit : ''}</span>
+      <span className="rb-lbl rb-max">{max}{props.unit ? ' ' + props.unit : ''}</span>
+    </div>
+  )
 }
 
 /** Shows the item's hover card (title, description, traceability) when hovering the children. */
