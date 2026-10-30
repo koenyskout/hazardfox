@@ -1,4 +1,4 @@
-import { type Condition, type ConditionOp, type Project, type Variable } from './types'
+import { type Condition, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -58,4 +58,20 @@ export function conditionError(v: Variable, c: Condition): string | null {
   const out = [c.state, ...(isRangeOp(c.op) ? [c.to ?? ''] : [])].find((x) => (v.min !== null && Number(x) < v.min) || (v.max !== null && Number(x) > v.max))
   if (out !== undefined) return `${out} is outside the range ${describeStates(v)}`
   return null
+}
+
+export const isGroup = (w: When): w is Group => 'of' in w
+export const allOf = (...of: When[]): Group => ({ any: false, of })
+export const anyOf = (...of: When[]): Group => ({ any: true, of })
+/** The conditions in a condition tree. */
+export const leaves = (w: When): Condition[] => (isGroup(w) ? w.of.flatMap(leaves) : [w])
+/** The tree with each condition replaced (null drops it). */
+export const mapLeaves = (g: Group, f: (c: Condition) => Condition | null): Group =>
+  ({ ...g, of: g.of.flatMap((w) => { const x = isGroup(w) ? mapLeaves(w, f) : f(w); return x ? [x] : [] }) })
+/** "A and (B or C)", from complete conditions only. */
+export function whenText(p: Project, w: When, top = true): string {
+  if (!isGroup(w)) return conditionComplete(w) ? conditionText(p, w) : ''
+  const parts = w.of.map((x) => whenText(p, x, false)).filter(Boolean)
+  const s = parts.join(w.any ? ' or ' : ' and ')
+  return !top && parts.length > 1 ? `(${s})` : s
 }

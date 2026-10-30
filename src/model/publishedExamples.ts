@@ -1,6 +1,7 @@
 import { projectBuilder, type Add } from './build'
 import { mention } from './refs'
 import type { Cause, Id, Patch, Project } from './types'
+import { anyOf } from './variables'
 
 /**
  * End-to-end STPA analyses taken from openly published sources (losses, hazards, constraints, control structure,
@@ -27,7 +28,8 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const door = add('entity', { title: 'Door', parent: train, operations: ['Open', 'Close'] })
       const vMotion = add('variable', { title: 'Train motion', parent: train, states: ['stopped', 'moving'], definition: 'The train is moving when its speed exceeds a small threshold.' })
       const vPos = add('variable', { title: 'Train position', parent: train, states: ['aligned with platform', 'not aligned with platform'], definition: 'All doors on the platform side are within the platform edges.' })
-      const vEm = add('variable', { title: 'Emergency', parent: train, states: ['no emergency', 'evacuation required'], definition: 'A condition (fire, smoke, toxic gas, …) requires passengers to leave the train.' })
+      const hazardsOnBoard = ['Fire', 'Smoke', 'Toxic gas'].map((title) => add('variable', { title, parent: train, type: 'boolean' }))
+      const vEm = add('variable', { title: 'Emergency', parent: train, states: ['no emergency', 'evacuation required'], definition: 'A condition on board requires passengers to leave the train.', rules: [{ state: 'evacuation required', when: anyOf(...hazardsOnBoard.map((v) => ({ variable: v, op: '=' as const, state: 'true' }))) }], otherwise: 'no emergency' })
       const vDoor = add('variable', { title: 'Door position', parent: door, states: ['fully open', 'fully closed', 'partially open'] })
       const vWay = add('variable', { title: 'Door state', parent: door, states: ['person not in doorway', 'person in doorway'], definition: 'A person or object is in the path of the door.' })
 
