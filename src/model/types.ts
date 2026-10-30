@@ -140,8 +140,8 @@ export interface Variable extends Base {
 export interface CsNode extends Base {
   kind: 'node'
   role: NodeRole
-  /** Optional link to the domain entity this node represents */
-  entity: Id | null
+  /** Domain entities this node represents (a physical process may comprise several) */
+  entities: Id[]
   /** Manual layout nudge, relative offset applied on top of the auto layout */
   nudge: Offset | null
   /** Extra width in px added to the box in the diagram (0 = automatic) */

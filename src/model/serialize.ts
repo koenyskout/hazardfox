@@ -2,7 +2,7 @@ import { emptyProject, makeItem } from './create'
 import { addBelief, addSignal, predicateOf } from './formal'
 import { createItem } from './ops'
 import { groupKey } from './tree'
-import { KINDS, type Condition, type Item, type NodeRole, type Project, type VariableType } from './types'
+import { KINDS, type Condition, type Id, type Item, type NodeRole, type Project, type VariableType } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
   v && typeof v === 'object' && !Array.isArray(v)
@@ -27,6 +27,12 @@ export function deserialize(text: string): Project {
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
   for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  // Nodes linked one domain entity (`entity`); now a list.
+  for (const n of Object.values(p.items)) {
+    if (n.kind !== 'node' || !('entity' in n)) continue
+    const { entity, ...rest } = n as typeof n & { entity: Id | null }
+    p.items[n.id] = { ...rest, entities: n.entities.length ? n.entities : entity ? [entity] : [] }
+  }
   // Older files modelled sensors and actuators as nodes: keep their name on the arrows into / out of them, and make them plain elements.
   const old: Record<string, NodeRole> = { actuator: 'process', sensor: 'external' }
   for (const n of Object.values(p.items)) {

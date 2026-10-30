@@ -146,7 +146,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
-          <Field single label="Attributes" hint="The entity's world variables V(e): its state that can change over time.">
+          <Field single label="Attributes" hint="The entity's world variables: its state that can change over time.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
           </Field>
           <Field single label="Operations (one per line)">
@@ -173,7 +173,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <SingleRef value={it.parent} options={owners} onChange={(v) => v && set({ parent: v })} />
           </Field>
           {(it.layer === 'signal' || it.layer === 'belief') && (
-            <Field label="About (world variable)" hint="The actual state this observation or belief refers to (designation δ).">
+            <Field label="About (world variable)" hint="The actual state this observation or belief refers to.">
               <SingleRef value={it.about} options={world} onChange={(v) => set({ about: v })} />
             </Field>
           )}
@@ -229,7 +229,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Role">
             <select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</select>
           </Field>
-          <Field label="Domain entity"><SingleRef value={it.entity} options={of('entity')} onChange={(v) => set({ entity: v })} /></Field>
+          <Field label="Domain entities" hint="The domain entities this element represents; a physical process may comprise several."><RefList value={it.entities} options={of('entity')} onChange={(v) => set({ entities: v })} /></Field>
           {it.role === 'controller' && (
             <>
               <Field label="Process model (beliefs)" hint="What this controller believes about the world. Fed by signals on its incoming feedback.">

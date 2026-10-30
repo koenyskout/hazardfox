@@ -68,8 +68,8 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   push('domain', 'Relationships', ['ID', 'Name', 'From', 'To', 'Cardinality'], flat('relationship').map((r) => [...common(r), name(r.from), name(r.to), `${r.fromCard} : ${r.toCard}`]))
 
   const titles = (vs: { title: string }[]) => vs.map((v) => v.title).join(', ')
-  push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Process model', 'Internal state', 'Description', 'Status'],
-    tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', titles(beliefsOf(p, n.id)), titles(variablesIn(p, 'internal', n.id)), T(n.description), n.status]))
+  push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Domain entities', 'Process model', 'Internal state', 'Description', 'Status'],
+    tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', n.entities.map(name).join(', '), titles(beliefsOf(p, n.id)), titles(variablesIn(p, 'internal', n.id)), T(n.description), n.status]))
   push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Affects', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, lab(c.affects), T(c.description), c.status]))
   push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Sensor', 'Signals', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), c.sensor, titles(signalsOf(p, c.id)), T(c.description), c.status]))
 

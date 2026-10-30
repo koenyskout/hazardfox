@@ -17,7 +17,7 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   requirement: { sources: null },
   assumption: { about: null },
   relationship: { from: ['entity'], to: ['entity'] },
-  node: { entity: ['entity'] },
+  node: { entities: ['entity'] },
   variable: { about: ['variable'] },
   ca: { from: ['node'], to: ['node'], affects: ['variable'] },
   feedback: { from: ['node'], to: ['node'] },

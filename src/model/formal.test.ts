@@ -118,4 +118,18 @@ describe('traces', () => {
     expect(predicateOf(q, r.id)).toBeTruthy()
     expect('attributes' in q.items[d.id]).toBe(false)
   })
+
+  it('links a node to several entities; old single `entity` links migrate', () => {
+    let p = emptyProject()
+    const a = createItem(p, 'entity', { title: 'Door' }); p = a.project
+    const b = createItem(p, 'entity', { title: 'Platform' }); p = b.project
+    const n = createItem(p, 'node', { title: 'Physical process', role: 'process', entities: [a.id, b.id] }); p = n.project
+    expect(deserialize(serialize(p)).items[n.id]).toMatchObject({ entities: [a.id, b.id] })
+    const old = JSON.parse(serialize(p))
+    for (const it of old.items) if (it.kind === 'node') { delete it.entities; it.entity = a.id }
+    const q = deserialize(JSON.stringify(old))
+    expect(q.items[n.id]).toMatchObject({ entities: [a.id] })
+    expect('entity' in q.items[n.id]).toBe(false)
+    expect(deleteItems(p, [b.id]).items[n.id]).toMatchObject({ entities: [a.id] })
+  })
 })

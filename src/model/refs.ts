@@ -13,7 +13,6 @@ export const REQUIRED_REFS: Registry<Id> = {
 }
 /** Optional single references: cleared when the target disappears. */
 export const OPTIONAL_REFS: Registry<Id | null> = {
-  node: ['entity'],
   variable: ['about'],
   scenario: ['uca', 'ca', 'element'],
 }
@@ -23,6 +22,7 @@ export const LIST_REFS: Registry<Id[]> = {
   constraint: ['hazards'],
   requirement: ['sources'],
   assumption: ['about'],
+  node: ['entities'],
   ca: ['affects'],
   uca: ['hazards'],
   scenario: ['hazards'],

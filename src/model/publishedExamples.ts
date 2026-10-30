@@ -33,8 +33,8 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
 
       const ops = add('node', { title: 'Train operations (?)', role: 'controller', description: 'Upstream controller; its commands and status are left open in the source figure.' })
       const ctrl = add('node', { title: 'Automated door controller', role: 'controller' })
-      const phys = add('node', { title: 'Physical door', role: 'process', entity: door })
-      const trainNode = add('node', { title: 'Train', role: 'external', entity: train })
+      const phys = add('node', { title: 'Physical door', role: 'process', entities: [door] })
+      const trainNode = add('node', { title: 'Train', role: 'external', entities: [train] })
       const cmd = add('ca', { title: 'Control commands (?)', from: ops, to: ctrl })
       const fbStatus = add('feedback', { title: 'Status (?)', from: ctrl, to: ops })
       const open = add('ca', { title: 'Open door', from: ctrl, to: phys, actuator: 'Door actuator', affects: [vDoor], description: 'Open door, stop opening door (mechanical force on the door).' })
