@@ -5,13 +5,14 @@ import { generateUcaText } from '../model/uca'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type Item } from '../model/types'
 import { VIEW_OF } from './Fields'
-import { useIds as useLabels, useProject } from './hooks'
+import { useIds, useLabels, useProject } from './hooks'
 import { ItemCard, summary } from './ItemCard'
 
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */
 export function Picker({ options, onPick, children, className, create }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void } }) {
   const p = useProject()
   const labels = useLabels()
+  const ids = useIds()
   const goto = useStore((s) => s.goto)
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
@@ -20,7 +21,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
   const text = (it: Item) => it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const hits = useMemo(() => {
     const t = q.toLowerCase().split(/\s+/).filter(Boolean)
-    return options.filter((o) => { const s = `${labels[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
+    return options.filter((o) => { const s = `${labels[o.id]} ${ids[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, options, labels, p])
   const close = () => { setAt(null); setQ(''); setSel(0) }
