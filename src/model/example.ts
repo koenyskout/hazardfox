@@ -1,6 +1,7 @@
 import { projectBuilder } from './build'
+import { mention } from './refs'
 import { draftTrace } from './traces'
-import type { Project, Scenario } from './types'
+import type { Project, Scenario, Variable } from './types'
 
 /** Small infusion-pump example (safety + security) for trying out the tool. */
 export function exampleProject(): Project {
@@ -47,7 +48,7 @@ export function exampleProject(): Project {
   add('variable', { layer: 'belief', parent: ctrl, about: vRun, title: 'Infusion state', states: enumOf(vRun).states, definition: 'The motor is commanded to run.' })
   add('variable', { layer: 'belief', parent: ctrl, about: vOcc, title: 'Line occlusion', states: enumOf(vOcc).states, definition: 'The controller believes the line downstream is blocked.' })
   add('variable', { layer: 'belief', parent: ctrl, about: vFlow, title: 'Flow', type: 'range', min: 0, max: 500, unit: 'ml/h' })
-  add('variable', { layer: 'internal', parent: ctrl, title: 'Mode', states: ['priming', 'infusing', 'alarm'], definition: 'Operating mode; occlusion detection is suppressed while priming.' })
+  const vMode = add('variable', { layer: 'internal', parent: ctrl, title: 'Mode', states: ['priming', 'infusing', 'alarm'], definition: 'Operating mode; occlusion detection is suppressed while priming.' })
 
   const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ variable: vOcc, op: '=', state: 'occluded' }], constraint: 'Controller must not drive the motor when the line is occluded' })
   const u2 = add('uca', { ca: ca2, guide: 'not-provided', hazards: [h12], conditions: [{ variable: vRun, op: '=', state: 'running' }], constraint: 'Controller must keep driving the motor while infusion is running' })
@@ -60,6 +61,17 @@ export function exampleProject(): Project {
   add('requirement', { title: 'Authenticate and integrity-protect sensor messages', sources: [s2], type: 'mitigation' })
   add('assumption', { title: 'Nurse verifies the prescription before programming the pump', about: [nurse] })
   for (const s of [s1, s3, s4]) b.set(s, (p) => ({ trace: draftTrace(p, p.items[s] as Scenario) }))
+  // The occlusion belief is stale because the controller is still priming, where it ignores the occlusion flag.
+  b.set(s3, (p) => {
+    const t = structuredClone((p.items[s3] as Scenario).trace)
+    t.lanes.unshift(vMode)
+    t.steps[0].values[vMode] = 'priming'
+    t.steps[0].note = 'The pump is still in priming mode; the line is clear.'
+    t.steps[1].note = `The line becomes occluded. The flow sensor reports it, but in ${mention(vMode)} "priming" the controller ignores the occlusion flag.`
+    t.steps[2].values[vMode] = 'infusing'
+    t.steps[2].note = `Priming ends and the controller starts infusing with a stale ${mention(t.lanes.find((id) => (p.items[id] as Variable).layer === 'belief')!)}: it sends ${mention(ca2)}.`
+    return { trace: t }
+  })
   void u2
   return b.project
 }

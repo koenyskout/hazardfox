@@ -188,8 +188,12 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const w = p.items[id]
     if (w?.kind !== 'variable') continue
     const vals = valuesOf(w)
-    const a = initialValue(w)
-    const intended = vals ? vals.find((x) => x !== a) ?? a : String(Number(a) + stepOf(w) * 10)
+    // The intended value is the state named like the action ("Open door" → "fully open"); start from one that is not.
+    const words = new Set(ca.title.toLowerCase().split(/\W+/).filter(Boolean))
+    const score = (x: string) => x.toLowerCase().split(/\W+/).filter((y) => words.has(y)).length
+    const ranked = vals && [...vals].sort((x, y) => score(y) - score(x))
+    const intended = ranked ? ranked[0] ?? '' : String(Number(initialValue(w)) + stepOf(w) * 10)
+    const a = ranked ? (ranked.find((x) => !score(x) && x !== intended) ?? ranked.find((x) => x !== intended) ?? intended) : initialValue(w)
     lanes.push(w.id)
     init.values[w.id] = a
     const wrong = s.cause === 'controlled-process' || s.cause === 'environment'
