@@ -104,8 +104,10 @@ export function validate(p: Project): Issue[] {
     if (!itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'ca' && s.ca === ca.id))
       add('info', ca, 'ca-no-scenarios', `${L[ca.id]} ${ca.title}: no scenarios for improper execution of the control action`)
   }
+  // Formal checks apply only once the project uses variables at all (text-only analyses are not nagged).
+  const formal = itemsOfKind(p, 'variable').length > 0
   for (const n of itemsOfKind(p, 'node')) {
-    if (n.role === 'controller' && beliefsOf(p, n.id).length === 0 && children(p, n.id, 'node').length === 0)
+    if (formal && n.role === 'controller' && beliefsOf(p, n.id).length === 0 && children(p, n.id, 'node').length === 0)
       add('info', n, 'controller-no-pm', `${nm(n)}: controller has no beliefs (process model)`)
   }
   for (const v of itemsOfKind(p, 'variable')) {

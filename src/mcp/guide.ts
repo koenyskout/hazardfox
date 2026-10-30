@@ -9,6 +9,7 @@ UCA labels are numbered globally in control-action order (then creation order wi
 Free text may mention items as @[H-1]. Create items as status "draft"; leave approval to humans.
 
 Workflow: project_summary -> update_project_meta (system description!) -> steps 1-4 below -> validate -> export_report.
+Formalism is optional: everything can be done in plain text (titles, descriptions, free-text UCA context). Add variables, conditions, beliefs/signals and traces only when the user wants that precision, or when they are already in use in the project; never force them.
 Ask the user for missing system knowledge instead of inventing it; mark assumptions with kind "assumption".
 
 ## Step 1 - Purpose of the analysis
