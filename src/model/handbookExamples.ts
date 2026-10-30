@@ -10,7 +10,8 @@ interface Spec {
   hazards: [key: string, title: string, losses: string[], parent?: string][]
   /** control structure from Appendix B: key, title, role, parent key (a container); links: from, to, ca|fb, label */
   nodes?: [key: string, title: string, role: NodeRole, parent?: string][]
-  links?: [from: string, to: string, type: 'ca' | 'fb', title: string][]
+  /** the optional 5th element is the actuator (ca) or sensor (fb) attached to the arrow */
+  links?: [from: string, to: string, type: 'ca' | 'fb', title: string, device?: string][]
   controller?: string
   process?: string
   cas?: string[]
@@ -38,12 +39,11 @@ const WBS_HAZARDS: Spec['hazards'] = [
 const struct = (id: string, label: string, description: string, nodes: Spec['nodes'], links: Spec['links']): (typeof HANDBOOK_EXAMPLES)[number] => ({ id, label: label + ' (control structure)', spec: { name: label + ' (Handbook example)', description: B + description, losses: [], hazards: [], nodes, links } })
 
 const STRUCTURES = [
-  struct('hb-cs-itp', 'In-Trail Procedure (ITP)', 'Figure B.1, aircraft In-Trail Procedure with ADS-B; the flight crews at the top of the figure are cut off in the Handbook and are not shown.', [
-    ['I', 'ITP Aircraft', 'controller'], ['IE', 'ITP Equipment', 'controller', 'I'], ['IT', 'TCAS / Transponder', 'sensor', 'I'], ['IG', 'GNSSU Receiver', 'sensor', 'I'], ['IA', 'ADS-B', 'sensor', 'I'],
-    ['R', 'Reference Aircraft', 'process'], ['RT', 'TCAS / Transponder', 'sensor', 'R'], ['RO', 'Other Sensors', 'sensor', 'R'], ['RG', 'GNSSU Receiver', 'sensor', 'R'], ['RA', 'ADS-B', 'sensor', 'R'], ['G', 'GPS Constellation', 'external'],
-  ], [['IT', 'RT', 'ca', 'TCAS Interrogations'], ['RT', 'IT', 'fb', 'TCAS Interrogations response'], ['RA', 'IA', 'fb', 'Ref Aircraft State (speed, heading, alt, etc) Information'], ['G', 'IG', 'fb', 'Time/State Data'], ['G', 'RG', 'fb', 'Time/State Data'], ['IG', 'IA', 'fb', 'GNSSU data'], ['RG', 'RA', 'fb', 'GNSSU data']]),
+  struct('hb-cs-itp', 'In-Trail Procedure (ITP)', 'Figure B.1, aircraft In-Trail Procedure with ADS-B; the flight crews at the top of the figure are cut off in the Handbook and are not shown. The TCAS / transponders, GNSSU receivers and ADS-B units are drawn as boxes in the figure; here they are the sensors (and actuator) on the arrows. "Other Sensors" of the reference aircraft has no arrow and is omitted.', [
+    ['I', 'ITP Aircraft', 'controller'], ['IE', 'ITP Equipment', 'controller', 'I'], ['R', 'Reference Aircraft', 'process'], ['G', 'GPS Constellation', 'external'],
+  ], [['I', 'R', 'ca', 'TCAS Interrogations', 'TCAS / Transponder'], ['R', 'I', 'fb', 'TCAS Interrogations response', 'TCAS / Transponder'], ['R', 'I', 'fb', 'Ref Aircraft State (speed, heading, alt, etc) Information', 'ADS-B'], ['G', 'I', 'fb', 'Time/State Data', 'GNSSU Receiver'], ['G', 'R', 'fb', 'Time/State Data', 'GNSSU Receiver']]),
   struct('hb-cs-missile', 'Ballistic missile defense', 'Figure B.2, missile defense system.', [
-    ['CA', 'Command Authority', 'external'], ['O', 'Operators', 'controller'], ['EW', 'Early Warning System', 'external'], ['RD', 'Radar', 'sensor'], ['FC', 'Fire Control', 'controller'], ['LS', 'Launch Station', 'controller'], ['L', 'Launcher', 'actuator'],
+    ['CA', 'Command Authority', 'external'], ['O', 'Operators', 'controller'], ['EW', 'Early Warning System', 'external'], ['RD', 'Radar', 'external'], ['FC', 'Fire Control', 'controller'], ['LS', 'Launch Station', 'controller'], ['L', 'Launcher', 'process'],
     ['IS', 'Interceptor Simulator', 'process'], ['FL', 'Flight Computer', 'controller'], ['IH', 'Interceptor Hardware', 'process'],
   ], [
     ['CA', 'O', 'ca', 'Doctrine, Engagement Criteria, Training, TTP, Workarounds'], ['O', 'CA', 'fb', 'Exercise Results, Readiness, Status, Wargame Results'],
@@ -61,7 +61,7 @@ const STRUCTURES = [
   ]),
   struct('hb-cs-proscan', 'Proton therapy (PROSCAN)', 'Figure B.4, the Treatment Delivery part of B.3 in detail.', [
     ['TD', 'Treatment Definition – D0', 'controller'], ['TV', 'Treatment Delivery – D1', 'controller'], ['DT', 'PROSCAN Design Team', 'controller', 'TV'], ['OM', 'Operations Management', 'controller', 'TV'], ['M', 'Maintenance', 'controller', 'TV'],
-    ['OP', 'Operators', 'controller', 'TV'], ['MT', 'Medical Team', 'controller', 'TV'], ['F', 'PROSCAN facility (physical actuators and sensors, automated controllers)', 'actuator', 'TV'], ['P', 'Patient', 'process'],
+    ['OP', 'Operators', 'controller', 'TV'], ['MT', 'Medical Team', 'controller', 'TV'], ['F', 'PROSCAN facility (physical actuators and sensors, automated controllers)', 'controller', 'TV'], ['P', 'Patient', 'process'],
   ], [
     ['TD', 'DT', 'ca', 'Capability upgrade requests'], ['TD', 'OM', 'ca', 'Treatment specifications (fraction definition, patient positioning information, beam characteristics)'], ['OM', 'TD', 'fb', 'QA results'], ['P', 'TD', 'fb', '(delayed) Cure evaluation, Prognosis'],
     ['OM', 'DT', 'fb', 'Problem reports, Incidents, Change requests, Performance audits'], ['DT', 'OM', 'ca', 'Revised operating procedures'], ['DT', 'F', 'ca', 'Software revisions, Hardware modifications'],
@@ -79,14 +79,13 @@ const STRUCTURES = [
     ['PC', 'HP', 'ca', 'Detailing, advertising and access to drugs'], ['HP', 'PC', 'fb', 'Adverse events'], ['HP', 'PT', 'ca', 'Prescriptions'], ['PT', 'HP', 'fb', 'Symptoms, perceived benefits and side effects'],
     ['PI', 'PT', 'ca', 'Reimbursement'], ['PT', 'PI', 'fb', 'Claim'], ['PY', 'PI', 'ca', 'Insurance policy'], ['PC', 'PA', 'ca', 'Funds'], ['PA', 'CG', 'fb', 'Public group pressures'], ['PA', 'PT', 'fb', 'Direct to consumer advertising'],
   ]),
-  struct('hb-cs-acc', 'Adaptive Cruise Control (ACC)', 'Figure B.6; dashed boxes in the figure (pedals, switch, sensors, actuators) are modelled as actuators and sensors.', [
-    ['D', 'Driver', 'controller'], ['MS', 'Multi-function switch', 'actuator'], ['IC', 'Instrument Cluster', 'sensor'], ['AP', 'Accelerator Pedal', 'actuator'], ['BP', 'Brake Pedal', 'actuator'], ['ACC', 'Adaptive Cruise Control (ACC) Module', 'controller'],
-    ['BCM', 'Brake Control Module', 'controller'], ['R', 'Radar', 'sensor'], ['PCM', 'Powertrain Control Module', 'controller'], ['SB', 'Service Brakes', 'actuator'], ['WSS', 'Wheel Speed Sensor', 'sensor'], ['ETB', 'Electronic Throttle Body', 'actuator'], ['V', 'Vehicle', 'process'], ['LV', 'Lead Vehicle', 'external'],
+  struct('hb-cs-acc', 'Adaptive Cruise Control (ACC)', 'Figure B.6; the dashed boxes in the figure (pedals, switch, sensors, actuators) are modelled as the actuator or sensor of the arrow they sit on.', [
+    ['D', 'Driver', 'controller'], ['ACC', 'Adaptive Cruise Control (ACC) Module', 'controller'], ['BCM', 'Brake Control Module', 'controller'], ['PCM', 'Powertrain Control Module', 'controller'], ['V', 'Vehicle', 'process'], ['LV', 'Lead Vehicle', 'external'],
   ], [
-    ['D', 'MS', 'ca', 'On, Off, Set, Cancel, Inc, Dec, Etc.'], ['MS', 'ACC', 'ca', 'On, Off, Set, Cancel, Inc, Dec, Etc.'], ['ACC', 'IC', 'fb', 'ACC On, Off, Canceled, Active'], ['IC', 'D', 'fb', 'ACC On, Off, Canceled, Active'],
-    ['D', 'AP', 'ca', 'Accelerate Cmd'], ['AP', 'PCM', 'ca', 'Acceleration Signal'], ['ACC', 'PCM', 'ca', 'Acceleration Signal'], ['D', 'BP', 'ca', 'Brake Cmd'], ['BP', 'BCM', 'ca', 'Braking Signal'],
-    ['BCM', 'ACC', 'fb', 'Braking status, Vehicle speed'], ['R', 'ACC', 'fb', 'Distance to lead vehicle'], ['LV', 'R', 'fb', 'Distance to lead vehicle'],
-    ['BCM', 'SB', 'ca', 'Brake Cmd'], ['SB', 'V', 'ca', 'Friction'], ['V', 'WSS', 'fb', 'Wheel Speed'], ['WSS', 'BCM', 'fb', 'Wheel Speed'], ['PCM', 'ETB', 'ca', 'Throttle opening'], ['ETB', 'PCM', 'fb', 'Throttle position'], ['ETB', 'V', 'ca', 'Friction'],
+    ['D', 'ACC', 'ca', 'On, Off, Set, Cancel, Inc, Dec, Etc.', 'Multi-function switch'], ['ACC', 'D', 'fb', 'ACC On, Off, Canceled, Active', 'Instrument Cluster'],
+    ['D', 'PCM', 'ca', 'Accelerate Cmd, Acceleration Signal', 'Accelerator Pedal'], ['ACC', 'PCM', 'ca', 'Acceleration Signal'], ['D', 'BCM', 'ca', 'Brake Cmd, Braking Signal', 'Brake Pedal'],
+    ['BCM', 'ACC', 'fb', 'Braking status, Vehicle speed'], ['LV', 'ACC', 'fb', 'Distance to lead vehicle', 'Radar'],
+    ['BCM', 'V', 'ca', 'Brake Cmd', 'Service Brakes'], ['V', 'BCM', 'fb', 'Wheel Speed', 'Wheel Speed Sensor'], ['PCM', 'V', 'ca', 'Throttle opening', 'Electronic Throttle Body'], ['V', 'PCM', 'fb', 'Throttle position', 'Electronic Throttle Body'],
   ]),
 ]
 
@@ -149,12 +148,12 @@ export const HANDBOOK_EXAMPLES: { id: string; label: string; spec: Spec }[] = [
       description: C + 'Figure C.1. The Handbook does not define H-1 and H-2 for this table; the automotive hazards of Appendix A are used here, and the losses are those of Appendix A.',
       losses: [['L1', 'Loss of life or serious injury to people'], ['L2', 'Damage to the vehicle or objects outside the vehicle']],
       hazards: [['H1', 'Vehicle does not maintain safe distance from nearby objects', ['L1', 'L2']], ['H2', 'Vehicle enters dangerous area/region', ['L1', 'L2']]],
-      nodes: [['D', 'Driver', 'external'], ['AH', 'Auto-Hold (AH) Module', 'controller'], ['V', 'Physical Vehicle', 'process'], ['B', 'Braking System', 'actuator', 'V'], ['P', 'Propulsion System', 'actuator', 'V'], ['E', 'Environment & Other Drivers', 'external']],
+      nodes: [['D', 'Driver', 'external'], ['AH', 'Auto-Hold (AH) Module', 'controller'], ['V', 'Physical Vehicle', 'process'], ['E', 'Environment & Other Drivers', 'external']],
       links: [
         ['D', 'AH', 'ca', 'Enable/Disable AH, Brake pedal on/off'], ['AH', 'D', 'fb', 'AH Enabled/Disabled'],
-        ['AH', 'B', 'ca', 'HOLD command'], ['AH', 'B', 'ca', 'RELEASE command'], ['AH', 'B', 'ca', 'ADDITIONAL PRESSURE command'], ['B', 'AH', 'fb', 'Wheel speed'],
-        ['P', 'AH', 'fb', 'Accel pos., PRNDL'], ['V', 'AH', 'fb', 'Driver presence, Inclination'],
-        ['D', 'B', 'ca', 'Brake'], ['B', 'D', 'fb', 'Pedal response'], ['D', 'P', 'ca', 'Accelerate, Shift'], ['V', 'D', 'fb', 'Vehicle speed, Visual feedback, etc.'], ['E', 'D', 'fb', 'Visual cues, Physical feedback'],
+        ['AH', 'V', 'ca', 'HOLD command', 'Braking System'], ['AH', 'V', 'ca', 'RELEASE command', 'Braking System'], ['AH', 'V', 'ca', 'ADDITIONAL PRESSURE command', 'Braking System'], ['V', 'AH', 'fb', 'Wheel speed'],
+        ['V', 'AH', 'fb', 'Accel pos., PRNDL'], ['V', 'AH', 'fb', 'Driver presence, Inclination'],
+        ['D', 'V', 'ca', 'Brake', 'Braking System'], ['V', 'D', 'fb', 'Pedal response'], ['D', 'V', 'ca', 'Accelerate, Shift', 'Propulsion System'], ['V', 'D', 'fb', 'Vehicle speed, Visual feedback, etc.'], ['E', 'D', 'fb', 'Visual cues, Physical feedback'],
       ],
       ucas: [
         ['HOLD command', 'N', 'AH does not provide HOLD when vehicle stops and brake pedal released', ['H1', 'H2']],
@@ -279,7 +278,7 @@ export function handbookExampleProject(id: string): Project {
   if (spec.nodes) {
     const node: Record<string, Id> = {}
     for (const [k, t, role, parent] of spec.nodes) node[k] = add('node', { title: t, role, parent: parent ? node[parent] : null })
-    for (const [from, to, type, t] of spec.links ?? []) { const id = add(type === 'fb' ? 'feedback' : 'ca', { title: t, from: node[from], to: node[to] }); if (type === 'ca') ca[t] ??= id }
+    for (const [from, to, type, t, dev] of spec.links ?? []) { const id = type === 'fb' ? add('feedback', { title: t, from: node[from], to: node[to], sensor: dev ?? '' }) : add('ca', { title: t, from: node[from], to: node[to], actuator: dev ?? '' }); if (type === 'ca') ca[t] ??= id }
   } else if (spec.ucas) {
     const ctrl = add('node', { title: spec.controller, role: 'controller' })
     const proc = add('node', { title: spec.process, role: 'process' })

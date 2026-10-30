@@ -40,6 +40,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
   (`STATUSES`, `CAUSES`, `REQUIREMENT_TYPES`, `SEVERITIES`, …) are `as const` arrays with derived union types.
   Mentions: use `mention`/`mentions`/`replaceMentions` from `refs.ts`, not the regex.
 - UCAs and system constraints link only to **leaf** hazards. Hazard→loss links are many-to-many; sub-hazards inherit.
+- Sensors and actuators are **not nodes**: node roles are controller / process / external. A feedback has an optional `sensor`, a control action an optional `actuator` (names), drawn as small coloured pills on the arrow (`DEVICE_STYLE`). `deserialize` migrates old sensor/actuator nodes (names move onto the arrows, nodes become external / process).
 - Two scenario kinds (`scenarioType`): `'uca'` (why a UCA occurs; hazards inherited from the UCA) and `'ca'` (why a
   control action is not executed properly; own `hazards`, `cause` from `CAUSES`, optional `element`).
   Use `scenarioHazards(p, s)` (`derived.ts`) and `scenarioTarget(s)` rather than reading `s.hazards` directly.

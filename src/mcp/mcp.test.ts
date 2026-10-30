@@ -45,7 +45,7 @@ describe('mcp tools', () => {
     expect(dry.r.deleted.length).toBeGreaterThan(1)
     expect(dry.p).toBe(p)
     ;({ p } = run(p, 'delete_items', { refs: ['CA-2'] }))
-    expect(run(p, 'list_items', { kind: 'ca' }).r.total).toBe(2)
+    expect(run(p, 'list_items', { kind: 'ca' }).r.total).toBe(1)
     expect(() => run(p, 'move_item', { ref: 'H-1', parent: 'H-1' })).toThrow()
   })
 

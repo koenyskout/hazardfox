@@ -1,6 +1,6 @@
 import { emptyProject, makeItem } from './create'
 import { groupKey } from './tree'
-import { KINDS, type Item, type Project } from './types'
+import { KINDS, type Item, type NodeRole, type Project } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
   v && typeof v === 'object' && !Array.isArray(v)
@@ -24,7 +24,17 @@ export function deserialize(text: string): Project {
   if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
-  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  // Older files modelled sensors and actuators as nodes: keep their name on the arrows into / out of them, and make them plain elements.
+  const old: Record<string, NodeRole> = { actuator: 'process', sensor: 'external' }
+  for (const n of Object.values(p.items)) {
+    if (n.kind !== 'node' || !(n.role as string in old)) continue
+    for (const a of Object.values(p.items)) {
+      if (a.kind === 'ca' && a.to === n.id && !a.actuator) a.actuator = n.title
+      if (a.kind === 'feedback' && a.from === n.id && !a.sensor) a.sensor = n.title
+    }
+    n.role = old[n.role as string]
+  }
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
   return p
 }

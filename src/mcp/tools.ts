@@ -60,7 +60,7 @@ export function nextSteps(p: Project): string[] {
   if (!c('loss')) out.push('Step 1: define losses (create_items kind "loss").')
   if (!c('hazard')) out.push('Step 1: define system-level hazards linked to losses (kind "hazard", lossLinks).')
   else if (!c('constraint')) out.push('Step 1: derive a system constraint for every leaf hazard (kind "constraint").')
-  if (!c('node')) out.push('Step 2: model the control structure: controllers/actuators/sensors/process (kind "node"), control actions (kind "ca") and feedback (kind "feedback"); add domain entities and process variables for the process models.')
+  if (!c('node')) out.push('Step 2: model the control structure: controllers/process/external elements (kind "node"), control actions (kind "ca") and feedback (kind "feedback"); add domain entities and process variables for the process models.')
   else if (!c('ca')) out.push('Step 2: add control actions between nodes (kind "ca").')
   const cas = itemsOfKind(p, 'ca')
   const missing = cas.filter((ca) => GUIDE_WORDS.some((g) => !itemsOfKind(p, 'uca').some((u) => u.ca === ca.id && u.guide === g)))

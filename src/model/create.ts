@@ -20,8 +20,8 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*' }),
   variable: () => ({ states: [] }),
   node: () => ({ role: 'controller', processModel: [], entity: null, nudge: null, wide: 0 }),
-  ca: () => ({ from: '', to: '', operation: '', bend: null }),
-  feedback: () => ({ from: '', to: '', variables: [], bend: null }),
+  ca: () => ({ from: '', to: '', operation: '', actuator: '', bend: null }),
+  feedback: () => ({ from: '', to: '', variables: [], sensor: '', bend: null }),
   uca: () => ({ ca: '', guide: 'not-provided', conditions: [], context: '', override: '', hazards: [], constraint: '' }),
   scenario: () => ({
     scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null,

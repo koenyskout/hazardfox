@@ -20,10 +20,10 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
 ## Step 2 - Control structure
 - domain model (optional but needed for context-aware UCAs): entity (attributes, operations), variable (parent = entity, states[]),
   relationship (from/to entities).
-- node: controller | actuator | sensor | process | external; nest with parent (subsystems). A controller's processModel lists the
+- node: controller | process | external (sensors and actuators are NOT nodes); nest with parent (subsystems). A controller's processModel lists the
   variables it tracks. entity optionally links the domain entity.
-- ca (control action): from controller node to node; named as a verb phrase ("Set rate"). feedback: from node to node with the
-  variables it updates.
+- ca (control action): from controller node to node; named as a verb phrase ("Set rate"); optional "actuator" names the actuator that
+  carries it out. feedback: from node to node with the variables it updates; optional "sensor" names the sensor producing it.
 
 ## Step 3 - Unsafe control actions
 For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage).

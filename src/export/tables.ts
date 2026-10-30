@@ -61,8 +61,8 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
 
   push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Process model', 'Description', 'Status'],
     tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', n.processModel.map((v) => p.items[v]?.title).filter(Boolean).join(', '), T(n.description), n.status]))
-  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), T(c.description), c.status]))
-  push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Variables', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), lab(c.variables), T(c.description), c.status]))
+  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, T(c.description), c.status]))
+  push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Sensor', 'Variables', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), c.sensor, lab(c.variables), T(c.description), c.status]))
 
   push('ucas', 'Unsafe control actions', ['ID', 'Control action', 'Type', 'Unsafe control action', 'Hazards', 'Controller constraint', 'Status', 'Tags'],
     flat('uca').sort(byLabel(L)).map((u) => [L[u.id], name(u.ca), GUIDE_WORD_LABELS[u.guide], generateUcaText(p, L, u), lab(u.hazards), T(u.constraint), u.status, u.tags.join(', ')]), [1, 2, 1.6, 4, 1.3, 3, 1, 1.2])

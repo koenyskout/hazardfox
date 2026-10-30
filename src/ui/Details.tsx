@@ -166,6 +166,16 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="To"><SingleRef value={it.to || null} options={nodes} onChange={(v) => set({ to: v ?? '' })} /></Field>
           </div>
           {it.kind === 'feedback' && (
+            <Field label="Sensor" hint="Optional: the sensor that produces this feedback. Shown as a marker on the arrow.">
+              <input value={it.sensor} onChange={(e) => set({ sensor: e.target.value }, 'sensor')} />
+            </Field>
+          )}
+          {it.kind === 'ca' && (
+            <Field label="Actuator" hint="Optional: the actuator that carries out this control action. Shown as a marker on the arrow.">
+              <input value={it.actuator} onChange={(e) => set({ actuator: e.target.value }, 'actuator')} />
+            </Field>
+          )}
+          {it.kind === 'feedback' && (
             <Field label="Updates variables"><RefList value={it.variables} options={of('variable')} onChange={(v) => set({ variables: v })} /></Field>
           )}
           {it.kind === 'ca' && (

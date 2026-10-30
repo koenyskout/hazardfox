@@ -90,7 +90,7 @@ describe('labels and tree ops', () => {
     let p = emptyProject()
     let n1: Id, n2: Id, ca: Id, h: Id, s: Id
     ;[p, n1] = add(p, 'node', { title: 'C' })
-    ;[p, n2] = add(p, 'node', { title: 'A', role: 'actuator' })
+    ;[p, n2] = add(p, 'node', { title: 'A', role: 'process' })
     ;[p, ca] = add(p, 'ca', { from: n1, to: n2 })
     ;[p, h] = add(p, 'hazard', { title: 'H' })
     ;[p, s] = add(p, 'scenario', { scenarioType: 'ca', ca, hazards: [h] })
@@ -165,5 +165,37 @@ describe('published STPA analyses', () => {
     const vtt = Object.values(publishedExampleProject('pub-vtt-am').items)
     expect(vtt.filter((i) => i.kind === 'uca')).toHaveLength(6)
     expect(vtt.filter((i) => i.kind === 'loss')).toHaveLength(4)
+  })
+})
+
+describe('sensors and actuators', () => {
+  it('are attributes of arrows, never nodes, in every example', async () => {
+    const { HANDBOOK_EXAMPLES, handbookExampleProject } = await import('./handbookExamples')
+    const { PUBLISHED_EXAMPLES, publishedExampleProject } = await import('./publishedExamples')
+    const { exampleProject } = await import('./example')
+    const all = [exampleProject(), ...HANDBOOK_EXAMPLES.map((e) => handbookExampleProject(e.id)), ...PUBLISHED_EXAMPLES.map((e) => publishedExampleProject(e.id))]
+    for (const q of all) for (const i of Object.values(q.items)) if (i.kind === 'node') expect(['controller', 'process', 'external']).toContain(i.role)
+    const acc = Object.values(handbookExampleProject('hb-cs-acc').items)
+    expect(acc.filter((i) => i.kind === 'ca' && i.actuator)).toHaveLength(5)
+    expect(acc.filter((i) => i.kind === 'feedback' && i.sensor)).toHaveLength(4)
+  })
+
+  it('migrate old files: node roles become plain elements, their names move to the arrows', async () => {
+    const { serialize, deserialize } = await import('./serialize')
+    let p = emptyProject()
+    let c: string, a: string, s: string
+    ;[p, c] = add(p, 'node', { title: 'Ctl', role: 'controller' })
+    ;[p, a] = add(p, 'node', { title: 'Valve', role: 'process' })
+    ;[p] = add(p, 'node', { title: 'Proc', role: 'process' })
+    ;[p, s] = add(p, 'node', { title: 'Gauge', role: 'external' })
+    ;[p] = add(p, 'ca', { title: 'Open', from: c, to: a })
+    ;[p] = add(p, 'feedback', { title: 'Level', from: s, to: c })
+    const raw = JSON.parse(serialize(p))
+    for (const i of raw.items) { delete i.actuator; delete i.sensor; if (i.title === 'Valve') i.role = 'actuator'; if (i.title === 'Gauge') i.role = 'sensor' }
+    const q = deserialize(JSON.stringify(raw))
+    const items = Object.values(q.items)
+    expect(items.filter((i) => i.kind === 'node').map((n) => n.kind === 'node' && n.role).sort()).toEqual(['controller', 'external', 'process', 'process'])
+    expect(items.find((i) => i.kind === 'ca' && i.actuator === 'Valve')).toBeTruthy()
+    expect(items.find((i) => i.kind === 'feedback' && i.sensor === 'Gauge')).toBeTruthy()
   })
 })

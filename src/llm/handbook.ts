@@ -131,8 +131,8 @@ export function buildExample(ex: Example): Built {
       break
     default: {
       const ctrl = add('node', { title: ex.controller ?? BSCU.controller, role: 'controller' })
-      const act = add('node', { title: 'Brakes', role: 'actuator' })
-      const ca = add('ca', { title: ex.action ?? BSCU.action, from: ctrl, to: act })
+      const act = add('node', { title: 'Aircraft', role: 'process' })
+      const ca = add('ca', { title: ex.action ?? BSCU.action, from: ctrl, to: act, actuator: 'Brakes' })
       const hazards = mkHazards(ex.hazards)
       if (ex.kind === 'uca') id = add('uca', { ca, guide: ex.guide ?? 'provided', override: ex.text, hazards, constraint: ex.constraint ?? '' })
       else if (ex.kind === 'scenario') {

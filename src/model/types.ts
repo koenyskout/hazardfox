@@ -30,7 +30,8 @@ export type Stride = (typeof STRIDE)[number]
 export const STATUSES = ['draft', 'review', 'approved'] as const
 export type Status = (typeof STATUSES)[number]
 
-export const NODE_ROLES = ['controller', 'actuator', 'sensor', 'process', 'external'] as const
+/** Sensors and actuators are not nodes: they are attached to feedback (`sensor`) and control action (`actuator`) arrows. */
+export const NODE_ROLES = ['controller', 'process', 'external'] as const
 export type NodeRole = (typeof NODE_ROLES)[number]
 
 export const REQUIREMENT_TYPES = ['requirement', 'mitigation'] as const
@@ -120,6 +121,8 @@ export interface ControlAction extends Base {
   to: Id
   /** Optional domain operation (`<entityId>:<operation>`) */
   operation: string
+  /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
+  actuator: string
   bend: Offset | null
 }
 export interface Feedback extends Base {
@@ -128,6 +131,8 @@ export interface Feedback extends Base {
   to: Id
   /** Variables this feedback updates */
   variables: Id[]
+  /** Sensor that produces this feedback (name; an attribute of the arrow, not a node) */
+  sensor: string
   bend: Offset | null
 }
 
