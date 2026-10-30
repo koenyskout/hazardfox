@@ -71,12 +71,16 @@ export function RangeBar(props: { min: number; max: number; step: number; op: Co
   const out = (x: number) => String(Math.round(x / step) * step === x ? x : +x.toFixed(Math.max(0, -Math.floor(Math.log10(step)))))
   return (
     <div className={'rangebar' + (touched ? '' : ' untouched')}>
-      <span className="rb-track" />
-      {fills}
-      <input type="range" min={min} max={max} step={step} value={a} onChange={(e) => { const x = Number(e.target.value); props.onChange(out(dual ? Math.min(x, b) : x), dual ? props.b || out(b) : '') }} />
-      {dual && <input type="range" min={min} max={max} step={step} value={b} onChange={(e) => { const x = Number(e.target.value); props.onChange(props.a || out(a), out(Math.max(x, a))) }} />}
-      <span className="rb-lbl rb-min">{min}{props.unit ? ' ' + props.unit : ''}</span>
-      <span className="rb-lbl rb-max">{max}{props.unit ? ' ' + props.unit : ''}</span>
+      <span className="rb-lbl">{min}</span>
+      <div className="rb-bar">
+        <span className="rb-track" />
+        {fills}
+        <input type="range" min={min} max={max} step={step} value={a} onChange={(e) => { const x = Number(e.target.value); props.onChange(out(dual ? Math.min(x, b) : x), dual ? props.b || out(b) : '') }} />
+        {dual && <input type="range" min={min} max={max} step={step} value={b} onChange={(e) => { const x = Number(e.target.value); props.onChange(props.a || out(a), out(Math.max(x, a))) }} />}
+        {touched && <span className="rb-val" style={{ left: at(a) }}>{props.a}</span>}
+        {touched && dual && <span className="rb-val" style={{ left: at(b) }}>{props.b}</span>}
+      </div>
+      <span className="rb-lbl">{max}{props.unit ? ' ' + props.unit : ''}</span>
     </div>
   )
 }
