@@ -181,3 +181,5 @@ table.plain td { padding: 4px 10px 4px 0; }
 .grid td.na { background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(127,127,127,.1) 6px 12px); font-size: 11.5px; }
 .na-row { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 .na-row label { display: flex; gap: 6px; align-items: center; }
+.picker-list li .chip, .picker-btn .chip { white-space: nowrap; flex: none; }
+.pk-title { overflow-wrap: anywhere; }

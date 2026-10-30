@@ -35,6 +35,7 @@ export function Picker({ options, onPick, children, className }: { options: Item
     const w = window.innerWidth >= 780 ? 740 : 380
     setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)), y: r.bottom + 4 })
   }
+  const mixed = new Set(options.map((o) => o.kind)).size > 1
   const cur = hits[Math.min(sel, hits.length - 1)]
   const wide = window.innerWidth >= 780
   return (
@@ -57,7 +58,7 @@ export function Picker({ options, onPick, children, className }: { options: Item
                   <span className={'chip k-' + o.kind}>{labels[o.id]}</span>
                   <span className="pk-main">
                     <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>
-                    <span className="pk-sub">{[KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
+                    <span className="pk-sub">{[mixed && KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
                   </span>
                 </li>
               ))}
