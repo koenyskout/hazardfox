@@ -3,7 +3,7 @@ import { deleteItems, shift, updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
 import { Ref } from './Fields'
-import { addItem, commit, select, useIds } from './hooks'
+import { addItem, commit, select, useIds, useProject } from './hooks'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
 
@@ -58,7 +58,7 @@ export function FlatTable<K extends Kind>(props: {
           const header = props.groupBy && (i === 0 || props.groupBy(props.items[i - 1]) !== g)
           return (
           <Fragment key={it.id}>
-          {header && <div className="row group">{g ? <Ref id={g} /> : <span className="muted">No owner</span>}</div>}
+          {header && <div className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}</div>}
           <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
             <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
@@ -83,4 +83,10 @@ export function FlatTable<K extends Kind>(props: {
       </div>
     </div>
   )
+}
+
+/** Name next to an owner chip, for kinds whose chip shows only the label (entities and relationships already show theirs). */
+function GroupTitle({ id }: { id: Id }) {
+  const it = useProject().items[id]
+  return it && it.kind !== 'entity' && it.kind !== 'relationship' && it.title.trim() ? <span> {it.title}</span> : null
 }
