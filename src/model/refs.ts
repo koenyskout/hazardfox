@@ -1,5 +1,5 @@
 import { laneText, leaves, mapLeaves } from './variables'
-import type { Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
+import type { Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
 type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
@@ -70,8 +70,8 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) if (c.variable) out.push(c.variable)
-  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).map((c) => c.variable).filter(Boolean))
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other) }
+  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '']).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
@@ -90,6 +90,10 @@ export function linkedTo(p: Project, id: Id): Item[] {
   return Object.values(p.items).filter((o) => listRefs(o.kind).some((f) => getList(o, f).includes(id)))
 }
 
+/** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
+const reref = (c: Condition, from: Id, to: Id | null): Condition[] =>
+  c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
+
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   for (const f of requiredRefs(it.kind)) if (to && getField(it, f) === from) setField(it, f, to)
@@ -103,11 +107,9 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     setField(it, f, next)
   }
   if (it.kind === 'uca' || it.kind === 'hazard') {
-    it.conditions = it.conditions.flatMap((c) =>
-      c.variable !== from ? [c] : to ? [{ ...c, variable: to }] : [],
-    )
+    it.conditions = it.conditions.flatMap((c) => reref(c, from, to))
   }
-  if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => (c.variable !== from ? c : to ? { ...c, variable: to } : null))
+  if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
     t.lanes = [...new Set(t.lanes.flatMap((x) => (x !== from ? [x] : to ? [to] : [])))]

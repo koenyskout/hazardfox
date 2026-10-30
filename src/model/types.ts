@@ -199,6 +199,8 @@ export interface Condition {
   to?: string
   set?: string[]
   text?: string
+  /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
+  other?: Id
 }
 export interface Uca extends Base {
   kind: 'uca'

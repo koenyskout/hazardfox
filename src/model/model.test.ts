@@ -223,6 +223,23 @@ describe('control action duration', () => {
 })
 
 describe('variable types and conditions', () => {
+  it('compares a variable with another variable', async () => {
+    const { conditionText, conditionError } = await import('./variables')
+    const { condHolds } = await import('./traces')
+    const { makeItem } = await import('./create')
+    let q = emptyProject()
+    const mk = (title: string) => { const r = createItem(q, 'variable', { ...makeItem('variable'), type: 'range' as const, title, unit: 'ml' }); q = r.project; return r.id }
+    const flow = mk('Flow'), dose = mk('Prescribed dose')
+    const c = { variable: flow, op: '>' as const, state: '', other: dose }
+    expect(conditionText(q, c)).toBe('Flow is greater than Prescribed dose')
+    expect(conditionError(q.items[flow] as never, c, q)).toBeNull()
+    expect(condHolds(q, c, (id) => ({ [flow]: '5', [dose]: '3' })[id])).toBe(true)
+    expect(condHolds(q, c, (id) => ({ [flow]: '2', [dose]: '3' })[id])).toBe(false)
+    expect(condHolds(q, c, (id) => ({ [flow]: '2' })[id])).toBeNull()
+    const h = createItem(q, 'hazard', { conditions: [c] })
+    q = deleteItems(h.project, [dose])
+    expect((q.items[h.id] as Hazard).conditions).toEqual([])
+  })
   it('describes states, validates conditions per type and migrates negate', async () => {
     const { describeStates, conditionError, conditionText, opsFor } = await import('./variables')
     const { deserialize, serialize } = await import('./serialize')

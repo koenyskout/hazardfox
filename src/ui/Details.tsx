@@ -2,7 +2,7 @@ import { renderText } from '../model/labels'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, conditionComplete, conditionError, conditionText, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
 import { VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { createItem, updateItem } from '../model/ops'
@@ -497,7 +497,9 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   const vr = v?.kind === 'variable' ? v : undefined
   const values = valuesOf(vr)
   const bar = vr?.type === 'range' && vr.min !== null && vr.max !== null && vr.max > vr.min
-  const err = vr && (c.state || c.set?.length) ? conditionError(vr, c) : null
+  const cmp = c.other !== undefined
+  const ov = c.other ? p.items[c.other] : undefined
+  const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
       <select value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value })}>
@@ -510,20 +512,26 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   return (
     <div className="cond">
       <span className="cond-word">{word}</span>
-      <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
+      <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], other: undefined, op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
         {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
       </Picker>
       <select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}>
-        {opsFor(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
+        {(cmp ? opsForVar(vr) : opsFor(vr)).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
       </select>
-      {bar && vr && (
+      {vr && <select title="Compare with a fixed value or with the value of another variable" value={cmp ? 'var' : 'value'} onChange={(e) => e.target.value === 'var' ? upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' }) : onChange({ variable: c.variable, op: opsFor(vr).includes(c.op) ? c.op : '=', state: '' })}><option value="value">a value</option><option value="var">another variable</option></select>}
+      {cmp && vr && (
+        <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
+          {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
+        </Picker>
+      )}
+      {!cmp && bar && vr && (
         <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
       )}
-      {isSetOp(c.op)
+      {cmp ? null : isSetOp(c.op)
         ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd({ set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
         : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-      {isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
-      {vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
+      {!cmp && isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
+      {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
       <button className="x" onClick={onRemove}>×</button>
       {err && <small className="cond-err">{err}</small>}
     </div>

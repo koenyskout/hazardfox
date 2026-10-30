@@ -34,7 +34,7 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const COND = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}'
+const COND = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥), set?: string[] (states, only for in / not in)}'
 
 const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
@@ -142,13 +142,23 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     if (isStr(c?.text) && c.variable === undefined) return { variable: '', op: c.op === '≠' || c.negate === true ? '≠' : '=', state: 'true', text: c.text }
     const variable = r.resolve(c?.variable)
     checkKind(variable, 'variable')
+    if (c.other !== undefined && c.other !== null && c.other !== '') {
+      const other = r.resolve(c.other)
+      checkKind(other, 'variable')
+      const op: ConditionOp = c.op === undefined ? '=' : (c.op as ConditionOp)
+      const cmp: Condition = { variable, op, state: '', other }
+      const vi = r.p.items[variable]
+      const bad = vi?.kind === 'variable' ? conditionError(vi, cmp, r.p) : null
+      if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
+      return cmp
+    }
     const isSet = c.op === 'in' || c.op === 'not in'
     if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
     const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
     if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
     const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}) }
     const vi = r.p.items[variable]
-    const bad = vi?.kind === 'variable' ? conditionError(vi, cond) : null
+    const bad = vi?.kind === 'variable' ? conditionError(vi, cond, r.p) : null
     if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
     return cond
   }

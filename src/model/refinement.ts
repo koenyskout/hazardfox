@@ -7,13 +7,13 @@ import type { Condition, Id, Project, Variable, When } from './types'
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
 
-const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', [...(c.set ?? [])].sort()])
+const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
 export function consistent(p: Project, cs: Condition[]): boolean {
   const by = new Map<Id, Condition[]>()
-  for (const c of cs) by.set(condKey(c), [...(by.get(condKey(c)) ?? []), c])
+  for (const c of cs.filter((c) => !c.other)) by.set(condKey(c), [...(by.get(condKey(c)) ?? []), c])
   for (const [id, group] of by) {
     if (laneText(id) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
     const v = p.items[id]
@@ -31,7 +31,7 @@ const and = (p: Project, a: Dnf, b: Dnf): Dnf => a.flatMap((x) => b.map((y) => d
 const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
   const v = p.items[c.variable]
   const vals = v?.kind === 'variable' ? valuesOf(v) : null
-  const other = vals?.length === 2 && c.op === '=' ? vals.find((x) => x !== c.state) : undefined
+  const other = !c.other && vals?.length === 2 && c.op === '=' ? vals.find((x) => x !== c.state) : undefined
   return [other !== undefined ? { ...c, state: other } : { ...c, op: NEGATE[c.op] }]
 })
 /** A condition tree (or its negation) in DNF. */
@@ -67,7 +67,7 @@ export function refineUca(p: Project, uca: Id, index: number): { project: Projec
   const u = p.items[uca]
   const c = u?.kind === 'uca' ? u.conditions[index] : undefined
   const v = c ? p.items[c.variable] : undefined
-  if (u?.kind !== 'uca' || !c || v?.kind !== 'variable') return { project: p, ids: [] }
+  if (u?.kind !== 'uca' || !c || c.other || v?.kind !== 'variable') return { project: p, ids: [] }
   const rest = u.conditions.filter((_, i) => i !== index)
   const same = (a: Condition[], b: Condition[]) => a.length === b.length && a.every((x) => b.some((y) => key(x) === key(y)))
   const have = itemsOfKind(p, 'uca').filter((x) => x.refines === uca)

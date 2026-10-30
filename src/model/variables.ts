@@ -42,8 +42,13 @@ export const condKey = (c: Condition): string => (isText(c) ? TEXT_KEY + (c.text
 /** The text of a lane key of a condition in words, else null. */
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
+/** A condition comparing the variable with another variable instead of a constant. */
+export const isVarCmp = (c: Condition) => !!c.other
+/** Operators for comparing two variables. */
+export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : ['=', '≠'])
+
 /** Whether the condition is complete enough to appear in a sentence. */
-export const conditionComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
+export const conditionComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 export function conditionText(p: Project, c: Condition): string {
   if (isText(c)) return c.op === '≠' ? `not (${c.text!.trim()})` : c.text!.trim()
@@ -51,12 +56,22 @@ export function conditionText(p: Project, c: Condition): string {
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = v.title
+  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }
 
 /** Problem with the condition's value for the variable's type, or null. */
-export function conditionError(v: Variable, c: Condition): string | null {
+export function conditionError(v: Variable, c: Condition, p?: Project): string | null {
+  if (c.other) {
+    const o = p?.items[c.other]
+    if (p && o?.kind !== 'variable') return 'compared variable not found'
+    if (!opsForVar(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
+    if (o?.kind === 'variable' && o.type !== v.type) return `cannot compare ${v.type} ${v.title} with ${o.type} ${o.title}`
+    if (o?.kind === 'variable' && v.type === 'range' && v.unit && o.unit && v.unit !== o.unit) return `units differ (${v.unit} vs ${o.unit})`
+    if (o?.kind === 'variable' && v.type === 'enum' && !v.states.some((s) => o.states.includes(s))) return `${v.title} and ${o.title} share no states`
+    return null
+  }
   if (!opsFor(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
   const vals = valuesOf(v)
   if (isSetOp(c.op)) { const bad = (c.set ?? []).find((x) => !vals?.includes(x)); return bad === undefined ? null : `"${bad}" is not one of ${(vals ?? []).join(', ')}` }

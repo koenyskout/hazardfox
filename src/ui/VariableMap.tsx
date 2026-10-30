@@ -31,7 +31,7 @@ export function VariableMap() {
   const ucas = itemsOfKind(p, 'uca')
   const owners = [...new Set(world.map((w) => w.parent ?? ''))]
   /** Is w part of the context of a UCA of a control action from controller c? */
-  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.some((x) => x.variable === w))
+  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.some((x) => x.variable === w || x.other === w))
   if (!world.length) return <p className="empty">Add world variables (layer “World”) to entities first; then map what each controller observes and believes.</p>
   return (
     <div className="varmap-wrap">

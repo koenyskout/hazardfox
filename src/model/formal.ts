@@ -34,7 +34,7 @@ export const isPredicate = (p: Project, v: Variable) => p.items[v.parent ?? '']?
 
 /** Variables a refined world variable is defined from (refinement ρ: its rules, and @-mentions in its definition). */
 export const refines = (p: Project, v: Variable): Id[] =>
-  [...new Set([...v.rules.flatMap((r) => leaves(r.when).map((c) => c.variable)), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
+  [...new Set([...v.rules.flatMap((r) => leaves(r.when).flatMap((c) => [c.variable, c.other ?? ''])), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
 
 /** All lower-level variables v is refined into, transitively (includes v itself only on a cycle). */
 export function partsOf(p: Project, v: Id): Id[] {

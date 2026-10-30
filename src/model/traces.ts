@@ -42,7 +42,14 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
 export function condHolds(p: Project, c: Condition, get: (id: Id) => string | undefined): boolean | null | undefined {
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
-  return v?.kind === 'variable' ? holds(v, c, get(c.variable)) : undefined
+  if (v?.kind !== 'variable') return undefined
+  if (c.other) {
+    const o = p.items[c.other]
+    if (o?.kind !== 'variable') return undefined
+    const a = get(c.variable), b = get(c.other)
+    return a === undefined || a === '' || b === undefined || b === '' ? null : holds(v, { ...c, other: undefined, state: b }, a)
+  }
+  return holds(v, c, get(c.variable))
 }
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
@@ -225,7 +232,15 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       }
       const w = p.items[c.variable]
       if (w?.kind !== 'variable') continue
-      const after = pickValue(w, c), before = k ? after : pickValue(w, c, true)
+      const o = c.other ? p.items[c.other] : null
+      let cc = c
+      if (c.other && o?.kind === 'variable') {
+        const ref = init.values[o.id] ?? initialValue(o)
+        lanes.push(o.id)
+        init.values[o.id] = ctx.values[o.id] = ref
+        cc = { ...c, other: undefined, state: ref }
+      }
+      const after = pickValue(w, cc), before = k ? after : pickValue(w, cc, true)
       lanes.push(w.id)
       init.values[w.id] = before
       ctx.values[w.id] = after

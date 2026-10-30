@@ -124,7 +124,7 @@ export function validate(p: Project): Issue[] {
     if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
     for (const r of v.rules) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
-        : leaves(r.when).map((c) => { if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c) }).find(Boolean)
+        : leaves(r.when).map((c) => { if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
@@ -135,8 +135,8 @@ export function validate(p: Project): Issue[] {
 
   for (const u of ucas) {
     const ca = p.items[u.ca]
-    for (const c of u.conditions) {
-      const v = p.items[c.variable]
+    for (const id of u.conditions.flatMap((c) => [c.variable, c.other ?? ''])) {
+      const v = p.items[id]
       if (v?.kind !== 'variable') continue
       if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])
       else if (v.layer === 'domain' && ca?.kind === 'ca' && p.items[ca.from]?.kind === 'node' && !beliefsAbout(p, ca.from, v.id).length && !partsOf(p, v.id).some((w) => beliefsAbout(p, ca.from, w).length))
