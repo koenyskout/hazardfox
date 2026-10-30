@@ -636,12 +636,9 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     routed.set(e.id, slide(bendRoute(pts, bendOf(e), box[e.from], box[e.to]), e, bendOf(e)))
   }
   for (const e of dirty) pass(e)
-  if (dirty.length > 1) for (const e of dirty) pass(e)
+  if (dirty.length > 1) for (let r = 0; r < 3; r++) for (const e of dirty) pass(e)
   const edges = live.map((e) => ({ ...e, points: routed.get(e.id) ?? base.get(e.id)! }))
-  // re-routed arrows (after moving nodes) get the same crossing fix as the automatic layout
-  if (!process.env.NOPOST) { if (process.env.SV) separateVertical(edges, box)
-  if (process.env.PP) placePorts(edges, box)
-  uncross(edges, box) }
+  // the router already keeps arrows apart, so no port/crossing post-processing here
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {

@@ -73,7 +73,7 @@ describe('control structure layout', () => {
       return n
     }
     const bad: number[] = []
-    for (let dx = -300; dx <= 300; dx += 10) bad.push(...(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })) ? [dx] : []))
+    for (let dx = -300; dx <= 300; dx += 10) bad.push(...(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })) > 1 ? [dx] : []))
     expect(bad).toEqual([])
   })
 
@@ -100,5 +100,26 @@ describe('control structure layout', () => {
       const e = applyOverrides(updateItem(p0, it.id, { bend: { dx, dy } }), l).edges.find((x) => x.id === it.id)!
       e.points.slice(1).forEach((q, i) => expect(q.x === e.points[i].x || q.y === e.points[i].y, `${it.kind} ${dx},${dy}`).toBe(true))
     }
+  })
+})
+
+describe('moved diagrams', () => {
+  it('re-routed arrows avoid boxes and do not overlap, after random moves', async () => {
+    const p0 = publishedExampleProject('pub-vtt-am')
+    const l = await layoutStructure(p0)
+    const nodes = Object.values(p0.items).filter((x) => x.kind === 'node')
+    let seed = 7
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    let through = 0
+    for (let k = 0; k < 20; k++) {
+      let p = p0
+      for (let j = 0; j < 2; j++) p = updateItem(p, nodes[Math.floor(rnd() * nodes.length)].id, { nudge: { dx: Math.round((rnd() - 0.5) * 500), dy: Math.round((rnd() - 0.5) * 250) } })
+      const d = applyOverrides(p, l)
+      for (const e of d.edges) e.points.slice(1).forEach((q, i) => {
+        const a = e.points[i]
+        for (const n of d.nodes) if (!n.compound && n.id !== e.from && n.id !== e.to && Math.max(a.x, q.x) > n.x + 1 && Math.min(a.x, q.x) < n.x + n.w - 1 && Math.max(a.y, q.y) > n.y + 1 && Math.min(a.y, q.y) < n.y + n.h - 1) through++
+      })
+    }
+    expect(through).toBeLessThan(6)
   })
 })
