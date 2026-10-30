@@ -68,7 +68,7 @@ export function Ref({ id }: { id: Id }) {
 
 export const optionLabel = (labels: Labels, it: Item) => `${labels[it.id]} ${it.title || ''}`.trim()
 
-export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[]) => void; placeholder?: string; disabled?: Id[] }) {
+export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[]) => void; placeholder?: string; disabled?: Id[]; create?: { label: string; run: () => Id } }) {
   const rest = props.options.filter((o) => !props.value.includes(o.id))
   return (
     <div className="reflist">
@@ -78,7 +78,7 @@ export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[
           <button className="x" title="Remove" onClick={() => props.onChange(props.value.filter((v) => v !== id))}>×</button>
         </span>
       ))}
-      <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id])}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>
+      <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id])} create={props.create && { label: props.create.label, run: () => { const id = props.create!.run(); props.onChange([...props.value, id]) } }}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>
     </div>
   )
 }

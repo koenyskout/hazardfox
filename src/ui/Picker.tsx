@@ -8,7 +8,7 @@ import { useLabels, useProject } from './hooks'
 import { ItemCard, summary } from './ItemCard'
 
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */
-export function Picker({ options, onPick, children, className }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string }) {
+export function Picker({ options, onPick, children, className, create }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void } }) {
   const p = useProject()
   const labels = useLabels()
   const goto = useStore((s) => s.goto)
@@ -53,6 +53,7 @@ export function Picker({ options, onPick, children, className }: { options: Item
                 else if (e.key === 'Escape') close()
               }} />
             <ul>
+              {create && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
               {hits.map((o, n) => (
                 <li key={o.id} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
                   <span className={'chip k-' + o.kind}>{labels[o.id]}</span>

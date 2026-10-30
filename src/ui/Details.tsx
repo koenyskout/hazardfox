@@ -6,7 +6,7 @@ import { generateUcaText } from '../model/uca'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
-import { commit, useLabels, useProject } from './hooks'
+import { addItem, commit, useLabels, useProject } from './hooks'
 import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
@@ -181,7 +181,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           </Field>
           <Field label="Domain entity"><SingleRef value={it.entity} options={of('entity')} onChange={(v) => set({ entity: v })} /></Field>
           <Field label="Process model (variables)">
-            <RefList value={it.processModel} options={of('variable')} onChange={(v) => set({ processModel: v })} />
+            <RefList value={it.processModel} options={of('variable')} create={{ label: '+ New variable…', run: () => addItem('variable') }} onChange={(v) => set({ processModel: v })} />
           </Field>
           {it.nudge && <button onClick={() => set({ nudge: null })}>Reset manual position</button>}
         </>
@@ -206,7 +206,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.kind === 'feedback' && (
-            <Field label="Updates variables"><RefList value={it.variables} options={of('variable')} onChange={(v) => set({ variables: v })} /></Field>
+            <Field label="Updates variables"><RefList value={it.variables} options={of('variable')} create={{ label: '+ New variable…', run: () => addItem('variable') }} onChange={(v) => set({ variables: v })} /></Field>
           )}
           {it.kind === 'ca' && (
             <Field label="Domain operation">

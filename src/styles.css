@@ -181,7 +181,8 @@ table.plain td { padding: 4px 10px 4px 0; }
 .picker-list input { margin: 6px; }
 .picker-list ul { list-style: none; margin: 0; padding: 0 0 4px; overflow-y: auto; }
 .picker-list li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 10px; cursor: pointer; }
-.picker-list li.on { background: var(--hover, rgba(127,127,127,.15)); }
+.picker-list li.on, .picker-list li.pk-create:hover { background: var(--hover, rgba(127,127,127,.15)); }
+.picker-list li.pk-create { color: var(--accent, #2563eb); font-weight: 500; }
 .pk-main { display: flex; flex-direction: column; min-width: 0; font-size: 12.5px; }
 .pk-sub { color: var(--muted); font-size: 11px; }
 .picker-card { width: 340px; padding: 10px 12px; border-left: 1px solid var(--border); overflow-y: auto; font-size: 12.5px; }
