@@ -10,7 +10,7 @@ import { deserialize, serialize } from './model/serialize'
 import { useStore, type View } from './model/store'
 import { validate } from './model/validate'
 
-const VIEWS: View[] = ['overview', 'step1', 'domain', 'structure', 'ucas', 'scenarios', 'requirements', 'trace', 'validation', 'review']
+const VIEWS: View[] = ['welcome', 'overview', 'step1', 'domain', 'structure', 'ucas', 'scenarios', 'requirements', 'trace', 'validation', 'review']
 
 describe('smoke', () => {
   it('renders every view with the example project and any selection', () => {

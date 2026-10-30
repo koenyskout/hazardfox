@@ -235,3 +235,10 @@ body:has(.modal-back) .hovercard { display: none; }
 .modal { position: relative; }
 .modal-x { position: absolute; top: 10px; right: 10px; padding: 3px 5px; line-height: 1; border: 0; background: none; color: var(--muted); }
 .modal-x:hover { background: var(--chip); color: var(--text); }
+.welcome { max-width: 860px; }
+.welcome .lead { font-size: 15px; line-height: 1.55; color: var(--muted); margin: 4px 0 16px; }
+.welcome .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 22px; }
+.welcome .actions button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.welcome ol.steps { padding-left: 22px; line-height: 1.5; }
+.welcome ol.steps li { margin-bottom: 6px; }
+.welcome .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }

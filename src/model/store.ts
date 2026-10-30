@@ -5,6 +5,7 @@ import type { Id, Project, SavedReview } from './types'
 const MAX_HISTORY = 200
 
 export type View =
+  | 'welcome'
   | 'review'
   | 'overview'
   | 'step1'
@@ -55,7 +56,7 @@ export const useStore = create<State>((set, get) => ({
   dirty: false,
   fileName: null,
   fileHandle: null,
-  view: 'overview',
+  view: 'welcome',
   selected: null,
   paletteOpen: false,
   editing: null,
@@ -95,7 +96,7 @@ export const useStore = create<State>((set, get) => ({
     set({ project: { ...next, reviews: s.project.reviews }, past: [...s.past, s.project], future: rest, dirty: true, lastKey: '' })
   },
   load(p, fileName, handle = null, markDirty = false) {
-    set({ project: p, past: [], future: [], dirty: markDirty, fileName, fileHandle: handle, selected: null, lastKey: '' })
+    set((s) => ({ project: p, past: [], future: [], dirty: markDirty, fileName, fileHandle: handle, selected: null, lastKey: '', view: s.view === 'welcome' ? 'overview' : s.view }))
   },
   setFile: (fileName, fileHandle) => set({ fileName, fileHandle }),
   markSaved: () => set({ dirty: false }),

@@ -12,11 +12,13 @@ import { Palette } from './ui/Palette'
 import { Structure } from './ui/Structure'
 import { Domain, Overview, Requirements, Scenarios, Step1, Ucas } from './ui/views1'
 import { Trace, Validation } from './ui/views2'
+import { Welcome } from './ui/Welcome'
 
 import { AutoReviewToggle, ReviewView, useAutoReview } from './ui/Review'
 const ExportView = lazy(() => import('./ui/ExportView').then((m) => ({ default: m.ExportView })))
 
 const NAV: [View, string, string][] = [
+  ['welcome', 'Welcome', '🦊'],
   ['overview', 'Overview', '◎'],
   ['step1', '1 · Losses & hazards', '⚠'],
   ['domain', 'Domain model', '▦'],
@@ -55,11 +57,11 @@ export default function App() {
   }, [undo, redo, setPalette])
 
   const body = {
-    overview: <Overview />, step1: <Step1 />, domain: <Domain />, structure: <Structure />, ucas: <Ucas />,
+    welcome: <Welcome />, overview: <Overview />, step1: <Step1 />, domain: <Domain />, structure: <Structure />, ucas: <Ucas />,
     scenarios: <Scenarios />, requirements: <Requirements />, trace: <Trace />, validation: <Validation />, export: <ExportView />,
     review: <ReviewView />,
   }[view]
-  const wideDetails = view !== 'trace' && view !== 'validation' && view !== 'review' && view !== 'export'
+  const wideDetails = view !== 'welcome' && view !== 'trace' && view !== 'validation' && view !== 'review' && view !== 'export'
 
   return (
     <div className="app">

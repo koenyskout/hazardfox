@@ -6,7 +6,7 @@ import { useStore } from './model/store'
 import './styles.css'
 
 restoreAutosave().then((r) => {
-  if (r && Object.keys(r.project.items).length) useStore.getState().load(r.project, r.fileName, null, true)
+  if (r && Object.keys(r.project.items).length) { useStore.getState().load(r.project, r.fileName, null, true); useStore.getState().setView('welcome') }
   startAutosave()
 })
 
