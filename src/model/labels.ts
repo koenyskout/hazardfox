@@ -85,9 +85,15 @@ export function computeLabels(p: Project): Labels {
  *  A relationship's untitled predicate is named after it ("Pump infuses Patient"). */
 export const variableName = (p: Project, v: Variable): string => {
   const par = v.parent ? p.items[v.parent] : null
-  if (par?.kind === 'relationship' && !v.title.trim()) return [p.items[par.from]?.title, par.title, p.items[par.to]?.title].map((x) => x?.trim() || '?').join(' ')
   const owner = v.layer !== 'domain' && par ? par.title.trim() : ''
-  return v.title.trim() && owner ? `${owner}.${v.title.trim()}` : v.title.trim()
+  return v.title.trim() && owner ? `${owner}.${v.title.trim()}` : shortName(p, v)
+}
+
+/** Name of a variable without its owner (chips show the owner on hover only). */
+export const shortName = (p: Project, v: Variable): string => {
+  const par = v.parent ? p.items[v.parent] : null
+  if (par?.kind === 'relationship' && !v.title.trim()) return [p.items[par.from]?.title, par.title, p.items[par.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  return v.title.trim()
 }
 
 /** Labels for the UI: variables show their (namespaced) name, when unique and non-empty, instead of their V-n id. */

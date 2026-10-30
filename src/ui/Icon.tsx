@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { shortName, variableName } from '../model/labels'
+import { useProject } from './hooks'
 import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
@@ -48,9 +50,12 @@ export const LayerIcon = ({ layer, size = 13 }: { layer: VariableLayer; size?: n
   <span className={'layer-ico l-' + layer} title={LAYER_SHORT[layer] + ' variable'}><Icon name={`layer-${layer}`} size={size} /></span>
 )
 
-/** Chip content: the item's label, preceded by its layer icon for variables (kept on one line with the first word). */
+/** Chip content: the item's label; a variable shown by name gets its layer icon and drops the owner (shown on hover). */
 export function ChipLabel({ it, label }: { it: Item; label: string }) {
+  const p = useProject()
   if (it.kind !== 'variable') return <>{label}</>
+  if (label === variableName(p, it)) label = shortName(p, it) || label
+  // icon stays on one line with the first word
   const [, first, rest] = /^(\S*)([^]*)$/.exec(label)!
   return <><span className="nowrap"><LayerIcon layer={it.layer} size={12} />{first}</span>{rest}</>
 }

@@ -1,4 +1,4 @@
-import { ChipLabel, Icon } from './Icon'
+import { ChipLabel, Icon, LayerTag } from './Icon'
 import { useStore } from '../model/store'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
@@ -12,7 +12,7 @@ import { freshReview } from '../llm/auto'
 import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 import { describeStates } from '../model/variables'
-import { VARIABLE_TYPE_LABELS } from '../model/types'
+import { VARIABLE_TYPE_LABELS, type VariableLayer } from '../model/types'
 
 const MAX_PER_KIND = 5
 type Go = (id: Id) => void
@@ -77,6 +77,8 @@ const Row = ({ k, children: v }: { k: string; children: ReactNode }) => (
 
 const Badge = ({ children: t, tone }: { children: ReactNode; tone?: 'warn' }) => <span className={'hc-badge' + (tone ? ' ' + tone : '')}>{t}</span>
 
+const OWNER_ROW: Record<VariableLayer, string> = { domain: 'Of', signal: 'Carried by', belief: 'Belief of', internal: 'Internal to' }
+
 const list = (xs: string[], max = 4) => (xs.length ? xs.slice(0, max).join(', ') + (xs.length > max ? ` +${xs.length - max}` : '') : '')
 
 /** Kind-specific badges (shown next to the kind) and fact rows. */
@@ -125,10 +127,15 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
     case 'entity':
       row('Operations', list(it.operations))
       break
-    case 'variable':
+    case 'variable': {
+      badges.push(<Badge key="l"><LayerTag layer={it.layer} /></Badge>)
+      const owner = it.parent && p.items[it.parent]
+      if (owner) row(OWNER_ROW[it.layer], <><ChipLink id={owner.id} {...c} /> {owner.title}</>)
+      row('About', it.about && <ChipLink id={it.about} {...c} />)
       row('Type', VARIABLE_TYPE_LABELS[it.type].split(' (')[0])
       row('States', it.type === 'enum' ? list(it.states, 6) : describeStates(it))
       break
+    }
     default:
   }
   return { badges, rows }
@@ -157,7 +164,8 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   const edge = it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'relationship' ? it : null
   const ends = edge ? [edge.from, edge.to] : []
   const refs = [...(it.parent ? [it.parent] : []), ...refsOf(it), ...(it.kind === 'hazard' ? effectiveLosses(p, it.id) : [])]
-  const out = group(p, labels, refs.filter((i) => i !== it.id && !ends.includes(i)))
+  const shown = it.kind === 'variable' ? [it.parent, it.about] : ends
+  const out = group(p, labels, refs.filter((i) => i !== it.id && !shown.includes(i)))
   const inc = group(p, labels, incoming(p, it.id).map((o) => o.id))
   const title = it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const { badges, rows } = facts(it, c)

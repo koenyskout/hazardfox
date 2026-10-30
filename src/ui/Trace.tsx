@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { variableName } from '../model/labels'
 import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
@@ -87,7 +86,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                     <tr className="layer-row"><th colSpan={t.steps.length + 1}><LayerTag layer={layer} /></th></tr>
                     {rows.map((v) => (
                       <tr key={v.id}>
-                        <th><Ref id={v.id} /> {variableName(p, v)} <button className="x" title="Remove lane" onClick={() => delLane(v.id)}>×</button></th>
+                        <th><Ref id={v.id} /> <Owner v={v} /> <button className="x" title="Remove lane" onClick={() => delLane(v.id)}>×</button></th>
                         {t.steps.map((_, i) => {
                           const { value, set } = valueAt(t, i, v.id)
                           const m = mm[i].get(v.id)
@@ -188,6 +187,13 @@ const STEP_MS = 2200
 
 /** The scenario played on the control structure: control actions and feedback travel along the arrows, world values sit on the
  * processes, signals on the feedback and beliefs on the controllers; red marks what is missing, lost or believed wrongly. */
+/** Whose signal, belief or internal state a lane is (world variables need no owner). */
+function Owner({ v }: { v: Variable }) {
+  const p = useProject()
+  const o = v.layer !== 'domain' && v.parent ? p.items[v.parent] : null
+  return o ? <small className="muted">{o.title}</small> : null
+}
+
 export function ScenarioPlayer({ s }: { s: Scenario }) {
   const p = useProject()
   const labels = useLabels()
@@ -315,7 +321,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
             const m = mm.get(v.id)
             return (
               <tr key={v.id} className={(after[v.id] !== before[v.id] ? 'changed' : '') + (m ? ' bad' : '')}>
-                <th><Ref id={v.id} /> {variableName(p, v)}</th>
+                <th><Ref id={v.id} /> <Owner v={v} /></th>
                 <td>{after[v.id] ?? '—'}</td>
                 <td>{m ? <>actual <b>{m.actual}</b></> : ''}</td>
               </tr>
