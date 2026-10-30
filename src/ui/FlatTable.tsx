@@ -24,6 +24,8 @@ export function FlatTable<K extends Kind>(props: {
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
   /** Second line under the title. */
   sub?: (it: ItemOf<K>) => ReactNode
+  /** Adds a button to each group header that creates an item with this patch (first item of the group given). */
+  groupAdd?: (group: Id | null, first: ItemOf<K>) => Patch<K>
   addLabel?: string
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
@@ -63,7 +65,7 @@ export function FlatTable<K extends Kind>(props: {
           const header = props.groupBy && (i === 0 || props.groupBy(props.items[i - 1]) !== g)
           return (
           <Fragment key={it.id}>
-          {header && <div className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}</div>}
+          {header && <div className="row group">{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g ?? null, it))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>}
           <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
             <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (

@@ -45,7 +45,7 @@ export function VariableMap() {
         </thead>
         <tbody>
           {owners.flatMap((o) => [
-            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>}</th></tr>,
+            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
             ...hierarchy(p, world.filter((w) => (w.parent ?? '') === o)).map(([w, d]) => (
             <tr key={w.id}>
               <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
