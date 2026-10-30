@@ -89,7 +89,7 @@ export function SingleRef(props: { value: Id | null; options: Item[]; onChange: 
   const opts = cur && !props.options.includes(cur) ? [cur, ...props.options] : props.options
   return (
     <Picker options={opts} onPick={props.onChange}>
-      {cur ? <><ItemHover id={cur.id}><span className={'chip k-' + cur.kind}>{labels[cur.id]}</span></ItemHover> {cur.title}</> : <span className="muted">{props.none ?? '— none —'}</span>}
+      {cur ? <><ItemHover id={cur.id}><span className={'chip k-' + cur.kind}>{labels[cur.id]}</span></ItemHover>{labels[cur.id] !== cur.title && ` ${cur.title}`}</> : <span className="muted">{props.none ?? '— none —'}</span>}
     </Picker>
   )
 }

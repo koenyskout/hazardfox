@@ -4,7 +4,7 @@ import { generateUcaText } from '../model/uca'
 import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type Item } from '../model/types'
 import { VIEW_OF } from './Fields'
-import { useLabels, useProject } from './hooks'
+import { useIds as useLabels, useProject } from './hooks'
 import { ItemCard, summary } from './ItemCard'
 
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */

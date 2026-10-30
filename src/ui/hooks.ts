@@ -1,13 +1,20 @@
 import { useMemo } from 'react'
-import { computeLabels } from '../model/labels'
+import { computeLabels, displayLabels } from '../model/labels'
 import { createItem } from '../model/ops'
 import { useStore } from '../model/store'
 import type { Id, Kind, Labels, Patch, Project } from '../model/types'
 
 export const useProject = () => useStore((s) => s.project)
-export const useLabels = (): Labels => {
+/** Stable ids (V-n for variables). */
+export const useIds = (): Labels => {
   const p = useProject()
   return useMemo(() => computeLabels(p), [p])
+}
+/** Labels as shown in the UI: variables by name. */
+export const useLabels = (): Labels => {
+  const p = useProject()
+  const ids = useIds()
+  return useMemo(() => displayLabels(p, ids), [p, ids])
 }
 export const commit = (fn: (p: Project) => Project, key?: string) => useStore.getState().commit(fn, key)
 export const select = (id: Id | null) => useStore.getState().select(id)

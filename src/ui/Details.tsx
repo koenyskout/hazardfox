@@ -6,10 +6,11 @@ import { generateUcaText } from '../model/uca'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
-import { addItemInDialog, commit, useLabels, useProject } from './hooks'
+import { addItemInDialog, commit, useIds, useLabels, useProject } from './hooks'
 import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
+import { StringList } from './StringList'
 import { useEffect, useState } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
@@ -44,7 +45,7 @@ export function EditDialog() {
 
 function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
   const p = useProject()
-  const labels = useLabels()
+  const idLabels = useIds()
   const closeEditor = useStore((s) => s.closeEditor)
   const [deleting, setDeleting] = useState(false)
   const set: Set = (patch, key) => commit((q) => updateItem(q, it.id, patch), key ? `${it.id}:${key}` : undefined)
@@ -54,7 +55,7 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
   return (
     <>
       <h3>
-        <span className={'chip k-' + it.kind}>{labels[it.id]}</span> {KIND_NAMES[it.kind]}
+        <span className={'chip k-' + it.kind}>{idLabels[it.id]}</span> {KIND_NAMES[it.kind]}
       </h3>
       {it.kind !== 'uca' && it.kind !== 'scenario' && (
         <Field single label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
@@ -155,8 +156,8 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Owner entity">
             <SingleRef value={it.parent} options={of('entity')} onChange={(v) => v && set({ parent: v })} />
           </Field>
-          <Field single label="States (one per line)" hint="Enumerated values, or ranges like “0–100 %”.">
-            <textarea rows={4} value={it.states.join('\n')} onChange={(e) => set({ states: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'states')} />
+          <Field label="States" hint="Enumerated values, or ranges like “0–100 %”. Enter adds a state.">
+            <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
           </Field>
         </>
       )
@@ -331,7 +332,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         return (
           <div key={i} className="cond">
             <Picker options={vars} onPick={(id) => id && upd(i, { variable: id, state: '' })}>
-              {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover> {v.title}</> : <span className="muted">variable…</span>}
+              {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
             <select value={c.negate ? 'ne' : 'eq'} onChange={(e) => upd(i, { negate: e.target.value === 'ne' })}><option value="eq">=</option><option value="ne">≠</option></select>
             <select value={c.state} onChange={(e) => upd(i, { state: e.target.value })}>

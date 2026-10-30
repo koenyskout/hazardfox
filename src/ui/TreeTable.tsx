@@ -14,7 +14,7 @@ import { useStore } from '../model/store'
 import { cascadeSet, linkedTo } from '../model/refs'
 import { children, descendants, flatten, isLeaf } from '../model/tree'
 import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
-import { addItem, commit, select, useLabels, useProject } from './hooks'
+import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { ReviewDot } from './Review'
 import { Icon, StatusIcon } from './Icon'
@@ -41,6 +41,7 @@ function dropPos(e: React.DragEvent<HTMLElement>): 'before' | 'after' | 'into' {
 export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, defaults }: TreeTableProps<K>) {
   const p = useProject()
   const labels = useLabels()
+  const idLabels = useIds()
   const selected = useStore((s) => s.selected)
   const [multi, setMulti] = useState<Set<Id>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<Id>>(new Set())
@@ -172,7 +173,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               }}
               onClick={(e) => click(e, item.id)}
             >
-              <span className="lbl"><span className={'chip k-' + item.kind}>{labels[item.id]}</span></span>
+              <span className="lbl"><span className={'chip k-' + item.kind}>{idLabels[item.id]}</span></span>
               <span className="ttl" style={{ paddingLeft: depth * 20 }}>
                 <button
                   className={'twisty' + (hasKids ? '' : ' none')}

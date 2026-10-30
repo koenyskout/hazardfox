@@ -3,7 +3,7 @@ import { byLabel, renderText } from '../model/labels'
 import { useStore } from '../model/store'
 import { KIND_NAMES } from '../model/types'
 import { ItemHover, VIEW_OF } from './Fields'
-import { useLabels, useProject } from './hooks'
+import { useIds as useLabels, useProject } from './hooks'
 
 export function Palette() {
   const open = useStore((s) => s.paletteOpen)

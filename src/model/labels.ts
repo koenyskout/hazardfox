@@ -33,19 +33,12 @@ export function computeLabels(p: Project): Labels {
     walk(null, '')
   }
 
-  // Variables are shown by name (V-n only while unnamed or when the name is already taken), numbered globally in entity-tree order.
-  const vars = [...flatten(p, 'entity').flatMap(({ item: ent }) => children(p, ent.id, 'variable')), ...itemsOfKind(p, 'variable')]
-  const seen = new Set<string>()
-  const taken = new Set<string>()
+  // Variables: numbered globally in entity-tree order.
   let v = 0
-  for (const x of vars) {
-    if (seen.has(x.id)) continue
-    seen.add(x.id)
-    const n = ++v
-    const name = x.title.trim()
-    out[x.id] = name && !taken.has(name.toLowerCase()) ? name : `V-${n}`
-    taken.add(out[x.id].toLowerCase())
+  for (const { item: ent } of flatten(p, 'entity')) {
+    for (const x of children(p, ent.id, 'variable')) out[x.id] = `V-${++v}`
   }
+  for (const x of itemsOfKind(p, 'variable')) if (!out[x.id]) out[x.id] = `V-${++v}`
 
   const flat = (kind: 'relationship' | 'ca' | 'feedback' | 'assumption') =>
     itemsOfKind(p, kind)
@@ -75,6 +68,21 @@ export function computeLabels(p: Project): Labels {
       .filter((s) => s.scenarioType === 'ca' && s.ca === ca.id)
       .sort((a, b) => a.rank - b.rank)
       .forEach((s, i) => (out[s.id] = `LS-${out[ca.id]}.${i + 1}`))
+  }
+  return out
+}
+
+/** Labels for the UI: variables show their name (unique, non-empty) instead of their V-n id. */
+export function displayLabels(p: Project, ids: Labels): Labels {
+  const out = { ...ids }
+  const taken = new Set<string>()
+  for (const x of itemsOfKind(p, 'variable')) {
+    const name = x.title.trim().toLowerCase()
+    if (name) taken.has(name) ? taken.add(name + '\0dup') : taken.add(name)
+  }
+  for (const x of itemsOfKind(p, 'variable')) {
+    const name = x.title.trim()
+    if (name && !taken.has(name.toLowerCase() + '\0dup')) out[x.id] = name
   }
   return out
 }
