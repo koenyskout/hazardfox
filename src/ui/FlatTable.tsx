@@ -38,21 +38,21 @@ export function FlatTable<K extends Kind>(props: {
   /** variables show their name pill, as everywhere else */
   const idLabels = props.kind === 'variable' ? names : ids
   const selected = useStore((s) => s.selected)
-  const rows: ({ group: Id | null; first?: ItemOf<K>; depth: number } | { item: ItemOf<K> })[] = []
+  const rows: ({ group: Id | null; first?: ItemOf<K>; depth: number } | { item: ItemOf<K>; depth: number })[] = []
   const push = (g: Id | null | undefined, first?: ItemOf<K>, depth = 0) => { rows.push({ group: g ?? null, first, depth }) }
   if (props.groupBy) {
     for (const { id: g, depth } of props.groups ?? []) {
       const its = props.items.filter((it) => props.groupBy!(it) === g)
       push(g, its[0], depth)
-      its.forEach((item) => rows.push({ item }))
+      its.forEach((item) => rows.push({ item, depth: (depth ?? 0) + 1 }))
     }
     props.items.forEach((item, i) => {
       const g = props.groupBy!(item)
       if (props.groups?.some((x) => x.id === g)) return
       if (i === 0 || props.groupBy!(props.items[i - 1]) !== g || !rows.some((r) => 'group' in r && r.group === (g ?? null))) push(g, item)
-      rows.push({ item })
+      rows.push({ item, depth: 1 })
     })
-  } else props.items.forEach((item) => rows.push({ item }))
+  } else props.items.forEach((item) => rows.push({ item, depth: 0 }))
   return (
     <div className="tree">
       <div className="toolbar">
@@ -85,7 +85,7 @@ export function FlatTable<K extends Kind>(props: {
           }
           const it = r.item
           return (
-          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
+          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} style={props.groups && r.depth ? { paddingLeft: 10 + r.depth * 18 } : undefined} onClick={() => select(it.id)}>
             <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
