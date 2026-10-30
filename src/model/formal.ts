@@ -31,24 +31,43 @@ export const worldOf = (p: Project, v: Variable): Variable | null => {
 export const predicateOf = (p: Project, rel: Id) => variablesIn(p, 'domain', rel).find((v) => v.type === 'boolean' && !v.title.trim()) ?? null
 export const isPredicate = (p: Project, v: Variable) => p.items[v.parent ?? '']?.kind === 'relationship' && predicateOf(p, v.parent!)?.id === v.id
 
+/** Variables a refined world variable is defined from (refinement ρ: its rules, and @-mentions in its definition). */
+export const refines = (p: Project, v: Variable): Id[] =>
+  [...new Set([...v.rules.flatMap((r) => r.when.map((c) => c.variable)), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
+
+/** All lower-level variables v is refined into, transitively (includes v itself only on a cycle). */
+export function partsOf(p: Project, v: Id): Id[] {
+  const out = new Set<Id>()
+  const go = (id: Id) => { const x = p.items[id]; if (x?.kind === 'variable') for (const w of refines(p, x)) if (!out.has(w)) { out.add(w); go(w) } }
+  go(v)
+  return [...out]
+}
+/** Higher-level variables refined (transitively) into v. */
+export const wholesOf = (p: Project, v: Id): Id[] => itemsOfKind(p, 'variable').filter((w) => w.id !== v && partsOf(p, w.id).includes(v)).map((w) => w.id)
+/** Variables refined directly into v. */
+export const refinedBy = (p: Project, v: Id) => itemsOfKind(p, 'variable').filter((w) => refines(p, w).includes(v))
+
 /** Beliefs of a controller about a world variable. */
 export const beliefsAbout = (p: Project, node: Id, world: Id) => beliefsOf(p, node).filter((b) => b.about === world)
 
-/** Signals that update a belief: those about the same world variable on feedback into its controller. */
-export const updatedBy = (p: Project, belief: Variable) =>
-  belief.parent && belief.about ? signalsInto(p, belief.parent).filter((s) => s.about === belief.about) : []
+/** Signals that update a belief: those about the same world variable, or one of its parts, on feedback into its controller. */
+export function updatedBy(p: Project, belief: Variable) {
+  if (!belief.parent || !belief.about) return []
+  const about = [belief.about, ...partsOf(p, belief.about)]
+  return signalsInto(p, belief.parent).filter((s) => s.about && about.includes(s.about))
+}
 
 /** Beliefs a signal updates (in the receiving controller). */
 export const updates = (p: Project, signal: Variable) => {
   const fb = signal.parent ? p.items[signal.parent] : null
-  return fb?.kind === 'feedback' && signal.about ? beliefsAbout(p, fb.to, signal.about) : []
+  if (fb?.kind !== 'feedback' || !signal.about) return []
+  const about = [signal.about, ...wholesOf(p, signal.about)]
+  return beliefsOf(p, fb.to).filter((b) => b.about && about.includes(b.about))
 }
 
 /** Control actions that affect (control) a world variable. */
 export const controlledBy = (p: Project, world: Id) => itemsOfKind(p, 'ca').filter((c) => c.affects.includes(world))
 
-/** World variables a derived world variable is defined from (refinement ρ, via @-mentions in its definition). */
-export const refines = (p: Project, v: Variable) => mentions(v.definition).filter((id) => p.items[id]?.kind === 'variable')
 
 /** A variable of another layer about `world`, with the same type and value set. */
 const copyOf = (p: Project, world: Variable) => ({ title: variableName(p, world), type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, about: world.id })

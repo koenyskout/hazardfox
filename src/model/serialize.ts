@@ -26,7 +26,7 @@ export function deserialize(text: string): Project {
   if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
-  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' ? ({ ...makeItem(it.kind), ...it } as Item) : it
   // Nodes linked one domain entity (`entity`); now a list.
   for (const n of Object.values(p.items)) {
     if (n.kind !== 'node' || !('entity' in n)) continue

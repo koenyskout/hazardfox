@@ -134,7 +134,12 @@ export interface Variable extends Base {
   unit: string
   min: number | null
   max: number | null
+  /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose conditions all hold gives the value, else `otherwise` ('' = undefined). */
+  rules: Rule[]
+  otherwise: string
 }
+/** The refined variable has value `state` when all `when` conditions hold. */
+export interface Rule { state: string; when: Condition[] }
 
 /** Control structure node; `parent` nests nodes (hierarchy / subsystems). */
 export interface CsNode extends Base {
@@ -199,6 +204,8 @@ export interface Uca extends Base {
   hazards: Id[]
   /** Controller constraint */
   constraint: string
+  /** Higher-level UCA whose context this one refines (by substituting a refined variable's rules) */
+  refines: Id | null
 }
 /** Type 1: why an UCA may occur. Type 2: why a control action is not executed / improperly executed. */
 export const SCENARIO_TYPES = ['uca', 'ca'] as const

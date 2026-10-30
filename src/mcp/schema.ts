@@ -3,7 +3,7 @@ import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKinds } from '../model/tree'
 import { conditionError, isRangeOp } from '../model/variables'
-import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Id, type Item, type Kind, type Project } from '../model/types'
+import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -21,7 +21,7 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   variable: { about: ['variable'] },
   ca: { from: ['node'], to: ['node'], affects: ['variable'] },
   feedback: { from: ['node'], to: ['node'] },
-  uca: { ca: ['ca'], hazards: ['hazard'] },
+  uca: { ca: ['ca'], hazards: ['hazard'], refines: ['uca'] },
   scenario: { uca: ['uca'], ca: ['ca'], hazards: ['hazard'], element: ['node'] },
 }
 
@@ -33,6 +33,8 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   uca: { guide: GUIDE_WORDS },
   scenario: { scenarioType: SCENARIO_TYPES },
 }
+
+const COND = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}'
 
 const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
@@ -53,7 +55,8 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), set?: string[] (states, only for in / not in)}[]'
+    if (f === 'conditions') info.type = COND + '[]'
+    if (f === 'rules') info.type = `{state: string (a value of this variable), when: ${COND}[]}[] (refinement of a world variable: the first rule whose conditions all hold gives its value, else otherwise)`
     if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
     if (f === 'trace') info.type = '{lanes: ref[] (variables), steps: {t: string, note: string, values: {<variable ref>: value}, events: {on: ref (ca | feedback), what: occurs | absent | lost}[]}[]} (values carry forward to later steps)'
@@ -133,6 +136,19 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     const got = r.p.items[id]?.kind
     if (allowed && got && !allowed.includes(got)) errors.push(`${f}: ${r.labels[id]} is a ${got}, expected ${allowed.join(' | ')}`)
   }
+  const parseCond = (c: Rec): Condition => {
+    const variable = r.resolve(c?.variable)
+    checkKind(variable, 'variable')
+    const isSet = c.op === 'in' || c.op === 'not in'
+    if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
+    const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
+    if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
+    const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}) }
+    const vi = r.p.items[variable]
+    const bad = vi?.kind === 'variable' ? conditionError(vi, cond) : null
+    if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
+    return cond
+  }
   for (const [f, v] of Object.entries(fields)) {
     const spec = info[f]
     if (!spec) { errors.push(`unknown field "${f}" for ${kind}; allowed: ${Object.keys(info).join(', ')}`); continue }
@@ -151,19 +167,10 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
         out[f] = [...new Set(v.map((x) => { const id = r.resolve(x); checkKind(id, f); return id }))]
       } else if (f === 'conditions') {
         if (!Array.isArray(v)) throw new Error('expected an array')
-        out[f] = v.map((c: Rec) => {
-          const variable = r.resolve(c?.variable)
-          checkKind(variable, 'variable')
-          const isSet = c.op === 'in' || c.op === 'not in'
-          if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
-          const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
-          if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
-          const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}) }
-          const vi = r.p.items[variable]
-          const bad = vi?.kind === 'variable' ? conditionError(vi, cond) : null
-          if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
-          return cond
-        })
+        out[f] = v.map(parseCond)
+      } else if (f === 'rules') {
+        if (!Array.isArray(v)) throw new Error('expected an array')
+        out[f] = v.map((x: Rec) => ({ state: String(x?.state ?? ''), when: Array.isArray(x?.when) ? x.when.map(parseCond) : [] }))
       } else if (f === 'trace') {
         const t = v as Rec
         const isVar = (id: Id) => { if (r.p.items[id]?.kind !== 'variable') throw new Error(`${r.labels[id]} is not a variable`) }
@@ -243,6 +250,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
     else if (f === 'conditions') out[f] = (v as Condition[]).map((c) => ({ ...c, variable: r.label(c.variable) }))
+    else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: x.when.map((c) => ({ ...c, variable: r.label(c.variable) })) }))
     else if (f === 'trace') {
       const t = v as Trace
       if (!t.steps.length) continue

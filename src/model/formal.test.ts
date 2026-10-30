@@ -6,7 +6,8 @@ import { addBelief, addSignal, beliefsAbout, beliefsOf, predicateOf, signalsOf, 
 import { computeLabels, displayLabels } from './labels'
 import { createItem, deleteItems, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
-import { diagnose, draftTrace, holds, pickValue, valueAt, witness } from './traces'
+import { diagnose, draftTrace, holds, pickValue, ruleConflicts, traceState, valueAt, witness } from './traces'
+import { expand, refineUca } from './refinement'
 import { itemsOfKind } from './tree'
 import { validate } from './validate'
 import type { Condition, Id, Project, Scenario, Trace, Variable } from './types'
@@ -131,5 +132,66 @@ describe('traces', () => {
     expect(q.items[n.id]).toMatchObject({ entities: [a.id] })
     expect('entity' in q.items[n.id]).toBe(false)
     expect(deleteItems(p, [b.id]).items[n.id]).toMatchObject({ entities: [a.id] })
+  })
+})
+
+describe('refinement', () => {
+  function train() {
+    let p = emptyProject()
+    const mk = (r: { project: Project; id: Id }) => { p = r.project; return r.id }
+    const ent = mk(createItem(p, 'entity', { title: 'Train' }))
+    const speed = mk(createItem(p, 'variable', { title: 'Speed', parent: ent, type: 'range', min: 0, max: 200, unit: 'km/h' }))
+    const fire = mk(createItem(p, 'variable', { title: 'Fire', parent: ent, type: 'boolean' }))
+    const smoke = mk(createItem(p, 'variable', { title: 'Smoke', parent: ent, type: 'boolean' }))
+    const moving = mk(createItem(p, 'variable', { title: 'Motion', parent: ent, states: ['stopped', 'moving'], rules: [{ state: 'moving', when: [{ variable: speed, op: '>', state: '0.5' }] }], otherwise: 'stopped' }))
+    const em = mk(createItem(p, 'variable', { title: 'Emergency', parent: ent, states: ['none', 'evacuation'], rules: [{ state: 'evacuation', when: [{ variable: fire, op: '=', state: 'true' }] }, { state: 'evacuation', when: [{ variable: smoke, op: '=', state: 'true' }] }], otherwise: 'none' }))
+    const ctrl = mk(createItem(p, 'node', { title: 'Ctrl', role: 'controller' }))
+    const proc = mk(createItem(p, 'node', { title: 'Door', role: 'process' }))
+    const ca = mk(createItem(p, 'ca', { title: 'Open', from: ctrl, to: proc }))
+    const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ variable: moving, op: '=', state: 'moving' }, { variable: em, op: '=', state: 'none' }] }))
+    return { p, speed, fire, smoke, moving, em, ctrl, uca }
+  }
+
+  it('expands a refined condition into contexts over the parts', () => {
+    const { p, fire, smoke, em } = train()
+    const v = p.items[em] as Variable
+    expect(expand(p, v, { variable: em, op: '=', state: 'evacuation' })).toEqual([[{ variable: fire, op: '=', state: 'true' }], [{ variable: smoke, op: '=', state: 'true' }]])
+    expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ variable: fire, op: '=', state: 'false' }, { variable: smoke, op: '=', state: 'false' }]])
+  })
+
+  it('refines a UCA once, linked to its parent', () => {
+    const { p: p0, uca, speed } = train()
+    let r = refineUca(p0, uca, 0)
+    expect(r.ids).toHaveLength(1)
+    expect(r.project.items[r.ids[0]]).toMatchObject({ refines: uca, guide: 'provided' })
+    expect((r.project.items[r.ids[0]] as { conditions: Condition[] }).conditions.map((c) => c.variable)).toContain(speed)
+    r = refineUca(r.project, uca, 0)
+    expect(itemsOfKind(r.project, 'uca')).toHaveLength(2)
+    const q = deleteItems(r.project, [uca])
+    expect((q.items[r.ids[0]] as { refines: Id | null }).refines).toBeNull()
+  })
+
+  it('computes refined values in traces and flags contradictions', () => {
+    let { p, speed, moving, ctrl, fire } = train()
+    p = addBelief(p, ctrl, speed).project
+    p = addBelief(p, ctrl, moving).project
+    const [bs, bm] = [beliefsAbout(p, ctrl, speed)[0].id, beliefsAbout(p, ctrl, moving)[0].id]
+    const t: Trace = { lanes: [speed, moving, bs, bm], steps: [{ t: '0', note: '', values: { [speed]: '0', [bs]: '0' }, events: [] }, { t: '1', note: '', values: { [speed]: '40', [moving]: 'stopped' }, events: [] }] }
+    expect(traceState(p, t, 0)).toMatchObject({ [moving]: 'stopped', [bm]: 'stopped' })
+    expect(traceState(p, t, 1)).toMatchObject({ [moving]: 'moving', [bm]: 'stopped' })
+    expect(ruleConflicts(p, t, 1)).toEqual([[moving, 'stopped', 'moving']])
+    p = updateItem(p, fire, { rules: [{ state: 'true', when: [{ variable: moving, op: '=', state: 'moving' }] }] })
+    p = updateItem(p, moving, { rules: [{ state: 'moving', when: [{ variable: fire, op: '=', state: 'true' }] }] })
+    expect(validate(p).some((i) => i.rule === 'refinement-cycle')).toBe(true)
+  })
+
+  it('counts signals about a part as updating a belief about the whole', () => {
+    let { p, speed, moving, ctrl, em } = train()
+    const proc = itemsOfKind(p, 'node').find((n) => n.role === 'process')!.id
+    const fb = createItem(p, 'feedback', { title: 'Speed', from: proc, to: ctrl }); p = fb.project
+    p = addSignal(p, fb.id, speed).project
+    p = addBelief(p, ctrl, moving).project
+    expect(validate(p).filter((i) => i.rule === 'belief-no-source' && i.item === beliefsAbout(p, ctrl, moving)[0].id)).toEqual([])
+    expect(validate(p).filter((i) => i.rule === 'context-unrepresented').map((i) => i.related)).toEqual([[em]])
   })
 })
