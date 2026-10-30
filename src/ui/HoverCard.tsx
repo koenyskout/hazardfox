@@ -32,7 +32,7 @@ export function useHoverCard() {
   }, [pos])
   useEffect(() => () => window.clearTimeout(timer.current), [])
   const node = pos && createPortal(
-    <div ref={box} className="hovercard" onMouseEnter={keep} onMouseLeave={closeSoon} style={{ left: pos.x, top: pos.y, transform: pos.below ? undefined : 'translateY(-100%)' }}>{content.current()}</div>,
+    <div ref={box} className="hovercard" onMouseEnter={keep} onMouseLeave={closeSoon} onMouseDown={(e) => e.stopPropagation()} style={{ left: pos.x, top: pos.y, transform: pos.below ? undefined : 'translateY(-100%)' }}>{content.current()}</div>,
     document.body,
   )
   return { open, close, closeSoon, node }
