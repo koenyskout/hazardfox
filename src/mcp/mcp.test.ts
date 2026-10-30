@@ -70,7 +70,7 @@ describe('mcp tools', () => {
     const mk = (state: string) => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'Steer', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Gear', state }] } }] })
     expect(() => mk('reverse')).toThrow(/is not one of drive, park/)
     ;({ p } = mk('park'))
-    expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear = park')
+    expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear is park')
     expect('parent' in run(p, 'describe_kinds', { kind: 'ca' }).r.ca.fields).toBe(false)
     ;({ p } = run(p, 'update_items', { updates: [{ ref: 'CA-1', fields: { duration: 'instantaneous', notApplicable: [{ guide: 'not-provided', reason: 'x' }, { guide: 'too-early-late', reason: 'x' }] } }] }))
     expect(run(p, 'project_summary').r.nextSteps.join()).not.toMatch(/lack at least one guide word/)
