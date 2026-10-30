@@ -346,3 +346,4 @@ table.plain td { padding: 4px 10px 4px 0; }
 @media (prefers-color-scheme: dark) { .l-domain { color: #5cc48a; } .l-signal { color: #e0a84a; } .l-belief { color: #7ba7ea; } .l-internal { color: #b394dc; } }
 .callout .l-domain { color: #2a7d4f; } .callout .l-signal { color: #b7791f; } .callout .l-belief { color: #3d6fb6; } .callout .l-internal { color: #7d5ba6; }
 .nowrap { white-space: nowrap; }
+.varmap tr.group th { text-align: left; background: var(--bg-alt, rgba(128,128,128,.12)); padding: 6px; position: sticky; left: 0; }

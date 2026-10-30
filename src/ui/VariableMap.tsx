@@ -29,6 +29,7 @@ export function VariableMap() {
   const world = variablesIn(p, 'domain')
   const ctrls = itemsOfKind(p, 'node').filter((n) => n.role === 'controller').sort((a, b) => a.rank - b.rank)
   const ucas = itemsOfKind(p, 'uca')
+  const owners = [...new Set(world.map((w) => w.parent ?? ''))]
   /** Is w part of the context of a UCA of a control action from controller c? */
   const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.some((x) => x.variable === w))
   if (!world.length) return <p className="empty">Add world variables (layer “World”) to entities first; then map what each controller observes and believes.</p>
@@ -43,9 +44,11 @@ export function VariableMap() {
           <tr><th><LayerIcon layer="domain" />World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
         </thead>
         <tbody>
-          {hierarchy(p, world).map(([w, d]) => (
+          {owners.flatMap((o) => [
+            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>}</th></tr>,
+            ...hierarchy(p, world.filter((w) => (w.parent ?? '') === o)).map(([w, d]) => (
             <tr key={w.id}>
-              <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{w.parent && p.items[w.parent]?.title} · {describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
+              <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
@@ -66,7 +69,8 @@ export function VariableMap() {
                 )
               })}
             </tr>
-          ))}
+            )),
+          ])}
           <tr>
             <th><LayerIcon layer="internal" />Internal state<br /><small className="muted">modes, timers, counters</small></th>
             <td />
