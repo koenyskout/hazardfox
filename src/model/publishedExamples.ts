@@ -147,6 +147,117 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       add('assumption', { title: 'Path prediction of surrounding mobile objects is available to the AEB system', about: [est] })
     },
   },
+  {
+    id: 'pub-thomas-msiv', label: 'Nuclear plant, MSIV closure (Thomas PhD)',
+    name: 'Nuclear power plant: closing the Main Steam Isolation Valve (Thomas, Appendix A)',
+    description: 'Worked example of J. P. Thomas, "Extending and Automating a Systems-Theoretic Hazard Analysis for Requirements Generation and Analysis", PhD thesis, MIT (2013), Appendix A (case study of a generalized EPR/PWR, from an NRC-funded study). Covers closing the MSIV: losses A-1..A-4, hazards H-1..H-4, control structure of Fig. 40, the six unsafe control actions of the Operator (Tables 26-29) with their safety constraints, a selection of the Operator causal factors (A.8.1) and of the factors that keep a correct Close MSIV from being followed. The thesis repeats the analysis for the PS and DAS and gives full 16-row context tables (Tables 27-28); those are summarised here, not reproduced. The source states no requirements; the three listed come from its own recommendations (A.10, A.11).',
+    build(add) {
+      const A1 = add('loss', { title: 'People injured or killed', description: 'Employees and general population; radiation exposure, explosion or any other mechanism.' })
+      const A2 = add('loss', { title: 'Environment contaminated', description: 'Radiation or other harmful release to air, ground, groundwater or any other part of the environment.' })
+      const A3 = add('loss', { title: 'Equipment damage (economic loss)', description: 'Regardless of whether any radiation is released.' })
+      const A4 = add('loss', { title: 'Loss of electrical power generation', description: 'Includes any unplanned plant shutdown.' })
+      const H1 = add('hazard', { title: 'Release of radioactive materials', lossLinks: [A1, A2], description: 'Any release outside the primary system, regardless of quantity, including into the secondary cooling system, groundwater and air.' })
+      const H2 = add('hazard', { title: 'Reactor temperature too high', lossLinks: [A1, A2, A3, A4], description: '"Too high" in relation to NRC standards and operating guidelines.' })
+      const H3 = add('hazard', { title: 'Equipment operated beyond limits', lossLinks: [A3, A4], description: 'Beyond safe limits (reactor damage) or beyond design limits (damage to other equipment).' })
+      const H4 = add('hazard', { title: 'Reactor shut down', lossLinks: [A4], description: 'Any unplanned shutdown that may result in loss of electrical power generation.' })
+
+      const eSg = add('entity', { title: 'Steam generator system' })
+      const vSgtr = add('variable', { title: 'Steam generator tube', parent: eSg, states: ['ruptured', 'not ruptured'] })
+      const vFw = add('variable', { title: 'Main feedwater pipe', parent: eSg, states: ['leak', 'no leak'] })
+      const vSl = add('variable', { title: 'Main steam line', parent: eSg, states: ['leak', 'no leak'] })
+      const vSup = add('variable', { title: 'Other support systems (CVCS, SI, ECCS, ...)', parent: eSg, states: ['adequate', 'inadequate'], description: 'Adequate: their operation suffices to provide the cooling normally provided by the steam generator.' })
+      const vP = add('variable', { title: 'SG pressure', parent: eSg, states: ['high', 'normal'] })
+
+      const op = add('node', { title: 'Operator', role: 'controller', processModel: [vSgtr, vFw, vSl, vSup, vP], description: 'Validates/inhibits permissives; brings the plant to a controlled shutdown on AOO / postulated accidents; activates the engineered safety features; starts main steam line isolation when necessary; monitors parameters; operates the plant during start-up and programmed shutdown; follows written guides in transients and emergencies.' })
+      const nssc = add('node', { title: 'NSSC (Non-Safety System Controller)', role: 'controller', description: 'Provides manual control for the MSIV: forwards an operator open/close command to the PM and the PM feedback to the operator.' })
+      const ps = add('node', { title: 'PS (Protection System)', role: 'controller', description: 'Brings the plant to a controlled shutdown on AOO / postulated accidents, activates the engineered safety features and starts main steam line isolation when necessary. Inputs: SIS actuation, low pressurizer pressure, partial cooldown, high main steam line activity, high SG level, start-up/shutdown, SG pressure drop rate, low SG pressure, containment compartment.' })
+      const das = add('node', { title: 'DAS (Diverse Automation System)', role: 'controller', description: 'Backup protection system for the PS, same responsibilities.' })
+      const pm = add('node', { title: 'PM (Priority Module)', role: 'controller', description: 'Selects one controller to be active, forwards commands to the MSIV actuator and feedback to the active controller, ensures a check-back when the MSIV is closed (valve torque at maximum) and checks the actuator operability.' })
+      const msiv = add('node', { title: 'MSIV (main steam isolation valve)', role: 'process' })
+      const sec = add('node', { title: 'Secondary cooling system', role: 'process' })
+      const plant = add('node', { title: 'Other plant controllers and systems (RC, SCS, TG I&C, CRDCS)', role: 'external', description: 'Source of the "outside information" the controllers use: pressurizer pressure and level, SI status, status of the CVCS, start-up / shutdown, containment and compartment pressure, off-site power, partial cooldown.' })
+
+      const caOpPm = add('ca', { title: 'Close MSIV', from: op, to: pm, duration: 'instantaneous' })
+      const caOpNssc = add('ca', { title: 'Close MSIV (manual, via NSSC)', from: op, to: nssc, duration: 'instantaneous' })
+      add('ca', { title: 'Close MSIV', from: nssc, to: pm, duration: 'instantaneous' })
+      add('ca', { title: 'Close MSIV', from: ps, to: pm, duration: 'instantaneous' })
+      add('ca', { title: 'Close MSIV', from: das, to: pm, duration: 'instantaneous' })
+      add('ca', { title: 'Permissives, Reset ESF', from: op, to: ps })
+      add('ca', { title: 'Permissives, Reset ESF', from: op, to: das })
+      const caPmMsiv = add('ca', { title: 'Close MSIV', from: pm, to: msiv, duration: 'instantaneous', actuator: 'MSIV actuator' })
+      add('ca', { title: 'Stop flow', from: msiv, to: sec })
+      add('feedback', { title: 'Actuator operational conditions', from: nssc, to: op })
+      add('feedback', { title: 'Actuator operational conditions', from: pm, to: nssc })
+      add('feedback', { title: 'Actuator operational conditions', from: pm, to: op })
+      add('feedback', { title: 'Actuator operational conditions', from: pm, to: ps })
+      add('feedback', { title: 'MSIV check-back: operational conditions of actuators, status of operation, position', from: msiv, to: pm, sensor: 'MSIV sensor', description: 'Senses the torque applied to the valve (and upper/lower chamber pressure, solenoid valves energised, valve position) to detect that the valve has closed. It does not sense process variables.' })
+      add('feedback', { title: 'SG pressure, SG water level, main steam line radioactivity level', from: sec, to: op, sensor: 'Process sensors' })
+      add('feedback', { title: 'SG pressure, SG water level, main steam line radioactivity level', from: sec, to: ps, sensor: 'Process sensors' })
+      add('feedback', { title: 'SG pressure, SG water level, main steam line radioactivity level', from: sec, to: das, sensor: 'Process sensors' })
+      add('feedback', { title: 'Outside information (pressurizer pressure/level, SI status, CVCS status, start-up/shutdown, partial cooldown, ...)', from: plant, to: op })
+      add('feedback', { title: 'Outside information (pressurizer pressure, SI status, start-up/shutdown, partial cooldown, ...)', from: plant, to: ps })
+      add('feedback', { title: 'Outside information (pressurizer pressure, SI status, start-up/shutdown, partial cooldown, ...)', from: plant, to: das })
+
+      const leak = 'a rupture in the SG tube, a leak in the main feedwater or a leak in the main steam line'
+      const u1 = add('uca', { ca: caOpPm, guide: 'not-provided', hazards: [H1, H2, H3, H4], conditions: [{ variable: vSup, op: '=', state: 'adequate' }], override: `Operator does not provide Close MSIV when there is ${leak} and the support systems are adequate`, constraint: 'MSIV must be closed when there is a leak (rupture in the SG tube, leak in main feedwater, or leak in main steam line) and the support systems are adequate (SC 1)' })
+      const u2 = add('uca', { ca: caOpPm, guide: 'not-provided', hazards: [H2, H3], conditions: [{ variable: vSup, op: '=', state: 'inadequate' }], override: 'Operator does not provide Close MSIV when there is a main feedwater or main steam line leak and other support systems are inadequate', constraint: 'MSIV must be closed when there is a main feedwater or main steam line leak and other support systems are inadequate (SC 2)', notes: 'Hazards from Table 28 rows 11-16 (leak, not ruptured).' })
+      const u3 = add('uca', { ca: caOpPm, guide: 'provided', hazards: [H1, H2, H3, H4], conditions: [{ variable: vSgtr, op: '=', state: 'ruptured' }, { variable: vSup, op: '=', state: 'inadequate' }], override: 'Operator provides Close MSIV when there is a SG tube rupture but support systems are inadequate', constraint: 'MSIV must not be closed when there is a SGTR and support systems are inadequate (SC 3)', notes: 'Result of the conflict resolution of Tables 27 and 28, row 10: the consensus was that keeping the MSIV open maximises cooling.' })
+      const u4 = add('uca', { ca: caOpPm, guide: 'too-early-late', hazards: [H2, H3], conditions: [{ variable: vP, op: '=', state: 'high' }], override: 'Operator provides Close MSIV too early (while SG pressure is high): SG pressure may rise, trigger the relief valve, abrupt steam expansion', constraint: 'MSIV must not be closed too early while SG pressure is too high (SC 4)' })
+      const u5 = add('uca', { ca: caOpPm, guide: 'too-early-late', hazards: [H1, H2, H3, H4], override: `Operator provides Close MSIV too late after ${leak}: contaminated coolant released into the secondary loop, loss of primary coolant, SG may run dry`, constraint: 'MSIV must not be closed too late after rupture/leak (in the SG tube, main feedwater, or main steam line) (SC 5)' })
+      add('uca', { ca: caOpPm, guide: 'provided', hazards: [H4], conditions: [{ variable: vSgtr, op: '=', state: 'not ruptured' }, { variable: vFw, op: '=', state: 'no leak' }, { variable: vSl, op: '=', state: 'no leak' }], override: 'Operator provides Close MSIV when there is no rupture/leak', constraint: 'MSIV must not be closed when there is no rupture/leak (SC 6)' })
+      void caOpNssc
+
+      for (const [t, hs, u] of [
+        ['MSIV must be closed when there is a leak (rupture in the SG tube, leak in main feedwater or main steam line) and the support systems are adequate', [H1, H2, H3, H4], 1],
+        ['MSIV must be closed when there is a main feedwater or main steam line leak and other support systems are inadequate', [H2, H3], 2],
+        ['MSIV must not be closed when there is a SGTR and support systems are inadequate', [H1, H2, H3, H4], 3],
+        ['MSIV must not be closed too early while SG pressure is too high', [H2, H3], 4],
+        ['MSIV must not be closed too late after rupture/leak (in the SG tube, main feedwater, or main steam line)', [H1, H2, H3, H4], 5],
+        ['MSIV must not be closed when there is no rupture/leak', [H4], 6],
+      ] as const) add('constraint', { title: t, hazards: [...hs], description: `Safety constraint SC ${u} (Table 29).` })
+
+      // Operator causal factors (A.8.1.1): a selection per UCA
+      const S = (uca: Id, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
+      S(u1, 'A concurrent situation masks another, e.g. a feedwater problem during a SGTR keeps the SG water level practically stable', 'process-model', { element: op })
+      S(u1, 'The event progresses too slowly to detect', 'feedback')
+      const s1fb = S(u1, 'SG level or pressure feedback is missing, delayed or incorrect; main steam line activity is not correctly indicated', 'feedback')
+      S(u1, 'The voting system does not operate properly and gives wrong measures; sensors, communication lines or power fail', 'feedback')
+      S(u1, 'The PM reports both MSIV actuators inoperable when they are, or the MSIV already closed when it is not; the NSSC is reported operational when it is not', 'feedback', { element: pm })
+      S(u1, 'Pressurizer pressure delayed or missing; no or delayed indication of SI initiated; inappropriate permissives in effect', 'feedback', { element: plant })
+      S(u1, 'Operator believes the SG is not ruptured (or the steam line / feedwater has no leak) when it is', 'process-model', { element: op })
+      const s1wait = S(u1, 'Operator recognises a possible SGTR but believes the PS will handle it, or waits for stronger evidence to avoid a spurious reactor trip under pressure not to trip', 'other-controller', { element: op })
+      S(u1, 'Operator recognises the rupture/leak but believes other support systems are inadequate and keeps the MSIV open to maintain cooling', 'process-model', { element: op })
+      S(u1, 'Operator is confused about the procedure to be followed or by conflicting indicators', 'control-algorithm', { element: op })
+      S(u1, 'Operator believes the NSSC is operational when it is not and sends the command to a disabled NSSC instead of directly to the PM', 'process-model', { element: op })
+      S(u2, 'Operator believes there is an SGTR that does not require MSIV closure when it is actually a main steam line or feedwater leak that does', 'process-model', { element: op })
+      S(u2, 'Operator waits for the PS to handle the situation, or is not aware of the problem because the screen is frozen or the NSSC provides inadequate information', 'feedback', { element: op })
+      S(u3, 'Operator thinks the support systems are working when they are not, e.g. believes a partial cooldown was initiated by the automation because SI engaged at the same time as high main steam line radioactivity', 'process-model', { element: op })
+      S(u3, 'Operator believes there is a main steam line or feedwater leak when there is actually a SGTR', 'process-model', { element: op })
+      S(u3, 'Operator knows the support systems are working but does not realise they are inadequate, or does not realise they are not operative (e.g. in maintenance)', 'process-model', { element: op })
+      S(u3, 'False SI signal, wrong combination of indicators from the 4 divisions, or loss of power', 'feedback')
+      S(u4, 'Operator believes it is already safe to act after the indications confirm the SGTR / steam line break / feedwater break', 'process-model', { element: op })
+      S(u4, 'SG pressure feedback is incorrect or missing, or the NSSC actuation (e.g. pressurizer heaters making up for lost RCS pressure) confuses the operator', 'feedback')
+      S(u5, 'Operator is not aware of the problem or waits for stronger evidence of the real problem (e.g. pressed to avoid spurious shutdowns, or relies on automatic protection)', 'other-controller', { element: op })
+
+      // Why a correct "Close MSIV" is not followed (A.8.1.2); the thesis states these for SC 1 and 2, and SC 3-6
+      const CS = (title: string, cause: Cause, hazards: Id[], element: Id, init: Patch<'scenario'> = {}) => add('scenario', { scenarioType: 'ca', ca: caPmMsiv, title, cause, hazards, element, ...init })
+      const c1 = CS('The PM ignores the close command: wrong priority settings, a previous interlock from the PS (e.g. to prevent closure during start-up), two conflicting commands arriving at nearly the same time, or a status check of the MSIV actuators taking longer than expected', 'receiver', [H1, H2, H3], pm)
+      CS('Valve position or operability is reported incorrectly by the MSIV sensor, so the PM does not or cannot forward the close command', 'delivery', [H1, H2, H3], msiv)
+      CS('The MSIV actuator cannot close the valve: dump valves do not open, nitrogen pressure in the upper chamber is insufficient, upper chamber in maintenance, loss of oil pump power', 'actuator', [H1, H2, H3], msiv)
+      CS('The valve itself does not close: pressure in the lower chamber does not drop, the gate is stuck, or debris keeps it open', 'controlled-process', [H1, H2, H3], msiv)
+      CS('Valve closes without an operator command: de-energised pilots open the dump valve, mechanical failure dumps the hydraulic oil, or a closure test inadvertently closes it', 'actuator', [H2, H3, H4], msiv)
+      CS('Valve closes too late: leakage in the upper chamber, or the oil pump keeps the valve open', 'actuator', [H1, H2, H3], msiv)
+
+      const R = (title: string, src: Id, type: 'requirement' | 'mitigation' = 'requirement', notes = '') => add('requirement', { title, sources: [src], type, notes })
+      R('Simplify the indicators for a SGTR: make the radioactivity level in the main steam line a major indication to isolate the affected SG, so that the PS can detect the event earlier', s1fb, 'requirement', 'Recommendation in A.11.')
+      R('The priority settings of the PM must be fixed and not programmable, and the PM logic and PLD design must ensure that MSIV close commands are never ignored regardless of the current priority', c1, 'requirement', 'Option named in A.10; wording ours.')
+      R('Reduce the reliance on the operator and on the PS to act on each other: design the PS to alert the operator when it takes no action instead of assuming the operator will resolve the problem', s1wait, 'mitigation', 'Derived from the discussion of "crediting the operator" in A.11; wording ours.')
+
+      add('assumption', { title: 'In a SG tube rupture with inadequate support systems (Table 27/28 row 10) it is best to keep the MSIV open to maximise cooling, even though this contaminates the secondary cooling system', about: [op], notes: 'Consensus after consultation with nuclear engineers and regulators; to be reviewed by domain experts.' })
+      add('assumption', { title: 'With a feedwater or steam line leak and inadequate support systems (rows 11-16) it is best to keep the MSIV closed', about: [op], notes: 'Differs from current MSIV controller designs, which do not consider the state of other support systems.' })
+      add('assumption', { title: 'The analysis considers a single steam generator and a single MSIV and the systems that close the MSIV; backup cooling systems are included only as far as they influence the decision', about: [pm] })
+    },
+  },
 ]
 
 export function publishedExampleProject(id: string): Project {
