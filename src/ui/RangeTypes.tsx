@@ -34,10 +34,10 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
       </div>
       {users > 1 && <p className="muted">Used by {users} variables; they all follow this change.</p>}
       {bad && <p className="muted">{bad}</p>}
-      <div className="dialog-actions">
+      <div className="modal-actions">
         {name && <button className="btn" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Variables keep their current bounds as custom ones">Delete type</button>}
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" disabled={!!bad} onClick={save}>Save</button>
+        <button className="primary" disabled={!!bad} onClick={save}>Save</button>
       </div>
     </Modal>
   )
@@ -70,9 +70,9 @@ export function VariableRangeDialog({ v, onClose }: { v: Variable; onClose: () =
           <Field single label="Unit"><TextInput value={t.unit} onChange={(unit) => setT({ ...t, unit })} placeholder="e.g. %, mL/h" /></Field>
         </div>
       )}
-      <div className="dialog-actions">
+      <div className="modal-actions">
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" onClick={apply}>Apply</button>
+        <button className="primary" onClick={apply}>Apply</button>
       </div>
       {creating && <RangeTypeDialog name={null} init={type ? undefined : t} onClose={() => setCreating(false)} then={setType} />}
     </Modal>

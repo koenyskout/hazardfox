@@ -269,3 +269,23 @@ describe('variable types and conditions', () => {
     expect(u && u.kind === 'uca' && u.conditions[0].op).toBe('≠')
   })
 })
+
+describe('range types', () => {
+  it('are shared by variables and follow edits', () => {
+    const mk = (p: Project, title: string) => createItem(p, 'variable', { ...makeItem('variable'), type: 'range' as const, title, min: 0, max: 100, unit: '%' })
+    const first = mk(emptyProject(), 'A')
+    const second = mk(first.project, 'B')
+    const [a, b] = [first.id, second.id]
+    let p = defineRangeType(second.project, 'Percentage', { min: 0, max: 100, unit: '%' })
+    p = updateItem(updateItem(p, a, { rangeType: 'Percentage' }), b, { rangeType: 'Percentage' })
+    p = updateItem(p, a, { max: 200 })
+    expect((p.items[b] as Variable).max).toBe(200)
+    expect(p.rangeTypes!.Percentage.max).toBe(200)
+    p = renameRangeType(p, 'Percentage', 'Pct')
+    expect((p.items[a] as Variable).rangeType).toBe('Pct')
+    expect(deserialize(serialize(p)).rangeTypes!.Pct.max).toBe(200)
+    p = deleteRangeType(p, 'Pct')
+    expect((p.items[a] as Variable).rangeType).toBe('')
+    expect((p.items[a] as Variable).max).toBe(200)
+  })
+})
