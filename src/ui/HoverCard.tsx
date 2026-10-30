@@ -32,7 +32,7 @@ export function useHoverCard() {
     return () => { window.removeEventListener('keydown', esc); window.removeEventListener('scroll', scroll, true) }
   }, [pos])
   useEffect(() => () => window.clearTimeout(timer.current), [])
-  const editing = useStore((s) => s.editing)
+  const editing = useStore((s) => s.editing.length)
   useEffect(close, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
   const node = pos && createPortal(
     <div ref={box} className="hovercard" onMouseEnter={keep} onMouseLeave={closeSoon} onMouseDown={(e) => e.stopPropagation()} style={{ left: pos.x, top: pos.y, transform: pos.below ? undefined : 'translateY(-100%)' }}>{content.current()}</div>,

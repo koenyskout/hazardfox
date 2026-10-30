@@ -10,7 +10,7 @@ import { commit, useLabels, useProject } from './hooks'
 import { Icon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
@@ -27,12 +27,13 @@ export function Details() {
 export function EditDialog() {
   const p = useProject()
   const labels = useLabels()
-  const id = useStore((s) => s.editing)
-  const setEditing = useStore((s) => s.setEditing)
+  const id = useStore((s) => s.editing[s.editing.length - 1])
+  const closeEditor = useStore((s) => s.closeEditor)
   const it = id ? p.items[id] : null
+  useEffect(() => { if (id && !it) closeEditor() }, [id, it, closeEditor]) // deleted meanwhile
   if (!it) return null
   return (
-    <Modal title={`Edit ${labels[it.id]}`} onClose={() => setEditing(null)} wide>
+    <Modal key={it.id} title={`Edit ${labels[it.id]}`} onClose={closeEditor} wide>
       <div className="details inline"><DetailsForm it={it} popup /></div>
     </Modal>
   )
@@ -41,7 +42,7 @@ export function EditDialog() {
 function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
   const p = useProject()
   const labels = useLabels()
-  const setEditing = useStore((s) => s.setEditing)
+  const closeEditor = useStore((s) => s.closeEditor)
   const [deleting, setDeleting] = useState(false)
   const set: Set = (patch, key) => commit((q) => updateItem(q, it.id, patch), key ? `${it.id}:${key}` : undefined)
   const text = (f: 'title' | 'description' | 'notes') => (v: string) => set({ [f]: v }, f)
@@ -73,7 +74,7 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
         </Field>
       )}
       <div className="actions"><button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button></div>
-      {deleting && <DeleteDialog ids={[it.id]} onClose={() => { setDeleting(false); if (popup) setEditing(null) }} />}
+      {deleting && <DeleteDialog ids={[it.id]} onClose={() => { setDeleting(false); if (popup) closeEditor() }} />}
     </>
   )
 }

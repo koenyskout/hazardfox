@@ -28,8 +28,8 @@ interface State {
   view: View
   selected: Id | null
   paletteOpen: boolean
-  /** Item shown in the edit dialog (opened from hover cards). */
-  editing: Id | null
+  /** Edit dialogs, innermost last: one opened from another returns to it when closed. */
+  editing: Id[]
   lastKey: string
   lastAt: number
 
@@ -46,7 +46,8 @@ interface State {
   select: (id: Id | null) => void
   goto: (view: View, id: Id | null) => void
   setPalette: (o: boolean) => void
-  setEditing: (id: Id | null) => void
+  openEditor: (id: Id) => void
+  closeEditor: () => void
 }
 
 export const useStore = create<State>((set, get) => ({
@@ -59,7 +60,7 @@ export const useStore = create<State>((set, get) => ({
   view: 'welcome',
   selected: null,
   paletteOpen: false,
-  editing: null,
+  editing: [],
   lastKey: '',
   lastAt: 0,
 
@@ -104,5 +105,6 @@ export const useStore = create<State>((set, get) => ({
   select: (selected) => set({ selected }),
   goto: (view, selected) => set({ view, selected }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
-  setEditing: (editing) => set({ editing }),
+  openEditor: (id) => set((s) => (s.editing[s.editing.length - 1] === id ? s : { editing: [...s.editing, id] })),
+  closeEditor: () => set((s) => ({ editing: s.editing.slice(0, -1) })),
 }))
