@@ -23,3 +23,15 @@ export function addItem<K extends Kind>(kind: K, init?: Patch<K>, index?: number
   select(id)
   return id
 }
+
+/** Create an item as one undo step and open it in the edit dialog (no selection change). */
+export function addItemInDialog<K extends Kind>(kind: K, init?: Patch<K>): Id {
+  let id = ''
+  commit((q) => {
+    const r = createItem(q, kind, init)
+    id = r.id
+    return r.project
+  })
+  useStore.getState().openEditor(id)
+  return id
+}
