@@ -137,5 +137,7 @@ describe('element height', () => {
       const a = (await layoutStructure(p)).nodes[n.id], b = (await layoutStructure(updateItem(p, n.id, { tall: 80 }))).nodes[n.id]
       expect(b.h).toBeGreaterThanOrEqual(a.h + 79)
     }
+    // minH is the displayed height without extra height, so a resize drag starts from the actual size
+    for (const n of Object.values((await layoutStructure(p)).nodes)) expect(n.minH).toBe(n.h)
   })
 })

@@ -291,7 +291,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       const cut = lo.y, delta = need - gap
       for (const n of Object.values(out.nodes)) {
         if (n.y >= cut - 0.5) n.y += delta
-        else if (n.compound && n.y + n.h > cut + 0.5) n.h += delta
+        else if (n.compound && n.y + n.h > cut + 0.5) { n.h += delta; n.minH += delta }
       }
       moved = true
     }
