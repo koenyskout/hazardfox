@@ -1,5 +1,7 @@
 import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
-import type { Project, Variable } from '../model/types'
+import { useState } from 'react'
+import { createItem } from '../model/ops'
+import type { Id, Project, Variable } from '../model/types'
 import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
@@ -9,6 +11,19 @@ import { Picker } from './Picker'
 
 /** One row per variable; within an owner the raw ones first, then the computed ones. */
 const ordered = (p: Project, world: Variable[]) => [...world.filter((w) => !isComputed(p, w)), ...world.filter((w) => isComputed(p, w))]
+
+/** "+ signal": let an existing incoming feedback report the variable, or create a new feedback from a chosen node first. */
+function AddSignal({ c, w }: { c: string; w: string }) {
+  const p = useProject()
+  const [choosing, setChoosing] = useState(false)
+  const fbs = feedbackInto(p, c)
+  const sources = itemsOfKind(p, 'node').filter((n) => n.id !== c).sort((a, b) => a.rank - b.rank)
+  const label = <span title="Let a feedback report this variable">+ <LayerIcon layer="signal" />signal</span>
+  const create = (from: Id | null) => from && commit((q) => { const r = createItem(q, 'feedback', { from, to: c }); return addSignal(r.project, r.id, w).project })
+  return choosing
+    ? <Picker key="src" className="add" autoOpen options={sources} onPick={create} onClose={() => setChoosing(false)}>{label}</Picker>
+    : <Picker key="fb" className="add" options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w).project)} create={{ label: 'New feedback from…', run: () => setChoosing(true) }}>{label}</Picker>
+}
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
 export function VariableMap() {
@@ -40,7 +55,6 @@ export function VariableMap() {
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
                 const sig = bel.length ? [...new Set(bel.flatMap((b) => updatedBy(p, b)))] : signalsInto(p, c.id).filter((s) => s.about === w.id)
-                const fbs = feedbackInto(p, c.id)
                 const cls = !bel.length ? (needed(c.id, w.id) ? 'gap' : '') : !sig.length ? 'warn' : 'ok'
                 return (
                   <td key={c.id} className={cls}>
@@ -48,9 +62,7 @@ export function VariableMap() {
                     {sig.length > 0 && <div className="via"><span className="muted">from</span> {sig.map((s) => <Ref key={s.id} id={s.id} />)}</div>}
                     <div className="cell-add">
                       {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ <LayerIcon layer="belief" />belief</button>}
-                      {!sig.length && fbs.length > 0 && (
-                        <Picker className="add" options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span title="Let an incoming feedback report this variable">+ <LayerIcon layer="signal" />signal</span></Picker>
-                      )}
+                      {!sig.length && <AddSignal c={c.id} w={w.id} />}
                     </div>
                   </td>
                 )
@@ -58,8 +70,9 @@ export function VariableMap() {
             </tr>
             )),
           ])}
+          <tr className="group"><th colSpan={2 + ctrls.length}><LayerIcon layer="internal" /> Internal state <small className="muted">modes, timers, counters – owned by each controller, not about the world</small></th></tr>
           <tr>
-            <th><LayerIcon layer="internal" />Internal state<br /><small className="muted">modes, timers, counters</small></th>
+            <th><small className="muted">per controller</small></th>
             <td />
             {ctrls.map((c) => (
               <td key={c.id}>

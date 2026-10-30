@@ -12,7 +12,7 @@ import { ItemCard, summary } from './ItemCard'
 export const NAMED = new Set<string>(['variable', 'entity'])
 
 /** Searchable item picker: each option shows label, title and a summary; the highlighted one is previewed as a full card. */
-export function Picker({ options, onPick, children, className, create }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void } }) {
+export function Picker({ options, onPick, children, className, create, autoOpen, onClose }: { options: Item[]; onPick: (id: Id | null) => void; children: ReactNode; className?: string; create?: { label: string; run: () => void }; /** open on mount (for a picker shown as a second step) */ autoOpen?: boolean; onClose?: () => void }) {
   const p = useProject()
   const labels = useLabels()
   const ids = useIds()
@@ -27,10 +27,11 @@ export function Picker({ options, onPick, children, className, create }: { optio
     return options.filter((o) => { const s = `${labels[o.id]} ${ids[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, options, labels, p])
-  const close = () => { setAt(null); setQ(''); setSel(0) }
+  const reset = () => { setAt(null); setQ(''); setSel(0) }
+  const close = () => { reset(); onClose?.() }
   const pick = (id: Id | null) => { onPick(id); close() }
   const editors = useStore((s) => s.editing.length)
-  useEffect(close, [editors]) // eslint-disable-line react-hooks/exhaustive-deps -- an editor opened from the preview card replaces the picker
+  useEffect(reset, [editors]) // eslint-disable-line react-hooks/exhaustive-deps -- an editor opened from the preview card replaces the picker
   useEffect(() => {
     if (!at) return
     const down = (e: MouseEvent) => { if (!(e.target as Element).closest('.picker-pop') && !btn.current?.contains(e.target as Node)) close() }
@@ -42,6 +43,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
     const w = window.innerWidth >= 780 ? 740 : 380
     setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)), y: r.bottom + 4 })
   }
+  useEffect(() => { if (autoOpen) open() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const mixed = new Set(options.map((o) => o.kind)).size > 1
   const cur = hits[Math.min(sel, hits.length - 1)]
   const wide = window.innerWidth >= 780
