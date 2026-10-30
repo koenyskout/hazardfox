@@ -50,7 +50,7 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
   return (
     <>
       <h3>
-        <ItemHover id={it.id}><span className={'chip k-' + it.kind}>{labels[it.id]}</span></ItemHover> {KIND_NAMES[it.kind]}
+        <span className={'chip k-' + it.kind}>{labels[it.id]}</span> {KIND_NAMES[it.kind]}
       </h3>
       {it.kind !== 'uca' && it.kind !== 'scenario' && (
         <Field single label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
@@ -324,7 +324,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         return (
           <div key={i} className="cond">
             <Picker options={vars} onPick={(id) => id && upd(i, { variable: id, state: '' })}>
-              {v ? <><span className={'chip k-' + v.kind}>{labels[v.id]}</span> {v.title}</> : <span className="muted">variable…</span>}
+              {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover> {v.title}</> : <span className="muted">variable…</span>}
             </Picker>
             <select value={c.negate ? 'ne' : 'eq'} onChange={(e) => upd(i, { negate: e.target.value === 'ne' })}><option value="eq">=</option><option value="ne">≠</option></select>
             <select value={c.state} onChange={(e) => upd(i, { state: e.target.value })}>
