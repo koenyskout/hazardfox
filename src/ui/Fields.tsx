@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { Id, Item, Kind, Labels } from '../model/types'
@@ -38,6 +38,13 @@ export function Field(props: { label: string; children: ReactNode; hint?: string
 
 export function TextInput(props: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return <input value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
+}
+
+/** Numeric input that keeps what is being typed ("-", "1.") and reports null while it is not a number. */
+export function NumberInput(props: { value: number | null; onChange: (v: number | null) => void }) {
+  const [text, setText] = useState(props.value === null ? '' : String(props.value))
+  const shown = Number(text) === props.value && text.trim() !== '' ? text : props.value === null && !Number.isFinite(Number(text)) ? text : props.value === null ? '' : String(props.value)
+  return <input inputMode="decimal" value={shown} onChange={(e) => { const t = e.target.value; setText(t); props.onChange(t.trim() !== '' && Number.isFinite(Number(t)) ? Number(t) : null) }} />
 }
 
 /** Shows the item's hover card (title, description, traceability) when hovering the children. */

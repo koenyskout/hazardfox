@@ -11,6 +11,8 @@ import { validate } from '../model/validate'
 import { freshReview } from '../llm/auto'
 import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
+import { describeStates } from '../model/variables'
+import { VARIABLE_TYPE_LABELS } from '../model/types'
 
 const MAX_PER_KIND = 5
 type Go = (id: Id) => void
@@ -125,7 +127,8 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       row('Operations', list(it.operations))
       break
     case 'variable':
-      row('States', list(it.states, 6))
+      row('Type', VARIABLE_TYPE_LABELS[it.type].split(' (')[0])
+      row('States', it.type === 'enum' ? list(it.states, 6) : describeStates(it))
       break
     default:
   }

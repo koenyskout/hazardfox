@@ -20,7 +20,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
 - constraint: invert a hazard: "<System> must <condition>". One+ hazards in hazards; link LEAF hazards only; no design solutions.
 
 ## Step 2 - Control structure
-- domain model (optional but needed for context-aware UCAs): entity (attributes, operations), variable (parent = entity, states[]),
+- domain model (optional but needed for context-aware UCAs): entity (attributes, operations), variable (parent = entity; type enum with states[], boolean, or range with min/max/unit),
   relationship (from/to entities).
 - node: controller | process | external (sensors and actuators are NOT nodes); nest with parent (subsystems). A controller's processModel lists the
   variables it tracks. entity optionally links the domain entity.
@@ -30,7 +30,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
 ## Step 3 - Unsafe control actions
 For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage). stopped-too-soon / applied-too-long only applies to continuous control actions (those with a duration); for instantaneous/discrete ones (e.g. separate Start and Stop commands, a toggle) set duration "instantaneous" and it is skipped automatically; not every combination needs a UCA: mark one that makes no sense with the control action field notApplicable ([{guide, reason}]).
 A UCA = controller + guide + control action + CONTEXT that makes it unsafe + hazards. Express context as conditions
-[{variable, state, negate}] over domain variables and/or free text in context. Condition states must be states of the variable. Conditions and context are combined in the generated sentence. One control action and one type per UCA.
+[{variable, op, state, to?}] over domain variables and/or free text in context. op is = or ≠ (default =); range variables also allow < ≤ > ≥ and between (state = lower, to = upper). state must be a state of an enum variable, true/false for boolean, a number for range. Conditions and context are combined in the generated sentence. One control action and one type per UCA.
 The context is a real world state, not the controller's belief ("when it incorrectly believes ..." is a cause -> scenario).
 Link leaf hazards in hazards; write the controller constraint in "constraint" ("Controller must not ..."). The UCA sentence is generated.
 A guide word that cannot be unsafe needs no UCA; set notApplicable on the control action via update_items ([{guide, reason}]) or note why in an assumption. UCAs are listed by list_items with the generated sentence as title; every UCA needs its own constraint text.

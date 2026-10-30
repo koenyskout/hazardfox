@@ -2,7 +2,8 @@ import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKind } from '../model/tree'
-import { CAUSES, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, type Id, type Item, type Kind, type Project } from '../model/types'
+import { conditionError } from '../model/variables'
+import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, VARIABLE_TYPES, type Condition, type ConditionOp, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -27,6 +28,7 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   requirement: { type: REQUIREMENT_TYPES },
   node: { role: NODE_ROLES },
   ca: { duration: DURATIONS },
+  variable: { type: VARIABLE_TYPES },
   uca: { guide: GUIDE_WORDS },
   scenario: { scenarioType: SCENARIO_TYPES },
 }
@@ -51,7 +53,8 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'attributes') info.type = '{name: string, type: string}[]'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'conditions') info.type = '{variable: ref, state: string (one of the variable\'s states), negate?: boolean}[]'
+    if (f === 'conditions') info.type = '{variable: ref, op?: = | ≠ | < | ≤ | > | ≥ | between (default =; the order operators and between need a range variable), state: string (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between)}[]'
+    if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
     if (f === 'tags') info.type = 'string[]'
@@ -150,10 +153,14 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
         out[f] = v.map((c: Rec) => {
           const variable = r.resolve(c?.variable)
           checkKind(variable, 'variable')
-          if (!isStr(c.state) || !c.state) throw new Error('each condition needs a "state" string')
+          if ((!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error('each condition needs a "state" string')
+          const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
+          if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
+          const cond: Condition = { variable, op, state: String(c.state), ...(op === 'between' ? { to: String(c.to ?? '') } : {}) }
           const vi = r.p.items[variable]
-          if (vi?.kind === 'variable' && vi.states.length && !vi.states.includes(c.state)) throw new Error(`state "${c.state}" is not a state of ${r.labels[variable]} (${vi.states.join(', ')})`)
-          return { variable, state: c.state, negate: c.negate === true }
+          const bad = vi?.kind === 'variable' ? conditionError(vi, cond) : null
+          if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
+          return cond
         })
       } else if (f === 'notApplicable') {
         if (!Array.isArray(v) || v.some((n: Rec) => !(GUIDE_WORDS as readonly string[]).includes(n?.guide as string))) throw new Error(`expected [{guide, reason}] with guide among ${GUIDE_WORDS.join(', ')}`)
@@ -164,6 +171,9 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       } else if (spec.type === 'string[]') {
         if (!Array.isArray(v) || v.some((x) => !isStr(x))) throw new Error('expected an array of strings')
         if (f === 'stride' && v.some((x) => !(STRIDE as readonly string[]).includes(x))) throw new Error(`values must be among ${STRIDE.join(', ')}`)
+        out[f] = v
+      } else if (spec.type === 'number | null') {
+        if (v !== null && !(typeof v === 'number' && Number.isFinite(v))) throw new Error('expected a number or null')
         out[f] = v
       } else if (spec.type === 'boolean') {
         if (typeof v !== 'boolean') throw new Error('expected a boolean')
@@ -214,7 +224,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'status' && v === 'draft') continue
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
-    else if (f === 'conditions') out[f] = (v as { variable: Id; state: string; negate: boolean }[]).map((c) => ({ ...c, variable: r.label(c.variable) }))
+    else if (f === 'conditions') out[f] = (v as Condition[]).map((c) => ({ ...c, variable: r.label(c.variable) }))
     else out[f] = isStr(v) && isText(it.kind, f) ? r.externalText(v) : v
   }
   if (it.kind === 'ca' && isStr(raw.operation) && raw.operation.includes(':')) {

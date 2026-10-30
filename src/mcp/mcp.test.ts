@@ -68,7 +68,7 @@ describe('mcp tools', () => {
       { kind: 'ca', fields: { title: 'Steer', from: '$d', to: '$s' } },
     ] }))
     const mk = (state: string) => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'Steer', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Gear', state }] } }] })
-    expect(() => mk('reverse')).toThrow(/not a state of V-1/)
+    expect(() => mk('reverse')).toThrow(/is not one of drive, park/)
     ;({ p } = mk('park'))
     expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear = park')
     expect('parent' in run(p, 'describe_kinds', { kind: 'ca' }).r.ca.fields).toBe(false)

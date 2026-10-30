@@ -3,6 +3,7 @@ import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
+import { describeStates } from '../model/variables'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
 
 export const SECTIONS = [
@@ -56,7 +57,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   push('domain', 'Entities', ['ID', 'Entity', 'Attributes', 'Operations', 'Description', 'Status', 'Tags'],
     tree('entity').map(({ item: e }) => [...common(e), e.attributes.map((a) => (a.type ? `${a.name}: ${a.type}` : a.name)).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
   push('domain', 'Process variables', ['ID', 'Variable', 'Entity', 'States', 'Description', 'Status'],
-    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), name(v.parent as Id), v.states.join(' | '), T(v.description), v.status]))
+    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), name(v.parent as Id), describeStates(v), T(v.description), v.status]))
   push('domain', 'Relationships', ['ID', 'Name', 'From', 'To', 'Cardinality'], flat('relationship').map((r) => [...common(r), name(r.from), name(r.to), `${r.fromCard} : ${r.toCard}`]))
 
   push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Process model', 'Description', 'Status'],

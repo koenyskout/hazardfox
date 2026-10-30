@@ -17,6 +17,13 @@ export const GUIDE_WORD_LABELS: Record<GuideWord, string> = {
   'stopped-too-soon': 'Stopped too soon / applied too long',
 }
 
+export const VARIABLE_TYPES = ['enum', 'boolean', 'range'] as const
+export type VariableType = (typeof VARIABLE_TYPES)[number]
+export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range' }
+
+export const CONDITION_OPS = ['=', '≠', '<', '≤', '>', '≥', 'between'] as const
+export type ConditionOp = (typeof CONDITION_OPS)[number]
+
 export const DURATIONS = ['continuous', 'instantaneous'] as const
 export type Duration = (typeof DURATIONS)[number]
 export const DURATION_LABELS: Record<Duration, string> = {
@@ -105,7 +112,12 @@ export interface Relationship extends Base {
 /** Process variable owned by an entity (parent = entity id). */
 export interface Variable extends Base {
   kind: 'variable'
+  /** enum: named `states`; boolean: true / false; range: numeric, optional `min`/`max` bounds and `unit` */
+  type: VariableType
   states: string[]
+  unit: string
+  min: number | null
+  max: number | null
 }
 
 /** Control structure node; `parent` nests nodes (hierarchy / subsystems). */
@@ -152,10 +164,12 @@ export interface Feedback extends Base {
   labelShift: Offset | null
 }
 
+/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`. */
 export interface Condition {
   variable: Id
+  op: ConditionOp
   state: string
-  negate: boolean
+  to?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

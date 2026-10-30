@@ -1,5 +1,6 @@
 import { guideApplies } from '../model/uca'
-import { CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { conditionError, opsFor, valuesOf } from '../model/variables'
+import { VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { generateUcaText } from '../model/uca'
@@ -14,7 +15,7 @@ import { StringList } from './StringList'
 import { useEffect, useState } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
-import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput } from './Fields'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, NumberInput } from './Fields'
 
 export function Details() {
   const p = useProject()
@@ -156,9 +157,23 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Owner entity">
             <SingleRef value={it.parent} options={of('entity')} onChange={(v) => v && set({ parent: v })} />
           </Field>
-          <Field label="States" hint="Enumerated values, or ranges like “0–100 %”. Enter adds a state.">
-            <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
+          <Field single label="Type">
+            <select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
+              {VARIABLE_TYPES.map((t) => <option key={t} value={t}>{VARIABLE_TYPE_LABELS[t]}</option>)}
+            </select>
           </Field>
+          {it.type === 'enum' && (
+            <Field label="States" hint="Named values. Enter adds a state.">
+              <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
+            </Field>
+          )}
+          {it.type === 'range' && (
+            <div className="two">
+              <Field single label="Min"><NumberInput value={it.min} onChange={(v) => set({ min: v }, 'min')} /></Field>
+              <Field single label="Max"><NumberInput value={it.max} onChange={(v) => set({ max: v }, 'max')} /></Field>
+              <Field single label="Unit"><TextInput value={it.unit} onChange={(v) => set({ unit: v }, 'unit')} placeholder="e.g. %, mL/h" /></Field>
+            </div>
+          )}
         </>
       )
     case 'relationship':
@@ -328,22 +343,35 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
     <div className="conds">
       {it.conditions.map((c, i) => {
         const v = p.items[c.variable]
-        const states = v?.kind === 'variable' ? v.states : []
+        const vr = v?.kind === 'variable' ? v : undefined
+        const values = valuesOf(vr)
+        const err = vr && c.state ? conditionError(vr, c) : null
+        const valueInput = (key: 'state' | 'to', placeholder: string) =>
+          values ? (
+            <select value={c[key] ?? ''} onChange={(e) => upd(i, { [key]: e.target.value })}>
+              <option value="">{placeholder}</option>
+              {values.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          ) : (
+            <input className="num" inputMode="decimal" placeholder={placeholder} value={c[key] ?? ''} onChange={(e) => upd(i, { [key]: e.target.value })} />
+          )
         return (
           <div key={i} className="cond">
-            <Picker options={vars} onPick={(id) => id && upd(i, { variable: id, state: '' })}>
+            <Picker options={vars} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
               {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
-            <select value={c.negate ? 'ne' : 'eq'} onChange={(e) => upd(i, { negate: e.target.value === 'ne' })}><option value="eq">=</option><option value="ne">≠</option></select>
-            <select value={c.state} onChange={(e) => upd(i, { state: e.target.value })}>
-              <option value="">state…</option>
-              {states.map((s) => <option key={s}>{s}</option>)}
+            <select value={c.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp })}>
+              {opsFor(vr).map((o) => <option key={o} value={o}>{o === 'between' ? 'between' : o}</option>)}
             </select>
+            {valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
+            {c.op === 'between' && <><span className="muted">and</span>{valueInput('to', 'value…')}</>}
+            {vr?.type === 'range' && vr.unit && <span className="muted">{vr.unit}</span>}
             <button className="x" onClick={() => set({ conditions: it.conditions.filter((_, j) => j !== i) })}>×</button>
+            {err && <small className="cond-err">{err}</small>}
           </div>
         )
       })}
-      <button onClick={() => set({ conditions: [...it.conditions, { variable: '', state: '', negate: false }] })}>+ condition</button>
+      <button onClick={() => set({ conditions: [...it.conditions, { variable: '', op: '=', state: '' }] })}>+ condition</button>
     </div>
   )
 }

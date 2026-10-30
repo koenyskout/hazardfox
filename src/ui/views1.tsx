@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { effectiveLosses } from '../model/derived'
+import { describeStates } from '../model/variables'
 import { byLabel } from '../model/labels'
 import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
@@ -95,7 +96,7 @@ export function Domain() {
           items={itemsOfKind(p, 'variable').sort(byLabel(labels))}
           columns={[
             { head: 'Entity', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
-            { head: 'States', cell: (v) => <span className="muted">{v.states.join(' | ')}</span> },
+            { head: 'States', cell: (v) => <span className="muted">{describeStates(v)}</span> },
           ]} />
       )}
       {tab === 'relationship' && (

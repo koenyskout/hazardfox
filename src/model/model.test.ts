@@ -213,3 +213,28 @@ describe('control action duration', () => {
     expect(guideApplies(get(), 'provided')).toBe(true)
   })
 })
+
+describe('variable types and conditions', () => {
+  it('describes states, validates conditions per type and migrates negate', async () => {
+    const { describeStates, conditionError, conditionText, opsFor } = await import('./variables')
+    const { deserialize, serialize } = await import('./serialize')
+    const { makeItem } = await import('./create')
+    const range = { ...makeItem('variable'), type: 'range' as const, unit: '%', min: 0, max: 100 }
+    expect(describeStates(range)).toBe('0–100 %')
+    expect(opsFor(range)).toContain('between')
+    expect(opsFor(makeItem('variable'))).toEqual(['=', '≠'])
+    expect(conditionError(range, { variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
+    expect(conditionError(range, { variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
+    expect(conditionError(range, { variable: 'x', op: '≥', state: '5' })).toBeNull()
+    expect(conditionError({ ...range, type: 'boolean' }, { variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
+    let p = emptyProject()
+    p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
+    const v = Object.values(p.items)[0]
+    expect(conditionText(p, { variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate between 1 and 5 %')
+    const old = JSON.parse(serialize(p))
+    old.items.push({ ...makeItem('uca'), conditions: [{ variable: v.id, state: '3', negate: true }] })
+    const q = deserialize(JSON.stringify(old))
+    const u = Object.values(q.items).find((i) => i.kind === 'uca')
+    expect(u && u.kind === 'uca' && u.conditions[0].op).toBe('≠')
+  })
+})

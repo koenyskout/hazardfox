@@ -35,8 +35,8 @@ export function exampleProject(): Project {
   add('feedback', { title: 'Alarm & status', from: ctrl, to: nurse, variables: [vAlarm, vRun] })
   add('feedback', { title: 'Flow rate', from: body, to: ctrl, variables: [vOcc], sensor: 'Flow sensor' })
 
-  const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ variable: vOcc, state: 'occluded', negate: false }], constraint: 'Controller must not drive the motor when the line is occluded' })
-  const u2 = add('uca', { ca: ca2, guide: 'not-provided', hazards: [h12], conditions: [{ variable: vRun, state: 'running', negate: false }], constraint: 'Controller must keep driving the motor while infusion is running' })
+  const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ variable: vOcc, op: '=', state: 'occluded' }], constraint: 'Controller must not drive the motor when the line is occluded' })
+  const u2 = add('uca', { ca: ca2, guide: 'not-provided', hazards: [h12], conditions: [{ variable: vRun, op: '=', state: 'running' }], constraint: 'Controller must keep driving the motor while infusion is running' })
   add('uca', { ca: ca1, guide: 'provided', hazards: [h2], context: 'rate set by an unauthenticated source', constraint: 'Controller must reject unauthenticated rate changes' })
   add('scenario', { uca: u1, title: 'Occlusion sensor reading is stale after reconnect', adversarial: false, severity: 5, likelihood: 2 })
   const s2 = add('scenario', { uca: u1, title: 'Attacker spoofs occlusion feedback to mask a blockage', adversarial: true, stride: ['Spoofing', 'Tampering'], threat: 'Man-in-the-middle on the sensor bus', severity: 5, likelihood: 2 })

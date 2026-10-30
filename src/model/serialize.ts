@@ -1,6 +1,6 @@
 import { emptyProject, makeItem } from './create'
 import { groupKey } from './tree'
-import { KINDS, type Item, type NodeRole, type Project } from './types'
+import { KINDS, type Condition, type Item, type NodeRole, type Project } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
   v && typeof v === 'object' && !Array.isArray(v)
@@ -34,6 +34,10 @@ export function deserialize(text: string): Project {
       if (a.kind === 'feedback' && a.from === n.id && !a.sensor) a.sensor = n.title
     }
     n.role = old[n.role as string]
+  }
+  for (const it of Object.values(p.items)) {
+    if (it.kind === 'variable') Object.assign(it, { ...makeItem('variable'), ...it })
+    if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
   }
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
   return p
