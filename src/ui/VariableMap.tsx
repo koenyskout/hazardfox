@@ -7,19 +7,19 @@ import { LayerIcon } from './Icon'
 import { addItemInDialog, commit, useProject } from './hooks'
 import { Picker } from './Picker'
 
-/** World variables depth-first, each refined variable followed by its parts (a part shared by several wholes is listed once). */
-function hierarchy(p: Project, world: Variable[]): [Variable, number][] {
+/** World variables depth-first, each refined variable followed by its parts (a part shared by several wholes is listed under each). */
+function hierarchy(p: Project, world: Variable[]): [Variable, number, string][] {
   const ids = new Set(world.map((w) => w.id))
+  const out: [Variable, number, string][] = []
   const seen = new Set<string>()
-  const out: [Variable, number][] = []
-  const visit = (w: Variable, d: number) => {
-    if (seen.has(w.id)) return
+  const visit = (w: Variable, d: number, path: string[]) => {
+    if (path.includes(w.id)) return
     seen.add(w.id)
-    out.push([w, d])
-    for (const id of refines(p, w)) { const x = p.items[id]; if (x?.kind === 'variable' && ids.has(id)) visit(x, d + 1) }
+    out.push([w, d, [...path, w.id].join('/')])
+    for (const id of refines(p, w)) { const x = p.items[id]; if (x?.kind === 'variable' && ids.has(id)) visit(x, d + 1, [...path, w.id]) }
   }
-  for (const w of world) if (!refinedBy(p, w.id).some((x) => ids.has(x.id))) visit(w, 0)
-  for (const w of world) visit(w, 0)
+  for (const w of world) if (!refinedBy(p, w.id).some((x) => ids.has(x.id))) visit(w, 0, [])
+  for (const w of world) if (!seen.has(w.id)) visit(w, 0, [])
   return out
 }
 
@@ -46,8 +46,8 @@ export function VariableMap() {
         <tbody>
           {owners.flatMap((o) => [
             <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
-            ...hierarchy(p, world.filter((w) => (w.parent ?? '') === o)).map(([w, d]) => (
-            <tr key={w.id}>
+            ...hierarchy(p, world.filter((w) => (w.parent ?? '') === o)).map(([w, d, key]) => (
+            <tr key={key}>
               <th style={{ paddingLeft: 6 + d * 18 }}>{d > 0 && <span className="muted">↳ </span>}<Ref id={w.id} /><br /><small className="muted">{describeStates(w)}{w.rules.length > 0 && <> · from {refines(p, w).map((id) => p.items[id]?.title).join(', ')}</>}</small></th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
