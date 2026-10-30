@@ -49,6 +49,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'attributes') info.type = '{name: string, type: string}[]'
+    if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
     if (f === 'conditions') info.type = '{variable: ref, state: string, negate?: boolean}[]'
     if (f === 'stride') info.type = 'string[]'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
@@ -148,6 +149,9 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
           if (!isStr(c.state) || !c.state) throw new Error('each condition needs a "state" string')
           return { variable, state: c.state, negate: c.negate === true }
         })
+      } else if (f === 'notApplicable') {
+        if (!Array.isArray(v) || v.some((n: Rec) => !(GUIDE_WORDS as readonly string[]).includes(n?.guide as string))) throw new Error(`expected [{guide, reason}] with guide among ${GUIDE_WORDS.join(', ')}`)
+        out[f] = [...new Map(v.map((n: Rec) => [n.guide, { guide: n.guide, reason: isStr(n.reason) ? n.reason : '' }])).values()]
       } else if (f === 'attributes') {
         if (!Array.isArray(v) || v.some((a: Rec) => !isStr(a?.name))) throw new Error('expected [{name, type}]')
         out[f] = v.map((a: Rec) => ({ name: a.name, type: isStr(a.type) ? a.type : '' }))

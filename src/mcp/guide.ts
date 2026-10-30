@@ -26,7 +26,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
   carries it out. feedback: from node to node with the variables it updates; optional "sensor" names the sensor producing it.
 
 ## Step 3 - Unsafe control actions
-For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage).
+For every control action consider all four guide words: not-provided, provided, too-early-late, stopped-too-soon (see uca_coverage); not every combination needs a UCA: mark one that makes no sense with the control action field notApplicable ([{guide, reason}]).
 A UCA = controller + guide + control action + CONTEXT that makes it unsafe + hazards. Express context as conditions
 [{variable, state, negate}] over domain variables and/or free text in context. One control action and one type per UCA.
 The context is a real world state, not the controller's belief ("when it incorrectly believes ..." is a cause -> scenario).

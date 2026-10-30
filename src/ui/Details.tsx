@@ -187,6 +187,20 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               </select>
             </Field>
           )}
+          {it.kind === 'ca' && (
+            <Field label="Guide words not applicable">
+              {GUIDE_WORDS.map((g) => {
+                const n = it.notApplicable.find((x) => x.guide === g)
+                const upd = (next: typeof it.notApplicable) => set({ notApplicable: next })
+                return (
+                  <div key={g} className="na-row">
+                    <label><input type="checkbox" checked={!!n} onChange={(e) => upd(e.target.checked ? [...it.notApplicable, { guide: g, reason: '' }] : it.notApplicable.filter((x) => x.guide !== g))} /> {GUIDE_WORD_LABELS[g]}</label>
+                    {n && <input placeholder="Reason" value={n.reason} onChange={(e) => upd(it.notApplicable.map((x) => (x.guide === g ? { ...x, reason: e.target.value } : x)))} />}
+                  </div>
+                )
+              })}
+            </Field>
+          )}
           {it.bend && <button onClick={() => set({ bend: null })}>Reset manual routing</button>}
         </>
       )

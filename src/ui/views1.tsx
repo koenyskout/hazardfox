@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { effectiveLosses } from '../model/derived'
 import { byLabel } from '../model/labels'
-import { updateMeta } from '../model/ops'
+import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
@@ -125,10 +125,19 @@ export function Ucas() {
                 <th><Ref id={ca.id} /> {ca.title}<br /><small className="muted">{ca.kind === 'ca' && p.items[ca.from]?.title} → {ca.kind === 'ca' && p.items[ca.to]?.title}</small></th>
                 {GUIDE_WORDS.map((g) => {
                   const cell = ucas.filter((u) => u.ca === ca.id && u.guide === g)
+                  const na = ca.kind === 'ca' ? ca.notApplicable.find((n) => n.guide === g) : undefined
+                  const toggleNa = () => commit((q) => updateItem(q, ca.id, { notApplicable: ca.kind === 'ca' ? (na ? ca.notApplicable.filter((n) => n.guide !== g) : [...ca.notApplicable, { guide: g, reason: '' }]) : [] }))
+                  if (na && !cell.length) return (
+                    <td key={g} className="na" title={na.reason}>
+                      <span className="muted">N/A{na.reason && ` – ${na.reason}`}</span>
+                      <button className="add" title="Mark applicable again" onClick={toggleNa}>×</button>
+                    </td>
+                  )
                   return (
                     <td key={g} className={cell.length ? '' : 'gap'}>
                       {cell.map((u) => <ItemHover key={u.id} id={u.id}><button className="chip k-uca" onClick={() => select(u.id)}>{labels[u.id]}</button></ItemHover>)}
                       <button className="add" title="Add UCA" onClick={() => addUca(ca.id, g)}>+</button>
+                      {!cell.length && <button className="add" title="Mark this guide word as not applicable" onClick={toggleNa}>n/a</button>}
                     </td>
                   )
                 })}

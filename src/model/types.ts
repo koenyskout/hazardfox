@@ -123,6 +123,8 @@ export interface ControlAction extends Base {
   operation: string
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
   actuator: string
+  /** Guide words that make no sense for this control action (with a reason); not to be analysed */
+  notApplicable: { guide: GuideWord; reason: string }[]
   bend: Offset | null
 }
 export interface Feedback extends Base {

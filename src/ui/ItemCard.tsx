@@ -80,6 +80,7 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
     case 'ca': {
       row('Operation', it.operation ? it.operation.split(':').slice(1).join(':') : null)
       row('Actuator', it.actuator)
+      row('Not applicable', it.notApplicable.length ? it.notApplicable.map((n) => GUIDE_WORD_LABELS[n.guide] + (n.reason ? ` (${n.reason})` : '')).join('; ') : null)
       break
     }
     case 'feedback':

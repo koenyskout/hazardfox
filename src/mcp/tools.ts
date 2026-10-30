@@ -269,7 +269,7 @@ export const TOOLS = [
 
   tool({
     name: 'uca_coverage',
-    description: 'For every control action: which UCAs exist per guide word (not-provided, provided, too-early-late, stopped-too-soon) and which guide words are not analysed yet. Use it to work through STPA step 3 systematically.',
+    description: 'For every control action: which UCAs exist per guide word (not-provided, provided, too-early-late, stopped-too-soon) and which guide words are not analysed yet (guide words marked not applicable, with reason, are reported separately and not as missing). Use it to work through STPA step 3 systematically.',
     shape: {},
     writes: false,
     run: (p) => {
@@ -279,7 +279,7 @@ export const TOOLS = [
         result: itemsOfKind(p, 'ca').sort((a, b) => compareLabels(r.labels[a.id], r.labels[b.id])).map((ca) => {
           const from = p.items[ca.from]
           const by = Object.fromEntries(GUIDE_WORDS.map((g) => [g, ucas.filter((u) => u.ca === ca.id && u.guide === g).map((u) => r.label(u.id))]))
-          return { ref: r.label(ca.id), title: ca.title, controller: from?.title, ucas: by, missing: GUIDE_WORDS.filter((g) => by[g].length === 0) }
+          return { ref: r.label(ca.id), title: ca.title, controller: from?.title, ucas: by, notApplicable: ca.notApplicable, missing: GUIDE_WORDS.filter((g) => by[g].length === 0 && !ca.notApplicable.some((n) => n.guide === g)) }
         }),
       }
     },

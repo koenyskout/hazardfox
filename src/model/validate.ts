@@ -55,6 +55,8 @@ export function validate(p: Project): Issue[] {
 
   // control structure
   for (const ca of itemsOfKind(p, 'ca')) {
+    for (const n of ca.notApplicable)
+      if (ucas.some((u) => u.ca === ca.id && u.guide === n.guide)) add('warning', ca, `${L[ca.id]} ${ca.title}: guide word "${n.guide}" is marked not applicable but has UCAs`)
     if (!itemsOfKind(p, 'scenario').some((s) => s.scenarioType === 'ca' && s.ca === ca.id))
       add('info', ca, `${L[ca.id]} ${ca.title}: no scenarios for improper execution of the control action`)
   }
