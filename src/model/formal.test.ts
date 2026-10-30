@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
 import { exampleProject } from './example'
+import { publishedExampleProject } from './publishedExamples'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, signalsOf, updatedBy } from './formal'
 import { createItem, deleteItems, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
@@ -84,8 +85,9 @@ describe('traces', () => {
     expect(valueAt(t, 1, 'a')).toEqual({ value: '1', set: false })
   })
 
-  it('drafted example traces witness their UCA and match their cause', () => {
-    const p = exampleProject()
+  it.each([['pump', exampleProject], ['train door', () => publishedExampleProject('pub-train-door')]])('drafted %s traces witness their UCA and match their cause', (_, make) => {
+    const p = make()
+    expect(validate(p).filter((i) => i.severity === 'error' || i.rule?.startsWith('context-'))).toEqual([])
     for (const s of itemsOfKind(p, 'scenario').filter((s) => s.trace.steps.length)) {
       if (s.scenarioType === 'uca') {
         expect(witness(p, s)?.ok).toBe(true)

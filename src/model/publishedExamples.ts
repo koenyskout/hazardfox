@@ -1,14 +1,92 @@
 import { projectBuilder, type Add } from './build'
-import type { Cause, Id, Patch, Project } from './types'
+import { mention } from './refs'
+import { draftTrace } from './traces'
+import type { Cause, Id, Patch, Project, Scenario } from './types'
 
 /**
  * End-to-end STPA analyses taken from openly published sources (losses, hazards, constraints, control structure,
  * UCAs, loss scenarios, requirements). Where the source only shows a figure or an excerpt, the gap is noted in the
  * item notes / project description rather than filled with invented content.
  */
-type Build = (add: Add) => void
+type Build = (add: Add, b: ReturnType<typeof projectBuilder>) => void
 
 export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; description: string; build: Build }[] = [
+  {
+    id: 'pub-train-door', label: 'Automated train door controller (Thomas)',
+    name: 'Automated train door controller (Thomas example)',
+    description: 'Train door example of J. Thomas, "Extending and Automating a Systems-Theoretic Hazard Analysis for Requirements Generation and Analysis", PhD thesis, MIT (2013), also used in the STPA tutorials: an automated door controller opens and closes the door through a door actuator, gets door position and "door clear" feedback from door sensors and train motion, train position and emergency indicator as other inputs. Losses, hazards, control structure and process model follow the source; the process-model beliefs have an extra "unknown" state. UCA contexts, scenarios, traces and requirements are worded by us after the source\'s context tables. The upstream controller and its commands/status are left open ("?") as in the figure.',
+    build(add, b) {
+      const L1 = add('loss', { title: 'Death or injury of passengers or people on the platform' })
+      const H1 = add('hazard', { title: 'Doors close on a person in the doorway', lossLinks: [L1] })
+      const H2 = add('hazard', { title: 'Doors open when the train is moving or not aligned with a platform', lossLinks: [L1] })
+      const H3 = add('hazard', { title: 'Passengers or personnel are unable to exit the train during an emergency', lossLinks: [L1] })
+      add('constraint', { title: 'Doors must not close while a person is in the doorway', hazards: [H1] })
+      add('constraint', { title: 'Doors must not open while the train is moving or not aligned with a platform, unless an evacuation is required', hazards: [H2] })
+      add('constraint', { title: 'Doors must allow passengers and personnel to exit during an emergency', hazards: [H3] })
+
+      const train = add('entity', { title: 'Train' })
+      const door = add('entity', { title: 'Door', parent: train, operations: ['Open', 'Close'] })
+      const vMotion = add('variable', { title: 'Train motion', parent: train, states: ['stopped', 'moving'], definition: 'The train is moving when its speed exceeds a small threshold.' })
+      const vPos = add('variable', { title: 'Train position', parent: train, states: ['aligned with platform', 'not aligned with platform'], definition: 'All doors on the platform side are within the platform edges.' })
+      const vEm = add('variable', { title: 'Emergency', parent: train, states: ['no emergency', 'evacuation required'], definition: 'A condition (fire, smoke, toxic gas, …) requires passengers to leave the train.' })
+      const vDoor = add('variable', { title: 'Door position', parent: door, states: ['fully open', 'fully closed', 'partially open'] })
+      const vWay = add('variable', { title: 'Door state', parent: door, states: ['person not in doorway', 'person in doorway'], definition: 'A person or object is in the path of the door.' })
+
+      const ops = add('node', { title: 'Train operations (?)', role: 'controller', description: 'Upstream controller; its commands and status are left open in the source figure.' })
+      const ctrl = add('node', { title: 'Automated door controller', role: 'controller' })
+      const phys = add('node', { title: 'Physical door', role: 'process', entity: door })
+      const trainNode = add('node', { title: 'Train', role: 'external', entity: train })
+      add('ca', { title: 'Control commands (?)', from: ops, to: ctrl })
+      const fbStatus = add('feedback', { title: 'Status (?)', from: ctrl, to: ops })
+      const open = add('ca', { title: 'Open door', from: ctrl, to: phys, actuator: 'Door actuator', affects: [vDoor], description: 'Open door, stop opening door (mechanical force on the door).' })
+      const close = add('ca', { title: 'Close door', from: ctrl, to: phys, actuator: 'Door actuator', affects: [vDoor], description: 'Close door, stop closing door (mechanical force on the door).' })
+      const fbDoor = add('feedback', { title: 'Door feedback', from: phys, to: ctrl, sensor: 'Door sensors', description: 'Door position, door clear? (from the mechanical position of the door).' })
+      const fbOther = add('feedback', { title: 'Other inputs', from: trainNode, to: ctrl })
+      const states = (v: Id) => (b.project.items[v] as { states: string[] }).states
+      add('variable', { layer: 'signal', parent: fbStatus, about: vDoor, title: 'Door status', states: states(vDoor) })
+      const sig: Record<Id, Id> = {}, bel: Record<Id, Id> = {}
+      add('variable', { layer: 'signal', parent: fbDoor, about: vDoor, title: 'Door position', states: states(vDoor), definition: 'Door end-position switches.' })
+      add('variable', { layer: 'signal', parent: fbDoor, about: vWay, title: 'Door clear?', states: states(vWay), definition: 'Light curtain and door-edge force sensor.' })
+      add('variable', { layer: 'signal', parent: fbOther, about: vMotion, title: 'Train motion', states: states(vMotion), definition: 'From the speed sensors.' })
+      sig[vPos] = add('variable', { layer: 'signal', parent: fbOther, about: vPos, title: 'Train position', states: states(vPos), definition: 'From the platform alignment sensors.' })
+      add('variable', { layer: 'signal', parent: fbOther, about: vEm, title: 'Emergency indicator', states: states(vEm) })
+      for (const v of [vDoor, vWay, vPos, vMotion, vEm]) bel[v] = add('variable', { layer: 'belief', parent: ctrl, about: v, title: (b.project.items[v] as { title: string }).title, states: [...states(v), 'unknown'] })
+      add('variable', { layer: 'belief', parent: ops, about: vDoor, title: 'Door position', states: [...states(vDoor), 'unknown'] })
+
+      const c = (variable: Id, state: string, op: '=' | '≠' = '=') => ({ variable, op, state })
+      const u1 = add('uca', { ca: open, guide: 'provided', hazards: [H2], conditions: [c(vMotion, 'moving'), c(vEm, 'no emergency')], constraint: 'Controller must not open the doors while the train is moving, unless an evacuation is required' })
+      const u2 = add('uca', { ca: open, guide: 'provided', hazards: [H2], conditions: [c(vMotion, 'stopped'), c(vPos, 'not aligned with platform'), c(vEm, 'no emergency')], constraint: 'Controller must not open the doors when the train is not aligned with a platform, unless an evacuation is required' })
+      add('uca', { ca: open, guide: 'not-provided', hazards: [H1], conditions: [c(vMotion, 'stopped'), c(vWay, 'person in doorway'), c(vDoor, 'fully open', '≠')], constraint: 'Controller must reopen the door when a person is in the doorway while it is closing' })
+      const u4 = add('uca', { ca: open, guide: 'not-provided', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], constraint: 'Controller must open the doors when the train is stopped and an evacuation is required' })
+      add('uca', { ca: open, guide: 'too-early-late', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], override: 'Open door is provided too late (more than TBD seconds) after the train stops when an evacuation is required', constraint: 'Controller must open the doors within TBD seconds after the train stops when an evacuation is required' })
+      add('uca', { ca: open, guide: 'stopped-too-soon', hazards: [H3], conditions: [c(vEm, 'evacuation required')], override: 'Open door is stopped before the door is fully open while an evacuation is required', constraint: 'Controller must open the doors fully when an evacuation is required' })
+      const u7 = add('uca', { ca: close, guide: 'provided', hazards: [H1], conditions: [c(vWay, 'person in doorway')], constraint: 'Controller must not close the door while a person is in the doorway' })
+      add('uca', { ca: close, guide: 'provided', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], constraint: 'Controller must not close the doors when the train is stopped and an evacuation is required' })
+      add('uca', { ca: close, guide: 'not-provided', hazards: [H2], conditions: [c(vMotion, 'moving'), c(vDoor, 'fully closed', '≠'), c(vEm, 'no emergency')], constraint: 'Controller must close the doors before the train starts moving' })
+      add('uca', { ca: close, guide: 'stopped-too-soon', hazards: [H2], conditions: [c(vMotion, 'moving'), c(vEm, 'no emergency')], override: 'Close door is stopped before the door is fully closed when the train departs', constraint: 'Controller must close the doors fully before departure' })
+
+      const s1 = add('scenario', { uca: u7, cause: 'feedback', element: phys, title: 'Door-clear sensor does not detect a small child or a trapped bag strap in the doorway, so the controller believes the doorway is clear and closes the door', severity: 4, likelihood: 3 })
+      const s2 = add('scenario', { uca: u2, cause: 'process-model', element: ctrl, title: 'Controller believes the train is aligned with the platform: after an overrun it keeps the alignment from the previous stop because the position input is not re-read before opening', severity: 5, likelihood: 2 })
+      const s3 = add('scenario', { uca: u1, cause: 'control-algorithm', element: ctrl, title: 'Control algorithm accepts an open request from the operator while the train is still moving (no interlock on train motion)', severity: 5, likelihood: 1 })
+      const s4 = add('scenario', { scenarioType: 'ca', ca: open, hazards: [H3], cause: 'actuator', title: 'Door actuator has no power after a fire damaged the supply, so "Open door" is sent but the door does not move during an evacuation' })
+      add('scenario', { uca: u4, cause: 'feedback', element: trainNode, title: 'Emergency indicator is not connected for the affected car, so the controller does not know that an evacuation is required', adversarial: false, severity: 5, likelihood: 2 })
+      add('requirement', { title: 'Detect any object of 10 mm or more in the doorway over the full door height', sources: [s1], notes: 'Value illustrative.' })
+      add('requirement', { title: 'Re-read and validate the train position input at every door-open decision; treat stale input as "unknown"', sources: [s2] })
+      add('requirement', { title: 'Inhibit door opening while train motion is "moving" or "unknown", unless an evacuation is required', sources: [s3] })
+      add('requirement', { title: 'Provide a manual emergency door release independent of the door actuator power', sources: [s4], type: 'mitigation' })
+      add('assumption', { title: 'Train speed and platform alignment sensors are independent of the door controller', about: [trainNode] })
+      for (const s of [s1, s2, s3, s4]) b.set(s, (p) => ({ trace: draftTrace(p, p.items[s] as Scenario) }))
+      // Only the alignment belief is stale: it still holds the value of the previous stop.
+      b.set(s2, (p) => {
+        const t = structuredClone((p.items[s2] as Scenario).trace)
+        t.steps[0].values[bel[vPos]] = 'aligned with platform'
+        t.steps[0].note = `The train approaches the station; ${mention(bel[vPos])} still says "aligned" from the previous stop.`
+        t.steps[1].values[bel[vMotion]] = 'stopped'
+        t.steps[1].note = `The train overruns and stops past the platform. ${mention(sig[vPos])} reports "not aligned", but the controller does not re-read it.`
+        return { trace: t }
+      })
+    },
+  },
   {
     id: 'pub-vtt-am', label: 'Autonomous machine, traffic control (VTT)',
     name: 'Autonomous machine in an industrial area (VTT STPA Guide example)',
@@ -152,6 +230,6 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
 export function publishedExampleProject(id: string): Project {
   const e = PUBLISHED_EXAMPLES.find((x) => x.id === id)!
   const b = projectBuilder({ name: e.name, description: e.description })
-  e.build(b.add)
+  e.build(b.add, b)
   return b.project
 }

@@ -191,7 +191,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   const p = useProject()
   const labels = useLabels()
   const d0 = useDrawn(p)
-  const d = d0 && { ...d0, width: d0.width + 200, height: d0.height + 20 }
+  const d = d0 && { ...d0, width: d0.width + 240, height: d0.height + 20 }
   const t = s.trace
   const [i, setI] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -230,9 +230,9 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
     return d.nodes.find((n) => role(n, 'process')) ?? (fb?.kind === 'feedback' ? box[fb.from] : undefined) ?? (ca ? box[ca.to] : undefined) ?? d.nodes.find((n) => role(n))
   }
   const anchor = (v: Variable): { at: Pt; w: number } | null => {
-    if (v.layer === 'signal') { const e = v.parent ? edge[v.parent] : null; if (!e) return null; const q = e.label ?? { ...pointAt(e.points, 0.5), w: 0, h: 0 }; return { at: { x: q.x + q.w + 6, y: q.y }, w: 170 } }
+    if (v.layer === 'signal') { const e = v.parent ? edge[v.parent] : null; if (!e) return null; const q = e.label ?? { ...pointAt(e.points, 0.5), w: 0, h: 0 }; return { at: { x: q.x + q.w + 6, y: q.y }, w: 210 } }
     const node = v.layer === 'domain' ? worldNode(v) : v.parent ? box[v.parent] : null
-    return node ? { at: { x: node.x + node.w + 8, y: node.y }, w: 190 } : null
+    return node ? { at: { x: node.x + node.w + 8, y: node.y }, w: 230 } : null
   }
   const groups = new Map<string, { at: Pt; w: number; vars: Variable[] }>()
   for (const v of vars) {

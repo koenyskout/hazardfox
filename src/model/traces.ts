@@ -149,10 +149,11 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const lanes: Id[] = []
     const [init, ctx, act] = [step('t0', 'Initially the context does not hold.'), step('t1', ''), step('t2', '')]
     const lost = new Set<Id>(), sent = new Set<Id>()
-    for (const c of u.conditions) {
+    // Only the first condition is false initially; it becoming true makes the context hold.
+    for (const [k, c] of u.conditions.entries()) {
       const w = p.items[c.variable]
       if (w?.kind !== 'variable') continue
-      const before = pickValue(w, c, true), after = pickValue(w, c)
+      const after = pickValue(w, c), before = k ? after : pickValue(w, c, true)
       lanes.push(w.id)
       init.values[w.id] = before
       ctx.values[w.id] = after
