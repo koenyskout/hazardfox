@@ -325,7 +325,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .player-bar .dot.on { background: var(--accent); color: #fff; border-color: var(--accent); } .player-bar .dot.act { border-color: var(--danger); }
 .player-caption { min-height: 42px; margin-bottom: 6px; } .ctxline { color: var(--muted); font-size: 13px; margin-top: 3px; } .ctxline.on { color: var(--danger); font-weight: 600; }
 .stage { position: relative; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); }
-.stage svg { display: block; width: 100%; height: 380px; } .stage svg.overlay { position: absolute; inset: 0; pointer-events: none; }
+.stage svg { display: block; width: 100%; height: 440px; } .stage svg.overlay { position: absolute; inset: 0; pointer-events: none; }
 .callout { font: 11px/1.3 -apple-system, sans-serif; color: #1c2430; display: flex; flex-direction: column; gap: 2px; }
 .cv { background: #ffffffe6; border: 1px solid #d0d6de; border-left-width: 4px; border-radius: 4px; padding: 1px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .3s; }
 .cv .layer { padding: 0; font-weight: 400; color: #6b7686; }

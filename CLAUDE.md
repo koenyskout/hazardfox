@@ -20,9 +20,12 @@ Read `PLAN.md` for goals, decisions and milestone status.
   (derived labels, `byLabel` natural sort, `DELETED`), `tree.ts` (`TREE_KINDS`, `parentKind`), `build.ts`
   (`projectBuilder` for examples/tests), `validate.ts`, `serialize.ts` (stable JSON, fills defaults for older files),
   `store.ts` (Zustand: project, selection, view, undo/redo with coalescing), `persist.ts`, `structure.ts`
-  (ELK layout + pinned nudges), `uca.ts` (UCA sentence generation), `example.ts` (demo project).
+  (ELK layout + pinned nudges), `uca.ts` (UCA sentence generation), `example.ts` (demo project), `formal.ts` (variable layers:
+  `variablesIn`, `beliefsAbout`, `signalsInto`, `controlledBy`, `addBelief`/`addSignal`/`setLayer`), `traces.ts` (scenario traces:
+  `stateAt`, `contextHolds`, `witness`, `mismatches`, `diagnose`, `draftTrace`).
 - `ui/` – React views (`views1.tsx` step 1–4, `views2.tsx` requirements/trace/validation/overview), generic
-  `TreeTable<K>` / `FlatTable<K>`, `Details.tsx` side panel, `Structure*.tsx` diagram, `Review.tsx` AI review, `Icon.tsx`.
+  `TreeTable<K>` / `FlatTable<K>`, `Details.tsx` side panel, `Structure*.tsx` diagram, `Review.tsx` AI review, `Icon.tsx`,
+  `VariableMap.tsx` (world variables × controllers), `Trace.tsx` (trace editor `TraceEditor`, animation `ScenarioPlayer`).
 - `export/` – `tables.ts` (shared row builders), `xlsx.ts` (exceljs), `docx.ts` (docx; diagram embedded as PNG via
   `structureImage.ts`).
 - `mcp/` – stdio MCP server for agents (`server.ts` file I/O + wiring, `tools.ts` pure tool handlers `(Project, args) -> {project?, result}`, `schema.ts` field validation + label↔id mapping derived from `makeItem` defaults and `refs.ts`, `guide.ts` method text). Run: `npm run mcp -- file.hazardfox.json`. New item field/kind: check `TARGETS`/`ENUMS` in `schema.ts`.
@@ -41,6 +44,15 @@ Read `PLAN.md` for goals, decisions and milestone status.
   Mentions: use `mention`/`mentions`/`replaceMentions` from `refs.ts`, not the regex.
   Free text is rich: stored as a string (`**bold**`, `*italic*`, `@[id]`, `\` escapes, `\n` paragraphs; `model/richtext.ts`). Edit with `RichText` (`ui/RichEditor.tsx`, Lexical: reference pills, `@` completion, B/I); render with `parseRich`; `renderText` gives plain text.
 - Variables are typed (`type`: enum with `states`, boolean, range with `min`/`max`/`unit`); UCA conditions are `{variable, op, state, to?}` with `op` from `CONDITION_OPS` (`=`, `≠`; range also `<`, `≤`, `>`, `≥`, `between`). Helpers in `model/variables.ts` (`opsFor`, `conditionError`, `conditionText`, `describeStates`); old `negate` conditions migrate in `deserialize`.
+- Variable layers (`layer`, after the formalization in `docs/Process Variables…md`): `domain` (world x, parent = entity), `signal`
+  (o, parent = feedback), `belief` (x̂, parent = controller node), `internal` (q, parent = controller node). `about` = the world
+  variable a signal/belief designates; `definition` (rich text) refines a world variable; `ca.affects` = controlled world variables.
+  Owner kinds per layer: `VARIABLE_OWNER` (`tree.ts`). UCA contexts may use only world variables and the issuing controller's internal
+  ones; each world variable in a context needs a belief in that controller (validation `context-unrepresented`, Variable map red cell).
+  The old `processModel` (controller) and feedback `variables` fields migrate to beliefs / signals in `deserialize` (`migrateLayers`).
+- Scenario traces (`s.trace`: `lanes` = variable ids, sparse `steps` with `t`, `values`, `events` on CAs/feedback `occurs|absent|lost`,
+  `note`); values carry forward (`stateAt`). `witness` checks the UCA context holds at the step the action is sent / withheld;
+  `diagnose`: signal ≠ world → feedback, belief ≠ signal → process model, belief = world → control algorithm, compared with `cause`.
 - Control actions have a `duration` (`continuous` default / `instantaneous`). Per the Handbook, "stopped too soon / applied too long" only applies to continuous ones: `guideApplies(ca, guide)` (`uca.ts`) drives the UCA grid (auto N/A cell), Details, validation and MCP `uca_coverage`.
 - UCAs and system constraints link only to **leaf** hazards. Hazard→loss links are many-to-many; sub-hazards inherit.
 - Sensors and actuators are **not nodes**: node roles are controller / process / external. A feedback has an optional `sensor`, a control action an optional `actuator` (names), drawn as small coloured pills on the arrow (`DEVICE_STYLE`). `deserialize` migrates old sensor/actuator nodes (names move onto the arrows, nodes become external / process).
@@ -83,5 +95,6 @@ Use it to tune checks (currently weak: UCA belief/no-context/several, hazard con
   scenarios (both kinds, editing), AI review run, diagram + nudges, UCA grid, validation, export build, split.
   Drag-and-drop works (drop on a row's top/bottom quarter = reorder, middle = nest). The native file picker can't be
   driven by the browser tool; save/open is covered by a serialize round-trip test only.
+- Formal variables / traces: browser-verified variable map, trace editor, draft trace, animation (callouts beside elements).
 - Open: context-space coverage per CA from domain variables; check guide words and STPA-Sec details against primary
   sources; split ELK to shrink the bundle; probe d1 on uca/scenario/constraint/requirement checks and tune thresholds (example hazards often land in the 36–54% "unsure" band).

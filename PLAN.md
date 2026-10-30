@@ -25,7 +25,9 @@ pretty-printed JSON file (File System Access API, IndexedDB autosave as safety n
   Split of a linked leaf asks to reassign links; unassigned links stay on the parent and are flagged.
   Group: parent rolls up. Merge: union of links.
 - Domain model: entities (tree) with attributes, relationships, and *variables* (name + states) owned by an entity;
-  controllers declare which variables are in their process model. UCA contexts are structured
+  layered as world / signal / belief / internal (designation `about`, refinement `definition`, `ca.affects`); controllers own
+  beliefs and internal state, feedback owns signals. Scenarios carry a trace (steps of variable values + events) that is
+  checked against the UCA context, diagnosed against the causal factor and animated on the control structure. UCA contexts are structured
   `variable = state` conditions plus optional free text, with a generated sentence that can be overridden.
   Control actions can map to an entity operation.
 
@@ -40,6 +42,7 @@ pretty-printed JSON file (File System Access API, IndexedDB autosave as safety n
 8. ◐ Polish: browser verification (partly done), README ✅, bundle splitting (open).
 9. ✅ Scenario types (UCA-based and control-action-based), icon buttons + clearer delete dialog, Losses first,
    Ollama AI review (`llm/`, `ui/Review.tsx`).
+10. ✅ Formal variable layers, variable map, scenario traces with witness/diagnosis checks and animation (branch `formal-variables`).
 
 ## Open items / defaults
 - English UI only; project name "hazardfox".

@@ -4,6 +4,7 @@ import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
 import { contextHolds, diagnose, draftTrace, mismatches, stateAt, valueAt, witness } from '../model/traces'
+import { controlledBy, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { stepOf, valuesOf } from '../model/variables'
@@ -189,7 +190,8 @@ const STEP_MS = 2200
 export function ScenarioPlayer({ s }: { s: Scenario }) {
   const p = useProject()
   const labels = useLabels()
-  const d = useDrawn(p)
+  const d0 = useDrawn(p)
+  const d = d0 && { ...d0, width: d0.width + 200, height: d0.height + 20 }
   const t = s.trace
   const [i, setI] = useState(0)
   const [playing, setPlaying] = useState(false)
@@ -218,11 +220,19 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   const ctx = uca ? contextHolds(p, uca, after) : null
   const box = Object.fromEntries(d.nodes.map((n) => [n.id, n]))
   const edge = Object.fromEntries(d.edges.map((e) => [e.id, e]))
-  // Where each lane is drawn: beliefs/internal on their controller, signals on their feedback, world values on the process for their entity.
+  // Where each lane is drawn, right of its element: beliefs/internal on their controller, signals on their feedback, world values on the
+  // process of their entity, else where they are sensed or acted on.
+  const worldNode = (v: Variable) => {
+    const role = (n: { id: Id }, r?: string) => { const it = p.items[n.id]; return it?.kind === 'node' && it.entity === v.parent && (!r || it.role === r) }
+    const sensed = variablesIn(p, 'signal').find((x) => x.about === v.id && x.parent)
+    const fb = sensed && p.items[sensed.parent!]
+    const ca = controlledBy(p, v.id)[0]
+    return d.nodes.find((n) => role(n, 'process')) ?? (fb?.kind === 'feedback' ? box[fb.from] : undefined) ?? (ca ? box[ca.to] : undefined) ?? d.nodes.find((n) => role(n))
+  }
   const anchor = (v: Variable): { at: Pt; w: number } | null => {
-    if (v.layer === 'signal') { const e = v.parent ? edge[v.parent] : null; if (!e) return null; const q = e.label ?? { ...pointAt(e.points, 0.5), w: 0, h: 0 }; return { at: { x: q.x + q.w + 6, y: q.y }, w: 150 } }
-    const node = v.layer === 'domain' ? d.nodes.find((n) => { const it = p.items[n.id]; return it?.kind === 'node' && it.entity === v.parent }) : v.parent ? box[v.parent] : null
-    return node ? { at: { x: node.x, y: node.y + node.h + 4 }, w: Math.max(node.w, 170) } : null
+    if (v.layer === 'signal') { const e = v.parent ? edge[v.parent] : null; if (!e) return null; const q = e.label ?? { ...pointAt(e.points, 0.5), w: 0, h: 0 }; return { at: { x: q.x + q.w + 6, y: q.y }, w: 170 } }
+    const node = v.layer === 'domain' ? worldNode(v) : v.parent ? box[v.parent] : null
+    return node ? { at: { x: node.x + node.w + 8, y: node.y }, w: 190 } : null
   }
   const groups = new Map<string, { at: Pt; w: number; vars: Variable[] }>()
   for (const v of vars) {
