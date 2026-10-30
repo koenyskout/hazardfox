@@ -213,9 +213,15 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'relationship':
       return (
         <>
-          <div className="fromto">
-            <Field label="From"><div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><div style={{ minWidth: 0 }}><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></div><CardSelect value={it.fromCard} onChange={(v) => set({ fromCard: v })} /></div></Field>
-            <Field label="To"><div style={{ display: 'flex', gap: 6, alignItems: 'center' }}><div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div></Field>
+          <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 34 }}>From</span>
+            <div style={{ minWidth: 0 }}><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></div>
+            <CardSelect value={it.fromCard} onChange={(v) => set({ fromCard: v })} />
+          </div>
+          <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 34 }}>To</span>
+            <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
+            <CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} />
           </div>
           <Field single label="Holds" hint="Whether the relationship holds is a boolean world variable that can change over time: use it in UCA contexts, beliefs and traces like any other.">
             {predicateOf(p, it.id) ? <Ref id={predicateOf(p, it.id)!.id} />
