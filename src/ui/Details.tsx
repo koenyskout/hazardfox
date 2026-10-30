@@ -387,7 +387,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         return (
           <div key={i} className="cond">
             <span className="cond-word">{i === 0 ? 'When' : 'and'}</span>
-            <Picker options={vars} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
+            <Picker options={vars} create={{ label: '+ New variable…', run: () => upd(i, { variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
               {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
             <select value={c.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp })}>
