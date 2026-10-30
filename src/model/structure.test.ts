@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { projectBuilder } from './build'
 import { updateItem } from './ops'
+import { publishedExampleProject } from './publishedExamples'
 import { applyOverrides, layoutStructure } from './structure'
 
 describe('control structure layout', () => {
@@ -40,5 +41,22 @@ describe('control structure layout', () => {
     const far = applyOverrides(updateItem(p, ca, { bend: { dx: 5000, dy: 0 } }), l)
     const cb = far.nodes.find((n) => n.id === c)!
     expect(far.edges.find((x) => x.id === ca)!.points[0].x).toBeLessThanOrEqual(cb.x + cb.w)
+  })
+
+  it('moving a controller sideways does not make its arrows cross', async () => {
+    const p0 = publishedExampleProject('pub-aeb')
+    const l = await layoutStructure(p0)
+    const aeb = Object.values(p0.items).find((x) => x.kind === 'node' && x.title === 'AEB controller')!.id
+    const crossings = (p = p0) => {
+      const d = applyOverrides(p, l)
+      const sg = d.edges.flatMap((e) => e.points.slice(1).map((q, i) => ({ e, a: e.points[i], b: q })))
+      let n = 0
+      for (const v of sg) for (const h of sg) {
+        if (v.e === h.e || Math.abs(v.a.x - v.b.x) > 1 || Math.abs(h.a.y - h.b.y) > 1) continue
+        if (v.a.x > Math.min(h.a.x, h.b.x) + 1 && v.a.x < Math.max(h.a.x, h.b.x) - 1 && h.a.y > Math.min(v.a.y, v.b.y) + 1 && h.a.y < Math.max(v.a.y, v.b.y) - 1) n++
+      }
+      return n
+    }
+    for (const dx of [-250, -150, -60, 60, 150]) expect(crossings(updateItem(p0, aeb, { nudge: { dx, dy: 0 } })), 'dx ' + dx).toBe(0)
   })
 })

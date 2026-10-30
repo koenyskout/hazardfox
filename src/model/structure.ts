@@ -481,6 +481,8 @@ export function applyOverrides(p: Project, l: Layout): Drawn {
     })
     return { ...e, points: slide(points, e, bend) }
   })
+  // re-routed arrows (after moving nodes) get the same crossing fix as the automatic layout
+  uncross(edges, box)
   const devs = placeDevices(edges.flatMap((e) => { const d = deviceOf(p, e.id); return d ? [{ id: e.id, points: e.points, ...d }] : [] }), nodes)
   const labs = placeLabels(edges.filter((e) => e.label).map((e) => ({ id: e.id, kind: e.kind, points: e.points, lines: e.label!.lines })), nodes, Object.values(devs))
   edges.forEach((e, i) => {
