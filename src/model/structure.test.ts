@@ -123,3 +123,13 @@ describe('moved diagrams', () => {
     expect(through).toBeLessThan(6)
   })
 })
+
+describe('element height', () => {
+  it('extra height enlarges leaf and parent elements', async () => {
+    const p = (await import('./handbookExamples')).handbookExampleProject('hb-cs-proscan')
+    for (const n of Object.values(p.items).filter((x) => x.kind === 'node').slice(0, 3)) {
+      const a = (await layoutStructure(p)).nodes[n.id], b = (await layoutStructure(updateItem(p, n.id, { tall: 80 }))).nodes[n.id]
+      expect(b.h).toBeGreaterThanOrEqual(a.h + 79)
+    }
+  })
+})

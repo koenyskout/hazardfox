@@ -79,7 +79,7 @@ function Diagram() {
     if (!layout) return null
     const d = applyOverrides(p, layout)
     const it = resize && p.items[resize.id]
-    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, w: resize.wide === undefined ? n.w : Math.max(n.minW, n.defW + resize.wide), h: resize.tall === undefined ? n.h : Math.max(n.minH, n.compound ? 60 + resize.tall : n.minH + resize.tall) } : n)) } : d
+    return resize && it?.kind === 'node' ? { ...d, nodes: d.nodes.map((n) => (n.id === resize.id ? { ...n, w: resize.wide === undefined ? n.w : Math.max(n.minW, n.defW + resize.wide), h: resize.tall === undefined ? n.h : n.minH + resize.tall } : n)) } : d
   }, [p, layout, resize])
   const floor = (id: Id) => { const n = layout?.nodes[id]; return n && !n.compound ? n.minW - n.defW : 0 }
   const drag = useRef<null | { kind: 'pan' | 'node' | 'edge' | 'resize' | 'resizeH'; id?: Id; sx: number; sy: number; ox: number; oy: number; moved: boolean }>(null)

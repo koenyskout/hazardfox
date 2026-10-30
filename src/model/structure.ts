@@ -448,7 +448,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
       return {
         id: n.id,
         children: children(p, n.id, 'node').map(build),
-        layoutOptions: { 'elk.padding': '[top=40,left=16,bottom=16,right=16]', 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + Math.max(0, n.wide)},${60 + Math.max(0, n.tall)})` },
+        layoutOptions: { 'elk.padding': `[top=40,left=16,bottom=${16 + Math.max(0, n.tall)},right=16]`, 'elk.nodeSize.constraints': 'MINIMUM_SIZE', 'elk.nodeSize.minimum': `(${Math.max(...ls.map((l) => l.length)) * CHAR_W + 32 + Math.max(0, n.wide)},60)` },
       }
     }
     minW[n.id] = Math.max(Math.max(...ls.map((l) => l.length)) * CHAR_W + 28, (deg[n.id] ?? 0) * 30 + 40)
@@ -456,7 +456,7 @@ export async function layoutStructure(p: Project): Promise<Layout> {
     const w = Math.max(minW[n.id], defW[n.id] + n.wide)
     return { id: n.id, width: w, height: 30 + ls.length * 16 + Math.max(0, n.tall) }
   }
-  const baseH = (id: Id, h: number) => { const n = p.items[id] as CsNode; return compound.has(id) ? (n.tall > 0 ? 60 : h) : h - Math.max(0, n.tall) }
+  const baseH = (id: Id, h: number) => { const n = p.items[id] as CsNode; return h - Math.max(0, n.tall) }
   const roots = children(p, null, 'node')
   // boxes grow with the number of arrows they carry (so parallel arrows get room); the controlled process starts wide
   const deg: Record<Id, number> = {}
