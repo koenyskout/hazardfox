@@ -366,7 +366,11 @@ const bendRoute = (pts: Pt[], bend: Offset | null, a: NodeBox, b: NodeBox): Pt[]
 const sidesOk = (r: EdgeRoute, a: NodeBox, b: NodeBox) => {
   const s = r.points[0], t = r.points[r.points.length - 1]
   const [ys, yt] = r.kind === 'ca' ? [a.y + a.h, b.y] : [a.y, b.y + b.h]
-  return Math.abs(s.y - ys) < 1 && Math.abs(t.y - yt) < 1
+  if (Math.abs(s.y - ys) < 1 && Math.abs(t.y - yt) < 1) return true
+  // exceptionally an end may use the opposite horizontal edge, as long as the arrow still meets the box vertically
+  const vert = (q: Pt, n: NodeBox, k: Pt) => Math.abs(q.x - k.x) < 1 && (Math.abs(q.y - n.y) < 1 || Math.abs(q.y - n.y - n.h) < 1)
+  const m = r.points.length
+  return vert(s, a, r.points[1]) && vert(t, b, r.points[m - 2])
 }
 
 /** Replace a jogged route by one straight vertical line (moving the ends a little) when the nodes overlap horizontally and nothing is in the way. */
