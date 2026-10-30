@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { ChipLabel } from './Icon'
 import { createPortal } from 'react-dom'
 import {
   $applyNodeReplacement, $createParagraphNode, $createTextNode, $getRoot, $getSelection, $insertNodes, $isElementNode, $isRangeSelection, $isTextNode,
@@ -120,7 +121,7 @@ function MentionMenu({ options }: { options: Item[] }) {
                 {hits.map((o, n) => (
                   <li key={o.key} className={n === selectedIndex ? 'on' : ''} ref={(el) => { if (el && n === selectedIndex) el.scrollIntoView({ block: 'nearest' }) }}
                     onMouseEnter={() => setHighlightedIndex(n)} onMouseDown={(e) => { e.preventDefault(); selectOptionAndCleanUp(o) }}>
-                    <span className={'chip k-' + o.item.kind}>{labels[o.item.id]}</span>
+                    <span className={'chip k-' + o.item.kind}><ChipLabel it={o.item} label={labels[o.item.id]} /></span>
                     <span className="pk-main">
                       <span className="pk-title">{text(o.item) || <i className="muted">{KIND_NAMES[o.item.kind]}</i>}</span>
                       <span className="pk-sub">{[mixed && KIND_NAMES[o.item.kind], summary(p, labels, o.item)].filter(Boolean).join(' · ')}</span>

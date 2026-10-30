@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { ChipLabel } from './Icon'
 import { DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { ConditionOp, Id, Item, Kind, Labels } from '../model/types'
@@ -105,7 +106,7 @@ export function Ref({ id }: { id: Id }) {
   return (
     <ItemHover id={id}>
       <a className={'chip k-' + it.kind} href="#" onClick={(e) => { e.preventDefault(); goto(VIEW_OF[it.kind], id) }}>
-        {labels[id]}
+        <ChipLabel it={it} label={labels[id]} />
       </a>
     </ItemHover>
   )
@@ -134,7 +135,7 @@ export function SingleRef(props: { value: Id | null; options: Item[]; onChange: 
   const opts = cur && !props.options.includes(cur) ? [cur, ...props.options] : props.options
   return (
     <Picker options={opts} onPick={props.onChange}>
-      {cur ? <><ItemHover id={cur.id}><span className={'chip k-' + cur.kind}>{labels[cur.id]}</span></ItemHover>{labels[cur.id] !== cur.title && ` ${cur.title}`}</> : <span className="muted">{props.none ?? '— none —'}</span>}
+      {cur ? <><ItemHover id={cur.id}><span className={'chip k-' + cur.kind}><ChipLabel it={cur} label={labels[cur.id]} /></span></ItemHover>{labels[cur.id] !== cur.title && ` ${cur.title}`}</> : <span className="muted">{props.none ?? '— none —'}</span>}
     </Picker>
   )
 }

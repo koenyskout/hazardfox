@@ -17,7 +17,7 @@ import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } fr
 import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { ReviewDot } from './Review'
-import { Icon, StatusIcon } from './Icon'
+import { ChipLabel, Icon, StatusIcon } from './Icon'
 import { ItemHover } from './Fields'
 
 type Dialog = null | { type: 'group' | 'merge' } | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
@@ -173,7 +173,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               }}
               onClick={(e) => click(e, item.id)}
             >
-              <span className="lbl"><span className={'chip k-' + item.kind}>{idLabels[item.id]}</span></span>
+              <span className="lbl"><span className={'chip k-' + item.kind}><ChipLabel it={item} label={idLabels[item.id]} /></span></span>
               <span className="ttl" style={{ paddingLeft: depth * 20 }}>
                 <button
                   className={'twisty' + (hasKids ? '' : ' none')}

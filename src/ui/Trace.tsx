@@ -8,10 +8,11 @@ import { controlledBy, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { stepOf, valuesOf } from '../model/variables'
-import { CAUSE_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
+import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
 import { Ref, RichText } from './Fields'
 import { commit, useLabels, useProject } from './hooks'
 import { Picker } from './Picker'
+import { LayerIcon, LayerTag } from './Icon'
 import { StructureSvg } from './StructureSvg'
 
 const save = (s: Scenario, trace: Trace, key?: string) => commit((q) => updateItem(q, s.id, { trace }), key && `${s.id}:trace:${key}`)
@@ -83,7 +84,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                 const rows = vars.filter((v) => v.layer === layer)
                 return rows.length > 0 && (
                   <Fragment key={layer}>
-                    <tr className="layer-row"><th colSpan={t.steps.length + 1}><span className={'layer l-' + layer}>{LAYER_SHORT[layer]}</span></th></tr>
+                    <tr className="layer-row"><th colSpan={t.steps.length + 1}><LayerTag layer={layer} /></th></tr>
                     {rows.map((v) => (
                       <tr key={v.id}>
                         <th><Ref id={v.id} /> {variableName(p, v)} <button className="x" title="Remove lane" onClick={() => delLane(v.id)}>×</button></th>
@@ -298,7 +299,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
                   const bad = mm.has(v.id) && (v.layer !== 'belief' && v.layer !== 'signal' ? false : fbDone || v.layer === 'signal')
                   return (
                     <div key={v.id} className={'cv l-' + v.layer + (changed ? ' changed' : '') + (bad ? ' bad' : '')} title={bad ? `Actual: ${mm.get(v.id)!.actual}` : undefined}>
-                      <span className="layer">{v.layer === 'belief' ? 'believes' : v.layer === 'signal' ? 'reports' : v.layer === 'internal' ? 'state' : 'actual'}</span> {v.title} = <b>{val ?? '?'}</b>
+                      <span className="layer"><LayerIcon layer={v.layer} size={11} />{v.layer === 'belief' ? 'believes' : v.layer === 'signal' ? 'reports' : v.layer === 'internal' ? 'state' : 'actual'}</span> {v.title} = <b>{val ?? '?'}</b>
                     </div>
                   )
                 })}
@@ -314,7 +315,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
             const m = mm.get(v.id)
             return (
               <tr key={v.id} className={(after[v.id] !== before[v.id] ? 'changed' : '') + (m ? ' bad' : '')}>
-                <th><span className={'layer l-' + v.layer}>{LAYER_SHORT[v.layer]}</span> <Ref id={v.id} /> {variableName(p, v)}</th>
+                <th><Ref id={v.id} /> {variableName(p, v)}</th>
                 <td>{after[v.id] ?? '—'}</td>
                 <td>{m ? <>actual <b>{m.actual}</b></> : ''}</td>
               </tr>

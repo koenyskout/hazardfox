@@ -11,7 +11,7 @@ import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
 import { addItemInDialog, commit, useIds, useLabels, useProject } from './hooks'
-import { Icon, StatusIcon } from './Icon'
+import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
 import { StringList } from './StringList'
@@ -59,7 +59,7 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
   return (
     <>
       <h3>
-        <span className={'chip k-' + it.kind}>{idLabels[it.id]}</span> {KIND_NAMES[it.kind]}
+        <span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span> {KIND_NAMES[it.kind]}
       </h3>
       {it.kind !== 'uca' && it.kind !== 'scenario' && (
         <Field single label="Title"><TextInput value={it.title} onChange={text('title')} /></Field>
@@ -167,9 +167,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           <Field label="Layer" hint={LAYER_HINTS[it.layer]}>
-            <select value={it.layer} onChange={(e) => pickLayer(e.target.value as VariableLayer)}>
-              {VARIABLE_LAYERS.map((l) => <option key={l} value={l}>{VARIABLE_LAYER_LABELS[l]}</option>)}
-            </select>
+            <ChoicePicker options={VARIABLE_LAYERS} value={it.layer} onPick={pickLayer} label={(l) => VARIABLE_LAYER_LABELS[l]} icon={(l) => <LayerIcon layer={l} size={16} />} />
           </Field>
           <Field label={ownerKind === 'entity' ? 'Owner (entity or relationship)' : ownerKind === 'feedback' ? 'Carried by feedback' : 'Controller'}>
             <SingleRef value={it.parent} options={owners} onChange={(v) => v && set({ parent: v })} />
@@ -439,7 +437,7 @@ function ConditionsEditor({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
           <div key={i} className="cond">
             <span className="cond-word">{i === 0 ? 'When' : 'and'}</span>
             <Picker options={vars} create={{ label: '+ New variable…', run: () => upd(i, { variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd(i, { variable: id ?? '', state: '', to: '', set: [], op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
-              {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}>{labels[v.id]}</span></ItemHover></> : <span className="muted">variable…</span>}
+              {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
             </Picker>
             <select value={c.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp })}>
               {opsFor(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}

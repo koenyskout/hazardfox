@@ -1,4 +1,4 @@
-import { Icon } from './Icon'
+import { ChipLabel, Icon } from './Icon'
 import { useStore } from '../model/store'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
@@ -33,7 +33,7 @@ export function ChipLink({ id, p, labels, go }: { id: Id } & Ctx) {
   if (!it) return <span className="chip dead">{DELETED}</span>
   return (
     <HoverCard card={() => <ItemCard it={it} p={p} labels={labels} go={go} />}>
-      <a href="#" className={'chip k-' + it.kind} onClick={(e) => { e.preventDefault(); go(id) }}>{labels[id]}</a>
+      <a href="#" className={'chip k-' + it.kind} onClick={(e) => { e.preventDefault(); go(id) }}><ChipLabel it={it} label={labels[id]} /></a>
     </HoverCard>
   )
 }
@@ -175,7 +175,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   return (
     <>
       <div className="hc-top">
-        <span className={'chip k-' + it.kind}>{labels[it.id]}</span>
+        <span className={'chip k-' + it.kind}><ChipLabel it={it} label={labels[it.id]} /></span>
         <span className="hc-type">{KIND_NAMES[it.kind]}</span>
         <span className="hc-badges">
           {badges}

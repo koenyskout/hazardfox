@@ -2,6 +2,7 @@ import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, signals
 import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
+import { LayerIcon } from './Icon'
 import { addItemInDialog, commit, useProject } from './hooks'
 import { Picker } from './Picker'
 
@@ -22,7 +23,7 @@ export function VariableMap() {
       </p>
       <table className="grid varmap">
         <thead>
-          <tr><th>World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
+          <tr><th><LayerIcon layer="domain" />World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
         </thead>
         <tbody>
           {world.map((w) => (
@@ -39,9 +40,9 @@ export function VariableMap() {
                     {bel.map((b) => <Ref key={b.id} id={b.id} />)}
                     {sig.length > 0 && <div className="via"><span className="muted">from</span> {sig.map((s) => <Ref key={s.id} id={s.id} />)}</div>}
                     <div className="cell-add">
-                      {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ belief</button>}
+                      {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ <LayerIcon layer="belief" />belief</button>}
                       {!sig.length && fbs.length > 0 && (
-                        <Picker options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span className="add" title="Let an incoming feedback report this variable">+ signal</span></Picker>
+                        <Picker options={fbs} onPick={(f) => f && commit((q) => addSignal(q, f, w.id).project)}><span className="add" title="Let an incoming feedback report this variable">+ <LayerIcon layer="signal" />signal</span></Picker>
                       )}
                     </div>
                   </td>
@@ -50,12 +51,12 @@ export function VariableMap() {
             </tr>
           ))}
           <tr>
-            <th>Internal state<br /><small className="muted">modes, timers, counters</small></th>
+            <th><LayerIcon layer="internal" />Internal state<br /><small className="muted">modes, timers, counters</small></th>
             <td />
             {ctrls.map((c) => (
               <td key={c.id}>
                 {variablesIn(p, 'internal', c.id).map((v) => <Ref key={v.id} id={v.id} />)}
-                <div className="cell-add"><button className="add" onClick={() => addItemInDialog('variable', { layer: 'internal', parent: c.id })}>+ internal</button></div>
+                <div className="cell-add"><button className="add" onClick={() => addItemInDialog('variable', { layer: 'internal', parent: c.id })}>+ <LayerIcon layer="internal" />internal</button></div>
               </td>
             ))}
           </tr>

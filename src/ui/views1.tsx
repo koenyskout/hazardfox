@@ -6,13 +6,14 @@ import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
-import { LAYER_SHORT, VARIABLE_LAYER_LABELS, VARIABLE_LAYERS, type VariableLayer, GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
+import { VARIABLE_LAYER_LABELS, VARIABLE_LAYERS, type VariableLayer, GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { TreeTable } from './TreeTable'
 import { VariableMap } from './VariableMap'
+import { LayerIcon, LayerTag } from './Icon'
 import { ScenarioTrace } from './Trace'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -100,13 +101,13 @@ export function Domain() {
         <>
           <div className="layer-filter">
             {(['', ...VARIABLE_LAYERS] as const).map((l) => (
-              <button key={l} className={layer === l ? 'on' : ''} onClick={() => setLayer(l)}>{l ? VARIABLE_LAYER_LABELS[l] : 'All'} <i>{(l ? vars.filter((v) => v.layer === l) : vars).length}</i></button>
+              <button key={l} className={layer === l ? 'on' : ''} onClick={() => setLayer(l)}>{l ? <><LayerIcon layer={l} />{VARIABLE_LAYER_LABELS[l]}</> : 'All'} <i>{(l ? vars.filter((v) => v.layer === l) : vars).length}</i></button>
             ))}
           </div>
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             items={vars.filter((v) => !layer || v.layer === layer).sort(byLabel(labels))}
             columns={[
-              { head: 'Layer', cell: (v) => <span className={'layer l-' + v.layer}>{LAYER_SHORT[v.layer]}</span>, width: '70px' },
+              { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },
               { head: 'Owner', cell: (v) => (v.parent ? <Ref id={v.parent} /> : <span className="muted">none</span>), width: '110px' },
               { head: 'About', cell: (v) => (v.about ? <Ref id={v.about} /> : null), width: '80px' },
               { head: 'States', cell: (v) => <span className="muted">{describeStates(v)}</span> },

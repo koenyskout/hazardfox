@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ChipLabel } from './Icon'
 import { createPortal } from 'react-dom'
 import { generateUcaText } from '../model/uca'
 import { useStore } from '../model/store'
@@ -58,7 +59,7 @@ export function Picker({ options, onPick, children, className, create }: { optio
               {create && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
               {hits.map((o, n) => (
                 <li key={o.id} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
-                  <span className={'chip k-' + o.kind}>{labels[o.id]}</span>
+                  <span className={'chip k-' + o.kind}><ChipLabel it={o} label={labels[o.id]} /></span>
                   <span className="pk-main">
                     <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>
                     <span className="pk-sub">{[mixed && KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
@@ -77,12 +78,12 @@ export function Picker({ options, onPick, children, className, create }: { optio
 }
 
 /** Searchable picker for a fixed set of values (same popup as `Picker`, without the preview card). */
-export function ChoicePicker<T extends string>({ options, value, onPick, icon }: { options: readonly T[]; value: T; onPick: (v: T) => void; icon?: (v: T) => ReactNode }) {
+export function ChoicePicker<T extends string>({ options, value, onPick, icon, label = (v) => v }: { options: readonly T[]; value: T; onPick: (v: T) => void; icon?: (v: T) => ReactNode; label?: (v: T) => string }) {
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number; w: number } | null>(null)
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
-  const hits = options.filter((o) => o.toLowerCase().includes(q.toLowerCase()))
+  const hits = options.filter((o) => label(o).toLowerCase().includes(q.toLowerCase()))
   const close = () => { setAt(null); setQ(''); setSel(0) }
   const pick = (v: T) => { onPick(v); close() }
   useEffect(() => {
@@ -99,7 +100,7 @@ export function ChoicePicker<T extends string>({ options, value, onPick, icon }:
   const cur = hits[Math.min(sel, hits.length - 1)]
   return (
     <>
-      <button ref={btn} type="button" className="picker-btn choice-btn" onClick={() => (at ? close() : open())}>{icon?.(value)}<span>{value}</span><span className="caret">▾</span></button>
+      <button ref={btn} type="button" className="picker-btn choice-btn" onClick={() => (at ? close() : open())}>{icon?.(value)}<span>{label(value)}</span><span className="caret">▾</span></button>
       {at && createPortal(
         <div className="picker-pop choice-pop" style={{ left: at.x, top: at.y, width: at.w }}>
           <div className="picker-list">
@@ -114,7 +115,7 @@ export function ChoicePicker<T extends string>({ options, value, onPick, icon }:
             <ul>
               {hits.map((o, n) => (
                 <li key={o} className={n === sel ? 'on' : ''} onMouseEnter={() => setSel(n)} onClick={() => pick(o)}>
-                  {icon?.(o)}<span className="pk-title">{o}</span>
+                  {icon?.(o)}<span className="pk-title">{label(o)}</span>
                 </li>
               ))}
               {hits.length === 0 && <li className="muted">No matches</li>}

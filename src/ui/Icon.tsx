@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Status } from '../model/types'
+import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
   plus: <path d="M8 3v10M3 8h10" />,
@@ -22,6 +22,11 @@ const PATHS: Record<string, ReactNode> = {
   approved: <><circle cx="8" cy="8" r="6" /><path d="M5.2 8.3l2 2 3.6-4" /></>,
   error: <><circle cx="8" cy="8" r="6" /><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" /></>,
   info: <><circle cx="8" cy="8" r="6" /><path d="M8 7.3v3.6M8 5v.2" /></>,
+  /** variable layers: world (globe), signal (measured pulse), belief (thought bubble), internal (memory chip) */
+  'layer-domain': <><circle cx="8" cy="8" r="5.8" /><path d="M2.2 8h11.6M8 2.2c-2.2 2.6-2.2 9 0 11.6M8 2.2c2.2 2.6 2.2 9 0 11.6" /></>,
+  'layer-signal': <path d="M1.5 9h2.5l1.8-4.5 2.7 8 2-5.5 1 2h3" />,
+  'layer-belief': <><path d="M4.8 10.8a2.6 2.6 0 01-.6-5.1 3.7 3.7 0 017.1-1.1 3 3 0 01.6 6.2z" /><circle cx="4.6" cy="13.3" r="1" /><circle cx="2.2" cy="15" r=".5" /></>,
+  'layer-internal': <><rect x="4.5" y="4.5" width="7" height="7" rx="1" /><path d="M6.5 2.5v2M9.5 2.5v2M6.5 11.5v2M9.5 11.5v2M2.5 6.5h2M2.5 9.5h2M11.5 6.5h2M11.5 9.5h2" /></>,
   gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
 }
 
@@ -37,4 +42,20 @@ export function Icon({ name, size = 15 }: { name: IconName; size?: number }) {
 
 export const StatusIcon = ({ status, size = 14 }: { status: Status; size?: number }) => (
   <span className={'status-ico st-' + status} title={status[0].toUpperCase() + status.slice(1)}><Icon name={status} size={size} /></span>
+)
+
+export const LayerIcon = ({ layer, size = 13 }: { layer: VariableLayer; size?: number }) => (
+  <span className={'layer-ico l-' + layer} title={LAYER_SHORT[layer] + ' variable'}><Icon name={`layer-${layer}`} size={size} /></span>
+)
+
+/** Chip content: the item's label, preceded by its layer icon for variables (kept on one line with the first word). */
+export function ChipLabel({ it, label }: { it: Item; label: string }) {
+  if (it.kind !== 'variable') return <>{label}</>
+  const [, first, rest] = /^(\S*)([^]*)$/.exec(label)!
+  return <><span className="nowrap"><LayerIcon layer={it.layer} size={12} />{first}</span>{rest}</>
+}
+
+/** A layer badge: icon and short name. */
+export const LayerTag = ({ layer, text = LAYER_SHORT[layer] }: { layer: VariableLayer; text?: string }) => (
+  <span className={'layer l-' + layer}><LayerIcon layer={layer} />{text}</span>
 )

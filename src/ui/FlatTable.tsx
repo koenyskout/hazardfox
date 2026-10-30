@@ -4,7 +4,7 @@ import { useStore } from '../model/store'
 import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
 import { addItem, commit, select, useIds } from './hooks'
 import { ReviewDot } from './Review'
-import { Icon, StatusIcon } from './Icon'
+import { ChipLabel, Icon, StatusIcon } from './Icon'
 
 export interface Column<K extends Kind> {
   head: string
@@ -52,7 +52,7 @@ export function FlatTable<K extends Kind>(props: {
         {props.items.length === 0 && <div className="empty">Nothing here yet.</div>}
         {props.items.map((it) => (
           <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
-            <span className="lbl"><span className={'chip k-' + it.kind}>{idLabels[it.id]}</span></span>
+            <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className="ttl">
                 <input
