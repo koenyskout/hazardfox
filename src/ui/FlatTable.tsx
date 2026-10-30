@@ -22,6 +22,8 @@ export function FlatTable<K extends Kind>(props: {
   titleEditable?: boolean
   /** Items must be ordered so that equal groups are adjacent; a header row (a reference to the group) is shown whenever it changes. */
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
+  /** Second line under the title. */
+  sub?: (it: ItemOf<K>) => ReactNode
   addLabel?: string
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
@@ -62,7 +64,7 @@ export function FlatTable<K extends Kind>(props: {
           <div className={'row' + (selected === it.id ? ' sel cur' : '')} onClick={() => select(it.id)}>
             <span className="lbl"><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
-              <span className="ttl">
+              <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <input
                   value={it.title}
                   placeholder={`${KIND_NAMES[it.kind]} title`}
@@ -71,6 +73,7 @@ export function FlatTable<K extends Kind>(props: {
                 />
                 <StatusIcon status={it.status} />
                 <ReviewDot id={it.id} />
+                {props.sub && <div className="subline">{props.sub(it)}</div>}
               </span>
             )}
             {props.columns.map((c) => (
