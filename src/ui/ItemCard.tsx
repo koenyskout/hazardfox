@@ -6,7 +6,7 @@ import { children } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { validate } from '../model/validate'
 import { freshReview } from '../llm/auto'
-import { CAUSE_LABELS, GUIDE_WORDS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
+import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 
 const MAX_PER_KIND = 5
 type Go = (id: Id) => void
@@ -78,11 +78,8 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       row('Contains', children(p, it.id, 'node').length ? <Chips ids={children(p, it.id, 'node').map((n) => n.id)} c={c} /> : null)
       break
     case 'ca': {
-      const ucas = Object.values(p.items).filter((u) => u.kind === 'uca' && u.ca === it.id)
-      const missing = GUIDE_WORDS.filter((g) => !ucas.some((u) => u.kind === 'uca' && u.guide === g))
       row('Operation', it.operation ? it.operation.split(':').slice(1).join(':') : null)
       row('Actuator', it.actuator)
-      row('UCA coverage', <>{GUIDE_WORDS.length - missing.length} of {GUIDE_WORDS.length} guide words{missing.length > 0 && <span className="muted"> · missing: {missing.map((g) => GUIDE_WORD_LABELS[g].split(' ')[0].toLowerCase()).join(', ')}</span>}</>)
       break
     }
     case 'feedback':
