@@ -149,11 +149,6 @@ function Diagram() {
           for (const i of Object.values(q.items)) if ((i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && i.bend)) n = updateItem(n, i.id, i.kind === 'node' ? { nudge: null } : { bend: null })
           return n
         })}>Reset manual positions</button>
-        <button onClick={() => {
-          const ctl = itemsOfKind(p, 'node').filter((n) => n.role === 'controller' && !itemsOfKind(p, 'node').some((c) => c.parent === n.id))
-          const wide = ctl.every((n) => n.wide > 0) ? 0 : 180
-          commit((q) => ctl.reduce((a, n) => updateItem(a, n.id, { wide }), q))
-        }}>Toggle wide controllers</button>
         <button disabled={!hasBends} title="Discard manually dragged arrows and labels; re-route arrows automatically" onClick={() => commit((q) => {
           let n = q
           for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && i.bend) n = updateItem(n, i.id, { bend: null })
