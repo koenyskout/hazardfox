@@ -50,7 +50,13 @@ export function FlatTable<K extends Kind>(props: {
     for (const { id: g, depth } of props.groups ?? []) {
       const its = props.items.filter((it) => props.groupBy!(it) === g)
       push(g, its[0], depth)
-      its.forEach((item) => rows.push({ item, depth: (depth ?? 0) + 1 }))
+      its.forEach((item, i) => {
+        const path = props.nest?.(item) ?? [], prev = i ? props.nest?.(its[i - 1]) ?? [] : []
+        let k = 0
+        while (k < path.length && path[k] === prev[k]) k++
+        path.slice(k).forEach((head, j) => rows.push({ head, depth: (depth ?? 0) + 1 + k + j }))
+        rows.push({ item, depth: (depth ?? 0) + 1 + path.length })
+      })
     }
     props.items.forEach((item, i) => {
       const g = props.groupBy!(item)
