@@ -9,6 +9,7 @@ import { medicationExampleProject } from './model/domainExample'
 import { HANDBOOK_EXAMPLES, handbookExampleProject } from './model/handbookExamples'
 import { PUBLISHED_EXAMPLES, publishedExampleProject } from './model/publishedExamples'
 import { Details, EditDialog } from './ui/Details'
+import { DialogHost, askConfirm } from './ui/dialogs'
 import { useProject } from './ui/hooks'
 import { Palette } from './ui/Palette'
 import { Structure } from './ui/Structure'
@@ -72,10 +73,10 @@ export default function App() {
         <b className="brand">🦊 HazardFox</b>
         <span className="title">{p.meta.name}{dirty ? ' •' : ''} <small className="muted">{fileName ?? 'unsaved'}</small></span>
         <span className="spacer" />
-        <button onClick={() => { if (!dirty || confirm('Discard unsaved changes?')) load(emptyProject(), null) }}>New</button>
+        <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(emptyProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
-        <Select value="" title="Load an example project" onChange={(e) => { const v = e.target.value; if (v && (!dirty || confirm('Discard unsaved changes?'))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
+        <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
           <option value="pump">Infusion pump (demo)</option>
           <option value="medication">Hospital medication (large domain model)</option>
@@ -103,6 +104,7 @@ export default function App() {
       {wideDetails && <Details />}
       <Palette />
       <EditDialog />
+      <DialogHost />
     </div>
   )
 }

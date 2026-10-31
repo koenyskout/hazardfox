@@ -7,6 +7,7 @@ import { KIND_NAMES, type Id, type Kind } from '../model/types'
 import { RULES, SEVERITIES, validate, type RuleId, type Severity } from '../model/validate'
 import { Ref, VIEW_OF } from './Fields'
 import { addItem, commit, useProject } from './hooks'
+import { askConfirm } from './dialogs'
 import { addBelief } from '../model/formal'
 import { updateItem } from '../model/ops'
 import { draftTrace } from '../model/traces'
@@ -39,7 +40,7 @@ const pct = (p: number) => Math.round(p * 100)
 const ACTIONS: Partial<Record<RuleId, { label: string; run: (id: Id, related: Id[]) => void }>> = {
   'context-unrepresented': { label: 'Add belief', run: (id, [w]) => commit((p) => { const u = p.items[id], ca = u?.kind === 'uca' ? p.items[u.ca] : null; return ca?.kind === 'ca' && w ? addBelief(p, ca.from, w).project : p }) },
   'signal-unused': { label: 'Add belief', run: (id) => commit((p) => { const v = p.items[id], fb = v?.kind === 'variable' && v.parent ? p.items[v.parent] : null; return fb?.kind === 'feedback' && v?.kind === 'variable' && v.about ? addBelief(p, fb.to, v.about).project : p }) },
-  'trace-no-witness': { label: 'Redraft trace', run: (id) => { if (confirm('Replace the trace with a drafted one?')) commit((p) => { const s = p.items[id]; return s?.kind === 'scenario' ? updateItem(p, id, { trace: draftTrace(p, s) }) : p }) } },
+  'trace-no-witness': { label: 'Redraft trace', run: async (id) => { if (await askConfirm('The trace is replaced by a drafted one.', { title: 'Redraft trace?', confirm: 'Replace' })) commit((p) => { const s = p.items[id]; return s?.kind === 'scenario' ? updateItem(p, id, { trace: draftTrace(p, s) }) : p }) } },
   'hazard-no-constraint': { label: 'Add constraint', run: (id) => { const n = addItem('constraint', { hazards: [id] }); useStore.getState().goto('step1', n) } },
   'uca-no-scenario': { label: 'Add scenario', run: (id) => { const n = addItem('scenario', { scenarioType: 'uca', uca: id }); useStore.getState().goto('scenarios', n) } },
   'ca-no-scenarios': { label: 'Add scenario', run: (id) => { const n = addItem('scenario', { scenarioType: 'ca', ca: id }); useStore.getState().goto('scenarios', n) } },

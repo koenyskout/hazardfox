@@ -8,6 +8,7 @@ import { commit, useProject } from './hooks'
 import { Field, NumberInput, Ref, TextInput } from './Fields'
 import { Modal } from './Modal'
 import { Icon } from './Icon'
+import { askText } from './dialogs'
 
 const usersOf = (items: ReturnType<typeof useProject>['items'], name: string) => Object.values(items).filter((i): i is Variable => i.kind === 'variable' && i.rangeType === name)
 const show = (t: RangeType) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
@@ -146,48 +147,74 @@ function EnumTypes() {
   )
 }
 
+/** Field rows of a struct type (name, type, own states) with add / remove; `self` is the type's name, to keep nesting acyclic. */
+function StructFields({ self, fields, onChange }: { self: string; fields: StructField[]; onChange: (f: StructField[]) => void }) {
+  const p = useProject()
+  const set = (i: number, patch: Partial<StructField>) => onChange(fields.map((f, j) => (j === i ? { ...f, ...patch } : f)))
+  return (
+    <>
+      {fields.map((f, i) => (
+        <tr key={i}>
+          <td><input value={f.name} placeholder="Field" onChange={(e) => set(i, { name: e.target.value })} /></td>
+          <td>
+            <Select value={f.structType ? 'struct:' + f.structType : f.type === 'range' && f.rangeType ? 'range:' + f.rangeType : f.type === 'enum' && f.enumType ? 'enum:' + f.enumType : f.type}
+              onChange={(e) => { const [t, nm = ''] = e.target.value.split(':'); if (t === 'struct') return set(i, { structType: nm }); const r = nm && t === 'range' ? p.rangeTypes?.[nm] : null; const en = nm && t === 'enum' ? p.enumTypes?.[nm] : null; set(i, { structType: '', type: t as VariableType, rangeType: t === 'range' ? nm : '', enumType: t === 'enum' ? nm : '', ...(r ?? {}), ...(en ? { states: [...en] } : {}) }) }}>
+              <option value="boolean">boolean</option>
+              <option value="enum">enum (own states)</option>
+              <option value="range">range (own bounds)</option>
+              {Object.keys(p.enumTypes ?? {}).map((x) => <option key={'e' + x} value={'enum:' + x}>{x} (enum type)</option>)}
+              {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (range type)</option>)}
+              {nestableStructs(p, self).map((x) => <option key={'s' + x} value={'struct:' + x}>{x} (struct type)</option>)}
+            </Select>
+            {!f.structType && f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
+          </td>
+          <td><button className="btn" onClick={() => onChange(fields.filter((_, j) => j !== i))}>×</button></td>
+        </tr>
+      ))}
+      <tr><td colSpan={3}><button className="btn" onClick={() => onChange([...fields, blankField()])}>+ Field</button></td></tr>
+    </>
+  )
+}
+
+/** Popup to create a struct type: name and fields together. */
+function NewStructDialog({ onClose }: { onClose: () => void }) {
+  const p = useProject()
+  const [n, setN] = useState('')
+  const [fields, setFields] = useState<StructField[]>([blankField()])
+  const nm = n.trim()
+  const bad = !nm ? 'Name required' : p.structTypes?.[nm] ? 'Name already used' : ''
+  const save = () => { commit((q) => defineStructType(q, nm, { fields: fields.filter((f) => f.name.trim()) })); onClose() }
+  return (
+    <Modal title="New struct type" onClose={onClose} wide>
+      <Field single label="Name"><TextInput value={n} onChange={setN} placeholder="e.g. Position" /></Field>
+      <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={nm} fields={fields} onChange={setFields} /></tbody></table>
+      {bad && n !== '' && <p className="muted">{bad}</p>}
+      <div className="modal-actions">
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="primary" disabled={!!bad} onClick={save}>Create</button>
+      </div>
+    </Modal>
+  )
+}
+
 /** Domain model Types: composite struct types (fields with a type each) to apply to entities and relationships. */
 export function StructTypes() {
   const p = useProject()
+  const [creating, setCreating] = useState(false)
   const names = Object.keys(p.structTypes ?? {}).sort()
-  const upd = (n: string, fields: StructField[]) => commit((q) => defineStructType(q, n, { fields }))
-  const add = () => { const n = window.prompt('Name of the struct type (e.g. Position)')?.trim(); if (n && !p.structTypes?.[n]) commit((q) => defineStructType(q, n, { fields: [blankField()] })) }
   return (
     <div>
-      <div className="toolbar"><button className="btn" onClick={add}><Icon name="plus" size={12} /> Struct type</button></div>
-      {!names.length ? <p className="empty">Struct types group fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field.</p> : names.map((n) => {
-        const fields = p.structTypes![n].fields
-        const set = (i: number, patch: Partial<StructField>) => upd(n, fields.map((f, j) => (j === i ? { ...f, ...patch } : f)))
-        return (
-          <table key={n} className="grid">
-            <thead><tr>
-              <th colSpan={2}><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} /></th>
-              <th><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete type</button></th>
-            </tr></thead>
-            <tbody>
-              {fields.map((f, i) => (
-                <tr key={i}>
-                  <td><input value={f.name} placeholder="Field" onChange={(e) => set(i, { name: e.target.value })} /></td>
-                  <td>
-                    <Select value={f.structType ? 'struct:' + f.structType : f.type === 'range' && f.rangeType ? 'range:' + f.rangeType : f.type === 'enum' && f.enumType ? 'enum:' + f.enumType : f.type}
-                      onChange={(e) => { const [t, nm = ''] = e.target.value.split(':'); if (t === 'struct') return set(i, { structType: nm }); const r = nm && t === 'range' ? p.rangeTypes?.[nm] : null; const en = nm && t === 'enum' ? p.enumTypes?.[nm] : null; set(i, { structType: '', type: t as VariableType, rangeType: t === 'range' ? nm : '', enumType: t === 'enum' ? nm : '', ...(r ?? {}), ...(en ? { states: [...en] } : {}) }) }}>
-                      <option value="boolean">boolean</option>
-                      <option value="enum">enum (own states)</option>
-                      <option value="range">range (own bounds)</option>
-                      {Object.keys(p.enumTypes ?? {}).map((x) => <option key={'e' + x} value={'enum:' + x}>{x} (enum type)</option>)}
-                      {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (range type)</option>)}
-                      {nestableStructs(p, n).map((x) => <option key={'s' + x} value={'struct:' + x}>{x} (struct type)</option>)}
-                    </Select>
-                    {!f.structType && f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
-                  </td>
-                  <td><button className="btn" onClick={() => upd(n, fields.filter((_, j) => j !== i))}>×</button></td>
-                </tr>
-              ))}
-              <tr><td colSpan={3}><button className="btn" onClick={() => upd(n, [...fields, blankField()])}>+ Field</button></td></tr>
-            </tbody>
-          </table>
-        )
-      })}
+      <div className="toolbar"><button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> Struct type</button></div>
+      {creating && <NewStructDialog onClose={() => setCreating(false)} />}
+      {!names.length ? <p className="empty">Struct types group fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field.</p> : names.map((n) => (
+        <table key={n} className="grid">
+          <thead><tr>
+            <th colSpan={2}><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} /></th>
+            <th><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete type</button></th>
+          </tr></thead>
+          <tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody>
+        </table>
+      ))}
     </div>
   )
 }
@@ -198,9 +225,9 @@ export function ApplyStruct({ parent }: { parent: string }) {
   const names = Object.keys(p.structTypes ?? {}).sort()
   if (!names.length) return null
   return (
-    <Select value="" onChange={(e) => {
+    <Select value="" onChange={async (e) => {
       const t = e.target.value
-      const n = t && window.prompt(`Name of the ${t} (e.g. ${t.toLowerCase()})`)?.trim()
+      const n = t && await askText({ title: `Add ${t}`, label: `Name of the ${t} (e.g. ${t.toLowerCase()})`, confirm: 'Add' })
       if (n) commit((q) => applyStructType(q, t, n, parent))
     }}>
       <option value="">+ struct…</option>

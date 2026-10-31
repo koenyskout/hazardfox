@@ -15,6 +15,7 @@ import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
+import { askText } from './dialogs'
 import { addItemInDialog, commit, useIds, useLabels, useProject } from './hooks'
 import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
@@ -673,8 +674,8 @@ function VariableLinks({ v }: { v: Variable }) {
 function EnumTypePicker({ v }: { v: Variable }) {
   const p = useProject()
   const names = Object.keys(p.enumTypes ?? {}).sort()
-  const save = () => {
-    const n = window.prompt('Name for this state list (e.g. On/Off, Severity)', v.title)?.trim()
+  const save = async () => {
+    const n = await askText({ title: 'Save states as a type', label: 'Name for this state list (e.g. On/Off, Severity)', initial: v.title, confirm: 'Save' })
     if (n && !p.enumTypes?.[n]) commit((q) => updateItem(defineEnumType(q, n, v.states), v.id, { enumType: n }))
   }
   return (

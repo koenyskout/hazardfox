@@ -16,6 +16,7 @@ import { children, descendants, flatten, isLeaf } from '../model/tree'
 import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
 import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
+import { showNotice } from './dialogs'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
 import { ItemHover } from './Fields'
@@ -216,7 +217,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               commit((q) => group(q, ids, t).project)
               setDialog(null)
             } catch (e) {
-              alert((e as Error).message)
+              showNotice((e as Error).message, 'Cannot do that')
             }
           }}
         />
@@ -233,7 +234,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               commit((q) => merge(q, ids, t))
               setDialog(null)
             } catch (e) {
-              alert((e as Error).message)
+              showNotice((e as Error).message, 'Cannot do that')
             }
           }}
         />

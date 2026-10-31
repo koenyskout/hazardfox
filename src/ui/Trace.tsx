@@ -12,6 +12,7 @@ import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
 import { Ref, RichText } from './Fields'
 import { commit, useLabels, useProject } from './hooks'
+import { askConfirm } from './dialogs'
 import { Picker } from './Picker'
 import { LayerIcon, LayerTag } from './Icon'
 import { StructureSvg } from './StructureSvg'
@@ -49,7 +50,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const u = s.uca ? p.items[s.uca] : null
   const uca = u?.kind === 'uca' ? u : null
   const actionAt = witness(p, s)?.step ?? -1
-  const draft = () => (!t.steps.length || confirm('Replace the current trace with a drafted one?')) && save(s, draftTrace(p, s))
+  const draft = async () => { if (!t.steps.length || (await askConfirm('The current trace is replaced by a drafted one.', { title: 'Draft a new trace?', confirm: 'Replace' }))) save(s, draftTrace(p, s)) }
   const events = [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback')]
   const lanePick = itemsOfKind(p, 'variable').filter((v) => !t.lanes.includes(v.id))
   // Conditions in words are boolean lanes keyed by their text.
