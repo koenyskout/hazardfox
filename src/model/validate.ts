@@ -7,7 +7,7 @@ import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 import { shortName } from './labels'
-import { conditionError, isText, leaves, quantOf, valuesOf } from './variables'
+import { boundEntity, conditionError, isText, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -43,6 +43,7 @@ export const RULES = {
   'variable-owner': { title: 'Variable has an owner of the wrong kind', why: 'World variables belong to a domain entity, signals to the feedback that carries them, beliefs and internal state to a controller. Otherwise it is unclear whose state the variable is.', fix: 'Open the variable and choose an owner of the right kind, or change its layer.' },
   'context-not-world': { title: 'UCA context uses a belief or signal', why: 'The context of a UCA states what is actually true in the world (or the controller\'s own mode). What the controller believes or observes is a cause and belongs in a loss scenario (STPA Handbook, step 3).', fix: 'Use the world variable this belief / signal is about, and explain the wrong belief in a scenario.' },
   'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable (representability).', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
+  'instance-name': { title: 'Instance name not introduced or ambiguous', why: 'A condition refers to a named instance (e.g. train t1) that no condition of the context introduces, or one name stands for two different entities.', fix: 'Name the instance with “some … as t1” in one condition, then refer to it in the others.' },
   'quantifier-single': { title: 'Quantifier on a single-instance variable', why: 'The condition says "some / every / no", but its variable belongs to an entity (or relationship) with one instance, so the quantifier has no effect.', fix: 'Mark the entity as having several instances, or remove the quantifier.' },
   'belief-no-about': { title: 'Belief without designation', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
@@ -140,6 +141,16 @@ export function validate(p: Project): Issue[] {
     }
   }
 
+  // named instances: a reference needs an earlier-introduced name on the same entity, and a name denotes one entity
+  for (const u of ucas) {
+    const named = new Map<string, Id | null>()
+    for (const c of u.conditions) if (c.as?.trim()) { const v = p.items[c.variable]; const e = v?.kind === 'variable' ? boundEntity(p, v) : null; if (named.has(c.as.trim()) && named.get(c.as.trim()) !== e) add('warning', u, 'instance-name', `${L[u.id]}: the name ${c.as.trim()} is used for different entities`); named.set(c.as.trim(), e) }
+    for (const c of u.conditions) if (c.same?.trim()) {
+      const v = p.items[c.variable]
+      if (!named.has(c.same.trim())) add('warning', u, 'instance-name', `${L[u.id]}: ${c.same.trim()} is not introduced by any condition`)
+      else if (v?.kind === 'variable' && named.get(c.same.trim()) !== boundEntity(p, v)) add('warning', u, 'instance-name', `${L[u.id]}: ${c.same.trim()} stands for a different entity than ${v.title || shortName(p, v)}`)
+    }
+  }
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
   for (const u of ucas) for (const c of u.conditions) {
     const v = p.items[c.variable]

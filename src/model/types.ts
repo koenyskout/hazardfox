@@ -223,6 +223,10 @@ export interface Condition {
   other?: Id
   /** Only meaningful for variables of a many-instance entity / relationship; absent = `some` */
   quant?: Quantifier
+  /** Names the (some) instance this condition is about, for later conditions to refer to (`same`) */
+  as?: string
+  /** Refers to an instance named by `as` in another condition of the same context: the same instance, not just some */
+  same?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

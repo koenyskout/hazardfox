@@ -106,4 +106,23 @@ describe('level crossing example', () => {
     expect(hz).toContain('Gate position is closed and no Train approaches Crossing')
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
   })
+  it('names an instance and refers to it again', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
+    const b = cond(s.speed, { same: 't1', op: '>', state: '10' })
+    expect(conditionText(s.p, a)).toBe('some Train t1 at Station')
+    expect(conditionText(s.p, b)).toBe('speed of t1 is greater than 10')
+    expect(conditionText(s.p, cond(s.speed, { as: 't2' }))).toBe('speed of some Train t2 is 0')
+    // same witness cannot be both; unnamed some can
+    expect(consistent(s.p, [cond(s.speed, { as: 't1' }), cond(s.speed, { same: 't1', op: '≠' })])).toBe(false)
+    expect(consistent(s.p, [cond(s.speed, { as: 't1' }), cond(s.speed, { as: 't2', op: '≠' })])).toBe(true)
+    const ok = s.add('uca', { conditions: [a, b] })
+    expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(false)
+    s.p = updateItem(s.p, ok, { conditions: [b] })
+    expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(true)
+    const q = deserialize(serialize(s.p))
+    expect((q.items[ok] as { conditions: Condition[] }).conditions[0].same).toBe('t1')
+  })
 })

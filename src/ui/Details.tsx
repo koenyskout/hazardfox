@@ -4,7 +4,7 @@ import { renderText } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, instName, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -463,14 +463,14 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
 
 /** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
 function ConditionList({ conditions, onChange, vars, head }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; head: ReactNode }) {
-  return <div className="rule"><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat /></div>
+  return <div className="rule"><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat scope={conditions} /></div>
 }
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
 const WORDS: Condition = { variable: '', op: '=', state: 'true', text: '' }
 
 /** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
-function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
+function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
   const upd = (i: number, w: When | null) => onChange({ ...g, of: w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i) })
   const join = g.of.length > 1 ? (g.any ? 'or' : 'and') : ''
   return (
@@ -482,8 +482,8 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; on
       </div>
       <div className={'conds' + (onRemove ? ' group' : '')}>
         {g.of.map((w, i) => isGroup(w)
-          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />
-          : <ConditionRow key={i} c={w} word={i ? join : ''} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />)}
+          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} scope={scope} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />
+          : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
           <button title="A condition in words, for something not modelled as a variable; traces treat it as true / false" onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
@@ -494,10 +494,11 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; on
   )
 }
 
-function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onChange: (c: Condition) => void; onRemove: () => void; vars: Variable[]; word: string }) {
+function ConditionRow({ c, onChange, onRemove, vars, word, scope = [] }: { scope?: Condition[]; c: Condition; onChange: (c: Condition) => void; onRemove: () => void; vars: Variable[]; word: string }) {
   const p = useProject()
   const labels = useLabels()
   const upd = (patch: Partial<Condition>) => onChange({ ...c, ...patch })
+  const names = scope.filter((x) => x !== c && x.as?.trim() && !isText(x)).map((x) => { const xv = p.items[x.variable]; return { name: instName(x), entity: xv?.kind === 'variable' ? boundEntity(p, xv) : null } })
   if (isText(c)) return (
     <div className="cond">
       <span className="cond-word">{word}</span>
@@ -525,7 +526,13 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   return (
     <div className="cond">
       <span className="cond-word">{word}</span>
-      {quantOf(p, c) && <Select title="For how many instances this holds" value={quantOf(p, c)!} onChange={(e) => upd({ quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier })}>{QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}</Select>}
+      {quantOf(p, c) && <>
+        <Select title="For how many instances this holds, or the same instance as an earlier condition" value={c.same ? 'same:' + c.same : quantOf(p, c)!} onChange={(e) => { const x = e.target.value; upd(x.startsWith('same:') ? { same: x.slice(5), as: undefined, quant: undefined } : { same: undefined, as: x === 'some' ? c.as : undefined, quant: x === 'some' ? undefined : x as Quantifier }) }}>
+          {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
+          {names.filter((n) => n.entity === (vr && boundEntity(p, vr))).map((n) => <option key={n.name} value={'same:' + n.name}>the same {n.name}</option>)}
+        </Select>
+        {!c.same && quantOf(p, c) === 'some' && <input className="cond-name" size={5} value={c.as ?? ''} placeholder="name…" title="Optional name (e.g. t1) to refer to this same instance in other conditions" onChange={(e) => upd({ as: e.target.value.replace(/\s+/g, '') || undefined })} />}
+      </>}
       <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], other: undefined, op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
         {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
       </Picker>
