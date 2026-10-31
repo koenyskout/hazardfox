@@ -1,5 +1,6 @@
 import { addBelief, addSignal, beliefsAbout, clusterStructs, controlledBy, feedbackInto, refines, signalsInto, structPath, updatedBy, variablesIn } from '../model/formal'
 import { useState } from 'react'
+import { StructViewToggle, useStructView } from './structView'
 import { createItem } from '../model/ops'
 import type { Id, Project, Variable } from '../model/types'
 import { describeStates } from '../model/variables'
@@ -28,6 +29,7 @@ function AddSignal({ c, w }: { c: string; w: string }) {
 
 /** World variables × controllers: what each controller believes, from which signals; gaps where a UCA context needs a belief. */
 export function VariableMap({ only }: { only?: string } = {}) {
+  const dotted = useStructView() === 'dotted'
   const p = useProject()
   const world = variablesIn(p, 'domain')
   const ctrls = itemsOfKind(p, 'node').filter((n) => n.role === 'controller' && (!only || n.id === only)).sort((a, b) => a.rank - b.rank)
@@ -42,6 +44,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
         Each row is actual world state; each column a controller’s process model. A cell shows the controller’s belief about the variable and the signals
         (feedback) it is updated from. <b>Red</b>: a UCA context uses the variable but the controller has no belief about it. <b>Amber</b>: a belief that no feedback updates.
       </p>
+      {world.some((w) => w.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
       <table className="grid varmap">
         <thead>
           <tr><th><LayerIcon layer="domain" />World variable</th><th>Controlled by</th>{ctrls.map((c) => <th key={c.id}><Ref id={c.id} /> {c.title}</th>)}</tr>
@@ -50,7 +53,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
           {owners.flatMap((o) => [
             <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
             ...clusterStructs(ordered(p, world.filter((w) => (w.parent ?? '') === o))).flatMap((w, i, all) => {
-            const path = structPath(w), prev = i ? structPath(all[i - 1]) : []
+            const path = dotted ? [] : structPath(w), prev = i && !dotted ? structPath(all[i - 1]) : []
             let k = 0
             while (k < path.length && path[k] === prev[k]) k++
             return [...path.slice(k).map((h, j) => <tr key={w.id + 'h' + j} className="group sub"><th colSpan={2 + ctrls.length} style={{ paddingLeft: 12 + (k + j) * 16 }}><span className="muted">▸</span> {h}</th></tr>), (

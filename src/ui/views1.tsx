@@ -1,3 +1,4 @@
+import { StructViewToggle, useStructView } from './structView'
 import type { ItemOf } from '../model/types'
 import { useState } from 'react'
 import { clusterStructs, isPredicate, structPath } from '../model/formal'
@@ -85,6 +86,7 @@ export function Domain() {
   const selected = useStore((s) => s.selected)
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
+  const structMode = useStructView()
   const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'types'>('diagram')
   const [layer, setLayer] = useState<VariableLayer | ''>('')
   const vars = itemsOfKind(p, 'variable')
@@ -110,10 +112,11 @@ export function Domain() {
               <button key={l} className={layer === l ? 'on' : ''} onClick={() => setLayer(l)}>{l ? <><LayerIcon layer={l} />{VARIABLE_LAYER_LABELS[l]}</> : 'All'} <i>{(l ? vars.filter((v) => v.layer === l) : vars).length}</i></button>
             ))}
           </div>
+          {vars.some((v) => v.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
-            nest={structPath}
-            titleView={(v) => v.struct ? v.struct.path.split('.').pop() : null}
+            nest={structMode === 'nested' ? structPath : undefined}
+            titleView={structMode === 'nested' ? (v) => v.struct ? v.struct.path.split('.').pop() : null : undefined}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}
