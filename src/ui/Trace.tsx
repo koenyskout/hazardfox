@@ -4,7 +4,7 @@ import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
 import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, textConditions, traceState, valueAt, witness } from '../model/traces'
-import { controlledBy, variablesIn } from '../model/formal'
+import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { condInstances, instLane, isMany, isText, laneParts, laneText, stepOf, valuesOf } from '../model/variables'
@@ -55,7 +55,16 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const u = s.uca ? p.items[s.uca] : null
   const uca = u?.kind === 'uca' ? u : null
   // lanes for the instances the UCA's conditions name, and a custom one for any variable with several instances
-  const instPick = uca ? uca.conditions.flatMap((c) => { const v = isText(c) ? undefined : p.items[c.variable]; const k = instLane(c); return v?.kind === 'variable' && k !== v.id && !t.lanes.includes(k) && condInstances(p, c).length ? [{ k, label: `${shortName(p, v)} · ${laneParts(k).names.filter(Boolean).join(', ')}` }] : [] }) : []
+  // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
+  const ctrl = uca ? p.items[uca.ca] : null
+  const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap((c) => {
+    const v = isText(c) ? undefined : p.items[c.variable]
+    const k = instLane(c)
+    if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []
+    const suf = k.slice(v.id.length), tag = laneParts(k).names.filter(Boolean).join(', ')
+    const related = [v, ...feedbackInto(p, ctrl.from).flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about === v.id), ...beliefsAbout(p, ctrl.from, v.id)]
+    return related.filter((x) => !t.lanes.includes(x.id + suf)).map((x) => ({ k: x.id + suf, label: `${shortName(p, x)} · ${tag}` }))
+  }) : []
   const manyVars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' && isMany(p, v))
   const addCustom = (id: Id | null) => { const v = id ? p.items[id] : null; if (v?.kind !== 'variable') return; const n = prompt(`Instance name${itemsOfKind(p, 'relationship').some((r) => r.id === v.parent) ? 's (e.g. t1 or t1|c1 for both ends)' : ''}`)?.trim(); if (n) save(s, { ...t, lanes: [...new Set([...t.lanes, `${id}@${n}`])] }) }
   const actionAt = witness(p, s)?.step ?? -1
@@ -331,9 +340,9 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
                   const { v, key } = l
                   const val = shown(l)
                   const changed = val !== before[key] && (v.layer === 'domain' || v.layer === 'internal' || fbDone)
-                  const bad = !l.names.length && mm.has(v.id) && (v.layer !== 'belief' && v.layer !== 'signal' ? false : fbDone || v.layer === 'signal')
+                  const bad = mm.has(key) && (v.layer !== 'belief' && v.layer !== 'signal' ? false : fbDone || v.layer === 'signal')
                   return (
-                    <div key={key} className={'cv l-' + v.layer + (changed ? ' changed' : '') + (bad ? ' bad' : '')} title={bad ? `Actual: ${mm.get(v.id)!.actual}` : undefined}>
+                    <div key={key} className={'cv l-' + v.layer + (changed ? ' changed' : '') + (bad ? ' bad' : '')} title={bad ? `Actual: ${mm.get(key)!.actual}` : undefined}>
                       <span className="layer"><LayerIcon layer={v.layer} size={11} />{v.layer === 'belief' ? 'believes' : v.layer === 'signal' ? 'reports' : v.layer === 'internal' ? 'state' : 'actual'}</span> {v.title || shortName(p, v)}{l.names.length > 0 && <i> {l.names.join(', ')}</i>} = <b>{val ?? '?'}</b>
                     </div>
                   )
@@ -347,7 +356,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
         <thead><tr><th>Variable</th><th>Value at {cur.t}</th><th>World</th></tr></thead>
         <tbody>
           {vars.map((l) => {
-            const m = l.names.length ? undefined : mm.get(l.v.id)
+            const m = mm.get(l.key)
             return (
               <tr key={l.key} className={(after[l.key] !== before[l.key] ? 'changed' : '') + (m ? ' bad' : '')}>
                 <th><Ref id={l.v.id} /> <InstTag l={l} /> <Owner v={l.v} /></th>

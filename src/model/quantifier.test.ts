@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { createItem, updateItem } from './ops'
+import { createItem, deleteItems, updateItem } from './ops'
+import { addSignal, beliefsAbout, signalsOf } from './formal'
 import { deserialize, serialize } from './serialize'
-import { condHolds, getter } from './traces'
+import { condHolds, diagnose, draftTrace, getter, mismatches } from './traces'
 import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
 import { conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
-import type { Condition, Id, Project } from './types'
+import type { Condition, Id, Project, Scenario } from './types'
 
 function setup() {
   let p = emptyProject()
-  const add = <K extends 'entity' | 'relationship' | 'variable' | 'node' | 'ca' | 'uca'>(k: K, patch: object) => { const r = createItem(p, k, patch as never); p = r.project; return r.id }
+  const add = <K extends 'entity' | 'feedback' | 'relationship' | 'variable' | 'node' | 'ca' | 'uca'>(k: K, patch: object) => { const r = createItem(p, k, patch as never); p = r.project; return r.id }
   const train = add('entity', { title: 'Train' })
   const station = add('entity', { title: 'Station' })
   const speed = add('variable', { layer: 'domain', parent: train, title: 'speed', type: 'range', min: 0, max: 100 })
@@ -178,5 +179,42 @@ describe('level crossing example', () => {
     const sc = s.add('uca', { conditions: [a, b] })
     expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(false)
     expect(deserialize(serialize(s.p)).items[sc]).toBeTruthy()
+  })
+})
+
+describe('per-instance signals and beliefs', () => {
+  function world() {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const ctrl = s.add('node', { title: 'Ctrl', role: 'controller' })
+    const proc = s.add('node', { title: 'Plant', role: 'process' })
+    const ca = s.add('ca', { title: 'Brake', from: ctrl, to: proc, affects: [s.speed] })
+    const fb = s.add('feedback', { title: 'Speed reading', from: proc, to: ctrl })
+    s.p = addSignal(s.p, fb, s.speed).project
+    const uca = s.add('uca', { ca, guide: 'provided', conditions: [cond(s.speed, { as: 't1', op: '>', state: '10' })] })
+    return { ...s, ctrl, ca, fb, uca }
+  }
+  it('drafts signal and belief lanes for the named instance and diagnoses them', () => {
+    const w = world()
+    const sig = signalsOf(w.p, w.fb)[0].id, bel = beliefsAbout(w.p, w.ctrl, w.speed)[0].id
+    for (const cause of ['feedback', 'process-model'] as const) {
+      const r = createItem(w.p, 'scenario', { uca: w.uca, cause })
+      const sc = r.project.items[r.id] as Scenario
+      const t = draftTrace(r.project, sc)
+      expect(t.lanes).toEqual(expect.arrayContaining([`${w.speed}@t1`, `${sig}@t1`, `${bel}@t1`]))
+      expect(t.lanes).not.toContain(sig)
+      const withTrace = updateItem(r.project, r.id, { trace: t }) as Project
+      const sc2 = withTrace.items[r.id] as Scenario
+      expect(mismatches(withTrace, t, 1).map((m) => m.id)).toContain(cause === 'feedback' ? `${sig}@t1` : `${bel}@t1`)
+      expect(diagnose(withTrace, sc2)?.cause).toBe(cause)
+    }
+  })
+  it('instance lanes follow the variable when it is deleted', () => {
+    const w = world()
+    const r = createItem(w.p, 'scenario', { uca: w.uca, cause: 'feedback' })
+    const p = deleteItems(updateItem(r.project, r.id, { trace: draftTrace(r.project, r.project.items[r.id] as Scenario) }), [w.speed])
+    const t = (p.items[r.id] as Scenario).trace
+    expect(t.lanes.some((k) => k.startsWith(w.speed))).toBe(false)
+    expect(t.steps.every((x) => Object.keys(x.values).every((k) => !k.startsWith(w.speed)))).toBe(true)
   })
 })

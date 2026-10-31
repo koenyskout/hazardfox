@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condKey, conditionComplete, instLane, isGroup, isSetOp, isText, leaves, quantOf, stepOf, valuesOf } from './variables'
+import { condKey, conditionComplete, instLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -181,11 +181,14 @@ export function mismatches(p: Project, t: Trace, i: number): Mismatch[] {
   const st = traceState(p, t, i)
   const out: Mismatch[] = []
   for (const [id, value] of Object.entries(st)) {
-    const v = p.items[id]
+    const { id: vid, names } = laneParts(id)
+    const v = p.items[vid]
     if (v?.kind !== 'variable' || v.layer === 'domain' || v.layer === 'internal') continue
     const w = worldOf(p, v)
-    if (!w || w.type !== v.type || st[w.id] === undefined) continue
-    if (value !== st[w.id]) out.push({ id, world: w.id, value, actual: st[w.id] })
+    // a per-instance signal or belief is compared with the same instance of the world variable (or the lane for all instances)
+    const actual = w ? st[w.id + id.slice(vid.length)] ?? (names.length ? st[w.id] : undefined) : undefined
+    if (!w || w.type !== v.type || actual === undefined) continue
+    if (value !== actual) out.push({ id, world: w.id, value, actual })
   }
   return out
 }
@@ -202,16 +205,20 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
   let anyBelief = false
   for (const c of u.conditions) {
     const w = p.items[c.variable]
-    if (w?.kind !== 'variable' || w.layer !== 'domain' || st[w.id] === undefined) continue
+    if (w?.kind !== 'variable' || w.layer !== 'domain') continue
+    // per-instance lanes of a named instance ("<variable>@t1"), else the lanes for all instances
+    const suf = instLane(c).slice(w.id.length)
+    const rd = (id: Id) => st[id + suf] ?? st[id]
+    if (rd(w.id) === undefined) continue
     // Signals about the variable or one of its parts, each compared with the world variable it is about.
     const about = [w.id, ...partsOf(p, w.id)]
-    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about && about.includes(x.about) && st[x.id] !== undefined)
-    const bel = beliefsAbout(p, ca.from, w.id).filter((b) => st[b.id] !== undefined)
-    const bad = sigs.find((x) => st[x.about!] !== undefined && st[x.id] !== st[x.about!])
+    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about && about.includes(x.about) && rd(x.id) !== undefined)
+    const bel = beliefsAbout(p, ca.from, w.id).filter((b) => rd(b.id) !== undefined)
+    const bad = sigs.find((x) => rd(x.about!) !== undefined && rd(x.id) !== rd(x.about!))
     if (bad) return { cause: 'feedback', why: `the signal about ${variableName(p, p.items[bad.about!] as Variable)} differs from the world` }
     for (const b of bel) {
       anyBelief = true
-      if (st[b.id] === st[w.id]) continue
+      if (rd(b.id) === rd(w.id)) continue
       if (sigs.length) return { cause: 'process-model', why: `${b.title} is not updated from a correct signal` }
       return { cause: 'feedback', why: `no signal tells the controller about ${variableName(p, w)}` }
     }
@@ -259,17 +266,19 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       lanes.push(lane)
       init.values[lane] = before
       ctx.values[lane] = after
-      if (w.layer !== 'domain' || lane !== w.id) continue
+      if (w.layer !== 'domain') continue
+      // signals and beliefs about a named instance get that instance's lane too
+      const suf = lane.slice(w.id.length)
       for (const f of fbs) for (const sig of signalsOf(p, f.id).filter((x) => x.about === w.id)) {
-        lanes.push(sig.id)
-        init.values[sig.id] = before
+        lanes.push(sig.id + suf)
+        init.values[sig.id + suf] = before
         if (s.cause === 'feedback') lost.add(f.id)
-        else { ctx.values[sig.id] = after; sent.add(f.id) }
+        else { ctx.values[sig.id + suf] = after; sent.add(f.id) }
       }
       for (const b of beliefsAbout(p, ctrl, w.id)) {
-        lanes.push(b.id)
-        init.values[b.id] = before
-        if (s.cause !== 'feedback' && s.cause !== 'process-model') ctx.values[b.id] = after
+        lanes.push(b.id + suf)
+        init.values[b.id + suf] = before
+        if (s.cause !== 'feedback' && s.cause !== 'process-model') ctx.values[b.id + suf] = after
       }
     }
     ctx.events = [...[...sent].map((on) => ({ on, what: 'occurs' as const })), ...[...lost].map((on) => ({ on, what: 'lost' as const }))]
