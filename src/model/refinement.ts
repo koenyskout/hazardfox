@@ -1,22 +1,26 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { condKey, isGroup, laneText, stepOf, valuesOf } from './variables'
+import { condKey, instName, instName2, isGroup, laneText, quantOf, stepOf, valuesOf } from './variables'
 import type { Condition, Id, Project, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
 
-const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', [...(c.set ?? [])].sort()])
+const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', c.quant ?? '', c.as ?? '', c.same ?? '', c.as2 ?? '', c.same2 ?? '', [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
 export function consistent(p: Project, cs: Condition[]): boolean {
   const by = new Map<Id, Condition[]>()
-  for (const c of cs.filter((c) => !c.other)) by.set(condKey(c), [...(by.get(condKey(c)) ?? []), c])
+  // "some instance" conditions have independent witnesses and cannot conflict; "no instance" is "every instance not".
+  // Conditions on the same named instance share a witness and can conflict.
+  const norm = (c: Condition): Condition => quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
+  const gkey = (c: Condition) => instName(c) || instName2(c) ? `${instName(c)}|${instName2(c)}\u0000${condKey(c)}` : condKey(c)
+  for (const c of cs.filter((c) => !c.other && (quantOf(p, c) !== 'some' || instName(c) || instName2(c))).map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
   for (const [id, group] of by) {
-    if (laneText(id) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
-    const v = p.items[id]
+    if (laneText(id.split('\u0000').pop()!) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
+    const v = p.items[id.split('\u0000').pop()!]
     if (v?.kind !== 'variable') continue
     const d = stepOf(v) / 10
     const cand = valuesOf(v) ?? [v.min, v.max, ...group.flatMap((c) => [c.state, c.to ?? ''].filter(Boolean).map(Number).flatMap((x) => [x - d, x, x + d]))]
@@ -29,6 +33,10 @@ export function consistent(p: Project, cs: Condition[]): boolean {
 const and = (p: Project, a: Dnf, b: Dnf): Dnf => a.flatMap((x) => b.map((y) => dedupe([...x, ...y]))).filter((x) => consistent(p, x))
 /** ¬(c1 ∧ c2 …) = ¬c1 ∨ ¬c2 …; on a two-valued variable, "≠ a" reads better as "= b". */
 const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
+  const q = quantOf(p, c)
+  if (c.same) return [{ ...c, op: NEGATE[c.op] }]
+  if (q === 'some' || q === 'none') return [{ ...c, as: undefined, as2: undefined, quant: q === 'some' ? 'none' : 'some' }]
+  if (q === 'all') return [{ ...c, op: NEGATE[c.op], quant: 'some' }]
   const v = p.items[c.variable]
   const vals = v?.kind === 'variable' ? valuesOf(v) : null
   const other = !c.other && vals?.length === 2 && c.op === '=' ? vals.find((x) => x !== c.state) : undefined
@@ -51,7 +59,7 @@ export const ruleValues = (v: Variable) => [...new Set([...v.rules.map((r) => r.
 
 /** The contexts over v's parts in which v satisfies c (rules are tried in order, so earlier rules for other values must not hold). Null if v has no rules. */
 export function expand(p: Project, v: Variable, c: Condition, max = 64): Dnf | null {
-  if (!v.rules.length) return null
+  if (!v.rules.length || quantOf(p, c) !== null) return null
   const out: Dnf = []
   for (const s of ruleValues(v).filter((x) => holds(v, c, x))) {
     const guard = (upto: number): Dnf => v.rules.slice(0, upto).filter((r) => r.state !== s).reduce<Dnf>((acc, r) => and(p, acc, dnf(p, r.when, true)), [[]])

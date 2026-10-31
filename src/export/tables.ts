@@ -52,13 +52,13 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   const push = (section: SectionKey, name: string, columns: string[], rows: string[][], widths?: number[]) => out.push({ section, name, columns, rows, widths })
 
   push('step1', 'Losses', ['ID', 'Loss', ...tailH], tree('loss').map(({ item }) => [...common(item), ...tail(item)]), [1, 3, 5, 1.2, 1.5, 3])
-  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'State variables', 'Condition', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), lab(item.variables), item.conditions.filter(conditionComplete).map((c) => conditionText(p, c)).join(' and '), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1.5, 2.5, 1, 4, 1.2, 1.5, 2.5])
+  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'State variables', 'Condition', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), lab(item.variables), T(item.conditions.filter(conditionComplete).map((c) => conditionText(p, c)).join(' and ')), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1.5, 2.5, 1, 4, 1.2, 1.5, 2.5])
   push('step1', 'System constraints', ['ID', 'Constraint', 'Hazards', ...tailH], tree('constraint').map(({ item }) => [...common(item), lab(item.hazards), ...tail(item)]), [1, 3, 1.3, 4, 1.2, 1.5, 2.5])
 
   push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],
     tree('entity').map(({ item: e }) => [...common(e), itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).map((v) => v.title).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
   push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Computed from', 'Description', 'Status'],
-    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), v.rules.map((r) => `${r.state} when ${whenText(p, r.when)}`).concat(v.rules.length && v.otherwise ? [`otherwise ${v.otherwise}`] : []).join('\n'), T(v.description), v.status]))
+    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), v.rules.map((r) => `${r.state} when ${T(whenText(p, r.when))}`).concat(v.rules.length && v.otherwise ? [`otherwise ${v.otherwise}`] : []).join('\n'), T(v.description), v.status]))
   push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],
     itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain').sort(byLabel(L)).filter(keep).map((v) => {
       const about = itemsOfKind(p, 'variable').filter((x) => x.about === v.id)

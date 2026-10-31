@@ -4,10 +4,11 @@ import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
 import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, textConditions, traceState, valueAt, witness } from '../model/traces'
-import { controlledBy, variablesIn } from '../model/formal'
+import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { laneText, stepOf, valuesOf } from '../model/variables'
+import { condInstances, instLane, isMany, isText, laneParts, laneText, stepOf, valuesOf } from '../model/variables'
+import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
 import { Ref, RichText } from './Fields'
@@ -16,6 +17,11 @@ import { askConfirm } from './dialogs'
 import { Picker } from './Picker'
 import { LayerIcon, LayerTag } from './Icon'
 import { StructureSvg } from './StructureSvg'
+
+/** A trace lane: a variable (all instances alike), a variable's single instance(s) ("<variable>@t1"), or a condition in words. */
+interface Lane { key: string; v: Variable; names: string[] }
+const lanesOf = (p: Project, t: Trace): Lane[] => t.lanes.flatMap((key) => { const { id, names } = laneParts(key); const v = p.items[id]; return v?.kind === 'variable' ? [{ key, v, names: names.filter(Boolean) }] : [] })
+const InstTag = ({ l }: { l: Lane }) => (l.names.length ? <span className="inst-name" title="Lane of one instance">{l.names.join(', ')}</span> : null)
 
 const save = (s: Scenario, trace: Trace, key?: string) => commit((q) => updateItem(q, s.id, { trace }), key && `${s.id}:trace:${key}`)
 const setStep = (t: Trace, i: number, f: (st: Trace['steps'][number]) => Partial<Trace['steps'][number]>): Trace =>
@@ -46,15 +52,28 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const p = useProject()
   const labels = useLabels()
   const t = s.trace
-  const vars = t.lanes.map((id) => p.items[id]).filter((v): v is Variable => v?.kind === 'variable')
+  const vars = lanesOf(p, t)
   const u = s.uca ? p.items[s.uca] : null
   const uca = u?.kind === 'uca' ? u : null
+  // lanes for the instances the UCA's conditions name, and a custom one for any variable with several instances
+  // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
+  const ctrl = uca ? p.items[uca.ca] : null
+  const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap((c) => {
+    const v = isText(c) ? undefined : p.items[c.variable]
+    const k = instLane(c)
+    if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []
+    const suf = k.slice(v.id.length), tag = laneParts(k).names.filter(Boolean).join(', ')
+    const related = [v, ...feedbackInto(p, ctrl.from).flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about === v.id), ...beliefsAbout(p, ctrl.from, v.id)]
+    return related.filter((x) => !t.lanes.includes(x.id + suf)).map((x) => ({ k: x.id + suf, label: `${shortName(p, x)} · ${tag}` }))
+  }) : []
+  const manyVars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' && isMany(p, v))
+  const addCustom = (id: Id | null) => { const v = id ? p.items[id] : null; if (v?.kind !== 'variable') return; const n = prompt(`Instance name${itemsOfKind(p, 'relationship').some((r) => r.id === v.parent) ? 's (e.g. t1 or t1|c1 for both ends)' : ''}`)?.trim(); if (n) save(s, { ...t, lanes: [...new Set([...t.lanes, `${id}@${n}`])] }) }
   const actionAt = witness(p, s)?.step ?? -1
   const draft = async () => { if (!t.steps.length || (await askConfirm('The current trace is replaced by a drafted one.', { title: 'Draft a new trace?', confirm: 'Replace' }))) save(s, draftTrace(p, s)) }
   const events = [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback')]
   const lanePick = itemsOfKind(p, 'variable').filter((v) => !t.lanes.includes(v.id))
   // Conditions in words are boolean lanes keyed by their text.
-  const words = t.lanes.filter((k) => laneText(k) !== null).map((k) => ({ ...makeItem('variable', { title: laneText(k)!, type: 'boolean' }), id: k }))
+  const words = t.lanes.filter((k) => laneText(k) !== null).map((k) => ({ ...makeItem('variable', { title: renderText(labels, laneText(k)!), type: 'boolean' }), id: k }))
   const wordPick = textConditions(p).filter((k) => !t.lanes.includes(k))
   const addStep = () => save(s, { ...t, steps: [...t.steps, { t: 't' + t.steps.length, note: '', values: {}, events: [] }] })
   const delStep = (i: number) => save(s, { ...t, steps: t.steps.filter((_, j) => j !== i) })
@@ -63,17 +82,17 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const mm = t.steps.map((_, i) => new Map(mismatches(p, t, i).map((m) => [m.id, m])))
   const computed = t.steps.map((_, i) => traceState(p, t, i))
   const conflicts = t.steps.map((_, i) => new Map(ruleConflicts(p, t, i).map(([id, , x]) => [id, x])))
-  const lane = (v: Variable, head: ReactNode) => (
-    <tr key={v.id}>
-      <th>{head} <button className="x" title="Remove lane" onClick={() => delLane(v.id)}>×</button></th>
+  const lane = ({ key, v }: Lane, head: ReactNode) => (
+    <tr key={key}>
+      <th>{head} <button className="x" title="Remove lane" onClick={() => delLane(key)}>×</button></th>
       {t.steps.map((_, i) => {
-        const { value, set } = valueAt(t, i, v.id)
-        const m = mm[i].get(v.id)
-        const c = conflicts[i].get(v.id)
-        const derived = !set && computed[i][v.id] !== undefined && computed[i][v.id] !== value
+        const { value, set } = valueAt(t, i, key)
+        const m = mm[i].get(key)
+        const c = conflicts[i].get(key)
+        const derived = !set && computed[i][key] !== undefined && computed[i][key] !== value
         return (
           <td key={i} className={(set ? 'set' : 'carried') + (derived ? ' computed' : '') + (m ? ' mm' : '') + (c ? ' conflict' : '') + (i === actionAt ? ' act' : '')} title={c ? `Contradicts its parts, which give ${c}` : m ? `Differs from the world (${labels[m.world]} = ${m.actual})` : derived ? 'Computed from its parts' : undefined}>
-            <ValueInput v={v} value={set ? value ?? '' : ''} carried={set ? undefined : derived ? computed[i][v.id] : value} onChange={(x) => setValue(i, v.id, x)} />
+            <ValueInput v={v} value={set ? value ?? '' : ''} carried={set ? undefined : derived ? computed[i][key] : value} onChange={(x) => setValue(i, key, x)} />
           </td>
         )
       })}
@@ -85,7 +104,12 @@ export function TraceEditor({ s }: { s: Scenario }) {
         <button onClick={draft} title="Generate steps from the UCA context (or the control action) and the causal factor">Draft trace</button>
         <button onClick={addStep}>+ step</button>
         <Picker options={lanePick} onPick={(id) => id && save(s, { ...t, lanes: [...t.lanes, id] })}><span className="muted">+ variable lane…</span></Picker>
-        {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{laneText(k)}</option>)}</Select>}
+        {(instPick.length > 0 || manyVars.length > 0) && <Select value="" title="A lane for one instance of a variable with several instances (e.g. one train): its values are read by conditions that name that instance" onChange={(e) => { const x = e.target.value; if (x === '*') return; x && save(s, { ...t, lanes: [...t.lanes, x] }) }}>
+          <option value="">+ instance lane…</option>
+          {instPick.map(({ k, label }) => <option key={k} value={k}>{label}</option>)}
+        </Select>}
+        {manyVars.length > 0 && <Picker options={manyVars} onPick={addCustom}><span className="muted">+ other instance…</span></Picker>}
+        {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{renderText(labels, laneText(k)!)}</option>)}</Select>}
         <span className="hint">A trace is a sequence of states: values carry forward until changed. Mismatches between a signal or belief and the world are marked red.</span>
       </div>
       <TraceChecks s={s} />
@@ -105,16 +129,16 @@ export function TraceEditor({ s }: { s: Scenario }) {
             </thead>
             <tbody>
               {VARIABLE_LAYERS.map((layer) => {
-                const rows = vars.filter((v) => v.layer === layer)
+                const rows = vars.filter((l) => l.v.layer === layer)
                 return rows.length > 0 && (
                   <Fragment key={layer}>
                     <tr className="layer-row"><th colSpan={t.steps.length + 1}><LayerTag layer={layer} /></th></tr>
-                    {rows.map((v) => lane(v, <><Ref id={v.id} /> <Owner v={v} /></>))}
+                    {rows.map((l) => lane(l, <><Ref id={l.v.id} /> <InstTag l={l} /> <Owner v={l.v} /></>))}
                   </Fragment>
                 )
               })}
               {words.length > 0 && <tr className="layer-row"><th colSpan={t.steps.length + 1}>In words</th></tr>}
-              {words.map((v) => lane(v, <span className="lane-words">{v.title}</span>))}
+              {words.map((v) => lane({ key: v.id, v, names: [] }, <span className="lane-words">{v.title}</span>))}
               <tr className="layer-row"><th colSpan={t.steps.length + 1}>Events</th></tr>
               <tr>
                 <th className="muted">Control actions & feedback</th>
@@ -232,9 +256,9 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   const before = step > 0 ? traceState(p, t, step - 1) : {}
   const after = traceState(p, t, step)
   const fbDone = prog >= 0.5
-  const shown = (v: Variable): string | undefined => (v.layer === 'domain' || v.layer === 'internal' ? after : fbDone ? after : before)[v.id]
+  const shown = ({ v, key }: Lane): string | undefined => (v.layer === 'domain' || v.layer === 'internal' ? after : fbDone ? after : before)[key]
   const mm = new Map(mismatches(p, t, step).map((m) => [m.id, m]))
-  const vars = t.lanes.map((id) => p.items[id]).filter((v): v is Variable => v?.kind === 'variable')
+  const vars = lanesOf(p, t)
   const u = s.uca ? p.items[s.uca] : null
   const uca = u?.kind === 'uca' ? u : null
   const w = witness(p, s)
@@ -257,13 +281,13 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
     const node = v.layer === 'domain' ? worldNode(v) : v.parent ? box[v.parent] : null
     return node ? { at: { x: node.x + node.w + 8, y: node.y }, w: 230 } : null
   }
-  const groups = new Map<string, { at: Pt; w: number; vars: Variable[] }>()
-  for (const v of vars) {
-    const a = anchor(v)
+  const groups = new Map<string, { at: Pt; w: number; vars: Lane[] }>()
+  for (const l of vars) {
+    const a = anchor(l.v)
     if (!a) continue
     const k = `${a.at.x},${a.at.y}`
     if (!groups.has(k)) groups.set(k, { ...a, vars: [] })
-    groups.get(k)!.vars.push(v)
+    groups.get(k)!.vars.push(l)
   }
   const evPhase = (on: Id) => (p.items[on]?.kind === 'feedback' ? clamp01(prog / 0.45) : clamp01((prog - 0.55) / 0.45))
   const go = (n: number) => { setI(Math.max(0, Math.min(t.steps.length - 1, n))); setRun((r) => r + 1) }
@@ -313,13 +337,14 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
           {[...groups.values()].map((g, k) => (
             <foreignObject key={k} x={g.at.x} y={g.at.y} width={g.w} height={10 + g.vars.length * 20}>
               <div className="callout">
-                {g.vars.map((v) => {
-                  const val = shown(v)
-                  const changed = val !== before[v.id] && (v.layer === 'domain' || v.layer === 'internal' || fbDone)
-                  const bad = mm.has(v.id) && (v.layer !== 'belief' && v.layer !== 'signal' ? false : fbDone || v.layer === 'signal')
+                {g.vars.map((l) => {
+                  const { v, key } = l
+                  const val = shown(l)
+                  const changed = val !== before[key] && (v.layer === 'domain' || v.layer === 'internal' || fbDone)
+                  const bad = mm.has(key) && (v.layer !== 'belief' && v.layer !== 'signal' ? false : fbDone || v.layer === 'signal')
                   return (
-                    <div key={v.id} className={'cv l-' + v.layer + (changed ? ' changed' : '') + (bad ? ' bad' : '')} title={bad ? `Actual: ${mm.get(v.id)!.actual}` : undefined}>
-                      <span className="layer"><LayerIcon layer={v.layer} size={11} />{v.layer === 'belief' ? 'believes' : v.layer === 'signal' ? 'reports' : v.layer === 'internal' ? 'state' : 'actual'}</span> {v.title} = <b>{val ?? '?'}</b>
+                    <div key={key} className={'cv l-' + v.layer + (changed ? ' changed' : '') + (bad ? ' bad' : '')} title={bad ? `Actual: ${mm.get(key)!.actual}` : undefined}>
+                      <span className="layer"><LayerIcon layer={v.layer} size={11} />{v.layer === 'belief' ? 'believes' : v.layer === 'signal' ? 'reports' : v.layer === 'internal' ? 'state' : 'actual'}</span> {v.title || shortName(p, v)}{l.names.length > 0 && <i> {l.names.join(', ')}</i>} = <b>{val ?? '?'}</b>
                     </div>
                   )
                 })}
@@ -331,12 +356,12 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
       <table className="grid player-state">
         <thead><tr><th>Variable</th><th>Value at {cur.t}</th><th>World</th></tr></thead>
         <tbody>
-          {vars.map((v) => {
-            const m = mm.get(v.id)
+          {vars.map((l) => {
+            const m = mm.get(l.key)
             return (
-              <tr key={v.id} className={(after[v.id] !== before[v.id] ? 'changed' : '') + (m ? ' bad' : '')}>
-                <th><Ref id={v.id} /> <Owner v={v} /></th>
-                <td>{after[v.id] ?? '—'}</td>
+              <tr key={l.key} className={(after[l.key] !== before[l.key] ? 'changed' : '') + (m ? ' bad' : '')}>
+                <th><Ref id={l.v.id} /> <InstTag l={l} /> <Owner v={l.v} /></th>
+                <td>{after[l.key] ?? '—'}</td>
                 <td>{m ? <>actual <b>{m.actual}</b></> : ''}</td>
               </tr>
             )

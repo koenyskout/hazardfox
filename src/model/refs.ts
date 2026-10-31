@@ -1,4 +1,4 @@
-import { laneText, leaves, mapLeaves } from './variables'
+import { isText, laneParts, laneText, leaves, mapLeaves } from './variables'
 import type { Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
@@ -70,15 +70,15 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other) }
-  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '']).filter(Boolean))
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
+  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '', ...(isText(c) ? mentions(c.text ?? '') : [])]).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
 }
 
 /** Variables, control actions and feedback a trace mentions. */
-export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].filter((k) => laneText(k) === null)
+export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].flatMap((k) => { const w = laneText(k); return w !== null ? mentions(w) : [laneParts(k).id] })
 
 /** Items that refer to `id` (via parent, refs or mentions). */
 export function incoming(p: Project, id: Id): Item[] {
@@ -92,7 +92,7 @@ export function linkedTo(p: Project, id: Id): Item[] {
 
 /** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
 const reref = (c: Condition, from: Id, to: Id | null): Condition[] =>
-  c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
+  isText(c) ? [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c] : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
 
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {
@@ -112,13 +112,11 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
-    t.lanes = [...new Set(t.lanes.flatMap((x) => (x !== from ? [x] : to ? [to] : [])))]
+    // lanes of single instances ("<variable>@t1") follow their variable
+    const move = (k: string): string | null => { const w = laneText(k); if (w !== null) return to ? k.slice(0, k.length - w.length) + w.split(mention(from)).join(mention(to)) : k; const { id } = laneParts(k); return id !== from ? k : to ? to + k.slice(from.length) : null }
+    t.lanes = [...new Set(t.lanes.flatMap((x) => move(x) ?? []))]
     for (const st of t.steps) {
-      if (from in st.values) {
-        const v = st.values[from]
-        delete st.values[from]
-        if (to) st.values[to] = v
-      }
+      st.values = Object.fromEntries(Object.entries(st.values).flatMap(([k, v]) => { const m = move(k); return m ? [[m, v]] : [] }))
       st.events = st.events.flatMap((e) => (e.on !== from ? [e] : to ? [{ ...e, on: to }] : []))
     }
   }

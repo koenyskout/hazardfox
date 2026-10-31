@@ -6,6 +6,7 @@ import { useStore, type View } from './model/store'
 import { validate } from './model/validate'
 import { exampleProject } from './model/example'
 import { medicationExampleProject } from './model/domainExample'
+import { crossingExampleProject } from './model/crossingExample'
 import { HANDBOOK_EXAMPLES, handbookExampleProject } from './model/handbookExamples'
 import { PUBLISHED_EXAMPLES, publishedExampleProject } from './model/publishedExamples'
 import { Details, EditDialog } from './ui/Details'
@@ -76,10 +77,11 @@ export default function App() {
         <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(newProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
-        <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
+        <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v === 'crossing' ? crossingExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
           <option value="pump">Infusion pump (demo)</option>
           <option value="medication">Hospital medication (large domain model)</option>
+          <option value="crossing">Level crossing (several trains: some / every / no)</option>
           <optgroup label="STPA Handbook, appendices">
             {HANDBOOK_EXAMPLES.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
           </optgroup>

@@ -388,3 +388,11 @@ table.plain td { padding: 4px 10px 4px 0; }
 .type-actions { margin-left: auto; display: flex; gap: 6px; }
 .type-name { font-weight: 600; flex: 1; min-width: 0; }
 .type-used { font-size: 12px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+.cond .inst-name { font-style: italic; font-size: 12px; padding: 1px 9px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
+.cond span.cond-text { flex: 1 1 260px; min-width: 160px; }
+.rich.compact .rich-edit { resize: none; min-height: 0; padding: 3px 8px; }
+.rich.compact .rich-ph { top: 4px; }
+.subj-inst { color: var(--muted); font-size: 12px; margin: 0 4px; }
+.subject-btn .subj-inst:first-child { margin-left: 0; }
+.subject-pop { width: 460px; max-width: calc(100vw - 16px); }
+.cond .picker-btn.subject-btn { max-width: none; white-space: normal; text-align: left; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px; }
