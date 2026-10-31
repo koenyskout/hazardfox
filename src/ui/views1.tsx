@@ -1,5 +1,6 @@
+import type { ItemOf } from '../model/types'
 import { useState } from 'react'
-import { isPredicate } from '../model/formal'
+import { clusterStructs, isPredicate, structPath } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { conditionComplete, conditionTexts, describeStates } from '../model/variables'
 import { byLabel, renderText } from '../model/labels'
@@ -111,10 +112,11 @@ export function Domain() {
           </div>
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
+            nest={structPath}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}
-            items={vars.filter((v) => (!layer || v.layer === layer) && !isPredicate(p, v)).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b))}
+            items={clusterByOwner(vars.filter((v) => (!layer || v.layer === layer) && !isPredicate(p, v)).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b)))}
             columns={[
               { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },
             ]} />
@@ -224,3 +226,6 @@ export function Requirements() {
     </div>
   )
 }
+
+/** Variables stay ordered by owner, but those of one struct instance are gathered under the owner. */
+const clusterByOwner = (vars: ItemOf<'variable'>[]): ItemOf<'variable'>[] => [...new Set(vars.map((v) => v.parent ?? ''))].flatMap((o) => clusterStructs(vars.filter((v) => (v.parent ?? '') === o)))

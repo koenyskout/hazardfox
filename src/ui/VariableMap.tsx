@@ -1,4 +1,4 @@
-import { addBelief, addSignal, beliefsAbout, controlledBy, feedbackInto, refines, signalsInto, updatedBy, variablesIn } from '../model/formal'
+import { addBelief, addSignal, beliefsAbout, clusterStructs, controlledBy, feedbackInto, refines, signalsInto, structPath, updatedBy, variablesIn } from '../model/formal'
 import { useState } from 'react'
 import { createItem } from '../model/ops'
 import type { Id, Project, Variable } from '../model/types'
@@ -49,9 +49,13 @@ export function VariableMap({ only }: { only?: string } = {}) {
         <tbody>
           {owners.flatMap((o) => [
             <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
-            ...ordered(p, world.filter((w) => (w.parent ?? '') === o)).map((w) => (
+            ...clusterStructs(ordered(p, world.filter((w) => (w.parent ?? '') === o))).flatMap((w, i, all) => {
+            const path = structPath(w), prev = i ? structPath(all[i - 1]) : []
+            let k = 0
+            while (k < path.length && path[k] === prev[k]) k++
+            return [...path.slice(k).map((h, j) => <tr key={w.id + 'h' + j} className="group sub"><th colSpan={2 + ctrls.length} style={{ paddingLeft: 12 + (k + j) * 16 }}><span className="muted">▸</span> {h}</th></tr>), (
             <tr key={w.id} className={isComputed(p, w) ? 'computed' : ''}>
-              <th><Ref id={w.id} />{isComputed(p, w) && <span className="calc" title="Computed from lower-level world variables">ƒ computed</span>}<br /><small className="muted">{describeStates(w)}</small>{isComputed(p, w) && <div className="via"><span className="muted">from</span> {refines(p, w).map((id) => <Ref key={id} id={id} />)}</div>}</th>
+              <th style={path.length ? { paddingLeft: 12 + path.length * 16 } : undefined}><Ref id={w.id} />{isComputed(p, w) && <span className="calc" title="Computed from lower-level world variables">ƒ computed</span>}<br /><small className="muted">{describeStates(w)}</small>{isComputed(p, w) && <div className="via"><span className="muted">from</span> {refines(p, w).map((id) => <Ref key={id} id={id} />)}</div>}</th>
               <td>{controlledBy(p, w.id).map((c) => <Ref key={c.id} id={c.id} />)}</td>
               {ctrls.map((c) => {
                 const bel = beliefsAbout(p, c.id, w.id)
@@ -69,7 +73,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
                 )
               })}
             </tr>
-            )),
+            )]}),
           ])}
           <tr className="group"><th colSpan={2 + ctrls.length}><LayerIcon layer="internal" /> Internal state <small className="muted">modes, timers, counters – owned by each controller, not about the world</small></th></tr>
           <tr>

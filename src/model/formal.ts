@@ -105,3 +105,11 @@ export const setLayer = (p: Project, id: Id, layer: VariableLayer, parent: Id | 
     v.parent = parent
     if (layer === 'domain' || layer === 'internal') v.about = null
   })
+
+/** The groups a struct-generated variable sits under: the instance name, then the nested struct fields (`motion.position.x` → motion, position). */
+export const structPath = (v: Variable): string[] => (v.struct ? [v.struct.name, ...v.struct.path.split('.').slice(0, -1)] : [])
+/** Keeps order, but gathers (in field order) the variables of one struct instance (after the plain ones) so that they can be shown grouped. */
+export function clusterStructs<T extends Variable>(vars: T[]): T[] {
+  const ids = [...new Set(vars.filter((v) => v.struct).map((v) => v.struct!.id))]
+  return [...vars.filter((v) => !v.struct), ...ids.flatMap((id) => vars.filter((v) => v.struct?.id === id).sort((a, b) => a.rank - b.rank))]
+}

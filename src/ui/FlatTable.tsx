@@ -23,6 +23,8 @@ export function FlatTable<K extends Kind>(props: {
   titleEditable?: boolean
   /** Items must be ordered so that equal groups are adjacent; a header row (a reference to the group) is shown whenever it changes. */
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
+  /** Names of the nested groups an item sits in (below its group); a header row is shown when they change. Items of one nesting must be adjacent. */
+  nest?: (it: ItemOf<K>) => string[]
   /** Second line under the title. */
   sub?: (it: ItemOf<K>) => ReactNode
   /** Shown on the title line, after the title. */
@@ -40,7 +42,7 @@ export function FlatTable<K extends Kind>(props: {
   /** variables show their name pill, as everywhere else */
   const idLabels = props.kind === 'variable' ? names : ids
   const selected = useStore((s) => s.selected)
-  const rows: ({ group: Id | null; first?: ItemOf<K>; depth: number } | { item: ItemOf<K>; depth: number })[] = []
+  const rows: ({ group: Id | null; first?: ItemOf<K>; depth: number } | { item: ItemOf<K>; depth: number } | { head: string; depth: number })[] = []
   const push = (g: Id | null | undefined, first?: ItemOf<K>, depth = 0) => { rows.push({ group: g ?? null, first, depth }) }
   if (props.groupBy) {
     for (const { id: g, depth } of props.groups ?? []) {
@@ -52,7 +54,11 @@ export function FlatTable<K extends Kind>(props: {
       const g = props.groupBy!(item)
       if (props.groups?.some((x) => x.id === g)) return
       if (i === 0 || props.groupBy!(props.items[i - 1]) !== g || !rows.some((r) => 'group' in r && r.group === (g ?? null))) push(g, item)
-      rows.push({ item, depth: 1 })
+      const path = props.nest?.(item) ?? [], prev = props.nest && i > 0 && props.groupBy!(props.items[i - 1]) === g ? props.nest(props.items[i - 1]) : []
+      let k = 0
+      while (k < path.length && path[k] === prev[k]) k++
+      path.slice(k).forEach((head, j) => rows.push({ head, depth: 1 + k + j }))
+      rows.push({ item, depth: 1 + path.length })
     })
   } else props.items.forEach((item) => rows.push({ item, depth: 0 }))
   return (
@@ -81,13 +87,14 @@ export function FlatTable<K extends Kind>(props: {
         </div>
         {props.items.length === 0 && !props.groups?.length && <div className="empty">Nothing here yet.</div>}
         {rows.map((r, i) => {
+          if ('head' in r) return <div key={'h' + i} className="row group sub" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="muted">▸</span> <b>{r.head}</b></div>
           if ('group' in r) {
             const g = r.group
             return <div key={'g' + i + (g ?? '')} className="row group" style={r.depth ? { paddingLeft: 12 + r.depth * 18 } : undefined}>{g ? <><Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g, r.first))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>
           }
           const it = r.item
           return (
-          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} style={props.groups && r.depth ? { paddingLeft: 10 + r.depth * 18 } : undefined} onClick={() => select(it.id)}>
+          <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} style={(props.groups || props.nest) && r.depth ? { paddingLeft: 10 + r.depth * 18 } : undefined} onClick={() => select(it.id)}>
             <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
