@@ -8,7 +8,7 @@ import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import { condInstances, instLane, isMany, isText, laneParts, laneText, stepOf, valuesOf } from '../model/variables'
-import { shortName } from '../model/labels'
+import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
 import { Ref, RichText } from './Fields'
@@ -72,7 +72,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const events = [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback')]
   const lanePick = itemsOfKind(p, 'variable').filter((v) => !t.lanes.includes(v.id))
   // Conditions in words are boolean lanes keyed by their text.
-  const words = t.lanes.filter((k) => laneText(k) !== null).map((k) => ({ ...makeItem('variable', { title: laneText(k)!, type: 'boolean' }), id: k }))
+  const words = t.lanes.filter((k) => laneText(k) !== null).map((k) => ({ ...makeItem('variable', { title: renderText(labels, laneText(k)!), type: 'boolean' }), id: k }))
   const wordPick = textConditions(p).filter((k) => !t.lanes.includes(k))
   const addStep = () => save(s, { ...t, steps: [...t.steps, { t: 't' + t.steps.length, note: '', values: {}, events: [] }] })
   const delStep = (i: number) => save(s, { ...t, steps: t.steps.filter((_, j) => j !== i) })
@@ -108,7 +108,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
           {instPick.map(({ k, label }) => <option key={k} value={k}>{label}</option>)}
         </Select>}
         {manyVars.length > 0 && <Picker options={manyVars} onPick={addCustom}><span className="muted">+ other instance…</span></Picker>}
-        {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{laneText(k)}</option>)}</Select>}
+        {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{renderText(labels, laneText(k)!)}</option>)}</Select>}
         <span className="hint">A trace is a sequence of states: values carry forward until changed. Mismatches between a signal or belief and the world are marked red.</span>
       </div>
       <TraceChecks s={s} />

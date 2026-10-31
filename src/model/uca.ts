@@ -14,7 +14,7 @@ export function generateUcaText(p: Project, labels: Record<Id, string>, u: Uca):
   if (u.override) return u.override
   const ca = p.items[u.ca]
   const from = ca && ca.kind === 'ca' ? p.items[ca.from] : null
-  const conds = conditionTexts(p, u.conditions.filter((c) => (isText(c) || p.items[c.variable]) && conditionComplete(c)))
+  const conds = conditionTexts(p, u.conditions.filter((c) => (isText(c) || p.items[c.variable]) && conditionComplete(c))).map((t) => renderText(labels, t))
   const ctx = [...conds, renderText(labels, u.context).trim()].filter(Boolean).join(' and ')
   return `${from?.title || '⟨controller⟩'} ${PHRASE[u.guide]} ${ca?.title || '⟨control action⟩'}${ctx ? ' when ' + ctx : ''}`
 }

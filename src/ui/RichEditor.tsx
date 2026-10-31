@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import {
   $applyNodeReplacement, $createParagraphNode, $createTextNode, $getRoot, $getSelection, $insertNodes, $isElementNode, $isRangeSelection, $isTextNode,
   DecoratorNode, FORMAT_TEXT_COMMAND, type EditorConfig, type LexicalNode, type NodeKey, type SerializedLexicalNode, type Spread, type TextNode,
-  type ElementNode, $createNodeSelection, $setSelection, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, COMMAND_PRIORITY_LOW,
+  type ElementNode, $createNodeSelection, $setSelection, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ENTER_COMMAND, COMMAND_PRIORITY_LOW,
 } from 'lexical'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
@@ -172,10 +172,10 @@ function Toolbar() {
 }
 
 /** Rich text editor: bold/italic, paragraphs, and `@` completion of live reference pills. Stored as a string (see `richtext.ts`). */
-export function RichEditor(props: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string }) {
+export function RichEditor(props: { value: string; onChange: (v: string) => void; rows?: number; placeholder?: string; /** one line, no toolbar (a phrase inside a form row) */ compact?: boolean; /** items offered by `@` completion */ only?: (it: Item) => boolean }) {
   const p = useProject()
   const labels = useLabels()
-  const options = useMemo(() => Object.values(p.items).sort(byLabel(labels)), [p, labels])
+  const options = useMemo(() => Object.values(p.items).filter((it) => !props.only || props.only(it)).sort(byLabel(labels)), [p, labels]) // eslint-disable-line react-hooks/exhaustive-deps
   const [initial] = useState(props.value)
   const config = useMemo(() => ({
     namespace: 'hazardfox',
@@ -185,11 +185,11 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
     editorState: () => $load(initial),
   }), [initial])
   return (
-    <div className="rich">
+    <div className={'rich' + (props.compact ? ' compact' : '')}>
       <LexicalComposer initialConfig={config}>
-        <Toolbar />
+        {props.compact ? <NoEnter /> : <Toolbar />}
         <RichTextPlugin
-          contentEditable={<ContentEditable className="rich-edit" style={{ minHeight: ((props.rows ?? 3) + 2) * 1.35 + 'em' }} aria-placeholder={props.placeholder ?? ''} placeholder={<div className="rich-ph">{props.placeholder}</div>} />}
+          contentEditable={<ContentEditable className="rich-edit" style={props.compact ? undefined : { minHeight: ((props.rows ?? 3) + 2) * 1.35 + 'em' }} aria-placeholder={props.placeholder ?? ''} placeholder={<div className="rich-ph">{props.placeholder}</div>} />}
           ErrorBoundary={LexicalErrorBoundary}
         />
         <ClickToEnd />
@@ -199,6 +199,13 @@ export function RichEditor(props: { value: string; onChange: (v: string) => void
       </LexicalComposer>
     </div>
   )
+}
+
+/** One-line editor: Enter does nothing (the typeahead menu still takes it to pick an option). */
+function NoEnter() {
+  const [editor] = useLexicalComposerContext()
+  useEffect(() => editor.registerCommand(KEY_ENTER_COMMAND, (e) => { e?.preventDefault(); return true }, COMMAND_PRIORITY_LOW), [editor])
+  return null
 }
 
 /** Clicking the empty area below the text puts the caret at the end. */

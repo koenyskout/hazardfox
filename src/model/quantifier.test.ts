@@ -9,11 +9,12 @@ import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
 import { conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario } from './types'
 
 function setup() {
   let p = emptyProject()
-  const add = <K extends 'entity' | 'feedback' | 'relationship' | 'variable' | 'node' | 'ca' | 'uca'>(k: K, patch: object) => { const r = createItem(p, k, patch as never); p = r.project; return r.id }
+  const add = <K extends 'hazard' | 'entity' | 'feedback' | 'relationship' | 'variable' | 'node' | 'ca' | 'uca'>(k: K, patch: object) => { const r = createItem(p, k, patch as never); p = r.project; return r.id }
   const train = add('entity', { title: 'Train' })
   const station = add('entity', { title: 'Station' })
   const speed = add('variable', { layer: 'domain', parent: train, title: 'speed', type: 'range', min: 0, max: 100 })
@@ -216,5 +217,19 @@ describe('per-instance signals and beliefs', () => {
     const t = (p.items[r.id] as Scenario).trace
     expect(t.lanes.some((k) => k.startsWith(w.speed))).toBe(false)
     expect(t.steps.every((x) => Object.keys(x.values).every((k) => !k.startsWith(w.speed)))).toBe(true)
+  })
+})
+
+describe('variable mentions in free-text conditions', () => {
+  it('count as references, survive a round trip', () => {
+    const s = setup()
+    const v2 = s.add('variable', { layer: 'domain', parent: s.train, title: 'brake', type: 'boolean' })
+    const hz = s.add('hazard', {})
+    s.p = updateItem(s.p, hz, { conditions: [{ variable: '', op: '=', state: '', text: `alert while ${mention(s.speed)} is high` }] }) as Project
+    expect(refsOf(s.p.items[hz])).toContain(s.speed)
+    expect(refsOf(s.p.items[v2])).not.toContain(s.speed)
+    expect(refsOf(deleteItems(s.p, [s.speed]).items[hz])).not.toContain(s.speed)
+    const rt = deserialize(serialize(s.p))
+    expect((rt.items[hz] as unknown as { conditions: Condition[] }).conditions[0].text).toContain(mention(s.speed))
   })
 })

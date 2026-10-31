@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { isPredicate } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { conditionComplete, conditionTexts, describeStates } from '../model/variables'
-import { byLabel } from '../model/labels'
+import { byLabel, renderText } from '../model/labels'
 import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
@@ -53,6 +53,7 @@ type Sub = 'loss' | 'hazard' | 'constraint'
 export function Step1() {
   const [sub, setSub] = useState<Sub>('loss')
   const p = useProject()
+  const labels = useLabels()
   return (
     <div className="page full">
       <div className="tabs">
@@ -68,7 +69,7 @@ export function Step1() {
       )}
       {sub === 'hazard' && (
         <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, with worst-case environment, leads to a loss."
-          extra={(h) => <>{chips(effectiveLosses(p, h.id))}{h.conditions.some(conditionComplete) && <div className="muted">{conditionTexts(p, h.conditions.filter(conditionComplete)).join(' and ')}</div>}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
+          extra={(h) => <>{chips(effectiveLosses(p, h.id))}{h.conditions.some(conditionComplete) && <div className="muted">{renderText(labels, conditionTexts(p, h.conditions.filter(conditionComplete)).join(' and '))}</div>}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
       )}
       {sub === 'constraint' && (
         <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => chips(c.hazards)} />
