@@ -7,7 +7,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { conditionText, isMany, quantOf } from './variables'
+import { conditionText, conditionTexts, isMany, quantOf } from './variables'
 import type { Condition, Id, Project } from './types'
 
 function setup() {
@@ -124,6 +124,17 @@ describe('level crossing example', () => {
     expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(true)
     const q = deserialize(serialize(s.p))
     expect((q.items[ok] as { conditions: Condition[] }).conditions[0].same).toBe('t1')
+  })
+  it('another instance of the same entity: some train t1 approaches the crossing and another train t2 approaches it', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const crossing = s.add('entity', { title: 'Crossing' })
+    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
+    const b: Condition = { variable: pred, op: '=', state: 'true', as: 't2' }
+    expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing', 'another Train t2 approaches Crossing'])
+    expect(consistent(s.p, [a, b])).toBe(true)
   })
   it('expresses: some train t1 approaches the crossing and t1 is faster than the minimum speed', () => {
     const s = setup()

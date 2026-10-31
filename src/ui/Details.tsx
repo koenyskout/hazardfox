@@ -4,7 +4,7 @@ import { renderText, shortName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, conditionComplete, conditionError, conditionTexts, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Project, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -410,7 +410,7 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = it.conditions.filter(conditionComplete).map((c) => conditionText(p, c))
+  const lines = conditionTexts(p, it.conditions.filter(conditionComplete))
   return (
     <div className="ctx-summary">
       {lines.length || it.context ? (
@@ -436,7 +436,7 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
   const p = useProject()
   const [open, setOpen] = useState(false)
-  const lines = it.conditions.filter(conditionComplete).map((c) => conditionText(p, c))
+  const lines = conditionTexts(p, it.conditions.filter(conditionComplete))
   return (
     <div className="ctx-summary">
       {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">No condition yet</span>}
@@ -497,10 +497,10 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
 /** A change to another condition of the same context made alongside a row's own change: set / clear its instance name. */
 type Bind = { target: Condition; as: string | undefined }
 /** A short unused instance name for a condition's entity: t1, t2, … */
-function autoName(p: Project, c: Condition, scope: Condition[]): string {
+function autoName(p: Project, c: Condition, scope: Condition[], taken: string[] = []): string {
   const v = p.items[c.variable]
   const base = ((v?.kind === 'variable' && p.items[boundEntity(p, v) ?? '']?.title.trim()[0]) || 'x').toLowerCase()
-  const used = new Set(scope.flatMap((o) => [o.as, o.same]))
+  const used = new Set([...scope.flatMap((o) => [o.as, o.same]), ...taken])
   let n = 1
   while (used.has(base + n)) n++
   return base + n
@@ -525,6 +525,8 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
   const bar = vr?.type === 'range' && vr.min !== null && vr.max !== null && vr.max > vr.min
   const cmp = c.other !== undefined
   const ov = c.other ? p.items[c.other] : undefined
+  const candidates = scope.map((o, i) => ({ o, i })).filter(({ o }) => o !== c && !isText(o) && !o.same && quantOf(p, o) === 'some' && o.variable !== c.variable && boundEntity(p, p.items[o.variable] as Variable) === (vr && boundEntity(p, vr)))
+  const otherIdx = c.as ? candidates.find(({ o, i }) => o.as && o.as !== c.as && i < scope.indexOf(c))?.i ?? -1 : -1
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
@@ -539,16 +541,18 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
     <div className="cond">
       <span className="cond-word">{word}</span>
       {quantOf(p, c) && <>
-        <Select title="For how many instances this holds, or the same instance as an earlier condition" value={c.same ? 'same:' + c.same : quantOf(p, c)!} onChange={(e) => {
+        <Select title="For how many instances this holds, or the same instance as an earlier condition" value={c.same ? 'same:' + c.same : otherIdx >= 0 ? 'other:' + otherIdx : quantOf(p, c)!} onChange={(e) => {
           const x = e.target.value
           // leaving a reference may orphan the name it used
           const drop = c.same && !scope.some((o) => o !== c && o.same === c.same) ? scope.find((o) => o.as === c.same) : undefined
           if (x.startsWith('same:')) return onChange({ ...c, same: x.slice(5), as: undefined, quant: undefined }, drop && drop.as !== x.slice(5) ? { target: drop, as: undefined } : undefined)
+          if (x.startsWith('other:')) { const t = scope[Number(x.slice(6))]; const tn = t.as ?? autoName(p, t, scope); return onChange({ ...c, same: undefined, as: autoName(p, c, scope, [tn]), quant: undefined }, t.as ? undefined : { target: t, as: tn }) }
           if (x.startsWith('bind:')) { const t = scope[Number(x.slice(5))]; const nm = autoName(p, t, scope); return onChange({ ...c, same: nm, as: undefined, quant: undefined }, { target: t, as: nm }) }
           onChange({ ...c, same: undefined, as: undefined, quant: x === 'some' ? undefined : x as Quantifier }, drop ? { target: drop, as: undefined } : undefined)
         }}>
           {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
           {scope.map((o, i) => ({ o, i })).filter(({ o }) => o !== c && !isText(o) && !o.same && quantOf(p, o) === 'some' && o.variable !== c.variable ? boundEntity(p, p.items[o.variable] as Variable) === (vr && boundEntity(p, vr)) : false).map(({ o, i }) => <option key={i} value={o.as ? 'same:' + o.as : 'bind:' + i}>the same {p.items[boundEntity(p, p.items[o.variable] as Variable) ?? '']?.title.trim() || 'instance'} {o.as ?? `(${shortName(p, p.items[o.variable] as Variable)})`}</option>)}
+          {candidates.filter(({ i }) => i < scope.indexOf(c)).map(({ o, i }) => <option key={'o' + i} value={'other:' + i}>another {p.items[boundEntity(p, p.items[o.variable] as Variable) ?? '']?.title.trim() || 'instance'} than {o.as ?? `(${shortName(p, p.items[o.variable] as Variable)})`}</option>)}
         </Select>
         {c.as && <span className="inst-name" title="Name of this instance; later conditions can pick “the same …” to refer to it">{c.as}</span>}
       </>}

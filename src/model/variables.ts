@@ -79,27 +79,35 @@ export function boundEntity(p: Project, v: Variable): Id | null {
 export const instName = (c: Condition) => (c.as ?? c.same ?? '').trim()
 export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
 
-export function conditionText(p: Project, c: Condition): string {
+/** `earlier`: the conditions before this one; a named some-instance of an entity already named differently there reads "another …" (different names stand for different instances). */
+export function conditionText(p: Project, c: Condition, earlier: Condition[] = []): string {
   const q = quantOf(p, c)
-  if (q) return quantText(p, c, q)
+  if (q) return quantText(p, c, q, earlier.some((o) => o.as && c.as && o.as.trim() !== c.as.trim() && sameEntity(p, o, c)))
   return plainText(p, c)
 }
+const sameEntity = (p: Project, a: Condition, b: Condition) => {
+  const va = p.items[a.variable], vb = p.items[b.variable]
+  return va?.kind === 'variable' && vb?.kind === 'variable' && boundEntity(p, va) !== null && boundEntity(p, va) === boundEntity(p, vb)
+}
+/** The sentences of a list of conditions, each knowing the ones before it. */
+export const conditionTexts = (p: Project, cs: Condition[]) => cs.map((c, i) => conditionText(p, c, cs.slice(0, i)))
 
 /** "speed of every Train is 0", "speed of some Train t1 is 0", "speed of t1 is 0", "some Train t1 at Station", "no Train at Station". */
-function quantText(p: Project, c: Condition, q: Quantifier): string {
+function quantText(p: Project, c: Condition, q: Quantifier, another = false): string {
   const v = p.items[c.variable] as Variable
   const o = p.items[v.parent!]
   const name = shortName(p, v)
   const ent = p.items[boundEntity(p, v) ?? '']?.title.trim() || (o.kind === 'entity' ? 'instance' : 'link')
   const n = instName(c)
-  const who = c.same ? n : `${QUANT_LABELS[q]} ${ent}${n ? ' ' + n : ''}`
+  const label = another ? 'another' : QUANT_LABELS[q]
+  const who = c.same ? n : `${label} ${ent}${n ? ' ' + n : ''}`
   if (o.kind === 'entity') return `${name} of ${who} ${plainText(p, c).slice(name.length).trim()}`
   if (!v.title.trim()) {
     const bare = c.op === '=' && c.state === 'true'
     const text = ent && name.includes(ent) ? name.replace(ent, who) : `${who} ${name}`
     return bare ? text : `${text} ${OP_LABELS[c.op]} ${c.state}`
   }
-  return `${c.same ? n : QUANT_LABELS[q] + ' ' + ent + (n ? ' ' + n : '')} where ${plainText(p, c)}`
+  return `${c.same ? n : label + ' ' + ent + (n ? ' ' + n : '')} where ${plainText(p, c)}`
 }
 
 function plainText(p: Project, c: Condition): string {
