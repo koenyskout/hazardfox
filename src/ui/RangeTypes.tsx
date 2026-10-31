@@ -10,7 +10,7 @@ import { Modal } from './Modal'
 import { Icon } from './Icon'
 import { askText } from './dialogs'
 
-const usersOf = (items: ReturnType<typeof useProject>['items'], name: string) => Object.values(items).filter((i): i is Variable => i.kind === 'variable' && i.rangeType === name)
+const usersOf = (items: ReturnType<typeof useProject>['items'], by: 'rangeType' | 'enumType', name: string) => Object.values(items).filter((i): i is Variable => i.kind === 'variable' && i[by] === name)
 const show = (t: RangeType) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
 /** Popup to create (`name` null) or edit a named range type. `then` gets the saved name. */
@@ -20,7 +20,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
   const [t, setT] = useState<RangeType>((name && p.rangeTypes?.[name]) || init || { min: null, max: null, unit: '' })
   const taken = n.trim() !== name && !!p.rangeTypes?.[n.trim()]
   const bad = !n.trim() ? 'Name required' : taken ? 'Name already used' : t.min !== null && t.max !== null && t.min > t.max ? 'Min is above max' : ''
-  const users = name ? usersOf(p.items, name).length : 0
+  const users = name ? usersOf(p.items, 'rangeType', name).length : 0
   const save = () => {
     const nm = n.trim()
     commit((q) => defineRangeType(name && nm !== name ? renameRangeType(q, name, nm) : q, nm, t))
@@ -94,6 +94,21 @@ function Section({ title, hint, onNew, children }: { title: string; hint: string
 
 const Used = ({ vars }: { vars: Variable[] }) => <div className="type-used">{vars.length ? <>Used by {vars.map((v) => <Ref key={v.id} id={v.id} />)}</> : <span className="muted">Not used yet</span>}</div>
 
+/** Name field of a type card; renames on blur when changed and not empty. */
+const RenameInput = ({ name, rename }: { name: string; rename: (to: string) => void }) =>
+  <input className="type-name" defaultValue={name} onBlur={(e) => { const to = e.target.value.trim(); if (to && to !== name) rename(to) }} />
+
+/** Footer of the "new type" dialogs: the name problem (if any) and Cancel / Create. */
+const CreateActions = ({ name, bad, onClose, onCreate }: { name: string; bad: string; onClose: () => void; onCreate: () => void }) => (
+  <>
+    {bad && name !== '' && <p className="muted">{bad}</p>}
+    <div className="modal-actions">
+      <button className="btn" onClick={onClose}>Cancel</button>
+      <button className="primary" disabled={!!bad} onClick={onCreate}>Create</button>
+    </div>
+  </>
+)
+
 /** Domain model Types tab: range, enum and struct types as three sections of cards. */
 export function TypesPage() {
   return <div className="page types-page"><RangeTypes /><EnumTypes /><StructTypes /></div>
@@ -111,7 +126,7 @@ function RangeTypes() {
         <div key={n} className="type-card">
           <div className="type-head"><strong>{n}</strong><span className="type-def">{show(p.rangeTypes![n])}</span>
             <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}>Edit</button><button className="btn" onClick={() => commit((q) => deleteRangeType(q, n))} title="Variables keep their bounds">Delete</button></span></div>
-          <Used vars={usersOf(p.items, n)} />
+          <Used vars={usersOf(p.items, 'rangeType', n)} />
         </div>
       ))}
       {edit !== undefined && <RangeTypeDialog name={edit} onClose={() => setEdit(undefined)} />}
@@ -143,11 +158,7 @@ export function EnumTypeDialog({ init, onClose, then }: { init?: string[]; onClo
     <Modal title="New enum type" onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
       <Field single label="States"><StringList value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
-      {bad && n !== '' && <p className="muted">{bad}</p>}
-      <div className="modal-actions">
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="primary" disabled={!!bad} onClick={save}>Create</button>
-      </div>
+      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={save} />
     </Modal>
   )
 }
@@ -164,11 +175,11 @@ function EnumTypes() {
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head">
-            <input className="type-name" defaultValue={n} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} />
+            <RenameInput name={n} rename={(to) => commit((q) => renameEnumType(q, n, to))} />
             <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></span>
           </div>
           <StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" />
-          <Used vars={Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)} />
+          <Used vars={usersOf(p.items, 'enumType', n)} />
         </div>
       ))}
     </Section>
@@ -216,11 +227,7 @@ function NewStructDialog({ onClose }: { onClose: () => void }) {
     <Modal title="New struct type" onClose={onClose} wide>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Position" /></Field>
       <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={nm} fields={fields} onChange={setFields} /></tbody></table>
-      {bad && n !== '' && <p className="muted">{bad}</p>}
-      <div className="modal-actions">
-        <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="primary" disabled={!!bad} onClick={save}>Create</button>
-      </div>
+      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={save} />
     </Modal>
   )
 }
@@ -237,7 +244,7 @@ function StructTypes() {
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head">
-            <input className="type-name" defaultValue={n} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} />
+            <RenameInput name={n} rename={(to) => commit((q) => renameStructType(q, n, to))} />
             <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete</button></span>
           </div>
           <table className="grid"><tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody></table>

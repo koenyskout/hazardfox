@@ -16,7 +16,7 @@ import { itemsOfKind, isLeaf } from '../model/tree'
 import { incoming } from '../model/refs'
 import { useStore } from '../model/store'
 import { askText } from './dialogs'
-import { addItemInDialog, commit, useIds, useLabels, useProject } from './hooks'
+import { addItemInDialog, commit, toggled, useIds, useLabels, useProject } from './hooks'
 import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
@@ -116,7 +116,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
                 {inh.map((l) => (
                   <span key={l} className={'chipwrap' + (it.lossExclude.includes(l) ? ' off' : '')}>
                     <Ref id={l} />
-                    <button className="x" title={it.lossExclude.includes(l) ? 'Inherit again' : 'Exclude'} onClick={() => set({ lossExclude: it.lossExclude.includes(l) ? it.lossExclude.filter((x) => x !== l) : [...it.lossExclude, l] })}>
+                    <button className="x" title={it.lossExclude.includes(l) ? 'Inherit again' : 'Exclude'} onClick={() => set({ lossExclude: toggled(it.lossExclude, l) })}>
                       {it.lossExclude.includes(l) ? '↺' : '×'}
                     </button>
                   </span>
@@ -372,7 +372,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="STRIDE">
               <div className="stride">
                 {STRIDE.map((s) => (
-                  <label key={s} className="check"><input type="checkbox" checked={it.stride.includes(s)} onChange={(e) => set({ stride: e.target.checked ? [...it.stride, s] : it.stride.filter((x) => x !== s) })} /> {s}</label>
+                  <label key={s} className="check"><input type="checkbox" checked={it.stride.includes(s)} onChange={() => set({ stride: toggled(it.stride, s) })} /> {s}</label>
                 ))}
               </div>
             </Field>
@@ -545,7 +545,7 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
         <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
       )}
       {cmp ? null : isSetOp(c.op)
-        ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd({ set: c.set?.includes(s) ? c.set.filter((x) => x !== s) : [...(c.set ?? []), s] })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
+        ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd({ set: toggled(c.set ?? [], s) })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
         : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
       {!cmp && isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
       {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}

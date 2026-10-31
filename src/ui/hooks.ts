@@ -46,3 +46,6 @@ export function addItemInDialog<K extends Kind>(kind: K, init?: Patch<K>): Id {
 
 /** A world variable defined from lower-level ones (refinement rules or a definition mentioning them) rather than observed directly. */
 export const isComputed = (p: Project, v: Variable) => v.layer === 'domain' && (v.rules.length > 0 || refines(p, v).length > 0)
+
+/** `list` with `x` removed if present, else appended. */
+export const toggled = <T,>(list: readonly T[], x: T): T[] => (list.includes(x) ? list.filter((y) => y !== x) : [...list, x])

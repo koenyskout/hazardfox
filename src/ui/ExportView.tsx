@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { defaultOptions, SECTIONS, type ExportOptions, type SectionKey } from '../export/tables'
 import { download, saveProject } from '../model/persist'
 import { STATUSES } from '../model/types'
-import { useProject } from './hooks'
+import { toggled, useProject } from './hooks'
 
 export function ExportView() {
   const p = useProject()
@@ -17,7 +17,7 @@ export function ExportView() {
     try { await f() } catch (e) { setErr(String((e as Error).message ?? e)) }
     setBusy('')
   }
-  const toggle = (k: SectionKey) => setO({ ...o, sections: o.sections.includes(k) ? o.sections.filter((x) => x !== k) : [...o.sections, k] })
+  const toggle = (k: SectionKey) => setO({ ...o, sections: toggled(o.sections, k) })
   return (
     <div className="page">
       <h2>Export</h2>
@@ -28,7 +28,7 @@ export function ExportView() {
         </div>
         <h4>Filter</h4>
         <div className="stride">
-          {STATUSES.map((s) => <label key={s} className="check"><input type="checkbox" checked={o.statuses.includes(s)} onChange={() => setO({ ...o, statuses: o.statuses.includes(s) ? o.statuses.filter((x) => x !== s) : [...o.statuses, s] })} /> {s}</label>)}
+          {STATUSES.map((s) => <label key={s} className="check"><input type="checkbox" checked={o.statuses.includes(s)} onChange={() => setO({ ...o, statuses: toggled(o.statuses, s) })} /> {s}</label>)}
           <label className="check">Tag
             <Select value={o.tag} onChange={(e) => setO({ ...o, tag: e.target.value })}><option value="">any</option>{tags.map((t) => <option key={t}>{t}</option>)}</Select>
           </label>

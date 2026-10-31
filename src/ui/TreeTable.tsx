@@ -14,14 +14,14 @@ import { useStore } from '../model/store'
 import { cascadeSet, linkedTo } from '../model/refs'
 import { children, descendants, flatten, isLeaf } from '../model/tree'
 import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
-import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
+import { addItem, commit, select, toggled, useIds, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
-import { showNotice } from './dialogs'
+import { askText, showNotice } from './dialogs'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
 import { ItemHover } from './Fields'
 
-type Dialog = null | { type: 'group' | 'merge' } | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
+type Dialog = null | { type: 'split'; id: Id } | { type: 'delete'; ids: Id[] }
 
 export interface TreeTableProps<K extends Kind> {
   kind: K
@@ -115,7 +115,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
       setDialog({ type: 'delete', ids: multi.size ? [...multi] : [it.id] })
     } else if (mod && e.key.toLowerCase() === 'g') {
       e.preventDefault()
-      if (multi.size) setDialog({ type: 'group' })
+      if (multi.size) askGroup()
     }
   }
 
@@ -134,15 +134,25 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
   const ids = [...multi].filter((id) => p.items[id])
   const one = ids.length === 1 ? p.items[ids[0]] : null
 
+  const attempt = (run: () => void) => { try { run() } catch (e) { showNotice((e as Error).message, 'Cannot do that') } }
+  const askGroup = async () => {
+    const title = await askText({ title: `Group ${ids.length} ${KIND_NAMES[kind].toLowerCase()}(s) under a new parent`, label: 'Parent title', confirm: 'Group' })
+    if (title !== null) attempt(() => commit((q) => group(q, ids, title).project))
+  }
+  const askMerge = async () => {
+    const title = await askText({ title: `Merge ${ids.length} items into ${labels[ids[0]] ?? ''}`, label: 'Title of merged item', initial: p.items[ids[0]]?.title, confirm: 'Merge' })
+    if (title !== null) attempt(() => commit((q) => merge(q, ids, title)))
+  }
+
   return (
     <div className="tree">
       <div className="toolbar">
         <button onClick={() => add(null)}><Icon name="plus" /> Add {KIND_NAMES[kind].toLowerCase()}</button>
         <button disabled={!one} onClick={() => one && add(one.id)}><Icon name="plus" /> Child</button>
         <span className="sep" />
-        <button disabled={ids.length < 1} onClick={() => setDialog({ type: 'group' })} title="Ctrl+G"><Icon name="group" /> Group…</button>
+        <button disabled={ids.length < 1} onClick={() => askGroup()} title="Ctrl+G"><Icon name="group" /> Group…</button>
         <button disabled={!one} onClick={() => one && setDialog({ type: 'split', id: one.id })}><Icon name="split" /> Split…</button>
-        <button disabled={ids.length < 2} onClick={() => setDialog({ type: 'merge' })}><Icon name="merge" /> Merge…</button>
+        <button disabled={ids.length < 2} onClick={() => askMerge()}><Icon name="merge" /> Merge…</button>
         <span className="sep" />
         <button disabled={ids.length < 1} className="danger" onClick={() => setDialog({ type: 'delete', ids })} title="Ctrl+Backspace"><Icon name="trash" /> Delete</button>
         <span className="hint">Enter: new · Tab/⇧Tab: indent · Alt+↑↓: move · drag to reorder</span>
@@ -206,39 +216,6 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
         })}
       </div>
 
-      {dialog?.type === 'group' && (
-        <PromptDialog
-          title={`Group ${ids.length} ${KIND_NAMES[kind].toLowerCase()}(s) under a new parent`}
-          label="Parent title"
-          confirm="Group"
-          onClose={() => setDialog(null)}
-          onOk={(t) => {
-            try {
-              commit((q) => group(q, ids, t).project)
-              setDialog(null)
-            } catch (e) {
-              showNotice((e as Error).message, 'Cannot do that')
-            }
-          }}
-        />
-      )}
-      {dialog?.type === 'merge' && (
-        <PromptDialog
-          title={`Merge ${ids.length} items into ${labels[ids[0]] ?? ''}`}
-          label="Title of merged item"
-          initial={p.items[ids[0]]?.title}
-          confirm="Merge"
-          onClose={() => setDialog(null)}
-          onOk={(t) => {
-            try {
-              commit((q) => merge(q, ids, t))
-              setDialog(null)
-            } catch (e) {
-              showNotice((e as Error).message, 'Cannot do that')
-            }
-          }}
-        />
-      )}
       {dialog?.type === 'split' && (
         <SplitDialog id={dialog.id} onClose={() => setDialog(null)} />
       )}
@@ -246,29 +223,6 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
         <DeleteDialog ids={dialog.ids} onClose={() => setDialog(null)} />
       )}
     </div>
-  )
-}
-
-export function PromptDialog(props: {
-  title: string
-  label: string
-  confirm: string
-  initial?: string
-  onOk: (v: string) => void
-  onClose: () => void
-}) {
-  const [v, setV] = useState(props.initial ?? '')
-  return (
-    <Modal title={props.title} onClose={props.onClose}>
-      <label className="field">
-        {props.label}
-        <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && props.onOk(v)} />
-      </label>
-      <div className="actions">
-        <button onClick={props.onClose}>Cancel</button>
-        <button className="primary" onClick={() => props.onOk(v)}>{props.confirm}</button>
-      </div>
-    </Modal>
   )
 }
 
@@ -281,10 +235,7 @@ function SplitDialog({ id, onClose }: { id: Id; onClose: () => void }) {
   const [assign, setAssign] = useState<Record<Id, number[]>>({})
   if (!it) return null
   const toggle = (ref: Id, i: number) =>
-    setAssign((a) => {
-      const cur = a[ref] ?? []
-      return { ...a, [ref]: cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i] }
-    })
+    setAssign((a) => ({ ...a, [ref]: toggled(a[ref] ?? [], i) }))
   const named = titles.map((t, i) => [t, i] as const).filter(([t]) => t.trim())
   return (
     <Modal title={`Split ${labels[id]} ${it.title}`} onClose={onClose} wide>
