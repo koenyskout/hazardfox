@@ -15,7 +15,7 @@ import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
 import { LayerIcon, LayerTag } from './Icon'
-import { RangeCell, RangeTypes, StructTypes } from './RangeTypes'
+import { RangeCell, TypesPage } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -119,7 +119,7 @@ export function Domain() {
             ]} />
         </>
       )}
-      {tab === 'types' && <><RangeTypes /><StructTypes /></>}
+      {tab === 'types' && <TypesPage />}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
           columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}

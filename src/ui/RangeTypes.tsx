@@ -82,31 +82,40 @@ export function VariableRangeDialog({ v, onClose }: { v: Variable; onClose: () =
   )
 }
 
-/** Domain model tab listing the project's range types. */
-export function RangeTypes() {
+/** A titled section of the Types page: heading, one-line explanation, "+ New" button, then the type cards. */
+function Section({ title, hint, onNew, children }: { title: string; hint: string; onNew: () => void; children: React.ReactNode }) {
+  return (
+    <section className="types-section">
+      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></div>
+      <div className="types-list">{children}</div>
+    </section>
+  )
+}
+
+const Used = ({ vars }: { vars: Variable[] }) => <div className="type-used">{vars.length ? <>Used by {vars.map((v) => <Ref key={v.id} id={v.id} />)}</> : <span className="muted">Not used yet</span>}</div>
+
+/** Domain model Types tab: range, enum and struct types as three sections of cards. */
+export function TypesPage() {
+  return <div className="page types-page"><RangeTypes /><EnumTypes /><StructTypes /></div>
+}
+
+/** Named numeric bounds and units for range variables. */
+function RangeTypes() {
   const p = useProject()
   const [edit, setEdit] = useState<string | null | undefined>(undefined)
   const names = Object.keys(p.rangeTypes ?? {}).sort()
   return (
-    <div className="page">
-      <div className="toolbar"><button className="btn" onClick={() => setEdit(null)}><Icon name="plus" size={12} /> Range type</button></div>
-      {names.length === 0 ? <p className="empty">Range types name reusable numeric bounds and units (e.g. Percentage 0–100 %) that range variables can share.</p> : (
-        <table className="grid">
-          <thead><tr><th>Name</th><th>Range</th><th>Used by</th><th /></tr></thead>
-          <tbody>
-            {names.map((n) => (
-              <tr key={n}>
-                <td>{n}</td><td>{show(p.rangeTypes![n])}</td>
-                <td>{usersOf(p.items, n).map((v) => <Ref key={v.id} id={v.id} />) }{!usersOf(p.items, n).length && <span className="muted">—</span>}</td>
-                <td><button className="btn" onClick={() => setEdit(n)}>Edit…</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <EnumTypes />
+    <Section title="Range types" hint="Numeric bounds and a unit, shared by range variables (e.g. Percentage 0–100 %). Bounds are per project." onNew={() => setEdit(null)}>
+      {!names.length && <p className="empty">No range types. Create one, or give a variable its own bounds.</p>}
+      {names.map((n) => (
+        <div key={n} className="type-card">
+          <div className="type-head"><strong>{n}</strong><span className="type-def">{show(p.rangeTypes![n])}</span>
+            <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}>Edit</button><button className="btn" onClick={() => commit((q) => deleteRangeType(q, n))} title="Variables keep their bounds">Delete</button></span></div>
+          <Used vars={usersOf(p.items, n)} />
+        </div>
+      ))}
       {edit !== undefined && <RangeTypeDialog name={edit} onClose={() => setEdit(undefined)} />}
-    </div>
+    </Section>
   )
 }
 
@@ -149,28 +158,20 @@ function EnumTypes() {
   const [creating, setCreating] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
   return (
-    <div>
-      <div className="toolbar"><button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> Enum type</button></div>
+    <Section title="Enum types" hint="Shared state lists (e.g. On / Off). A variable can also keep its own states." onNew={() => setCreating(true)}>
       {creating && <EnumTypeDialog onClose={() => setCreating(false)} />}
-      {!names.length ? <p className="empty">Enum types are shared state lists (e.g. On/Off). Variables can also keep their own states: in a variable’s States field choose “Save as type…” or “New type…”.</p> : (
-        <table className="grid">
-          <thead><tr><th>Enum type</th><th>States</th><th>Used by</th><th /></tr></thead>
-          <tbody>
-            {names.map((n) => {
-              const users = Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)
-              return (
-                <tr key={n}>
-                  <td><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} /></td>
-                  <td><StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" /></td>
-                  <td>{users.map((v) => <Ref key={v.id} id={v.id} />)}{!users.length && <span className="muted">—</span>}</td>
-                  <td><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
-    </div>
+      {!names.length && <p className="empty">No enum types yet. Create one here, or in a variable’s States field with “Save as type…”.</p>}
+      {names.map((n) => (
+        <div key={n} className="type-card">
+          <div className="type-head">
+            <input className="type-name" defaultValue={n} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} />
+            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></span>
+          </div>
+          <StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" />
+          <Used vars={Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)} />
+        </div>
+      ))}
+    </Section>
   )
 }
 
@@ -224,25 +225,25 @@ function NewStructDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Domain model Types: composite struct types (fields with a type each) to apply to entities and relationships. */
-export function StructTypes() {
+/** Composite struct types (fields with a type each) to apply to entities and relationships. */
+function StructTypes() {
   const p = useProject()
   const [creating, setCreating] = useState(false)
   const names = Object.keys(p.structTypes ?? {}).sort()
   return (
-    <div>
-      <div className="toolbar"><button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> Struct type</button></div>
+    <Section title="Struct types" hint="Groups of fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field." onNew={() => setCreating(true)}>
       {creating && <NewStructDialog onClose={() => setCreating(false)} />}
-      {!names.length ? <p className="empty">Struct types group fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field.</p> : names.map((n) => (
-        <table key={n} className="grid">
-          <thead><tr>
-            <th colSpan={2}><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} /></th>
-            <th><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete type</button></th>
-          </tr></thead>
-          <tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody>
-        </table>
+      {!names.length && <p className="empty">No struct types yet.</p>}
+      {names.map((n) => (
+        <div key={n} className="type-card">
+          <div className="type-head">
+            <input className="type-name" defaultValue={n} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} />
+            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete</button></span>
+          </div>
+          <table className="grid"><tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody></table>
+        </div>
       ))}
-    </div>
+    </Section>
   )
 }
 

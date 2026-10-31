@@ -5,7 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { buildXlsx } from '../export/xlsx'
 import { defaultOptions } from '../export/tables'
-import { emptyProject } from '../model/create'
+import { newProject } from '../model/create'
 import { deserialize, serialize } from '../model/serialize'
 import type { Project } from '../model/types'
 import { GUIDE } from './guide'
@@ -47,7 +47,7 @@ export function createServer(): McpServer {
       const path = checkPath(a.path, /\.json$/)
       if (!existsSync(path)) {
         if (!a.create) throw new Error(`${path} does not exist; pass create=true to create it`)
-        const p = emptyProject()
+        const p = newProject()
         if (a.name) p.meta.name = a.name
         if (a.description) p.meta.description = a.description
         current = path

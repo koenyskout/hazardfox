@@ -1,4 +1,4 @@
-import { emptyProject } from '../model/create'
+import { newProject } from '../model/create'
 import { exampleProject } from '../model/example'
 import { openProject } from '../model/persist'
 import { useStore } from '../model/store'
@@ -18,7 +18,7 @@ export function Welcome() {
       </p>
       <div className="actions">
         {hasWork && <button className="primary" onClick={() => setView('overview')}>Continue “{p.meta.name}”{fileName ? ` (${fileName})` : ''}</button>}
-        <button className={hasWork ? '' : 'primary'} onClick={() => load(emptyProject(), null)}>New analysis</button>
+        <button className={hasWork ? '' : 'primary'} onClick={() => load(newProject(), null)}>New analysis</button>
         <button onClick={() => openProject().catch(() => {})}>Open a file…</button>
         <button onClick={() => load(exampleProject(), null, null, true)}>Explore the infusion-pump example</button>
       </div>

@@ -9,6 +9,18 @@ export const emptyProject = (): Project => ({
   items: {},
 })
 
+/** Generic range types every new analysis starts with; editable and deletable like any other. */
+export const DEFAULT_RANGE_TYPES: NonNullable<Project['rangeTypes']> = {
+  Percentage: { min: 0, max: 100, unit: '%' },
+  Temperature: { min: -50, max: 150, unit: '°C' },
+  Length: { min: 0, max: 100, unit: 'm' },
+  Speed: { min: 0, max: 100, unit: 'm/s' },
+  Time: { min: 0, max: 3600, unit: 's' },
+}
+
+/** A fresh analysis: empty, with the default range types. */
+export const newProject = (): Project => ({ ...emptyProject(), rangeTypes: structuredClone(DEFAULT_RANGE_TYPES) })
+
 /** Default values of the kind-specific fields. */
 const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   loss: () => ({}),

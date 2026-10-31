@@ -1,7 +1,7 @@
 import { Select } from './ui/Select'
 import { lazy, Suspense, useEffect, useMemo } from 'react'
 import { fsAccess, openProject, saveProject } from './model/persist'
-import { emptyProject } from './model/create'
+import { newProject } from './model/create'
 import { useStore, type View } from './model/store'
 import { validate } from './model/validate'
 import { exampleProject } from './model/example'
@@ -73,7 +73,7 @@ export default function App() {
         <b className="brand">🦊 HazardFox</b>
         <span className="title">{p.meta.name}{dirty ? ' •' : ''} <small className="muted">{fileName ?? 'unsaved'}</small></span>
         <span className="spacer" />
-        <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(emptyProject(), null) }}>New</button>
+        <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(newProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
         <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
