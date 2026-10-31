@@ -37,9 +37,9 @@ export function Field(props: { label: string; children: ReactNode; hint?: string
   )
 }
 
-export function TextInput(props: { value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean }) {
-  if (props.multiline) return <textarea rows={3} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
-  return <input value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
+export function TextInput(props: { value: string; onChange: (v: string) => void; placeholder?: string; multiline?: boolean; autoFocus?: boolean }) {
+  if (props.multiline) return <textarea rows={3} autoFocus={props.autoFocus} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
+  return <input autoFocus={props.autoFocus} value={props.value} placeholder={props.placeholder} onChange={(e) => props.onChange(e.target.value)} />
 }
 
 /** Numeric input that keeps what is being typed ("-", "1.") and reports null while it is not a number. */

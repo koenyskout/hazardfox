@@ -29,7 +29,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
   }
   return (
     <Modal title={name ? `Range type ${name}` : 'New range type'} onClose={onClose}>
-      <Field single label="Name"><TextInput value={n} onChange={setN} placeholder="e.g. Percentage, Temperature" /></Field>
+      <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Percentage, Temperature" /></Field>
       <div className="two">
         <Field single label="Min"><NumberInput value={t.min} onChange={(min) => setT({ ...t, min })} /></Field>
         <Field single label="Max"><NumberInput value={t.max} onChange={(max) => setT({ ...t, max })} /></Field>
@@ -141,7 +141,7 @@ export function EnumTypeDialog({ init, onClose, then }: { init?: string[]; onClo
   const save = () => { commit((q) => defineEnumType(q, nm, states.map((x) => x.trim()).filter(Boolean))); then?.(nm); onClose() }
   return (
     <Modal title="New enum type" onClose={onClose}>
-      <Field single label="Name"><TextInput value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
+      <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
       <Field single label="States"><StringList value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
       {bad && n !== '' && <p className="muted">{bad}</p>}
       <div className="modal-actions">
@@ -214,7 +214,7 @@ function NewStructDialog({ onClose }: { onClose: () => void }) {
   const save = () => { commit((q) => defineStructType(q, nm, { fields: fields.filter((f) => f.name.trim()) })); onClose() }
   return (
     <Modal title="New struct type" onClose={onClose} wide>
-      <Field single label="Name"><TextInput value={n} onChange={setN} placeholder="e.g. Position" /></Field>
+      <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Position" /></Field>
       <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={nm} fields={fields} onChange={setFields} /></tbody></table>
       {bad && n !== '' && <p className="muted">{bad}</p>}
       <div className="modal-actions">
