@@ -120,16 +120,22 @@ export const blankField = (): StructField => ({ name: '', type: 'enum', states: 
 export const defineStructType = (p: Project, name: string, t: StructType): Project => produce(p, (d) => { (d.structTypes ??= {})[name] = t })
 export const renameStructType = (p: Project, from: string, to: string): Project => {
   if (!to || to === from || !p.structTypes?.[from] || p.structTypes[to]) return p
-  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from] })
+  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from]; for (const t of Object.values(d.structTypes!)) for (const f of t.fields) if (f.structType === from) f.structType = to })
 }
-export const deleteStructType = (p: Project, name: string): Project => produce(p, (d) => { delete d.structTypes?.[name] })
+export const deleteStructType = (p: Project, name: string): Project => produce(p, (d) => { delete d.structTypes?.[name]; for (const t of Object.values(d.structTypes ?? {})) for (const f of t.fields) if (f.structType === name) f.structType = '' })
+/** Struct types that can be used as a field of `name` without making it contain itself. */
+export const nestableStructs = (p: Project, name: string): string[] => {
+  const uses = (t: string, seen: string[] = []): boolean => t === name || (!seen.includes(t) && (p.structTypes?.[t]?.fields ?? []).some((f) => !!f.structType && uses(f.structType, [...seen, t])))
+  return Object.keys(p.structTypes ?? {}).filter((t) => !uses(t)).sort()
+}
 
 /** Apply a struct type: one world variable per field under `parent`, titled "<name>.<field>", sharing the field's range / enum type. */
-export function applyStructType(p: Project, type: string, name: string, parent: Id): Project {
+export function applyStructType(p: Project, type: string, name: string, parent: Id, seen: string[] = []): Project {
   const t = p.structTypes?.[type]
-  if (!t) return p
+  if (!t || seen.includes(type)) return p
   let q = p
   for (const f of t.fields.filter((x) => x.name.trim())) {
+    if (f.structType) { q = applyStructType(q, f.structType, `${name}.${f.name}`, parent, [...seen, type]); continue }
     const patch: Patch<'variable'> = { layer: 'domain', parent, title: `${name}.${f.name}`, type: f.type, states: [...f.states], min: f.min, max: f.max, unit: f.unit }
     const r = createItem(q, 'variable', patch)
     q = r.project

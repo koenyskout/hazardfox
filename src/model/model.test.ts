@@ -281,6 +281,9 @@ describe('struct and enum types', () => {
     expect(vs.find((v) => v.title === 'front.open')!.states).toEqual(['on', 'off'])
     expect(vs.find((v) => v.title === 'front.gap')!.max).toBe(100)
     expect(deserialize(serialize(p)).structTypes!.Door.fields).toHaveLength(3)
+    p = defineStructType(p, 'Train', { fields: [{ ...blankField(), name: 'door', structType: 'Door' }, { ...blankField(), name: 'self', structType: 'Train' }] })
+    p = applyStructType(p, 'Train', 't', e.id)
+    expect(Object.values(p.items).filter((i) => i.kind === 'variable' && i.title.startsWith('t.door.')).length).toBe(2)
   })
 })
 

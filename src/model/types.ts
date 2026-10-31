@@ -152,7 +152,7 @@ export interface Variable extends Base {
 /** A reusable numeric type: bounds and unit shared by every variable that uses it. */
 export interface RangeType { min: number | null; max: number | null; unit: string }
 /** A field of a struct type: a name and a variable type, optionally sharing a named range / enum type. */
-export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string }
+export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
 export interface StructType { fields: StructField[] }
 /** Condition tree: all (`any` false) or any of its conditions and nested groups hold. */
