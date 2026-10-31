@@ -377,5 +377,4 @@ table.plain td { padding: 4px 10px 4px 0; }
 .varmap tr.computed > th:first-child { border-left: 3px solid var(--accent-2); background: color-mix(in srgb, var(--accent-2) 6%, transparent); }
 .varmap .calc { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--accent-2); font-style: italic; }
 
-.cond .inst-add { border: 1px dashed var(--line); background: none; color: var(--muted); font-size: 12px; padding: 0 8px; border-radius: 10px; height: 22px; cursor: pointer; } .cond .inst-add:hover { color: var(--text, inherit); border-color: var(--muted); }
-.cond input.inst-name { width: auto; min-width: 2.2em; max-width: 6em; height: 22px; padding: 0 8px; border-radius: 10px; font-style: italic; text-align: center; }
+.cond .inst-name { font-style: italic; font-size: 12px; padding: 1px 9px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
