@@ -605,21 +605,23 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       <Select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}>
         {(cmp ? opsForVar(vr) : opsFor(vr)).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
       </Select>
-      {cmp && vr && (
-        <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
-          {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
-        </Picker>
-      )}
-      {cmp && vr && swap('Compare with a fixed value instead', toValue)}
-      {!cmp && bar && vr && (
-        <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
-      )}
-      {cmp ? null : isSetOp(c.op)
-        ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd({ set: toggled(c.set ?? [], s) })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
-        : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-      {!cmp && isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
-      {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
-      {!cmp && vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
+      <div className={'cond-val' + (!cmp && bar && !isSetOp(c.op) ? ' bar' : '')}>
+        {cmp && vr && (
+          <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
+            {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
+          </Picker>
+        )}
+        {cmp && vr && swap('Compare with a fixed value instead', toValue)}
+        {!cmp && bar && vr && (
+          <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
+        )}
+        {cmp ? null : isSetOp(c.op)
+          ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => upd({ set: toggled(c.set ?? [], s) })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
+          : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
+        {!cmp && isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
+        {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
+        {!cmp && vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
+      </div>
       <button className="x" onClick={onRemove}>×</button>
       {err && <small className="cond-err">{err}</small>}
     </div>
