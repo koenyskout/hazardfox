@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condKey, conditionComplete, instLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
+import { condInstances, condKey, conditionComplete, instLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -44,8 +44,9 @@ export const getter = (state: Record<Id, string>): Getter => Object.assign((id: 
 
 /** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text.
  *  A variable of a many-instance entity has either one lane for all instances alike, or lanes per instance; a condition naming an instance reads its lane
- *  (else the common one), an unnamed one is quantified over all lanes: some / all / no instance. */
-export function condHolds(p: Project, c: Condition, get: Getter): boolean | null | undefined {
+ *  (else the common one, unless `strict`: instances named differently are different instances, each needing a lane of its own), an unnamed one is
+ *  quantified over all lanes: some / all / no instance. */
+export function condHolds(p: Project, c: Condition, get: Getter, strict = false): boolean | null | undefined {
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
@@ -53,7 +54,7 @@ export function condHolds(p: Project, c: Condition, get: Getter): boolean | null
   if (c.other && o?.kind !== 'variable') return undefined
   const key = instLane(c)
   const set = (x: string | undefined) => x !== undefined && x !== ''
-  const vals = key !== c.variable ? [get(key) ?? get(c.variable)].filter(set) : [get(c.variable), ...(get.instances?.(c.variable) ?? [])].filter(set)
+  const vals = key !== c.variable ? [strict ? get(key) : get(key) ?? get(c.variable)].filter(set) : [get(c.variable), ...(get.instances?.(c.variable) ?? [])].filter(set)
   const b = c.other ? get(c.other) : undefined
   const test = (x: string) => (c.other ? (set(b) ? holds(v, { ...c, other: undefined, state: b! }, x) : null) : holds(v, c, x))
   const hs = vals.map((x) => test(x!))
@@ -121,8 +122,10 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
   let all: boolean | null = true
+  const names = new Map<string, Set<string>>()
+  for (const c of u.conditions) for (const i of condInstances(p, c)) names.set(i.entity, (names.get(i.entity) ?? new Set()).add(i.name))
   for (const c of u.conditions) {
-    const h = condHolds(p, c, getter(state))
+    const h = condHolds(p, c, getter(state), condInstances(p, c).some((i) => (names.get(i.entity)?.size ?? 0) > 1))
     if (h === false) return false
     if (h === null) all = null
   }

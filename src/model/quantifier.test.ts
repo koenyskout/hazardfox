@@ -3,7 +3,7 @@ import { emptyProject } from './create'
 import { createItem, deleteItems, updateItem } from './ops'
 import { addSignal, beliefsAbout, signalsOf } from './formal'
 import { deserialize, serialize } from './serialize'
-import { condHolds, diagnose, draftTrace, getter, mismatches } from './traces'
+import { condHolds, contextHolds, diagnose, draftTrace, getter, mismatches } from './traces'
 import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
@@ -230,5 +230,22 @@ describe('variable mentions in free-text conditions', () => {
     expect(refsOf(s.p.items[v2])).not.toContain(s.speed)
     const rt = deserialize(serialize(s.p))
     expect((rt.items[hz] as unknown as { conditions: Condition[] }).conditions[0].text).toContain(mention(s.speed))
+  })
+})
+
+describe('another instance is a separate instance in traces', () => {
+  it('needs a lane of its own instead of the common one', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const u = s.add('uca', { conditions: [cond(s.speed, { as: 't1' }), cond(s.speed, { as: 't2' })] }) as Id
+    const uca = () => s.p.items[u] as never
+    // one common lane would satisfy both names; strict reading leaves t2 unknown
+    expect(contextHolds(s.p, uca(), { [s.speed]: '0' })).toBeNull()
+    expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0' })).toBeNull()
+    expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0', [`${s.speed}@t2`]: '0' })).toBe(true)
+    expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0', [`${s.speed}@t2`]: '5' })).toBe(false)
+    // a single named instance still falls back to the common lane
+    const one = s.add('uca', { conditions: [cond(s.speed, { as: 't1' })] }) as Id
+    expect(contextHolds(s.p, s.p.items[one] as never, { [s.speed]: '0' })).toBe(true)
   })
 })
