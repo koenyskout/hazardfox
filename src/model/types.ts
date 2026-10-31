@@ -230,6 +230,9 @@ export interface Condition {
   /** Same as `as` / `same`, for the other end of a relationship whose both ends have several instances */
   as2?: string
   same2?: string
+  /** With `other`: the named instances (as `same` / `same2`) of the compared variable, e.g. speed of t1 > speed of t2 */
+  oSame?: string
+  oSame2?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

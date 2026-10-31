@@ -98,6 +98,8 @@ export function condInstances(p: Project, c: Condition): { entity: Id; name: str
 }
 /** Trace lane key of a condition about named instances ("<variable>@t1" or "<variable>@t1|c1"), else the variable. */
 export const instLane = (c: Condition): string => (isText(c) ? condKey(c) : instName(c) || instName2(c) ? `${c.variable}@${instName(c)}${instName2(c) ? '|' + instName2(c) : ''}` : c.variable)
+/** Trace lane key of the compared variable of a comparison (`other`), at the instances `oSame` / `oSame2` it names. */
+export const otherLane = (c: Condition): string => { const a = c.oSame?.trim(), b = c.oSame2?.trim(); return c.other && (a || b) ? `${c.other}@${a ?? ''}${b ? '|' + b : ''}` : c.other ?? '' }
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
 export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
@@ -146,7 +148,7 @@ function plainText(p: Project, c: Condition): string {
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = shortName(p, v)
-  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}` : '' }
+  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[c.oSame?.trim(), c.oSame2?.trim()].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }

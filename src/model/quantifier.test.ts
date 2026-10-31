@@ -248,4 +248,18 @@ describe('another instance is a separate instance in traces', () => {
     const one = s.add('uca', { conditions: [cond(s.speed, { as: 't1' })] }) as Id
     expect(contextHolds(s.p, s.p.items[one] as never, { [s.speed]: '0' })).toBe(true)
   })
+  it('compares a named instance with the value of another variable at a named instance', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const limit = s.add('variable', { layer: 'domain', parent: s.train, title: 'limit', type: 'range', min: 0, max: 100 })
+    const c: Condition = { variable: s.speed, op: '>', state: '', as: 't1', other: limit, oSame: 't2' }
+    expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than limit of t2')
+    expect(instLane({ ...c })).toBe(`${s.speed}@t1`)
+    const get = getter({ [`${s.speed}@t1`]: '50', [`${limit}@t2`]: '40', [`${limit}@t1`]: '90' })
+    expect(condHolds(s.p, c, get, true)).toBe(true)
+    expect(condHolds(s.p, { ...c, oSame: 't1' }, get, true)).toBe(false)
+    expect(condHolds(s.p, { ...c, oSame: 't3' }, get, true)).toBeNull()
+    const back = deserialize(serialize({ ...s.p, items: { ...s.p.items } }))
+    expect(back.items[s.speed]).toBeTruthy()
+  })
 })

@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condInstances, condKey, conditionComplete, instLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
+import { condInstances, condKey, conditionComplete, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -55,7 +55,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
   const key = instLane(c)
   const set = (x: string | undefined) => x !== undefined && x !== ''
   const vals = key !== c.variable ? [strict ? get(key) : get(key) ?? get(c.variable)].filter(set) : [get(c.variable), ...(get.instances?.(c.variable) ?? [])].filter(set)
-  const b = c.other ? get(c.other) : undefined
+  const ol = otherLane(c), b = c.other ? (ol !== c.other ? (strict ? get(ol) : get(ol) ?? get(c.other)) : get(c.other)) : undefined
   const test = (x: string) => (c.other ? (set(b) ? holds(v, { ...c, other: undefined, state: b! }, x) : null) : holds(v, c, x))
   const hs = vals.map((x) => test(x!))
   const q = quantOf(p, c)
@@ -257,9 +257,9 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       const o = c.other ? p.items[c.other] : null
       let cc = c
       if (c.other && o?.kind === 'variable') {
-        const ref = init.values[o.id] ?? initialValue(o)
-        lanes.push(o.id)
-        init.values[o.id] = ctx.values[o.id] = ref
+        const ol = otherLane(c), ref = init.values[ol] ?? initialValue(o)
+        lanes.push(ol)
+        init.values[ol] = ctx.values[ol] = ref
         cc = { ...c, other: undefined, state: ref }
       }
       // "no instance" holds when the value fails the condition; a named instance gets a lane of its own

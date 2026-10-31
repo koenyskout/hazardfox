@@ -4,7 +4,7 @@ import { renderText, shortName, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, condInstances, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Project, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -487,7 +487,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
     const old = d.name
     onChange(conditions.map((c, i) => {
       const x = i === d.i ? { ...c, [d.end === 1 ? 'as' : 'as2']: to || undefined } : { ...c }
-      if (old) { if (x.same === old) x.same = to || undefined; if (x.same2 === old) x.same2 = to || undefined }
+      if (old) { for (const k of ['same', 'same2', 'oSame', 'oSame2'] as const) if (x[k] === old) x[k] = to || undefined }
       return x
     }))
   }
@@ -625,7 +625,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
   })
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const toVar = () => vr && upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' })
-  const toValue = () => vr && upd({ other: undefined, state: '', to: '', op: opsFor(vr).includes(c.op) ? c.op : '=' })
+  const toValue = () => vr && upd({ other: undefined, oSame: undefined, oSame2: undefined, state: '', to: '', op: opsFor(vr).includes(c.op) ? c.op : '=' })
   const swap = (title: string, run: () => void) => <button type="button" className="btn" title={title} style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={run}>⇄</button>
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
@@ -648,10 +648,22 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       </Select>
       <div className={'cond-val' + (!cmp && bar && !isSetOp(c.op) ? ' bar' : '')}>
         {cmp && vr && (
-          <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
+          <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '', oSame: undefined, oSame2: undefined })}>
             {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
           </Picker>
         )}
+        {cmp && ov?.kind === 'variable' && ([1, 2] as const).map((end) => {
+          const ent = end === 1 ? boundEntity(p, ov) : otherEnd(p, ov), key = end === 1 ? 'oSame' : 'oSame2'
+          if (!ent) return null
+          const names = [...new Set(scope.flatMap((o) => (o === c ? [] : condInstances(p, o).filter((x) => x.entity === ent && x.intro).map((x) => x.name))))]
+          if (c[key] && !names.includes(c[key]!)) names.push(c[key]!)
+          return (
+            <Select key={end} value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value || undefined })} title={`Which ${entityTitle(ent)} the compared variable is read at`}>
+              <option value="">any {entityTitle(ent)}</option>
+              {names.map((n) => <option key={n} value={n}>of {n}</option>)}
+            </Select>
+          )
+        })}
         {cmp && vr && swap('Compare with a fixed value instead', toValue)}
         {!cmp && bar && vr && (
           <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />

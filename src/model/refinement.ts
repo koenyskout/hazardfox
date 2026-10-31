@@ -7,7 +7,7 @@ import type { Condition, Id, Project, Variable, When } from './types'
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
 
-const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', c.quant ?? '', c.as ?? '', c.same ?? '', c.as2 ?? '', c.same2 ?? '', [...(c.set ?? [])].sort()])
+const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', c.oSame ?? '', c.oSame2 ?? '', c.quant ?? '', c.as ?? '', c.same ?? '', c.as2 ?? '', c.same2 ?? '', [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
