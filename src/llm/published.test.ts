@@ -20,7 +20,7 @@ describe('published analyses (offline)', () => {
 
 /** Live tests need a running Ollama with the decision model; they are skipped when it is unreachable. */
 const settings = { ...loadLlm(), endpoint: process.env.OLLAMA_ENDPOINT ?? 'http://localhost:11434', model: process.env.OLLAMA_MODEL ?? 'd1' }
-const live = await fetch(`${settings.endpoint}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok, () => false)
+const live = !!process.env.LIVE_LLM && await fetch(`${settings.endpoint}/api/tags`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok, () => false)
 
 describe.skipIf(!live)('published analyses (decision model)', () => {
   it('does not flag published expert analyses as flawed', async () => {

@@ -10,7 +10,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 ## Commands
 - `npm run dev` – Vite dev server (http://localhost:5173)
 - `npm run typecheck` (`npx tsc -b`) – must be clean
-- `npm test` (`npx vitest run`) – model tests + a smoke test rendering every view
+- `npm test` (`npx vitest run`) – model tests + a smoke test rendering every view; live LLM tests (handbook, published) only with `LIVE_LLM=1`
 - `npm run build` – typecheck + production build (~2 MB, mostly ELK)
 
 ## Architecture (src/)
@@ -92,7 +92,7 @@ Needs Ollama running; if CORS blocks, start with `OLLAMA_ORIGINS=http://localhos
 ## Handbook examples and LLM test suite
 `llm/handbook.ts`: `EXAMPLES` (good and bad, per kind; "Handbook" = quoted, "Handbook mistake" = a warned-about mistake worded by us),
 `buildExample` (mini project so linked items appear in the prompt), `agrees`. Used only by the test suite (not shown in the AI review tab nor the Example menu; the menu lists the appendix projects of `model/handbookExamples.ts`: Appendix A hazards, Appendix B control structures (`nodes`/`links`, transcribed from the figures in `docs/STPA_Handbook_Markdown/figures`), Appendix C UCA tables; Auto-Hold and HTV combine structure and UCAs). Published analyses are in `model/publishedExamples.ts` (`build(add, b)`); the train-door controller (Thomas) is the reference example for variable layers and traces.
-`llm/handbook.test.ts`: offline structure tests plus a live d1 test (auto-skipped if Ollama is unreachable; env `OLLAMA_ENDPOINT`,
+`llm/handbook.test.ts`: offline structure tests plus a live d1 test (opt-in: `LIVE_LLM=1 npm test`; also skipped if Ollama is unreachable; env `OLLAMA_ENDPOINT`,
 `OLLAMA_MODEL`) that prints a per-example table and asserts good ≥90% not flagged, bad ≥70% flagged on the expected check.
 Use it to tune checks (currently weak: UCA belief/no-context/several, hazard consequence). No requirement examples (Handbook has none).
 
