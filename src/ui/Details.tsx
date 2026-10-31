@@ -492,6 +492,8 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat }: { g: Group; on
   )
 }
 
+const VAR_OPTION = '\u0000var'
+
 function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onChange: (c: Condition) => void; onRemove: () => void; vars: Variable[]; word: string }) {
   const p = useProject()
   const labels = useLabels()
@@ -511,11 +513,15 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   const cmp = c.other !== undefined
   const ov = c.other ? p.items[c.other] : undefined
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
+  const toVar = () => vr && upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' })
+  const toValue = () => vr && onChange({ variable: c.variable, op: opsFor(vr).includes(c.op) ? c.op : '=', state: '' })
+  const swap = (title: string, run: () => void) => <button type="button" className="btn" title={title} style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={run}>⇄</button>
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
-      <Select value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value })}>
+      <Select value={c[key] ?? ''} onChange={(e) => e.target.value === VAR_OPTION ? toVar() : upd({ [key]: e.target.value })}>
         <option value="" disabled hidden>{placeholder}</option>
         {values.map((s) => <option key={s}>{s}</option>)}
+        {key === 'state' && !isRangeOp(c.op) && <option value={VAR_OPTION}>another variable…</option>}
       </Select>
     ) : (
       <BoundedNumber value={c[key] ?? ''} onChange={(v) => upd({ [key]: v })} min={vr?.min ?? null} max={vr?.max ?? null} step={vr ? stepOf(vr) : 1} placeholder={placeholder} />
@@ -529,12 +535,12 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
       <Select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}>
         {(cmp ? opsForVar(vr) : opsFor(vr)).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
       </Select>
-      {vr && <Select title="Compare with a fixed value or with the value of another variable" value={cmp ? 'var' : 'value'} onChange={(e) => e.target.value === 'var' ? upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' }) : onChange({ variable: c.variable, op: opsFor(vr).includes(c.op) ? c.op : '=', state: '' })}><option value="value">a value</option><option value="var">another variable</option></Select>}
       {cmp && vr && (
         <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '' })}>
           {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
         </Picker>
       )}
+      {cmp && vr && swap('Compare with a fixed value instead', toValue)}
       {!cmp && bar && vr && (
         <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
       )}
@@ -543,6 +549,7 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
         : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
       {!cmp && isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
       {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
+      {!cmp && vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
       <button className="x" onClick={onRemove}>×</button>
       {err && <small className="cond-err">{err}</small>}
     </div>
