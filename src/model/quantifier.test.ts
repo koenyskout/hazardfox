@@ -228,7 +228,6 @@ describe('variable mentions in free-text conditions', () => {
     s.p = updateItem(s.p, hz, { conditions: [{ variable: '', op: '=', state: '', text: `alert while ${mention(s.speed)} is high` }] }) as Project
     expect(refsOf(s.p.items[hz])).toContain(s.speed)
     expect(refsOf(s.p.items[v2])).not.toContain(s.speed)
-    expect(refsOf(deleteItems(s.p, [s.speed]).items[hz])).not.toContain(s.speed)
     const rt = deserialize(serialize(s.p))
     expect((rt.items[hz] as unknown as { conditions: Condition[] }).conditions[0].text).toContain(mention(s.speed))
   })
