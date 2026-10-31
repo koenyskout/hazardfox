@@ -9,7 +9,7 @@ import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, 
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -673,6 +673,7 @@ function VariableLinks({ v }: { v: Variable }) {
 /** Choose a named, reusable state list for an enum variable, or save its own states as one. */
 function EnumTypePicker({ v }: { v: Variable }) {
   const p = useProject()
+  const [isNew, setNew] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
   const save = async () => {
     const n = await askText({ title: 'Save states as a type', label: 'Name for this state list (e.g. On/Off, Severity)', initial: v.title, confirm: 'Save' })
@@ -685,6 +686,8 @@ function EnumTypePicker({ v }: { v: Variable }) {
         {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
       </Select>
       {!v.enumType && v.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
+      {!v.enumType && !v.states.length && <button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New type…</button>}
+      {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => commit((q) => updateItem(q, v.id, { enumType: n }))} />}
     </div>
   )
 }

@@ -122,28 +122,55 @@ export function RangeCell({ v }: { v: Variable }) {
   )
 }
 
+/** Popup to create a named, reusable state list (enum type). `then` gets the saved name. */
+export function EnumTypeDialog({ init, onClose, then }: { init?: string[]; onClose: () => void; then?: (name: string) => void }) {
+  const p = useProject()
+  const [n, setN] = useState('')
+  const [states, setStates] = useState<string[]>(init ?? [])
+  const nm = n.trim()
+  const bad = !nm ? 'Name required' : p.enumTypes?.[nm] ? 'Name already used' : ''
+  const save = () => { commit((q) => defineEnumType(q, nm, states.map((x) => x.trim()).filter(Boolean))); then?.(nm); onClose() }
+  return (
+    <Modal title="New enum type" onClose={onClose}>
+      <Field single label="Name"><TextInput value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
+      <Field single label="States"><StringList value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
+      {bad && n !== '' && <p className="muted">{bad}</p>}
+      <div className="modal-actions">
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="primary" disabled={!!bad} onClick={save}>Create</button>
+      </div>
+    </Modal>
+  )
+}
+
 /** Reusable state lists of enum variables, editable here; users follow the change. */
 function EnumTypes() {
   const p = useProject()
+  const [creating, setCreating] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
-  if (!names.length) return <p className="hint">Enum types are shared state lists: in a variable’s States field choose “Save as type…”.</p>
   return (
-    <table className="grid">
-      <thead><tr><th>Enum type</th><th>States</th><th>Used by</th><th /></tr></thead>
-      <tbody>
-        {names.map((n) => {
-          const users = Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)
-          return (
-            <tr key={n}>
-              <td><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} /></td>
-              <td><StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" /></td>
-              <td>{users.map((v) => <Ref key={v.id} id={v.id} />)}{!users.length && <span className="muted">—</span>}</td>
-              <td><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+    <div>
+      <div className="toolbar"><button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> Enum type</button></div>
+      {creating && <EnumTypeDialog onClose={() => setCreating(false)} />}
+      {!names.length ? <p className="empty">Enum types are shared state lists (e.g. On/Off). Variables can also keep their own states: in a variable’s States field choose “Save as type…” or “New type…”.</p> : (
+        <table className="grid">
+          <thead><tr><th>Enum type</th><th>States</th><th>Used by</th><th /></tr></thead>
+          <tbody>
+            {names.map((n) => {
+              const users = Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.enumType === n)
+              return (
+                <tr key={n}>
+                  <td><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameEnumType(q, n, e.target.value.trim()))} /></td>
+                  <td><StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" /></td>
+                  <td>{users.map((v) => <Ref key={v.id} id={v.id} />)}{!users.length && <span className="muted">—</span>}</td>
+                  <td><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }
 
