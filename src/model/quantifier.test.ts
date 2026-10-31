@@ -91,3 +91,16 @@ describe('instance quantification', () => {
     expect(validate(s.p).some((i) => i.rule === 'quantifier-single')).toBe(false)
   })
 })
+
+describe('level crossing example', () => {
+  it('is valid, uses quantifiers and survives a file round trip', async () => {
+    const { crossingExampleProject } = await import('./crossingExample')
+    const p = crossingExampleProject()
+    expect(validate(p).filter((i) => i.severity === 'error')).toEqual([])
+    const texts = Object.values(p.items).flatMap((i) => (i.kind === 'uca' ? i.conditions.map((c) => conditionText(p, c)) : []))
+    expect(texts).toContain('Position of some Train is approaching')
+    expect(texts).toContain('Position of every Train is far')
+    expect(texts).toContain('no Train approaches Crossing')
+    expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
+  })
+})
