@@ -466,7 +466,48 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
 
 /** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
 function ConditionList({ conditions, onChange, vars, head }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; head: ReactNode }) {
-  return <div className="rule"><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat scope={conditions} /></div>
+  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat scope={conditions} /></div>
+}
+
+/** The instances the conditions talk about (an entity with several instances), one line each: quantifier, entity, name. Edits apply to the condition that introduces the instance; conditions refer to it by name. */
+function Declarations({ conditions, onChange }: { conditions: Condition[]; onChange: (cs: Condition[]) => void }) {
+  const p = useProject()
+  const decls = conditions.flatMap((c, i) => {
+    const v = isText(c) ? undefined : p.items[c.variable]
+    if (v?.kind !== 'variable') return []
+    const out: { i: number; end: 1 | 2; name: string; entity: Id | null; quant: Quantifier | null }[] = []
+    const e1 = quantOf(p, c) && !c.same ? boundEntity(p, v) : null
+    if (e1) out.push({ i, end: 1, name: c.as ?? '', entity: e1, quant: quantOf(p, c) })
+    const e2 = !c.same2 ? otherEnd(p, v) : null
+    if (e2) out.push({ i, end: 2, name: c.as2 ?? '', entity: e2, quant: 'some' })
+    return out
+  })
+  if (!decls.length) return null
+  const rename = (d: (typeof decls)[number], to: string) => {
+    const old = d.name
+    onChange(conditions.map((c, i) => {
+      const x = i === d.i ? { ...c, [d.end === 1 ? 'as' : 'as2']: to || undefined } : { ...c }
+      if (old) { if (x.same === old) x.same = to || undefined; if (x.same2 === old) x.same2 = to || undefined }
+      return x
+    }))
+  }
+  return (
+    <div className="decls">
+      {decls.map((d, n) => (
+        <div key={d.i + ':' + d.end} className="decl">
+          <span className="cond-word">{d.end === 2 ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
+          {d.end === 1 && (
+            <Select value={d.quant ?? 'some'} onChange={(e) => onChange(conditions.map((c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
+              {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
+            </Select>
+          )}
+          {d.end === 2 && <span className="cond-word">some</span>}
+          <span className="chip k-entity">{p.items[d.entity ?? '']?.title.trim() || 'instance'}</span>
+          <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />
+        </div>
+      ))}
+    </div>
+  )
 }
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
@@ -565,12 +606,12 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
     const t = entityTitle(ent)
     const opts = [
       ...(end === 1 ? QUANTIFIERS.map((q) => ({ value: q as string, short: QUANT_LABELS[q], long: `${QUANT_LABELS[q]} ${t}` })) : [{ value: 'some', short: `some ${t}`, long: `some ${t}` }]),
-      ...pool.map(({ i, e, name, label }) => ({ value: name ? 'same:' + name : `bind:${i}:${e}`, short: `the same ${t} ${name ?? `(${label})`}`, long: `the same ${t} ${name ?? `(${label})`}` })),
+      ...pool.map(({ i, e, name, label }) => ({ value: name ? 'same:' + name : `bind:${i}:${e}`, short: name ?? `the same ${t} (${label})`, long: name ?? `the same ${t} (${label})` })),
       ...pool.filter(({ i }) => i < idx).map(({ i, e, name, label }) => ({ value: `other:${i}:${e}`, short: `another ${t} than ${name ?? `(${label})`}`, long: `another ${t} than ${name ?? `(${label})`}` })),
     ].map((o) => ({ ...o, apply: apply(o.value) }))
     return { value, opts, asK }
   }
-  const instText = (end: 1 | 2) => { const io = vr && instOptions(c, vr, end); const o = io?.opts.find((x) => x.value === io.value); return o ? o.long + (c[io!.asK] ? ' ' + c[io!.asK] : '') : '' }
+  const instText = (end: 1 | 2) => { const io = vr && instOptions(c, vr, end); const o = io?.opts.find((x) => x.value === io.value); return o ? (c[io!.asK] ?? o.long) : '' }
   /** Every subject (variable with its instance choices) the condition could be started with. */
   const subjectChoices = (): SubjectChoice[] => vars.flatMap((v) => {
     const c0: Condition = { ...c, variable: v.id, state: '', to: '', set: [], other: undefined, op: opsFor(v).includes(c.op) ? c.op : '=', quant: undefined, as: undefined, same: undefined, as2: undefined, same2: undefined }
