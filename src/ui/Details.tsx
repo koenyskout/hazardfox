@@ -495,7 +495,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
     <div className="decls">
       {decls.map((d, n) => (
         <div key={d.i + ':' + d.end} className="decl">
-          <span className="cond-word">{d.end === 2 ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
+          <span className="cond-word">{d.end === 2 || (d.quant === 'some' && decls.slice(0, n).some((e) => e.entity === d.entity)) ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
           {d.end === 1 && (
             <Select value={d.quant ?? 'some'} onChange={(e) => onChange(conditions.map((c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
               {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
