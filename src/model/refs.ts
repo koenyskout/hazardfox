@@ -1,4 +1,4 @@
-import { laneText, leaves, mapLeaves } from './variables'
+import { laneParts, laneText, leaves, mapLeaves } from './variables'
 import type { Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
@@ -78,7 +78,7 @@ export function refsOf(it: Item): Id[] {
 }
 
 /** Variables, control actions and feedback a trace mentions. */
-export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].filter((k) => laneText(k) === null)
+export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].map((k) => laneParts(k).id).filter((k) => laneText(k) === null)
 
 /** Items that refer to `id` (via parent, refs or mentions). */
 export function incoming(p: Project, id: Id): Item[] {
@@ -112,13 +112,11 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
-    t.lanes = [...new Set(t.lanes.flatMap((x) => (x !== from ? [x] : to ? [to] : [])))]
+    // lanes of single instances ("<variable>@t1") follow their variable
+    const move = (k: string): string | null => { const { id } = laneParts(k); return id !== from ? k : to ? to + k.slice(from.length) : null }
+    t.lanes = [...new Set(t.lanes.flatMap((x) => move(x) ?? []))]
     for (const st of t.steps) {
-      if (from in st.values) {
-        const v = st.values[from]
-        delete st.values[from]
-        if (to) st.values[to] = v
-      }
+      st.values = Object.fromEntries(Object.entries(st.values).flatMap(([k, v]) => { const m = move(k); return m ? [[m, v]] : [] }))
       st.events = st.events.flatMap((e) => (e.on !== from ? [e] : to ? [{ ...e, on: to }] : []))
     }
   }

@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
 import { createItem, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
-import { condHolds } from './traces'
+import { condHolds, getter } from './traces'
 import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { conditionText, conditionTexts, isMany, quantOf } from './variables'
+import { conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
 import type { Condition, Id, Project } from './types'
 
 function setup() {
@@ -153,5 +153,30 @@ describe('level crossing example', () => {
     expect(condHolds(s.p, a, get)).toBe(true)
     expect(condHolds(s.p, b, get)).toBe(true)
     expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('some Train t1 approaches Crossing and speed of t1 is greater than minimum speed')
+  })
+  it('names the second end of a relationship and reads instance lanes', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const crossing = s.add('entity', { title: 'Crossing', many: true })
+    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '*' })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1', as2: 'c1' }
+    const b: Condition = { variable: pred, op: '=', state: 'true', as: 't2', same2: 'c1' }
+    expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing c1', 'another Train t2 approaches c1'])
+    expect(instLane(a)).toBe(`${pred}@t1|c1`)
+    expect(laneParts(`${pred}@t1|c1`)).toEqual({ id: pred, names: ['t1', 'c1'] })
+    // named reads its lane, falling back to the bare lane; unnamed is quantified over all instance lanes
+    const named: Condition = cond(s.speed, { as: 't1', op: '>', state: '10' })
+    expect(condHolds(s.p, named, getter({ [`${s.speed}@t1`]: '50' }))).toBe(true)
+    expect(condHolds(s.p, named, getter({ [`${s.speed}@t2`]: '50', [`${s.speed}@t1`]: '5' }))).toBe(false)
+    expect(condHolds(s.p, named, getter({ [s.speed]: '50' }))).toBe(true)
+    const some = cond(s.speed, { op: '>', state: '10' })
+    expect(condHolds(s.p, some, getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(true)
+    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', quant: 'all' }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
+    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', quant: 'none' }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
+    // lanes survive a round trip
+    const sc = s.add('uca', { conditions: [a, b] })
+    expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(false)
+    expect(deserialize(serialize(s.p)).items[sc]).toBeTruthy()
   })
 })

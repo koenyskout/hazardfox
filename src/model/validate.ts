@@ -7,7 +7,7 @@ import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 import { shortName } from './labels'
-import { boundEntity, conditionError, isText, leaves, quantOf, valuesOf } from './variables'
+import { condInstances, conditionError, isText, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -144,11 +144,11 @@ export function validate(p: Project): Issue[] {
   // named instances: a reference needs an earlier-introduced name on the same entity, and a name denotes one entity
   for (const u of ucas) {
     const named = new Map<string, Id | null>()
-    for (const c of u.conditions) if (c.as?.trim()) { const v = p.items[c.variable]; const e = v?.kind === 'variable' ? boundEntity(p, v) : null; if (named.has(c.as.trim()) && named.get(c.as.trim()) !== e) add('warning', u, 'instance-name', `${L[u.id]}: the name ${c.as.trim()} is used for different entities`); named.set(c.as.trim(), e) }
-    for (const c of u.conditions) if (c.same?.trim()) {
-      const v = p.items[c.variable]
-      if (!named.has(c.same.trim())) add('warning', u, 'instance-name', `${L[u.id]}: ${c.same.trim()} is not introduced by any condition`)
-      else if (v?.kind === 'variable' && named.get(c.same.trim()) !== boundEntity(p, v)) add('warning', u, 'instance-name', `${L[u.id]}: ${c.same.trim()} stands for a different entity than ${v.title || shortName(p, v)}`)
+    const all = u.conditions.map((c) => condInstances(p, c))
+    for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && named.get(x.name) !== x.entity) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
+    for (const x of all.flat().filter((x) => !x.intro)) {
+      if (!named.has(x.name)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} is not introduced by any condition`)
+      else if (named.get(x.name) !== x.entity) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} stands for a different entity here`)
     }
   }
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported

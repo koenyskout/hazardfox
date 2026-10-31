@@ -227,6 +227,9 @@ export interface Condition {
   as?: string
   /** Refers to an instance named by `as` in another condition of the same context: the same instance, not just some */
   same?: string
+  /** Same as `as` / `same`, for the other end of a relationship whose both ends have several instances */
+  as2?: string
+  same2?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

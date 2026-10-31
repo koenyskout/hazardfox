@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condKey, conditionComplete, isGroup, isSetOp, isText, leaves, quantOf, stepOf, valuesOf } from './variables'
+import { condKey, conditionComplete, instLane, isGroup, isSetOp, isText, leaves, quantOf, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -38,21 +38,30 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
   return null
 }
 
-/** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text. */
-export function condHolds(p: Project, c: Condition, get: (id: Id) => string | undefined): boolean | null | undefined {
+/** Reads trace values; `instances` gives the values of a variable's per-instance lanes ("<variable>@t1"). */
+export type Getter = ((id: Id) => string | undefined) & { instances?: (id: Id) => string[] }
+export const getter = (state: Record<Id, string>): Getter => Object.assign((id: Id) => state[id], { instances: (id: Id) => Object.keys(state).filter((k) => k.startsWith(id + '@') && state[k] !== '').map((k) => state[k]) })
+
+/** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text.
+ *  A variable of a many-instance entity has either one lane for all instances alike, or lanes per instance; a condition naming an instance reads its lane
+ *  (else the common one), an unnamed one is quantified over all lanes: some / all / no instance. */
+export function condHolds(p: Project, c: Condition, get: Getter): boolean | null | undefined {
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
-  if (c.other) {
-    const o = p.items[c.other]
-    if (o?.kind !== 'variable') return undefined
-    const a = get(c.variable), b = get(c.other)
-    const h = a === undefined || a === '' || b === undefined || b === '' ? null : holds(v, { ...c, other: undefined, state: b }, a)
-    return h !== null && quantOf(p, c) === 'none' ? !h : h
-  }
-  const h = holds(v, c, get(c.variable))
-  // A trace lane has one value per variable, standing for all its instances alike; "no instance" then reads as the opposite.
-  return h !== null && quantOf(p, c) === 'none' ? !h : h
+  const o = c.other ? p.items[c.other] : undefined
+  if (c.other && o?.kind !== 'variable') return undefined
+  const key = instLane(c)
+  const set = (x: string | undefined) => x !== undefined && x !== ''
+  const vals = key !== c.variable ? [get(key) ?? get(c.variable)].filter(set) : [get(c.variable), ...(get.instances?.(c.variable) ?? [])].filter(set)
+  const b = c.other ? get(c.other) : undefined
+  const test = (x: string) => (c.other ? (set(b) ? holds(v, { ...c, other: undefined, state: b! }, x) : null) : holds(v, c, x))
+  const hs = vals.map((x) => test(x!))
+  const q = quantOf(p, c)
+  if (!hs.length) return null
+  if (q === 'all') return hs.every((h) => h === true) ? true : hs.includes(false) ? false : null
+  const some = hs.includes(true) ? true : hs.every((h) => h === false) ? false : null
+  return some !== null && q === 'none' ? !some : some
 }
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
@@ -60,14 +69,14 @@ export const textConditions = (p: Project): string[] => [...new Set(Object.value
   (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
-export function whenHolds(p: Project, w: When, get: (id: Id) => string | undefined): boolean | null | undefined {
+export function whenHolds(p: Project, w: When, get: Getter): boolean | null | undefined {
   if (!isGroup(w)) return condHolds(p, w, get)
   const hs = w.of.map((x) => whenHolds(p, x, get)).filter((h) => h !== undefined)
   return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
 }
 
 /** Value of a refined variable from its rules (first rule whose condition holds, else `otherwise`); undefined while a needed part is unknown. */
-export function ruleValue(p: Project, v: Variable, get: (id: Id) => string | undefined): string | undefined {
+export function ruleValue(p: Project, v: Variable, get: Getter): string | undefined {
   for (const r of v.rules) {
     const h = whenHolds(p, r.when, get)
     if (h === null) return undefined
@@ -113,7 +122,7 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
   let all: boolean | null = true
   for (const c of u.conditions) {
-    const h = condHolds(p, c, (id) => state[id])
+    const h = condHolds(p, c, getter(state))
     if (h === false) return false
     if (h === null) all = null
   }
@@ -243,11 +252,14 @@ export function draftTrace(p: Project, s: Scenario): Trace {
         init.values[o.id] = ctx.values[o.id] = ref
         cc = { ...c, other: undefined, state: ref }
       }
-      const after = pickValue(w, cc), before = k ? after : pickValue(w, cc, true)
-      lanes.push(w.id)
-      init.values[w.id] = before
-      ctx.values[w.id] = after
-      if (w.layer !== 'domain') continue
+      // "no instance" holds when the value fails the condition; a named instance gets a lane of its own
+      const none = quantOf(p, c) === 'none'
+      const after = pickValue(w, cc, none), before = k ? after : pickValue(w, cc, !none)
+      const lane = instLane(c)
+      lanes.push(lane)
+      init.values[lane] = before
+      ctx.values[lane] = after
+      if (w.layer !== 'domain' || lane !== w.id) continue
       for (const f of fbs) for (const sig of signalsOf(p, f.id).filter((x) => x.about === w.id)) {
         lanes.push(sig.id)
         init.values[sig.id] = before

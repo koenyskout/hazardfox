@@ -1,13 +1,13 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { condKey, instName, isGroup, laneText, quantOf, stepOf, valuesOf } from './variables'
+import { condKey, instName, instName2, isGroup, laneText, quantOf, stepOf, valuesOf } from './variables'
 import type { Condition, Id, Project, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
 
-const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', c.quant ?? '', c.as ?? '', c.same ?? '', [...(c.set ?? [])].sort()])
+const key = (c: Condition) => JSON.stringify([condKey(c), c.op, c.state, c.to ?? '', c.other ?? '', c.quant ?? '', c.as ?? '', c.same ?? '', c.as2 ?? '', c.same2 ?? '', [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
@@ -16,8 +16,8 @@ export function consistent(p: Project, cs: Condition[]): boolean {
   // "some instance" conditions have independent witnesses and cannot conflict; "no instance" is "every instance not".
   // Conditions on the same named instance share a witness and can conflict.
   const norm = (c: Condition): Condition => quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
-  const gkey = (c: Condition) => instName(c) ? `${instName(c)}\u0000${condKey(c)}` : condKey(c)
-  for (const c of cs.filter((c) => !c.other && (quantOf(p, c) !== 'some' || instName(c))).map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
+  const gkey = (c: Condition) => instName(c) || instName2(c) ? `${instName(c)}|${instName2(c)}\u0000${condKey(c)}` : condKey(c)
+  for (const c of cs.filter((c) => !c.other && (quantOf(p, c) !== 'some' || instName(c) || instName2(c))).map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
   for (const [id, group] of by) {
     if (laneText(id.split('\u0000').pop()!) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
     const v = p.items[id.split('\u0000').pop()!]
@@ -35,7 +35,7 @@ const and = (p: Project, a: Dnf, b: Dnf): Dnf => a.flatMap((x) => b.map((y) => d
 const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
   const q = quantOf(p, c)
   if (c.same) return [{ ...c, op: NEGATE[c.op] }]
-  if (q === 'some' || q === 'none') return [{ ...c, as: undefined, quant: q === 'some' ? 'none' : 'some' }]
+  if (q === 'some' || q === 'none') return [{ ...c, as: undefined, as2: undefined, quant: q === 'some' ? 'none' : 'some' }]
   if (q === 'all') return [{ ...c, op: NEGATE[c.op], quant: 'some' }]
   const v = p.items[c.variable]
   const vals = v?.kind === 'variable' ? valuesOf(v) : null
