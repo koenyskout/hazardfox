@@ -25,6 +25,8 @@ export function FlatTable<K extends Kind>(props: {
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
   /** Names of the nested groups an item sits in (below its group); a header row is shown when they change. Items of one nesting must be adjacent. */
   nest?: (it: ItemOf<K>) => string[]
+  /** Shown instead of the (read-only) title of items it returns text for, e.g. managed names. */
+  titleView?: (it: ItemOf<K>) => string | null | undefined
   /** Second line under the title. */
   sub?: (it: ItemOf<K>) => ReactNode
   /** Shown on the title line, after the title. */
@@ -100,7 +102,9 @@ export function FlatTable<K extends Kind>(props: {
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <span className="tline">
                 {it.kind === 'scenario' ? <textarea rows={2} value={it.title} placeholder={`${KIND_NAMES[it.kind]} title`} onFocus={() => select(it.id)} onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)} /> : <input
-                  value={it.title}
+                  value={props.titleView?.(it) ?? it.title}
+                  readOnly={props.titleView?.(it) != null}
+                  title={props.titleView?.(it) != null ? it.title + ' (named by its struct type)' : undefined}
                   placeholder={`${KIND_NAMES[it.kind]} title`}
                   onFocus={() => select(it.id)}
                   onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)}

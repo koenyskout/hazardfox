@@ -113,6 +113,7 @@ export function Domain() {
           <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
             nest={structPath}
+            titleView={(v) => v.struct ? v.struct.path.split('.').pop() : null}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}
