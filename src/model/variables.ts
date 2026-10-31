@@ -63,7 +63,7 @@ export function isMany(p: Project, v: Variable): boolean {
 
 /** The quantifier a condition effectively carries: null when it is about a single instance (also for text / variable comparisons), else its own or `some`. */
 export function quantOf(p: Project, c: Condition): Quantifier | null {
-  if (isText(c) || c.other) return null
+  if (isText(c)) return null
   const v = p.items[c.variable]
   return v?.kind === 'variable' && isMany(p, v) ? (c.as || c.same ? 'some' : c.quant ?? 'some') : null
 }

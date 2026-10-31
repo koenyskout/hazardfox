@@ -125,4 +125,22 @@ describe('level crossing example', () => {
     const q = deserialize(serialize(s.p))
     expect((q.items[ok] as { conditions: Condition[] }).conditions[0].same).toBe('t1')
   })
+  it('expresses: some train t1 approaches the crossing and t1 is faster than the minimum speed', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const crossing = s.add('entity', { title: 'Crossing' })
+    const min = s.add('variable', { layer: 'domain', parent: crossing, title: 'minimum speed', type: 'range', min: 0, max: 100 })
+    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
+    const b: Condition = { variable: s.speed, op: '>', state: '', other: min, same: 't1' }
+    expect(conditionText(s.p, a)).toBe('some Train t1 approaches Crossing')
+    expect(conditionText(s.p, b)).toBe('speed of t1 is greater than minimum speed')
+    const uca = s.add('uca', { conditions: [a, b] })
+    expect(validate(s.p).some((i) => i.rule === 'instance-name' || i.rule === 'quantifier-single')).toBe(false)
+    const get = (id: Id) => ({ [pred]: 'true', [s.speed]: '60', [min]: '40' } as Record<Id, string>)[id]
+    expect(condHolds(s.p, a, get)).toBe(true)
+    expect(condHolds(s.p, b, get)).toBe(true)
+    expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('some Train t1 approaches Crossing and speed of t1 is greater than minimum speed')
+  })
 })

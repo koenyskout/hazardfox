@@ -47,7 +47,8 @@ export function condHolds(p: Project, c: Condition, get: (id: Id) => string | un
     const o = p.items[c.other]
     if (o?.kind !== 'variable') return undefined
     const a = get(c.variable), b = get(c.other)
-    return a === undefined || a === '' || b === undefined || b === '' ? null : holds(v, { ...c, other: undefined, state: b }, a)
+    const h = a === undefined || a === '' || b === undefined || b === '' ? null : holds(v, { ...c, other: undefined, state: b }, a)
+    return h !== null && quantOf(p, c) === 'none' ? !h : h
   }
   const h = holds(v, c, get(c.variable))
   // A trace lane has one value per variable, standing for all its instances alike; "no instance" then reads as the opposite.
