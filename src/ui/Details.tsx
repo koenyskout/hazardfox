@@ -494,6 +494,13 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
   )
 }
 
+/** Optional name of the "some" instance: a faint "+ name" that becomes a small pill once set. */
+function InstanceName({ value, onChange }: { value: string; onChange: (v: string | undefined) => void }) {
+  const [open, setOpen] = useState(false)
+  if (!value && !open) return <button type="button" className="inst-add" title="Name this instance to refer to it in other conditions" onClick={() => setOpen(true)}>+ name</button>
+  return <input className="inst-name" autoFocus={open && !value} size={Math.max(2, value.length)} value={value} placeholder="t1" title="Name of this instance; pick “the same …” in other conditions to refer to it" onBlur={() => !value && setOpen(false)} onChange={(e) => onChange(e.target.value.replace(/\s+/g, '') || undefined)} />
+}
+
 function ConditionRow({ c, onChange, onRemove, vars, word, scope = [] }: { scope?: Condition[]; c: Condition; onChange: (c: Condition) => void; onRemove: () => void; vars: Variable[]; word: string }) {
   const p = useProject()
   const labels = useLabels()
@@ -531,7 +538,7 @@ function ConditionRow({ c, onChange, onRemove, vars, word, scope = [] }: { scope
           {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
           {names.filter((n) => n.entity === (vr && boundEntity(p, vr))).map((n) => <option key={n.name} value={'same:' + n.name}>the same {n.name}</option>)}
         </Select>
-        {!c.same && quantOf(p, c) === 'some' && <input className="cond-name" size={5} value={c.as ?? ''} placeholder="name…" title="Optional name (e.g. t1) to refer to this same instance in other conditions" onChange={(e) => upd({ as: e.target.value.replace(/\s+/g, '') || undefined })} />}
+        {!c.same && quantOf(p, c) === 'some' && <InstanceName value={c.as ?? ''} onChange={(as) => upd({ as })} />}
       </>}
       <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], other: undefined, op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
         {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
