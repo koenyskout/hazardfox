@@ -4,8 +4,8 @@ import { renderText } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, stepOf, valuesOf, whenText } from '../model/variables'
-import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType } from '../model/types'
+import { allOf, conditionComplete, conditionError, conditionText, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -157,6 +157,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
+          <Field single label="Instances" hint="Tick when the model has several of these (e.g. trains). Conditions on its attributes then read 'some / every / no instance'; with one instance nothing changes.">
+            <label className="check"><input type="checkbox" checked={!!it.many} onChange={(e) => set({ many: e.target.checked || undefined })} /> several instances</label>
+          </Field>
           <Field single label="Attributes" hint="The entity's world variables: its state that can change over time.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />
@@ -230,7 +233,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
             <div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div>
           </div>
-          <Field single label="Variables" hint="These describe the link as a whole (one instance of each entity; if several instances matter, model them separately). Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
+          <Field single label="Variables" hint="These describe the link as a whole. If an end has several instances (entity ticked 'several instances', or cardinality *), conditions on these read 'some / every / no link'. Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />
           </Field>
@@ -522,6 +525,7 @@ function ConditionRow({ c, onChange, onRemove, vars, word }: { c: Condition; onC
   return (
     <div className="cond">
       <span className="cond-word">{word}</span>
+      {quantOf(p, c) && <Select title="For how many instances this holds" value={quantOf(p, c)!} onChange={(e) => upd({ quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier })}>{QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}</Select>}
       <Picker options={vars} create={{ label: '+ New variable…', run: () => upd({ variable: addItemInDialog('variable'), state: '', to: '', set: [], op: '=' }) }} onPick={(id) => { const nv = id ? p.items[id] : undefined; upd({ variable: id ?? '', state: '', to: '', set: [], other: undefined, op: nv?.kind === 'variable' && opsFor(nv).includes(c.op) ? c.op : '=' }) }}>
         {v ? <><ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover></> : <span className="muted">variable…</span>}
       </Picker>

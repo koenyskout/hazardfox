@@ -117,6 +117,8 @@ export const CARDINALITIES = ['1', '0..1', '*', '1..*'] as const
 export interface Entity extends Base {
   kind: 'entity'
   operations: string[]
+  /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
+  many?: boolean
 }
 /** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
@@ -205,6 +207,9 @@ export interface Feedback extends Base {
   labelShift: Offset | null
 }
 
+/** How many of the instances of a `many` entity (or links of a many-valued relationship) a condition is about: some of them (default), every one, none. */
+export const QUANTIFIERS = ['some', 'all', 'none'] as const
+export type Quantifier = (typeof QUANTIFIERS)[number]
 /** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
  *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
 export interface Condition {
@@ -216,6 +221,8 @@ export interface Condition {
   text?: string
   /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
   other?: Id
+  /** Only meaningful for variables of a many-instance entity / relationship; absent = `some` */
+  quant?: Quantifier
 }
 export interface Uca extends Base {
   kind: 'uca'

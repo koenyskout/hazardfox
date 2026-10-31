@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condKey, conditionComplete, isGroup, isSetOp, isText, leaves, stepOf, valuesOf } from './variables'
+import { condKey, conditionComplete, isGroup, isSetOp, isText, leaves, quantOf, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -49,7 +49,9 @@ export function condHolds(p: Project, c: Condition, get: (id: Id) => string | un
     const a = get(c.variable), b = get(c.other)
     return a === undefined || a === '' || b === undefined || b === '' ? null : holds(v, { ...c, other: undefined, state: b }, a)
   }
-  return holds(v, c, get(c.variable))
+  const h = holds(v, c, get(c.variable))
+  // A trace lane has one value per variable, standing for all its instances alike; "no instance" then reads as the opposite.
+  return h !== null && quantOf(p, c) === 'none' ? !h : h
 }
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */

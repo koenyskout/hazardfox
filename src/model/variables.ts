@@ -1,4 +1,5 @@
-import { type Condition, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
+import { shortName } from './labels'
+import { type Condition, type Quantifier, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -50,12 +51,47 @@ export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v
 /** Whether the condition is complete enough to appear in a sentence. */
 export const conditionComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
+/** Whether a world variable describes several instances: it belongs to a `many` entity, or to a relationship with a `many` end (entity or cardinality). */
+export function isMany(p: Project, v: Variable): boolean {
+  const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
+  const manyCard = (c: string) => c === '*' || c === '1..*'
+  if (o?.kind === 'entity') return !!o.many
+  if (o?.kind !== 'relationship') return false
+  const e = (id: string) => { const x = p.items[id]; return x?.kind === 'entity' && !!x.many }
+  return e(o.from) || e(o.to) || manyCard(o.fromCard) || manyCard(o.toCard)
+}
+
+/** The quantifier a condition effectively carries: null when it is about a single instance (also for text / variable comparisons), else its own or `some`. */
+export function quantOf(p: Project, c: Condition): Quantifier | null {
+  if (isText(c) || c.other) return null
+  const v = p.items[c.variable]
+  return v?.kind === 'variable' && isMany(p, v) ? c.quant ?? 'some' : null
+}
+export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
+
 export function conditionText(p: Project, c: Condition): string {
+  const q = quantOf(p, c)
+  if (q) return quantText(p, c, q)
+  return plainText(p, c)
+}
+
+/** "speed of every Train is 0", "some Train at Station", "no Train at Station", "some link where distance is under 5". */
+function quantText(p: Project, c: Condition, q: Quantifier): string {
+  const v = p.items[c.variable] as Variable
+  const o = p.items[v.parent!]
+  const w = QUANT_LABELS[q]
+  const name = shortName(p, v)
+  if (o.kind === 'entity') return `${name} of ${w} ${o.title.trim() || 'instance'} ${plainText(p, c).slice(name.length).trim()}`
+  if (!v.title.trim() && c.op === '=' && c.state === 'true') return `${w} ${name}`
+  return `${w} ${o.title.trim() || 'link'} where ${plainText(p, c)}`
+}
+
+function plainText(p: Project, c: Condition): string {
   if (isText(c)) return c.op === '≠' ? `not (${c.text!.trim()})` : c.text!.trim()
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
-  const name = v.title
+  const name = shortName(p, v)
   if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
