@@ -270,6 +270,18 @@ describe('variable types and conditions', () => {
   })
 })
 
+describe('relationship multiplicity', () => {
+  it('only flags many-to-many links that carry formal data', () => {
+    let p = emptyProject()
+    const a = createItem(p, 'entity', { title: 'Train' }); p = a.project
+    const b = createItem(p, 'entity', { title: 'Station' }); p = b.project
+    const r = createItem(p, 'relationship', { from: a.id, to: b.id, fromCard: '*', toCard: '1' }); p = r.project
+    expect(validate(p).some((i) => i.rule === 'relationship-multi')).toBe(false)
+    p = createItem(p, 'variable', { layer: 'domain', parent: r.id, title: 'distance', type: 'range' }).project
+    expect(validate(p).some((i) => i.rule === 'relationship-multi')).toBe(true)
+  })
+})
+
 describe('struct and enum types', () => {
   it('apply a struct as one variable per field, sharing named types', () => {
     const e = createItem(emptyProject(), 'entity', { title: 'Train' })

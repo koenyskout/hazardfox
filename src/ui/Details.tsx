@@ -230,7 +230,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
             <div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div>
           </div>
-          <Field single label="Variables" hint="Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
+          <Field single label="Variables" hint="These describe the link as a whole (one instance of each entity; if several instances matter, model them separately). Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />
           </Field>
