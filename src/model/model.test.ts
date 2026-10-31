@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
 import { effectiveLosses } from './derived'
-import { applyStructType, blankField, createItem, defineEnumType, defineRangeType, defineStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
+import { applyStructType, blankField, createItem, defineEnumType, defineRangeType, defineStructType, deleteStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
 import { emptyProject, makeItem } from './create'
 import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
@@ -284,6 +284,16 @@ describe('struct and enum types', () => {
     p = defineStructType(p, 'Train', { fields: [{ ...blankField(), name: 'door', structType: 'Door' }, { ...blankField(), name: 'self', structType: 'Train' }] })
     p = applyStructType(p, 'Train', 't', e.id)
     expect(Object.values(p.items).filter((i) => i.kind === 'variable' && i.title.startsWith('t.door.')).length).toBe(2)
+    // variables follow the type: add / rename / remove fields
+    const doorT = p.structTypes!.Door
+    p = defineStructType(p, 'Door', { fields: [{ ...doorT.fields[0], name: 'state' }, doorT.fields[1], { ...blankField(), name: 'locked', type: 'boolean' }] })
+    const titles = () => Object.values(p.items).filter((i): i is Variable => i.kind === 'variable').map((v) => v.title).sort()
+    expect(titles()).toEqual(['front.gap', 'front.locked', 'front.state', 't.door.gap', 't.door.locked', 't.door.state'])
+    p = defineStructType(p, 'Door', { fields: [doorT.fields[1]] })
+    expect(titles()).toEqual(['front.gap', 't.door.gap'])
+    p = deleteStructType(p, 'Door')
+    expect(titles()).toEqual(['front.gap', 't.door.gap'])
+    expect(Object.values(p.items).some((i) => i.kind === 'variable' && i.struct)).toBe(false)
   })
 })
 

@@ -143,6 +143,8 @@ export interface Variable extends Base {
   max: number | null
   /** Name of the project's `rangeTypes` entry that `min`/`max`/`unit` follow ('' = custom bounds) */
   rangeType: string
+  /** Set on variables generated from a struct type: the instance (`id`, `name`), the root type and the field `path`; the variable follows the type */
+  struct?: { id: string; type: string; name: string; path: string }
   /** Name of the project's `enumTypes` entry that `states` follow ('' = own states) */
   enumType: string
   /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */

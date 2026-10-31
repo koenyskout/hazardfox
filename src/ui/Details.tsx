@@ -199,6 +199,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <RulesSummary it={it} set={set} />
             </Field>
           )}
+          {it.struct && <p className="hint">Field <b>{it.struct.path}</b> of struct type <b>{it.struct.type}</b> (instance {it.struct.name}): it follows the type, so change its type, states and title there (Domain model → Types).</p>}
           <VariableLinks v={it} />
           <Field single label="Type">
             <Select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>

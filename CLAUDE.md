@@ -69,7 +69,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - Existing files must still load: extend defaults in `deserialize` instead of bumping `schema` unless incompatible.
 - Match surrounding style: terse code, few comments, no new dependencies without need.
 
-- Named reusable types (project-level, saved in the file): `rangeTypes` (bounds/unit; variable `rangeType`), `enumTypes` (state lists; variable `enumType`) — variables sharing one follow its edits (`updateItem`, `define/rename/delete*Type` in `ops.ts`); `structTypes` (fields, each with a type, possibly another struct type; cycles guarded) are templates: `applyStructType` creates one world variable per field titled `<name>.<field>`, with no live link back. Edited in Domain model → Types.
+- Named reusable types (project-level, saved in the file): `rangeTypes` (bounds/unit; variable `rangeType`), `enumTypes` (state lists; variable `enumType`) — variables sharing one follow its edits (`updateItem`, `define/rename/delete*Type` in `ops.ts`); `structTypes` (fields, each with a type, possibly another struct type; cycles guarded) are applied with `applyStructType`: one world variable per field titled `<name>.<field>`, linked by `Variable.struct` and kept in line with the type by `syncStructs` (add/rename/remove fields, retype; deleting the type unlinks). Edited in Domain model → Types.
 
 ## AI review (Ollama decision model)
 Settings in localStorage `hazardfox.decision` (endpoint, model; default `d1`, Liquid AI d1-3B). `llm/ollama.ts` calls

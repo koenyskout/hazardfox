@@ -3,7 +3,7 @@ import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
-import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, StructType } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, StructType, Variable } from './types'
 
 type Draft = Project
 
@@ -117,32 +117,61 @@ export const deleteRangeType = (p: Project, name: string): Project =>
   })
 
 export const blankField = (): StructField => ({ name: '', type: 'enum', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' })
-export const defineStructType = (p: Project, name: string, t: StructType): Project => produce(p, (d) => { (d.structTypes ??= {})[name] = t })
+export const defineStructType = (p: Project, name: string, t: StructType): Project => syncStructs(produce(p, (d) => { (d.structTypes ??= {})[name] = t }))
 export const renameStructType = (p: Project, from: string, to: string): Project => {
   if (!to || to === from || !p.structTypes?.[from] || p.structTypes[to]) return p
-  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from]; for (const t of Object.values(d.structTypes!)) for (const f of t.fields) if (f.structType === from) f.structType = to })
+  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from]; for (const t of Object.values(d.structTypes!)) for (const f of t.fields) if (f.structType === from) f.structType = to; for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.struct?.type === from) it.struct.type = to })
 }
-export const deleteStructType = (p: Project, name: string): Project => produce(p, (d) => { delete d.structTypes?.[name]; for (const t of Object.values(d.structTypes ?? {})) for (const f of t.fields) if (f.structType === name) f.structType = '' })
+/** Remove a struct type; instances of it, or of types containing it, are unlinked and keep their variables. */
+export const deleteStructType = (p: Project, name: string): Project => {
+  const uses = (t: string, seen: string[] = []): boolean => t === name || (!seen.includes(t) && (p.structTypes?.[t]?.fields ?? []).some((f) => !!f.structType && uses(f.structType, [...seen, t])))
+  return produce(p, (d) => {
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.struct && uses(it.struct.type)) delete it.struct
+    delete d.structTypes?.[name]
+    for (const t of Object.values(d.structTypes ?? {})) for (const f of t.fields) if (f.structType === name) f.structType = ''
+  })
+}
 /** Struct types that can be used as a field of `name` without making it contain itself. */
 export const nestableStructs = (p: Project, name: string): string[] => {
   const uses = (t: string, seen: string[] = []): boolean => t === name || (!seen.includes(t) && (p.structTypes?.[t]?.fields ?? []).some((f) => !!f.structType && uses(f.structType, [...seen, t])))
   return Object.keys(p.structTypes ?? {}).filter((t) => !uses(t)).sort()
 }
 
-/** Apply a struct type: one world variable per field under `parent`, titled "<name>.<field>", sharing the field's range / enum type. */
-export function applyStructType(p: Project, type: string, name: string, parent: Id, seen: string[] = []): Project {
+/** The plain (non-struct) fields of a struct type, nested ones flattened with dotted paths. */
+const structLeaves = (p: Project, type: string, prefix = '', seen: string[] = []): { path: string; f: StructField }[] => {
   const t = p.structTypes?.[type]
-  if (!t || seen.includes(type)) return p
+  if (!t || seen.includes(type)) return []
+  return t.fields.filter((x) => x.name.trim()).flatMap((f) => (f.structType ? structLeaves(p, f.structType, prefix + f.name + '.', [...seen, type]) : [{ path: prefix + f.name, f }]))
+}
+
+/** Bring every struct instance in line with its type: update, add and remove field variables; instances of a deleted type are unlinked (variables stay). */
+export function syncStructs(p: Project): Project {
+  const inst = new Map<string, Variable[]>()
+  for (const it of Object.values(p.items)) if (it.kind === 'variable' && it.struct) inst.set(it.struct.id, [...(inst.get(it.struct.id) ?? []), it])
   let q = p
-  for (const f of t.fields.filter((x) => x.name.trim())) {
-    if (f.structType) { q = applyStructType(q, f.structType, `${name}.${f.name}`, parent, [...seen, type]); continue }
-    const patch: Patch<'variable'> = { layer: 'domain', parent, title: `${name}.${f.name}`, type: f.type, states: [...f.states], min: f.min, max: f.max, unit: f.unit }
-    const r = createItem(q, 'variable', patch)
-    q = r.project
-    if (f.type === 'range' && f.rangeType && q.rangeTypes?.[f.rangeType]) q = updateItem(q, r.id, { rangeType: f.rangeType })
-    if (f.type === 'enum' && f.enumType && q.enumTypes?.[f.enumType]) q = updateItem(q, r.id, { enumType: f.enumType })
+  for (const vars of inst.values()) {
+    const { id, type, name } = vars[0].struct!
+    if (!q.structTypes?.[type]) { q = produce(q, (d) => { for (const v of vars) delete (d.items[v.id] as Variable).struct }); continue }
+    const want = structLeaves(q, type)
+    const have = new Map(vars.map((v) => [v.struct!.path, v]))
+    for (const { path, f } of want) {
+      const patch: Patch<'variable'> = { title: `${name}.${path}`, type: f.type, states: [...f.states], min: f.min, max: f.max, unit: f.unit, rangeType: f.type === 'range' && q.rangeTypes?.[f.rangeType] ? f.rangeType : '', enumType: f.type === 'enum' && q.enumTypes?.[f.enumType] ? f.enumType : '' }
+      const v = have.get(path)
+      if (v) q = updateItem(q, v.id, patch)
+      else q = createItem(q, 'variable', { ...patch, layer: 'domain', parent: vars[0].parent, struct: { id, type, name, path } }).project
+    }
+    const gone = vars.filter((v) => !want.some((w) => w.path === v.struct!.path)).map((v) => v.id)
+    if (gone.length) q = deleteItems(q, gone)
   }
   return q
+}
+
+/** Apply a struct type to an owner: its field variables stay linked to the type and follow its edits. */
+export function applyStructType(p: Project, type: string, name: string, parent: Id): Project {
+  const id = crypto.randomUUID()
+  let q = p
+  for (const { path } of structLeaves(p, type)) q = createItem(q, 'variable', { layer: 'domain', parent, title: `${name}.${path}`, struct: { id, type, name, path } }).project
+  return syncStructs(q)
 }
 
 export function updateMeta(p: Project, patch: Partial<Project['meta']>): Project {
