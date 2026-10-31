@@ -12,8 +12,8 @@ export function crossingExampleProject(): Project {
 
   const L1 = add('loss', { title: 'Collision between a train and a road vehicle or pedestrian' })
   const L2 = add('loss', { title: 'Road traffic is blocked unnecessarily' })
-  const H1 = add('hazard', { title: 'Road users are on the crossing while a train is on or about to enter it', lossLinks: [L1] })
-  const H2 = add('hazard', { title: 'Gate stays closed although no train is near', lossLinks: [L2] })
+  const H1 = add('hazard', { title: 'Gate is open while some train is approaching or on the crossing', lossLinks: [L1] })
+  const H2 = add('hazard', { title: 'Gate is closed while no train is near the crossing', lossLinks: [L2] })
   add('constraint', { title: 'Gate must be closed whenever some train is approaching or on the crossing', hazards: [H1] })
   add('constraint', { title: 'Gate must open when no train is near the crossing', hazards: [H2] })
 
@@ -39,6 +39,8 @@ export function crossingExampleProject(): Project {
   add('variable', { layer: 'belief', parent: ctrl, about: vGate, title: 'Gate position', states: ['open', 'closed', 'unknown'] })
 
   const c = (variable: Id, state: string, quant?: Quantifier): Condition => ({ variable, op: '=', state, ...(quant ? { quant } : {}) })
+  b.set(H1, { conditions: [c(vGate, 'open'), c(vNear, 'true', 'some')] })
+  b.set(H2, { conditions: [c(vGate, 'closed'), c(vNear, 'true', 'none')] })
   const u1 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], conditions: [c(vPos, 'approaching', 'some')], constraint: 'Controller must not raise the gate while some train is approaching' })
   const u2 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], conditions: [c(vPos, 'on crossing', 'some')], constraint: 'Controller must not raise the gate while some train is on the crossing' })
   add('uca', { ca: lower, guide: 'not-provided', hazards: [H1], conditions: [c(vNear, 'true', 'some')], constraint: 'Controller must lower the gate when some train approaches the crossing' })
