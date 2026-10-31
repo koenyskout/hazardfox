@@ -15,7 +15,7 @@ import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
 import { LayerIcon, LayerTag } from './Icon'
-import { RangeCell, RangeTypes } from './RangeTypes'
+import { RangeCell, RangeTypes, StructTypes } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
@@ -93,7 +93,7 @@ export function Domain() {
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
-        <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length + Object.keys(p.enumTypes ?? {}).length}</i></button>
+        <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length + Object.keys(p.enumTypes ?? {}).length + Object.keys(p.structTypes ?? {}).length}</i></button>
       </div>
       {tab === 'diagram' && <DomainDiagram />}
       {tab === 'entity' && (
@@ -119,7 +119,7 @@ export function Domain() {
             ]} />
         </>
       )}
-      {tab === 'types' && <RangeTypes />}
+      {tab === 'types' && <><RangeTypes /><StructTypes /></>}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
           columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}

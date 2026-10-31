@@ -3,7 +3,7 @@ import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
-import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, StructType } from './types'
 
 type Draft = Project
 
@@ -115,6 +115,29 @@ export const deleteRangeType = (p: Project, name: string): Project =>
     delete d.rangeTypes?.[name]
     for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === name) it.rangeType = ''
   })
+
+export const blankField = (): StructField => ({ name: '', type: 'enum', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' })
+export const defineStructType = (p: Project, name: string, t: StructType): Project => produce(p, (d) => { (d.structTypes ??= {})[name] = t })
+export const renameStructType = (p: Project, from: string, to: string): Project => {
+  if (!to || to === from || !p.structTypes?.[from] || p.structTypes[to]) return p
+  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from] })
+}
+export const deleteStructType = (p: Project, name: string): Project => produce(p, (d) => { delete d.structTypes?.[name] })
+
+/** Apply a struct type: one world variable per field under `parent`, titled "<name>.<field>", sharing the field's range / enum type. */
+export function applyStructType(p: Project, type: string, name: string, parent: Id): Project {
+  const t = p.structTypes?.[type]
+  if (!t) return p
+  let q = p
+  for (const f of t.fields.filter((x) => x.name.trim())) {
+    const patch: Patch<'variable'> = { layer: 'domain', parent, title: `${name}.${f.name}`, type: f.type, states: [...f.states], min: f.min, max: f.max, unit: f.unit }
+    const r = createItem(q, 'variable', patch)
+    q = r.project
+    if (f.type === 'range' && f.rangeType && q.rangeTypes?.[f.rangeType]) q = updateItem(q, r.id, { rangeType: f.rangeType })
+    if (f.type === 'enum' && f.enumType && q.enumTypes?.[f.enumType]) q = updateItem(q, r.id, { enumType: f.enumType })
+  }
+  return q
+}
 
 export function updateMeta(p: Project, patch: Partial<Project['meta']>): Project {
   return produce(p, (d) => {

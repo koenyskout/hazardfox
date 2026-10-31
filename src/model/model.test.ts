@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
 import { effectiveLosses } from './derived'
-import { createItem, defineRangeType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
+import { applyStructType, blankField, createItem, defineEnumType, defineRangeType, defineStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
 import { emptyProject, makeItem } from './create'
 import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
@@ -267,6 +267,20 @@ describe('variable types and conditions', () => {
     const q = deserialize(JSON.stringify(old))
     const u = Object.values(q.items).find((i) => i.kind === 'uca')
     expect(u && u.kind === 'uca' && u.conditions[0].op).toBe('≠')
+  })
+})
+
+describe('struct and enum types', () => {
+  it('apply a struct as one variable per field, sharing named types', () => {
+    const e = createItem(emptyProject(), 'entity', { title: 'Train' })
+    let p = defineRangeType(defineEnumType(e.project, 'OnOff', ['on', 'off']), 'Pct', { min: 0, max: 100, unit: '%' })
+    p = defineStructType(p, 'Door', { fields: [{ ...blankField(), name: 'open', type: 'enum', enumType: 'OnOff' }, { ...blankField(), name: 'gap', type: 'range', rangeType: 'Pct' }, blankField()] })
+    p = applyStructType(p, 'Door', 'front', e.id)
+    const vs = Object.values(p.items).filter((i): i is Variable => i.kind === 'variable')
+    expect(vs.map((v) => v.title).sort()).toEqual(['front.gap', 'front.open'])
+    expect(vs.find((v) => v.title === 'front.open')!.states).toEqual(['on', 'off'])
+    expect(vs.find((v) => v.title === 'front.gap')!.max).toBe(100)
+    expect(deserialize(serialize(p)).structTypes!.Door.fields).toHaveLength(3)
   })
 })
 

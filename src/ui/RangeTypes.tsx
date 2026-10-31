@@ -1,9 +1,9 @@
 import { Select } from './Select'
 import { useState } from 'react'
 import { StringList } from './StringList'
-import { defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
+import { applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
 import { describeStates } from '../model/variables'
-import type { RangeType, Variable } from '../model/types'
+import type { RangeType, StructField, Variable, VariableType } from '../model/types'
 import { commit, useProject } from './hooks'
 import { Field, NumberInput, Ref, TextInput } from './Fields'
 import { Modal } from './Modal'
@@ -143,5 +143,67 @@ function EnumTypes() {
         })}
       </tbody>
     </table>
+  )
+}
+
+/** Domain model Types: composite struct types (fields with a type each) to apply to entities and relationships. */
+export function StructTypes() {
+  const p = useProject()
+  const names = Object.keys(p.structTypes ?? {}).sort()
+  const upd = (n: string, fields: StructField[]) => commit((q) => defineStructType(q, n, { fields }))
+  const add = () => { const n = window.prompt('Name of the struct type (e.g. Position)')?.trim(); if (n && !p.structTypes?.[n]) commit((q) => defineStructType(q, n, { fields: [blankField()] })) }
+  return (
+    <div>
+      <div className="toolbar"><button className="btn" onClick={add}><Icon name="plus" size={12} /> Struct type</button></div>
+      {!names.length ? <p className="empty">Struct types group fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field.</p> : names.map((n) => {
+        const fields = p.structTypes![n].fields
+        const set = (i: number, patch: Partial<StructField>) => upd(n, fields.map((f, j) => (j === i ? { ...f, ...patch } : f)))
+        return (
+          <table key={n} className="grid">
+            <thead><tr>
+              <th colSpan={2}><input defaultValue={n} onBlur={(e) => e.target.value.trim() !== n && commit((q) => renameStructType(q, n, e.target.value.trim()))} /></th>
+              <th><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete type</button></th>
+            </tr></thead>
+            <tbody>
+              {fields.map((f, i) => (
+                <tr key={i}>
+                  <td><input value={f.name} placeholder="Field" onChange={(e) => set(i, { name: e.target.value })} /></td>
+                  <td>
+                    <Select value={f.type === 'range' && f.rangeType ? 'range:' + f.rangeType : f.type === 'enum' && f.enumType ? 'enum:' + f.enumType : f.type}
+                      onChange={(e) => { const [t, nm = ''] = e.target.value.split(':'); const r = nm && t === 'range' ? p.rangeTypes?.[nm] : null; const en = nm && t === 'enum' ? p.enumTypes?.[nm] : null; set(i, { type: t as VariableType, rangeType: t === 'range' ? nm : '', enumType: t === 'enum' ? nm : '', ...(r ?? {}), ...(en ? { states: [...en] } : {}) }) }}>
+                      <option value="boolean">boolean</option>
+                      <option value="enum">enum (own states)</option>
+                      <option value="range">range (own bounds)</option>
+                      {Object.keys(p.enumTypes ?? {}).map((x) => <option key={'e' + x} value={'enum:' + x}>{x} (enum type)</option>)}
+                      {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (range type)</option>)}
+                    </Select>
+                    {f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
+                  </td>
+                  <td><button className="btn" onClick={() => upd(n, fields.filter((_, j) => j !== i))}>×</button></td>
+                </tr>
+              ))}
+              <tr><td colSpan={3}><button className="btn" onClick={() => upd(n, [...fields, blankField()])}>+ Field</button></td></tr>
+            </tbody>
+          </table>
+        )
+      })}
+    </div>
+  )
+}
+
+/** "+ struct…" for an owner: pick a struct type and a name to create its field variables. */
+export function ApplyStruct({ parent }: { parent: string }) {
+  const p = useProject()
+  const names = Object.keys(p.structTypes ?? {}).sort()
+  if (!names.length) return null
+  return (
+    <Select value="" onChange={(e) => {
+      const t = e.target.value
+      const n = t && window.prompt(`Name of the ${t} (e.g. ${t.toLowerCase()})`)?.trim()
+      if (n) commit((q) => applyStructType(q, t, n, parent))
+    }}>
+      <option value="">+ struct…</option>
+      {names.map((x) => <option key={x}>{x}</option>)}
+    </Select>
   )
 }

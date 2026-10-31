@@ -9,7 +9,7 @@ import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, 
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -159,6 +159,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
         <>
           <Field single label="Attributes" hint="The entity's world variables: its state that can change over time.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
+            <ApplyStruct parent={it.id} />
           </Field>
           <Field single label="Operations (one per line)">
             <textarea rows={2} value={it.operations.join('\n')} onChange={(e) => set({ operations: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) }, 'ops')} />
@@ -230,6 +231,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           </div>
           <Field single label="Variables" hint="Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
+            <ApplyStruct parent={it.id} />
           </Field>
         </>
       )
