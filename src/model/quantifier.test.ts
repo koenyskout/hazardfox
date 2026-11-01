@@ -8,7 +8,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario } from './types'
 
@@ -261,5 +261,17 @@ describe('another instance is a separate instance in traces', () => {
     expect(condHolds(s.p, { ...c, oSame: 't3' }, get, true)).toBeNull()
     const back = deserialize(serialize({ ...s.p, items: { ...s.p.items } }))
     expect(back.items[s.speed]).toBeTruthy()
+  })
+
+  it('a comparison can introduce a second named instance on its compared side', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const c: Condition = { variable: s.speed, op: '>', state: '', as: 't1', other: s.speed, oAs: 't2' }
+    expect(oName(c, 1)).toBe('t2')
+    expect(condInstances(s.p, c).map((x) => [x.name, x.intro, !!x.cmp])).toEqual([['t1', true, false], ['t2', true, true]])
+    expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than speed of t2')
+    const get = getter({ [`${s.speed}@t1`]: '50', [`${s.speed}@t2`]: '40' })
+    expect(condHolds(s.p, c, get, true)).toBe(true)
+    expect(condHolds(s.p, { ...c, oAs: 't3' }, get, true)).toBeNull()
   })
 })

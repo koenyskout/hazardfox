@@ -233,6 +233,9 @@ export interface Condition {
   /** With `other`: the named instances (as `same` / `same2`) of the compared variable, e.g. speed of t1 > speed of t2 */
   oSame?: string
   oSame2?: string
+  /** With `other`: introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
+  oAs?: string
+  oAs2?: string
 }
 export interface Uca extends Base {
   kind: 'uca'

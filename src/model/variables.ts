@@ -87,19 +87,27 @@ export function otherEnd(p: Project, v: Variable): Id | null {
   return many(o.from, o.fromCard) && many(o.to, o.toCard) ? o.to : null
 }
 /** The instances a condition introduces or refers to: [entity, name, introduces]. */
-export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2 }[] {
+export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] {
   const v = isText(c) ? undefined : p.items[c.variable]
   if (v?.kind !== 'variable') return []
   const e1 = boundEntity(p, v), e2 = otherEnd(p, v)
-  const out: { entity: Id; name: string; intro: boolean; end: 1 | 2 }[] = []
+  const out: { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] = []
   if (e1 && instName(c)) out.push({ entity: e1, name: instName(c), intro: c.as !== undefined, end: 1 })
   if (e2 && instName2(c)) out.push({ entity: e2, name: instName2(c), intro: c.as2 !== undefined, end: 2 })
+  const ov = c.other ? p.items[c.other] : undefined
+  if (ov?.kind === 'variable') {
+    const o1 = boundEntity(p, ov), o2 = otherEnd(p, ov)
+    if (o1 && oName(c, 1)) out.push({ entity: o1, name: oName(c, 1), intro: c.oAs !== undefined, end: 1, cmp: true })
+    if (o2 && oName(c, 2)) out.push({ entity: o2, name: oName(c, 2), intro: c.oAs2 !== undefined, end: 2, cmp: true })
+  }
   return out
 }
 /** Trace lane key of a condition about named instances ("<variable>@t1" or "<variable>@t1|c1"), else the variable. */
 export const instLane = (c: Condition): string => (isText(c) ? condKey(c) : instName(c) || instName2(c) ? `${c.variable}@${instName(c)}${instName2(c) ? '|' + instName2(c) : ''}` : c.variable)
 /** Trace lane key of the compared variable of a comparison (`other`), at the instances `oSame` / `oSame2` it names. */
-export const otherLane = (c: Condition): string => { const a = c.oSame?.trim(), b = c.oSame2?.trim(); return c.other && (a || b) ? `${c.other}@${a ?? ''}${b ? '|' + b : ''}` : c.other ?? '' }
+/** The instance name a comparison uses at an end of its compared variable (introduced or referred to). */
+export const oName = (c: Condition, end: 1 | 2) => ((end === 1 ? c.oAs ?? c.oSame : c.oAs2 ?? c.oSame2) ?? '').trim()
+export const otherLane = (c: Condition): string => { const a = oName(c, 1), b = oName(c, 2); return c.other && (a || b) ? `${c.other}@${a ?? ''}${b ? '|' + b : ''}` : c.other ?? '' }
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
 export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
@@ -107,7 +115,7 @@ export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'ev
 /** `earlier`: the conditions before this one; a named some-instance of an entity already named differently there reads "another …" (different names stand for different instances). */
 export function conditionText(p: Project, c: Condition, earlier: Condition[] = []): string {
   const q = quantOf(p, c)
-  const intro = condInstances(p, c).filter((x) => x.intro)
+  const intro = condInstances(p, c).filter((x) => x.intro && !x.cmp)
   const prior = earlier.flatMap((o) => condInstances(p, o))
   // another: it introduces a name for an entity whose instance an earlier condition already named differently
   const another = (end: 1 | 2) => { const x = intro.find((i) => i.end === end); return !!x && prior.some((o) => o.entity === x.entity && o.name !== x.name) }
@@ -148,7 +156,7 @@ function plainText(p: Project, c: Condition): string {
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = shortName(p, v)
-  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[c.oSame?.trim(), c.oSame2?.trim()].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
+  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[oName(c, 1), oName(c, 2)].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }

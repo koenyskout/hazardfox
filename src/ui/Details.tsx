@@ -4,7 +4,7 @@ import { renderText, shortName, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, condInstances, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, condInstances, oName, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Project, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -475,18 +475,19 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
   const decls = conditions.flatMap((c, i) => {
     const v = isText(c) ? undefined : p.items[c.variable]
     if (v?.kind !== 'variable') return []
-    const out: { i: number; end: 1 | 2; name: string; entity: Id | null; quant: Quantifier | null }[] = []
+    const out: { i: number; end: 1 | 2; name: string; entity: Id | null; quant: Quantifier | null; cmp?: boolean }[] = []
     const e1 = quantOf(p, c) && !c.same ? boundEntity(p, v) : null
     if (e1) out.push({ i, end: 1, name: c.as ?? '', entity: e1, quant: quantOf(p, c) })
     const e2 = !c.same2 ? otherEnd(p, v) : null
     if (e2) out.push({ i, end: 2, name: c.as2 ?? '', entity: e2, quant: 'some' })
+    for (const x of condInstances(p, c)) if (x.cmp && x.intro) out.push({ i, end: x.end, name: x.name, entity: x.entity, quant: 'some', cmp: true })
     return out
   })
   if (!decls.length) return null
   const rename = (d: (typeof decls)[number], to: string) => {
     const old = d.name
     onChange(conditions.map((c, i) => {
-      const x = i === d.i ? { ...c, [d.end === 1 ? 'as' : 'as2']: to || undefined } : { ...c }
+      const x = i === d.i ? { ...c, [d.cmp ? (d.end === 1 ? 'oAs' : 'oAs2') : d.end === 1 ? 'as' : 'as2']: to || undefined } : { ...c }
       if (old) { for (const k of ['same', 'same2', 'oSame', 'oSame2'] as const) if (x[k] === old) x[k] = to || undefined }
       return x
     }))
@@ -494,14 +495,14 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
   return (
     <div className="decls">
       {decls.map((d, n) => (
-        <div key={d.i + ':' + d.end} className="decl">
-          <span className="cond-word">{d.end === 2 || (d.quant === 'some' && decls.slice(0, n).some((e) => e.entity === d.entity)) ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
-          {d.end === 1 && (
+        <div key={d.i + ':' + d.end + (d.cmp ? 'c' : '')} className="decl">
+          <span className="cond-word">{(d.end === 2 && !d.cmp) || (d.quant === 'some' && decls.slice(0, n).some((e) => e.entity === d.entity)) ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
+          {d.end === 1 && !d.cmp && (
             <Select value={d.quant ?? 'some'} onChange={(e) => onChange(conditions.map((c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
               {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
             </Select>
           )}
-          {d.end === 2 && <span className="cond-word">some</span>}
+          {(d.end === 2 || d.cmp) && <span className="cond-word">some</span>}
           <span className="chip k-entity">{p.items[d.entity ?? '']?.title.trim() || 'instance'}</span>
           <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />
         </div>
@@ -544,7 +545,7 @@ type Binds = Bind[]
 /** A short unused instance name for an entity: t1, t2, … */
 function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
   const base = (p.items[entity ?? '']?.title.trim()[0] || 'x').toLowerCase()
-  const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2]), ...taken])
+  const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2, o.oAs, o.oAs2, o.oSame, o.oSame2]), ...taken])
   let n = 1
   while (used.has(base + n)) n++
   return base + n
@@ -627,17 +628,25 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
   const otherNames = (ent: Id) => [...new Set(scope.flatMap((o) => (o === c ? [] : condInstances(p, o).filter((x) => x.entity === ent && x.intro).map((x) => x.name))))]
   const otherChoices = (): SubjectChoice[] => !vr ? [] : vars.filter((x) => x.id !== vr.id && x.type === vr.type).flatMap((x) => {
     const e1 = boundEntity(p, x), e2 = otherEnd(p, x)
-    const o1 = e1 ? ['', ...otherNames(e1)] : [''], o2 = e2 ? ['', ...otherNames(e2)] : ['']
-    const word = (e: Id | null, n: string) => !e ? undefined : n ? n : `any ${entityTitle(e)}`
-    return o1.flatMap((a) => o2.map((b) => {
-      const [before, after] = [word(e1, a), word(e2, b)]
-      return { key: `${x.id}|${a}|${b}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => upd({ other: x.id, oSame: a || undefined, oSame2: b || undefined }) }
+    // per end: read at any instance, at a named one, or at one introduced here ("another … than t1")
+    const ends = (e: Id | null, lane: 'oSame' | 'oSame2', as: 'oAs' | 'oAs2', taken: string[]) => {
+      if (!e) return [{ label: undefined as string | undefined, patch: {} }]
+      const names = otherNames(e), t = entityTitle(e), fresh = autoName(p, e, scope, [...names, ...taken])
+      return [
+        { label: `any ${t}`, patch: {} },
+        ...names.map((n) => ({ label: n, patch: { [lane]: n } })),
+        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, patch: { [as]: fresh } })) : [{ label: `some ${t}`, patch: { [as]: fresh } }]),
+      ]
+    }
+    return ends(e1, 'oSame', 'oAs', []).flatMap((a, ai) => ends(e2, 'oSame2', 'oAs2', Object.values(a.patch)).map((b, bi) => {
+      const [before, after] = [a.label, b.label]
+      return { key: `${x.id}|${ai}|${bi}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => upd({ other: x.id, oSame: undefined, oSame2: undefined, oAs: undefined, oAs2: undefined, ...a.patch, ...b.patch }) }
     }))
   })
-  const instOf = (end: 1 | 2) => { const e = ov?.kind === 'variable' ? (end === 1 ? boundEntity(p, ov) : otherEnd(p, ov)) : null; return e ? (c[end === 1 ? 'oSame' : 'oSame2'] ?? `any ${entityTitle(e)}`) : '' }
+  const instOf = (end: 1 | 2) => { const e = ov?.kind === 'variable' ? (end === 1 ? boundEntity(p, ov) : otherEnd(p, ov)) : null; return e ? (oName(c, end) || `any ${entityTitle(e)}`) : '' }
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const toVar = () => vr && upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' })
-  const toValue = () => vr && upd({ other: undefined, oSame: undefined, oSame2: undefined, state: '', to: '', op: opsFor(vr).includes(c.op) ? c.op : '=' })
+  const toValue = () => vr && upd({ other: undefined, oSame: undefined, oSame2: undefined, oAs: undefined, oAs2: undefined, state: '', to: '', op: opsFor(vr).includes(c.op) ? c.op : '=' })
   const swap = (title: string, run: () => void) => <button type="button" className="btn" title={title} style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={run}>⇄</button>
   const valueInput = (key: 'state' | 'to', placeholder: string) =>
     values ? (
