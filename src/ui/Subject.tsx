@@ -43,7 +43,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
   const bs = [...new Set(inVar.map((c) => c.before ?? ''))], as = [...new Set(inVar.map((c) => c.after ?? ''))]
   const two = stage !== null && !words.length && bs.length > 1 && as.length > 1
   const [curB, curA] = [pb ?? bs[0], pa ?? as[0]]
-  const own = (t: string) => { if (!both) return t; const x = ` (${shortName(p, both.variable)})`; return t.endsWith(' than' + x) ? t.slice(0, -x.length) + ' the earlier one' : t.split(x).join('') }
+  const own = (t: string) => { if (!both) return t; const x = ` (${shortName(p, both.variable)})`; return t.split(x).join('') }
   const both = inVar.find((c) => (c.before ?? '') === curB && (c.after ?? '') === curA)
   const rows: { key: string; choice: SubjectChoice; more: number }[] = two ? [] : grouped
     ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 })).sort((a, b) => (owner(a.choice.variable) ? 0 : 1) - (owner(b.choice.variable) ? 0 : 1) || labels[owner(a.choice.variable)]?.localeCompare(labels[owner(b.choice.variable)] ?? '') || 0)

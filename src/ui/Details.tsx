@@ -466,7 +466,8 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
 
 /** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
 function ConditionList({ conditions, onChange, vars, head }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; head: ReactNode }) {
-  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(g.of.filter((w): w is Condition => !isGroup(w)))} vars={vars} head={head} flat scope={conditions} /></div>
+  const p = useProject()
+  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of.filter((w): w is Condition => !isGroup(w))))} vars={vars} head={head} flat scope={conditions} /></div>
 }
 
 /** The instances the conditions talk about (an entity with several instances), one line each: quantifier, entity, name. Edits apply to the condition that introduces the instance; conditions refer to it by name. */
@@ -496,7 +497,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
     <div className="decls">
       {decls.map((d, n) => (
         <div key={d.i + ':' + d.end + (d.cmp ? 'c' : '')} className="decl">
-          <span className="cond-word">{(d.end === 2 && !d.cmp) || (d.quant === 'some' && decls.slice(0, n).some((e) => e.entity === d.entity)) ? 'and another' : d.quant === 'some' ? (n ? 'and' : 'There is') : d.quant === 'all' ? (n ? 'and for' : 'For') : (n ? 'and' : 'There is')}</span>
+          <span className="cond-word">{d.quant === 'all' ? (n ? 'and for' : 'For') : n ? 'and' : 'There is'}</span>
           {d.end === 1 && !d.cmp && (
             <Select value={d.quant ?? 'some'} onChange={(e) => onChange(conditions.map((c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
               {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
@@ -549,6 +550,20 @@ function autoName(p: Project, entity: Id | null, scope: Condition[], taken: stri
   let n = 1
   while (used.has(base + n)) n++
   return base + n
+}
+/** Every instance a condition introduces gets a name, so conditions and traces can always refer to it. */
+function nameInstances(p: Project, cs: Condition[]): Condition[] {
+  const out = cs.map((c) => ({ ...c }))
+  for (const c of out) {
+    const v = isText(c) ? undefined : p.items[c.variable]
+    if (v?.kind !== 'variable') continue
+    const e1 = quantOf(p, c) && !c.same ? boundEntity(p, v) : null
+    if (e1 && !c.as) c.as = autoName(p, e1, out)
+    const e2 = !c.same2 ? otherEnd(p, v) : null
+    if (e2 && !c.as2) c.as2 = autoName(p, e2, out)
+    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, out)
+  }
+  return out
 }
 const withName = (x: Condition, bind: Bind): Condition => ({ ...x, [bind.end === 1 ? 'as' : 'as2']: bind.as })
 
