@@ -1,6 +1,7 @@
 import { StructViewToggle, useStructView } from './structView'
 import type { ItemOf } from '../model/types'
 import { useState } from 'react'
+import { operationsOf } from '../model/operations'
 import { clusterStructs, isPredicate, structPath } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { describeStates, whenTexts } from '../model/variables'
@@ -103,7 +104,7 @@ export function Domain() {
       {tab === 'entity' && (
         <TreeTable kind="entity" extraHeader="Attributes (variables) / operations"
           empty="Entities model the things in the domain: controllers, controlled processes, devices, data…"
-          extra={(e) => <span className="muted">{itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} attr · {e.operations.length} ops</span>} />
+          extra={(e) => <span className="muted">{itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).length} attr · {operationsOf(p, e.id).length} ops</span>} />
       )}
       {tab === 'variable' && (
         <>

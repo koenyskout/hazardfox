@@ -59,7 +59,7 @@ export function DomainDiagram() {
     setAvail(el.clientWidth)
     return () => ro.disconnect()
   }, [layout])
-  const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { to?: string }).to, (i as { operations?: string[] }).operations, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
+  const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'operation' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { entity?: string }).entity, (i as { effects?: unknown }).effects, (i as { to?: string }).to, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
   useEffect(() => {
     let live = true
     layoutDomain(p, labels).then((l) => live && (setLayout(l), setErr('')), (e) => live && setErr(String(e)))

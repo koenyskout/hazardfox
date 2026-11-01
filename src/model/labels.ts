@@ -9,6 +9,7 @@ export const PREFIX: Record<Kind, string> = {
   requirement: 'R',
   assumption: 'A',
   entity: 'E',
+  operation: 'OP',
   relationship: 'REL',
   variable: 'V',
   node: 'CS',
@@ -49,11 +50,12 @@ export function computeLabels(p: Project): Labels {
   }
   for (const x of itemsOfKind(p, 'variable')) if (!out[x.id]) out[x.id] = `V-${++v}`
 
-  const flat = (kind: 'relationship' | 'ca' | 'feedback' | 'assumption') =>
+  const flat = (kind: 'relationship' | 'operation' | 'ca' | 'feedback' | 'assumption') =>
     itemsOfKind(p, kind)
       .sort((a, b) => a.rank - b.rank)
       .forEach((x, i) => (out[x.id] = `${PREFIX[kind]}-${i + 1}`))
   flat('relationship')
+  flat('operation')
   flat('ca')
   flat('feedback')
   flat('assumption')

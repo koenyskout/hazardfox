@@ -1,5 +1,6 @@
 import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
+import { effectsOf, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
 import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
@@ -52,7 +53,7 @@ export function clockAt(p: Project, t: Trace, i: number): Clock {
   return {
     since(on) {
       if (!ok) return null
-      for (let k = i; k >= 0; k--) if (t.steps[k].events.some((e) => e.on === on && e.what === 'occurs')) return times[i]! - times[k]!
+      for (let k = i; k >= 0; k--) if (t.steps[k].events.some((e) => isOccurrence(p, e, on))) return times[i]! - times[k]!
       return null
     },
     held(c, strict) {
@@ -124,7 +125,12 @@ export function ruleValue(p: Project, v: Variable, get: Getter): string | undefi
 
 /** State at step i, with refined world variables (and a controller's beliefs about them, from its beliefs about the parts) computed by their rules. */
 export function traceState(p: Project, t: Trace, i: number): Record<Id, string> {
-  const raw = stateAt(t, i)
+  // effects of operations that occurred (directly or through a control action) apply before the values set at the same step
+  const raw: Record<Id, string> = {}
+  for (const s of t.steps.slice(0, i + 1)) {
+    for (const e of s.events) if (e.what === 'occurs') for (const ef of effectsOf(p, e.on)) if (ef.variable && ef.state !== '') raw[ef.variable] = ef.state
+    Object.assign(raw, s.values)
+  }
   const out = { ...raw }
   const vars = itemsOfKind(p, 'variable')
   if (!vars.some((v) => v.rules.length)) return out

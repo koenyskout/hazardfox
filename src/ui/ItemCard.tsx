@@ -14,6 +14,7 @@ import { isComputed } from './hooks'
 import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 import { paramSummary } from '../model/params'
+import { operationsOf } from '../model/operations'
 import { describeStates } from '../model/variables'
 import { VARIABLE_TYPE_LABELS, type VariableLayer } from '../model/types'
 
@@ -129,7 +130,7 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       break
     }
     case 'entity':
-      row('Operations', list(it.operations))
+      row('Operations', list(operationsOf(p, it.id).map((o) => o.title)))
       break
     case 'variable': {
       const parts = refines(p, it)

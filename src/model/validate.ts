@@ -165,7 +165,7 @@ export function validate(p: Project): Issue[] {
 
   for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter((c) => c.event)) {
     const e = p.items[c.event!]
-    if (e && e.kind !== 'ca' && e.kind !== 'feedback') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action or feedback`)
+    if (e && e.kind !== 'ca' && e.kind !== 'feedback' && e.kind !== 'operation') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action, feedback or operation`)
   }
   for (const ca of itemsOfKind(p, 'ca')) {
     const names = ca.params.map((x) => x.name.trim())

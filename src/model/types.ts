@@ -116,10 +116,19 @@ export const CARDINALITIES = ['1', '0..1', '*', '1..*'] as const
 /** Domain model entity (tree: a child may be a part/specialisation of its parent). Its attributes are its world variables V(e). */
 export interface Entity extends Base {
   kind: 'entity'
-  operations: string[]
+  /** Older files and builders: operation names; `deserialize` turns them into operation items. */
+  operations?: string[]
   /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
   many?: boolean
 }
+/** Something an entity can do or undergo (e.g. Gate: lower). Optionally with effects on its world variables; a control action may realize it, and traces apply its effects when it occurs. */
+export interface Operation extends Base {
+  kind: 'operation'
+  entity: Id
+  effects: Effect[]
+}
+/** After the operation, world variable `variable` has value `state`. */
+export interface Effect { variable: Id; state: string }
 /** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
   kind: 'relationship'
@@ -193,8 +202,8 @@ export interface ControlAction extends Base {
   affects: Id[]
   /** Typed parameters the action carries (optional) */
   params: Param[]
-  /** Optional domain operation (`<entityId>:<operation>`) */
-  operation: string
+  /** Optional domain operation this action realizes */
+  operation: Id | null
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
   actuator: string
   /** Guide words that make no sense for this control action (with a reason); not to be analysed */
@@ -336,6 +345,7 @@ export type Item =
   | Requirement
   | Assumption
   | Entity
+  | Operation
   | Relationship
   | Variable
   | CsNode
@@ -356,6 +366,7 @@ export const KIND_NAMES: Record<Kind, string> = {
   requirement: 'Requirement',
   assumption: 'Assumption',
   entity: 'Entity',
+  operation: 'Operation',
   relationship: 'Relationship',
   variable: 'Variable',
   node: 'Control structure element',

@@ -1,6 +1,7 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import { clusterStructs, predicateOf, structPath, variablesIn } from './formal'
 import { variableName } from './labels'
+import { operationsOf } from './operations'
 import type { Pt } from './structure'
 import { itemsOfKind } from './tree'
 import type { Id, Labels, Project } from './types'
@@ -30,11 +31,12 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
       })
       attrs.push({ id: v.id, text: v.struct ? v.struct.path.split('.').pop()! : variableName(p, v), detail: v.type === 'enum' && v.states.length > 3 ? `: ${v.states.slice(0, 3).join(' | ')} …` : `: ${describeStates(v)}`, indent: path.length })
     })
+    const ops = operationsOf(p, e.id).map((o) => o.title)
     const head = labels[e.id] ?? ''
     const title = e.title.trim() || '(untitled)'
-    const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : '')), ...e.operations.map((o) => o + '()')].map((s) => s.length * DOM.charW + 2 * DOM.pad))
-    const rows = attrs.length + e.operations.length
-    boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + (e.operations.length ? 8 : 0) + 4, head, title, attrs, ops: e.operations }
+    const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : '')), ...ops.map((o) => o + '()')].map((s) => s.length * DOM.charW + 2 * DOM.pad))
+    const rows = attrs.length + ops.length
+    boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + (ops.length ? 8 : 0) + 4, head, title, attrs, ops }
   }
   const edges: ElkExtendedEdge[] = []
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}

@@ -16,6 +16,7 @@ export const VIEW_OF: Record<Kind, View> = {
   requirement: 'requirements',
   assumption: 'overview',
   entity: 'domain',
+  operation: 'domain',
   relationship: 'domain',
   variable: 'domain',
   node: 'structure',

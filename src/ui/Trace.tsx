@@ -70,7 +70,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const addCustom = (id: Id | null) => { const v = id ? p.items[id] : null; if (v?.kind !== 'variable') return; const n = prompt(`Instance name${itemsOfKind(p, 'relationship').some((r) => r.id === v.parent) ? 's (e.g. t1 or t1|c1 for both ends)' : ''}`)?.trim(); if (n) save(s, { ...t, lanes: [...new Set([...t.lanes, `${id}@${n}`])] }) }
   const actionAt = witness(p, s)?.step ?? -1
   const draft = async () => { if (!t.steps.length || (await askConfirm('The current trace is replaced by a drafted one.', { title: 'Draft a new trace?', confirm: 'Replace' }))) save(s, draftTrace(p, s)) }
-  const events = [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback')]
+  const events = [...itemsOfKind(p, 'ca'), ...itemsOfKind(p, 'feedback'), ...itemsOfKind(p, 'operation')]
   const lanePick = itemsOfKind(p, 'variable').filter((v) => !t.lanes.includes(v.id))
   // Conditions in words are boolean lanes keyed by their text.
   const words = t.lanes.filter((k) => laneText(k) !== null).map((k) => ({ ...makeItem('variable', { title: renderText(labels, laneText(k)!), type: 'boolean' }), id: k }))
@@ -141,7 +141,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
               {words.map((v) => lane({ key: v.id, v, names: [] }, <span className="lane-words">{v.title}</span>))}
               <tr className="layer-row"><th colSpan={t.steps.length + 1}>Events</th></tr>
               <tr>
-                <th className="muted">Control actions & feedback</th>
+                <th className="muted">Events</th>
                 {t.steps.map((st, i) => (
                   <td key={i} className={i === actionAt ? 'act' : ''}>
                     {st.events.map((e, k) => (

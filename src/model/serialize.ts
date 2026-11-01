@@ -1,6 +1,7 @@
 import { emptyProject, makeItem } from './create'
 import { addBelief, addSignal, predicateOf } from './formal'
 import { createItem } from './ops'
+import { migrateOperations } from './operations'
 import { groupKey } from './tree'
 import { allOf, isGroup, mapLeaves, nameAllInstances } from './variables'
 import { KINDS, type Condition, type Id, type Item, type NodeRole, type Project, type VariableType } from './types'
@@ -55,7 +56,7 @@ export function deserialize(text: string): Project {
   if (raw.enumTypes) p.enumTypes = raw.enumTypes
   if (raw.structTypes) p.structTypes = raw.structTypes
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
-  return nameAllInstances(migrateLayers(p, raw.items as Item[]))
+  return nameAllInstances(migrateOperations(migrateLayers(p, raw.items as Item[])))
 }
 
 /** Older files listed process-model variables on controllers (`processModel`) and on feedback (`variables`); these become beliefs and signals.

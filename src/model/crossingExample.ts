@@ -20,17 +20,20 @@ export function crossingExampleProject(): Project {
 
   const train = add('entity', { title: 'Train', many: true })
   const crossing = add('entity', { title: 'Crossing' })
-  const gate = add('entity', { title: 'Gate', parent: crossing, operations: ['Lower', 'Raise'] })
+  const gate = add('entity', { title: 'Gate', parent: crossing })
   const vPos = add('variable', { title: 'Position', parent: train, states: ['far', 'approaching', 'on crossing'], definition: 'Where the train is relative to the crossing.' })
   const rel = add('relationship', { title: 'approaches', from: train, to: crossing, fromCard: '*', toCard: '1' })
   const vNear = predicateOf(b.project, rel)!.id
   const vGate = add('variable', { title: 'Gate position', parent: gate, states: ['open', 'closed'] })
 
+  const opLower = add('operation', { title: 'Lower', entity: gate, effects: [{ variable: vGate, state: 'closed' }] })
+  const opRaise = add('operation', { title: 'Raise', entity: gate, effects: [{ variable: vGate, state: 'open' }] })
+
   const ctrl = add('node', { title: 'Gate controller', role: 'controller' })
   const gateNode = add('node', { title: 'Crossing gate', role: 'process', entities: [gate, crossing] })
   const trains = add('node', { title: 'Trains', role: 'external', entities: [train] })
-  const lower = add('ca', { title: 'Lower gate', from: ctrl, to: gateNode, actuator: 'Gate motor', affects: [vGate], duration: 'instantaneous' })
-  const raise = add('ca', { title: 'Raise gate', from: ctrl, to: gateNode, actuator: 'Gate motor', affects: [vGate], duration: 'instantaneous' })
+  const lower = add('ca', { title: 'Lower gate', from: ctrl, to: gateNode, actuator: 'Gate motor', affects: [vGate], operation: opLower, duration: 'instantaneous' })
+  const raise = add('ca', { title: 'Raise gate', from: ctrl, to: gateNode, actuator: 'Gate motor', affects: [vGate], operation: opRaise, duration: 'instantaneous' })
   const fbTrain = add('feedback', { title: 'Train detection', from: trains, to: ctrl, sensor: 'Track sensors' })
   add('feedback', { title: 'Gate position', from: gateNode, to: ctrl, sensor: 'Gate end switches' })
   const sPos = add('variable', { layer: 'signal', parent: fbTrain, about: vPos, title: 'Train detected', states: ['far', 'approaching', 'on crossing'] })

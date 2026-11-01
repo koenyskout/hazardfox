@@ -1,5 +1,6 @@
 import { effectiveLosses, hazardTrace, scenarioHazards } from '../model/derived'
 import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
+import { operationsOf } from '../model/operations'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
@@ -57,7 +58,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   push('step1', 'System constraints', ['ID', 'Constraint', 'Hazards', ...tailH], tree('constraint').map(({ item }) => [...common(item), lab(item.hazards), ...tail(item)]), [1, 3, 1.3, 4, 1.2, 1.5, 2.5])
 
   push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],
-    tree('entity').map(({ item: e }) => [...common(e), itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).map((v) => v.title).join('\n'), e.operations.join('\n'), T(e.description), e.status, e.tags.join(', ')]))
+    tree('entity').map(({ item: e }) => [...common(e), itemsOfKind(p, 'variable').filter((v) => v.parent === e.id).map((v) => v.title).join('\n'), operationsOf(p, e.id).map((o) => o.title).join('\n'), T(e.description), e.status, e.tags.join(', ')]))
   push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Computed from', 'Description', 'Status'],
     itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), v.rules.map((r) => `${r.state} when ${T(whenText(p, r.when))}`).concat(v.rules.length && v.otherwise ? [`otherwise ${v.otherwise}`] : []).join('\n'), T(v.description), v.status]))
   push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],

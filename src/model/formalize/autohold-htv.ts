@@ -1,3 +1,4 @@
+import { migrateOperations } from '../operations'
 import { addBelief, addSignal } from '../formal'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
@@ -12,7 +13,7 @@ import type { Condition, ConditionOp, Id, Kind, Patch, Project } from '../types'
  */
 export function formalizeAutoholdHtv(id: 'hb-autohold' | 'hb-htv', p: Project): Project {
   if (itemsOfKind(p, 'variable').length) return p
-  return nameAllInstances(id === 'hb-autohold' ? autohold(p) : htv(p))
+  return migrateOperations(nameAllInstances(id === 'hb-autohold' ? autohold(p) : htv(p)))
 }
 
 /** Small mutable builder over an existing project. */
