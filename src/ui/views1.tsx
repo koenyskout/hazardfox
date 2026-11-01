@@ -207,7 +207,7 @@ export function Scenarios() {
     <div className="page full">
       <FlatTable kind="scenario" items={grouped}
         groupBy={(s) => scenarioTarget(s)} groups={outline}
-        nest={(s) => s.scenarioType === 'ca' ? ['Control action not executed properly'] : []}
+        nest={(s) => s.scenarioType === 'ca' ? ['Control action not executed properly'] : []} nestAsGroup
         groupAdd={(g) => (g && p.items[g]?.kind === 'ca' ? { scenarioType: 'ca', ca: g } : { scenarioType: 'uca', uca: g })}
         adds={[
           { label: 'Scenario for a UCA', init: { scenarioType: 'uca', uca: null } },

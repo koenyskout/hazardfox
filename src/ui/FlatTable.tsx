@@ -25,6 +25,8 @@ export function FlatTable<K extends Kind>(props: {
   groupBy?: (it: ItemOf<K>) => Id | null | undefined
   /** Names of the nested groups an item sits in (below its group); a header row is shown when they change. Items of one nesting must be adjacent. */
   nest?: (it: ItemOf<K>) => string[]
+  /** Draw nest headers as group rows (a pill, like a referenced item's header) instead of small muted subheadings. */
+  nestAsGroup?: boolean
   /** Shown instead of the (read-only) title of items it returns text for, e.g. managed names. */
   titleView?: (it: ItemOf<K>) => string | null | undefined
   /** Second line under the title. */
@@ -95,6 +97,7 @@ export function FlatTable<K extends Kind>(props: {
         </div>
         {props.items.length === 0 && !props.groups?.length && <div className="empty">Nothing here yet.</div>}
         {rows.map((r, i) => {
+          if ('head' in r && props.nestAsGroup) return <div key={'h' + i} className="row group" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="chip k-scenario">{r.head}</span></div>
           if ('head' in r) return <div key={'h' + i} className="row group sub" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="muted">▸</span> <b>{r.head}</b></div>
           if ('group' in r) {
             const g = r.group
