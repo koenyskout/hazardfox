@@ -117,7 +117,7 @@ describe('level crossing example', () => {
     expect(conditionText(s.p, a)).toBe('some Train t1 at Station')
     expect(conditionText(s.p, b)).toBe('speed of t1 is greater than 10')
     expect(conditionText(s.p, cond(s.speed, { as: 't2' }))).toBe('speed of some Train t2 is 0')
-    // same witness cannot be both; unnamed some can
+    // same witness cannot be both; an unnamed some can (only in hand-edited files; validation warns)
     expect(consistent(s.p, [cond(s.speed, { as: 't1' }), cond(s.speed, { same: 't1', op: '≠' })])).toBe(false)
     expect(consistent(s.p, [cond(s.speed, { as: 't1' }), cond(s.speed, { as: 't2', op: '≠' })])).toBe(true)
     const ok = s.add('uca', { conditions: [a, b] })

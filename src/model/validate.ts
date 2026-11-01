@@ -7,7 +7,7 @@ import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 import { shortName } from './labels'
-import { condInstances, conditionError, isText, leaves, quantOf, valuesOf } from './variables'
+import { condInstances, conditionError, instName, isText, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -44,6 +44,7 @@ export const RULES = {
   'context-not-world': { title: 'UCA context uses a belief or signal', why: 'The context of a UCA states what is actually true in the world (or the controller\'s own mode). What the controller believes or observes is a cause and belongs in a loss scenario (STPA Handbook, step 3).', fix: 'Use the world variable this belief / signal is about, and explain the wrong belief in a scenario.' },
   'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable (representability).', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
   'instance-name': { title: 'Instance name not introduced or ambiguous', why: 'A condition refers to a named instance (e.g. train t1) that no condition of the context introduces, or one name stands for two different entities.', fix: 'Name the instance with “some … as t1” in one condition, then refer to it in the others.' },
+  'instance-unnamed': { title: 'Instance without a name', why: 'A condition says "some" instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'quantifier-single': { title: 'Quantifier on a single-instance variable', why: 'The condition says "some / every / no", but its variable belongs to an entity (or relationship) with one instance, so the quantifier has no effect.', fix: 'Mark the entity as having several instances, or remove the quantifier.' },
   'belief-no-about': { title: 'Belief without designation', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
@@ -154,6 +155,7 @@ export function validate(p: Project): Issue[] {
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
   for (const u of ucas) for (const c of u.conditions) {
     const v = p.items[c.variable]
+    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !c.same && !instName(c)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
   }
 
