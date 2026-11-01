@@ -3,6 +3,7 @@ import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
+import { paramSummary } from '../model/params'
 import { describeStates, whenText, whenTexts } from '../model/variables'
 import { beliefsOf, controlledBy, signalsOf, variablesIn } from '../model/formal'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
@@ -70,7 +71,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   const titles = (vs: { title: string }[]) => vs.map((v) => v.title).join(', ')
   push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Domain entities', 'Process model', 'Internal state', 'Description', 'Status'],
     tree('node').map(({ item: n }) => [...common(n), n.role, n.parent ? name(n.parent) : '', n.entities.map(name).join(', '), titles(beliefsOf(p, n.id)), titles(variablesIn(p, 'internal', n.id)), T(n.description), n.status]))
-  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Affects', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, lab(c.affects), T(c.description), c.status]))
+  push('structure', 'Control actions', ['ID', 'Control action', 'From', 'To', 'Actuator', 'Parameters', 'Affects', 'Description', 'Status'], flat('ca').map((c) => [...common(c), name(c.from), name(c.to), c.actuator, c.params.map((x) => paramSummary(p, x)).join('; '), lab(c.affects), T(c.description), c.status]))
   push('structure', 'Feedback', ['ID', 'Feedback', 'From', 'To', 'Sensor', 'Signals', 'Description', 'Status'], flat('feedback').map((c) => [...common(c), name(c.from), name(c.to), c.sensor, titles(signalsOf(p, c.id)), T(c.description), c.status]))
 
   push('ucas', 'Unsafe control actions', ['ID', 'Control action', 'Type', 'Unsafe control action', 'Hazards', 'Controller constraint', 'Status', 'Tags'],

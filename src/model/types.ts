@@ -179,6 +179,10 @@ export interface CsNode extends Base {
   tall: number
 }
 /** Control action edge. */
+/** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
+export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string }
+/** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
+export interface ArgCondition { param: string; op: ConditionOp; state: string; to?: string; set?: string[] }
 export interface ControlAction extends Base {
   kind: 'ca'
   from: Id
@@ -187,6 +191,8 @@ export interface ControlAction extends Base {
   duration: Duration
   /** World variables this action is meant to change (controlled variables) */
   affects: Id[]
+  /** Typed parameters the action carries (optional) */
+  params: Param[]
   /** Optional domain operation (`<entityId>:<operation>`) */
   operation: string
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
@@ -250,6 +256,8 @@ export interface Uca extends Base {
   ca: Id
   guide: GuideWord
   conditions: When[]
+  /** Conditions on the control action's parameters (optional; the action must have those parameters) */
+  args: ArgCondition[]
   /** Free text refinement */
   context: string
   /** If set, replaces the generated sentence */

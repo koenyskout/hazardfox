@@ -471,3 +471,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .pk-ends label { position: relative; padding: 4px 8px; border-left: 3px solid transparent; }
 .pk-ends label:hover { background: var(--hover); }
 .pk-ends label.on { background: var(--cur); border-left-color: var(--accent); font-weight: 600; }
+
+.cond-time { display: inline-flex; gap: 4px; align-items: center; }
+.time-amount { width: 64px; }
+.params .cond { flex-wrap: wrap; }

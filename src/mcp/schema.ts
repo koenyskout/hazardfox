@@ -56,6 +56,8 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
+    if (f === 'params') info.type = '{name: string (unique), type: enum | boolean | range, states?: string[] (enum), min?: number, max?: number, unit?: string (range), enumType?: string, rangeType?: string (names of project types)}[] (typed parameters the control action carries, e.g. a dose)'
+    if (f === 'args') info.type = '{param: string (name of a parameter of the UCA\'s control action), op?: =, ≠, in, not in (set), < ≤ > ≥ between (range), state, to?, set?}[] (conditions on the control action\'s parameters, e.g. {param: "dose", op: ">", state: "5"})'
     if (f === 'conditions') info.type = `(${COND} | Group)[] where Group = {any: boolean, of: (${COND} | Group)[]}: a list means all of; {any: true, of: [...]} is a disjunction (any of)`
     if (f === 'rules') info.type = `{state: string (a value of this variable), when: Group}[] where Group = {any: boolean, of: (${COND} | Group)[]} (all of / any of; a plain ${COND}[] means all of) (refinement of a world variable: the first rule whose condition holds gives its value, else otherwise)`
     if (f === 'min' || f === 'max') info.type = 'number | null'
@@ -224,6 +226,18 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
             }),
           })),
         }
+      } else if (f === 'params') {
+        if (!Array.isArray(v) || v.some((x: Rec) => !isStr(x?.name) || !x.name.trim() || !(VARIABLE_TYPES as readonly string[]).includes(x.type as string))) throw new Error(`expected [{name, type}] with type among ${VARIABLE_TYPES.join(', ')}`)
+        if (new Set(v.map((x: Rec) => (x.name as string).trim())).size !== v.length) throw new Error('parameter names must be unique')
+        const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null)
+        out[f] = v.map((x: Rec) => ({ name: (x.name as string).trim(), type: x.type, states: Array.isArray(x.states) ? x.states.filter(isStr) : [], min: num(x.min), max: num(x.max), unit: isStr(x.unit) ? x.unit : '', rangeType: isStr(x.rangeType) ? x.rangeType : '', enumType: isStr(x.enumType) ? x.enumType : '' }))
+      } else if (f === 'args') {
+        if (!Array.isArray(v) || v.some((x: Rec) => !isStr(x?.param))) throw new Error('expected [{param, op?, state, to?, set?}]')
+        out[f] = v.map((x: Rec) => {
+          const op = (x.op ?? '=') as ConditionOp
+          if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
+          return { param: x.param, op, state: x.state === undefined ? '' : String(x.state), ...(x.to !== undefined ? { to: String(x.to) } : {}), ...(Array.isArray(x.set) ? { set: x.set.filter(isStr) } : {}) }
+        })
       } else if (f === 'notApplicable') {
         if (!Array.isArray(v) || v.some((n: Rec) => !(GUIDE_WORDS as readonly string[]).includes(n?.guide as string))) throw new Error(`expected [{guide, reason}] with guide among ${GUIDE_WORDS.join(', ')}`)
         out[f] = [...new Map(v.map((n: Rec) => [n.guide, { guide: n.guide, reason: isStr(n.reason) ? n.reason : '' }])).values()]

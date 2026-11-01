@@ -51,9 +51,17 @@ export function createItem<K extends Kind>(
 
 export function updateItem(p: Project, id: Id, patch: Patch): Project {
   if (!p.items[id]) return p
+  const before = p.items[id]
   return produce(p, (d) => {
     Object.assign(d.items[id], patch)
     const v = d.items[id]
+    // renaming a parameter renames it in the UCAs' arguments, removing one drops them
+    if (before.kind === 'ca' && v.kind === 'ca' && 'params' in patch) {
+      const names = before.params.map((x) => x.name), now = v.params.map((x) => x.name)
+      const rename = new Map(names.flatMap((n, i) => (now.length === names.length && now[i] !== n ? [[n, now[i]] as const] : [])))
+      for (const u of Object.values(d.items)) if (u.kind === 'uca' && u.ca === id)
+        u.args = u.args.flatMap((a) => { const n = rename.get(a.param) ?? a.param; return now.includes(n) ? [{ ...a, param: n }] : [] })
+    }
     if (v.kind === 'variable') {
       const t = d.rangeTypes?.[v.rangeType]
       if (v.type !== 'range' || !t) v.rangeType = ''

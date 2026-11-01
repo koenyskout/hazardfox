@@ -4,8 +4,9 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
+import { argError, paramOf, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { type ArgCondition, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -304,6 +305,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <Select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</Select>
             </Field>
           )}
+          {it.kind === 'ca' && <Field label="Parameters" hint="Typed values the action carries (e.g. a dose); UCAs can constrain them. Optional."><ParamsEditor params={it.params} onChange={(params) => set({ params })} /></Field>}
           {it.kind === 'ca' && (
             <Field label="Guide words not applicable">
               {GUIDE_WORDS.filter((g) => guideApplies(it, g)).map((g) => {
@@ -332,6 +334,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Context">
             <ContextSummary it={it} set={set} />
           </Field>
+          {p.items[it.ca]?.kind === 'ca' && (p.items[it.ca] as ItemOf<'ca'>).params.length > 0 && <Field label="Parameters"><ArgsEditor ca={p.items[it.ca] as ItemOf<'ca'>} args={it.args} onChange={(args) => set({ args })} /></Field>}
           <Field single label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
           </Field>
@@ -516,6 +519,72 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
           {d.quant !== 'all' && d.quant !== 'none' && <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />}
         </div>
       ))}
+    </div>
+  )
+}
+
+const PARAM_TYPES = ['enum', 'boolean', 'range'] as const
+const BLANK_PARAM: Param = { name: '', type: 'range', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' }
+
+/** The parameters of a control action: a name and a type (enum with states / boolean / range with bounds and unit), as for variables. */
+function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Param[]) => void }) {
+  const p = useProject()
+  const upd = (i: number, patch: Partial<Param>) => onChange(params.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  const num = (s: string) => (s.trim() === '' || !Number.isFinite(Number(s)) ? null : Number(s))
+  return (
+    <div className="params">
+      {params.map((x, i) => (
+        <div key={i} className="cond">
+          <input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />
+          <Select value={x.type} onChange={(e) => upd(i, { type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
+          {x.type === 'enum' && <>
+            <Select value={x.enumType} onChange={(e) => upd(i, { enumType: e.target.value })}><option value="">own states</option>{Object.keys(p.enumTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
+            {!x.enumType && <input placeholder="states, comma-separated" value={x.states.join(', ')} onChange={(e) => upd(i, { states: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />}
+          </>}
+          {x.type === 'range' && <>
+            <Select value={x.rangeType} onChange={(e) => upd(i, { rangeType: e.target.value })}><option value="">own bounds</option>{Object.keys(p.rangeTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
+            {!x.rangeType && <>
+              <input className="time-amount" placeholder="min" value={x.min ?? ''} onChange={(e) => upd(i, { min: num(e.target.value) })} />
+              <input className="time-amount" placeholder="max" value={x.max ?? ''} onChange={(e) => upd(i, { max: num(e.target.value) })} />
+              <input className="time-amount" placeholder="unit" value={x.unit} onChange={(e) => upd(i, { unit: e.target.value })} />
+            </>}
+          </>}
+          <button className="x" onClick={() => onChange(params.filter((_, j) => j !== i))}>×</button>
+        </div>
+      ))}
+      <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}>+ parameter</button></div>
+    </div>
+  )
+}
+
+/** Conditions on the parameters of a UCA's control action: "dose is greater than 5 mg". */
+function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgCondition[]; onChange: (a: ArgCondition[]) => void }) {
+  const p = useProject()
+  const upd = (i: number, patch: Partial<ArgCondition>) => onChange(args.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  return (
+    <div className="params">
+      {args.map((a, i) => {
+        const pa = paramOf(ca, a.param), pv = pa && paramVar(p, pa), values = valuesOf(pv), err = argError(p, ca, a)
+        return (
+          <div key={i} className="cond">
+            <Select value={a.param} onChange={(e) => onChange(args.map((x, j) => (j === i ? { param: e.target.value, op: '=', state: '' } : x)))}>
+              <option value="" disabled hidden>parameter…</option>
+              {ca.params.map((x) => <option key={x.name}>{x.name}</option>)}
+            </Select>
+            <Select value={a.op} onChange={(e) => upd(i, { op: e.target.value as ConditionOp, set: undefined })}>{opsFor(pv).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}</Select>
+            {isSetOp(a.op)
+              ? <span className="setpick"><span className="brace">{'{'}</span>{(pv?.states ?? []).map((s) => <button type="button" key={s} className={'opt' + (a.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: toggled(a.set ?? [], s) })}>{a.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span></span>
+              : values
+                ? <Select value={a.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
+                : <input className="time-amount" type="number" placeholder="value…" value={a.state} onChange={(e) => upd(i, { state: e.target.value })} />}
+            {isRangeOp(a.op) && <><span className="cond-word">and</span><input className="time-amount" type="number" placeholder="value…" value={a.to ?? ''} onChange={(e) => upd(i, { to: e.target.value })} /></>}
+            {pv?.type === 'range' && pv.unit && <span className="muted">{pv.unit}</span>}
+            <button className="x" onClick={() => onChange(args.filter((_, j) => j !== i))}>×</button>
+            {err && a.param && (a.state || a.set?.length) ? <small className="cond-err">{err}</small> : null}
+          </div>
+        )
+      })}
+      <div className="rule-add"><button onClick={() => onChange([...args, { param: ca.params[0]?.name ?? '', op: '=', state: '' }])}>+ condition on a parameter</button></div>
     </div>
   )
 }

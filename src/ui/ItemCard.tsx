@@ -13,6 +13,7 @@ import { refines } from '../model/formal'
 import { isComputed } from './hooks'
 import { HoverCard } from './HoverCard'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
+import { paramSummary } from '../model/params'
 import { describeStates } from '../model/variables'
 import { VARIABLE_TYPE_LABELS, type VariableLayer } from '../model/types'
 
@@ -104,6 +105,7 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       row('Operation', it.operation ? it.operation.split(':').slice(1).join(':') : null)
       row('Duration', it.duration)
       row('Actuator', it.actuator)
+      row('Parameters', it.params.length ? it.params.map((x) => paramSummary(p, x)).join('; ') : null)
       row('Not applicable', it.notApplicable.length ? it.notApplicable.map((n) => GUIDE_WORD_LABELS[n.guide] + (n.reason ? ` (${n.reason})` : '')).join('; ') : null)
       break
     }

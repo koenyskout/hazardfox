@@ -1,5 +1,6 @@
 import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
+import { argError } from './params'
 import { mentions, refsOf, scenarioTarget } from './refs'
 import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
 import { diagnose, ruleConflicts, witness } from './traces'
@@ -44,6 +45,8 @@ export const RULES = {
   'context-not-world': { title: 'UCA context uses a belief or signal', why: 'The context of a UCA states what is actually true in the world (or the controller\'s own mode). What the controller believes or observes is a cause and belongs in a loss scenario (STPA Handbook, step 3).', fix: 'Use the world variable this belief / signal is about, and explain the wrong belief in a scenario.' },
   'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable (representability).', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
   'instance-name': { title: 'Instance name not introduced or ambiguous', why: 'A condition refers to a named instance (e.g. train t1) that no condition of the context introduces, or one name stands for two different entities.', fix: 'Name the instance with “some … as t1” in one condition, then refer to it in the others.' },
+  'param-name': { title: 'Parameter without a unique name', why: 'UCAs refer to a control action parameter by its name.', fix: 'Give each parameter of the control action its own name.' },
+  'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
   'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
   'instance-unnamed': { title: 'Instance without a name', why: 'A condition says "some" instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'quantifier-single': { title: 'Quantifier on a single-instance variable', why: 'The condition says "some / every / no", but its variable belongs to an entity (or relationship) with one instance, so the quantifier has no effect.', fix: 'Mark the entity as having several instances, or remove the quantifier.' },
@@ -164,8 +167,13 @@ export function validate(p: Project): Issue[] {
     const e = p.items[c.event!]
     if (e && e.kind !== 'ca' && e.kind !== 'feedback') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action or feedback`)
   }
+  for (const ca of itemsOfKind(p, 'ca')) {
+    const names = ca.params.map((x) => x.name.trim())
+    if (names.some((n, i) => !n || names.indexOf(n) !== i)) add('warning', ca, 'param-name', `${nm(ca)}: a parameter has no name or the same name as another`)
+  }
   for (const u of ucas) {
     const ca = p.items[u.ca]
+    for (const a of u.args) { const e = ca?.kind === 'ca' ? argError(p, ca, a) : null; if (e) add('warning', u, 'arg-invalid', `${L[u.id]}: ${e}`) }
     for (const id of u.conditions.flatMap(leaves).flatMap((c) => [c.variable, c.other ?? ''])) {
       const v = p.items[id]
       if (v?.kind !== 'variable') continue
