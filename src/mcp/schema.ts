@@ -2,6 +2,7 @@ import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKinds } from '../model/tree'
+import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { allOf, isGroup, conditionError, isRangeOp, isText as inWords, laneText, mapLeaves } from '../model/variables'
 import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
@@ -138,7 +139,25 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
   }
   const parseWhen = (w: unknown): Group => Array.isArray(w) ? allOf(...w.map((x: Rec) => (x && 'of' in x ? parseWhen(x) : parseCond(x))))
     : w && typeof w === 'object' && Array.isArray((w as Rec).of) ? { ...parseWhen((w as Rec).of), any: !!(w as Rec).any } : allOf()
+  const parseTime = (t: unknown): TimeBound => {
+    const x = t as Rec
+    const amount = String(x?.amount ?? '')
+    if (!x || (x.op !== '≥' && x.op !== '<') || !(TIME_UNITS as readonly string[]).includes(x.unit as string) || amount === '' || !(Number(amount) >= 0)) throw new Error('time must be {op: ≥ | <, amount: number, unit: ms | s | min | h}')
+    return { op: x.op, amount, unit: x.unit as TimeUnit }
+  }
   const parseCond = (c: Rec): Condition => {
+    const time = c?.time === undefined ? undefined : parseTime(c.time)
+    if (c?.event !== undefined) {
+      const event = r.resolve(c.event)
+      const k = r.p.items[event]?.kind
+      if (k !== 'ca' && k !== 'feedback') throw new Error(`event: ${r.labels[event]} is not a control action or feedback`)
+      if (!time) throw new Error('an event condition needs "time", e.g. {op: "≥", amount: 3, unit: "s"}: the time since the event occurred')
+      return { variable: '', op: '=', state: '', event, time }
+    }
+    const cond = parseBase(c)
+    return time ? { ...cond, time } : cond
+  }
+  const parseBase = (c: Rec): Condition => {
     if (isStr(c?.text) && c.variable === undefined) return { variable: '', op: c.op === '≠' || c.negate === true ? '≠' : '=', state: 'true', text: c.text }
     const variable = r.resolve(c?.variable)
     checkKind(variable, 'variable')
@@ -258,7 +277,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const raw = it as unknown as Rec
   const refs = new Set(refFields(it.kind))
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
-  const cond = (c: Condition) => (inWords(c) ? { text: c.text, op: c.op } : { ...c, variable: r.label(c.variable) ?? c.variable })
+  const cond = (c: Condition) => (c.event ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: c.text, op: c.op, ...(c.time ? { time: c.time } : {}) } : { ...c, variable: r.label(c.variable) ?? c.variable })
   const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]

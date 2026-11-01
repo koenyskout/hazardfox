@@ -212,6 +212,10 @@ export const QUANTIFIERS = ['some', 'all', 'none'] as const
 export type Quantifier = (typeof QUANTIFIERS)[number]
 /** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
  *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
+export const TIME_UNITS = ['ms', 's', 'min', 'h'] as const
+export type TimeUnit = (typeof TIME_UNITS)[number]
+/** A duration bound: "at least" (`≥`) or "less than" (`<`) `amount` of `unit`. */
+export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
 export interface Condition {
   variable: Id
   op: ConditionOp
@@ -236,6 +240,10 @@ export interface Condition {
   /** With `other`: introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
   oAs?: string
   oAs2?: string
+  /** Timing: the condition has held continuously for at least / less than this long (needs numeric step times in traces). With `event`, the time since that event instead. */
+  time?: TimeBound
+  /** A timing condition on an event: time since this control action / feedback last occurred (`time` says how long). It has no variable. */
+  event?: Id
 }
 export interface Uca extends Base {
   kind: 'uca'

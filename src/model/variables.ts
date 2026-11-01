@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { type Condition, type Id, type Quantifier, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
+import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -37,6 +37,18 @@ export function stepOf(v: Variable): number {
 
 /** A condition in words (no variable). */
 export const isText = (c: Condition) => c.text !== undefined
+/** A condition on the time since an event (control action or feedback) occurred. */
+export const isEvent = (c: Condition) => c.event !== undefined
+const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
+const timeOk = (t: TimeBound | undefined) => !!t && t.amount.trim() !== '' && Number.isFinite(Number(t.amount)) && Number(t.amount) >= 0
+/** Seconds of a time bound. */
+export const boundSeconds = (t: TimeBound) => Number(t.amount) * UNIT_S[t.unit]
+/** A trace step time: "5", "5 s", "200ms", "1.5 min" (a bare number is seconds); null for other labels such as "t1". */
+export function parseTime(s: string): number | null {
+  const m = /^\s*(-?\d+(?:\.\d+)?)\s*(ms|s|min|h)?\s*$/.exec(s)
+  return m ? Number(m[1]) * UNIT_S[(m[2] ?? 's') as TimeUnit] : null
+}
+export const timeText = (t: TimeBound) => `${t.op === '≥' ? 'at least' : 'less than'} ${t.amount} ${t.unit}`
 const TEXT_KEY = 'text:'
 /** Trace lane / state key of a condition: its variable, or for a condition in words its text. */
 export const condKey = (c: Condition): string => (isText(c) ? TEXT_KEY + (c.text ?? '').trim() : c.variable)
@@ -49,7 +61,8 @@ export const isVarCmp = (c: Condition) => !!c.other
 export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : ['=', '≠'])
 
 /** Whether the condition is complete enough to appear in a sentence. */
-export const conditionComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
+export const conditionComplete = (c: Condition): boolean => (isEvent(c) ? !!c.event && timeOk(c.time) : (!c.time || timeOk(c.time)) && baseComplete(c))
+const baseComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 /** Whether a world variable describes several instances: it belongs to a `many` entity, or to a relationship with a `many` end (entity or cardinality). */
 export function isMany(p: Project, v: Variable): boolean {
@@ -114,6 +127,11 @@ export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'ev
 
 /** `earlier`: the conditions before this one; a named some-instance of an entity already named differently there reads "another …" (different names stand for different instances). */
 export function conditionText(p: Project, c: Condition, earlier: Condition[] = []): string {
+  if (isEvent(c)) return c.time ? `${timeText(c.time)} after @[${c.event}]` : ''
+  const s = baseText(p, c, earlier)
+  return c.time && s ? `${s} for ${timeText(c.time)}` : s
+}
+function baseText(p: Project, c: Condition, earlier: Condition[]): string {
   const q = quantOf(p, c)
   const intro = condInstances(p, c).filter((x) => x.intro && !x.cmp)
   const prior = earlier.flatMap((o) => condInstances(p, o))
@@ -165,6 +183,7 @@ function plainText(p: Project, c: Condition): string {
 
 /** Problem with the condition's value for the variable's type, or null. */
 export function conditionError(v: Variable, c: Condition, p?: Project): string | null {
+  if (c.time && !timeOk(c.time)) return 'the duration is not a number'
   if (c.other) {
     const o = p?.items[c.other]
     if (p && o?.kind !== 'variable') return 'compared variable not found'

@@ -4,8 +4,8 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -522,6 +522,19 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
 const WORDS: Condition = { variable: '', op: '=', state: 'true', text: '' }
+const TIME: TimeBound = { op: '≥', amount: '', unit: 's' }
+const EVENT: Condition = { variable: '', op: '=', state: '', event: '', time: TIME }
+
+/** Duration of a timing condition: "for at least 3 s" (after a condition) or "at least 3 s after <event>". */
+function TimeEdit({ t, onChange }: { t: TimeBound; onChange: (t: TimeBound) => void }) {
+  return (
+    <span className="cond-time">
+      <Select value={t.op} onChange={(e) => onChange({ ...t, op: e.target.value as TimeBound['op'] })}><option value="≥">at least</option><option value="<">less than</option></Select>
+      <input className="time-amount" type="number" min={0} step="any" value={t.amount} placeholder="…" onChange={(e) => onChange({ ...t, amount: e.target.value })} />
+      <Select value={t.unit} onChange={(e) => onChange({ ...t, unit: e.target.value as TimeUnit })}>{TIME_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
+    </span>
+  )
+}
 
 /** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
 function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group, binds?: Binds) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
@@ -541,6 +554,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
           : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
+          <button title="A timing condition: at least / less than a duration after a control action or feedback occurred (needs step times such as 5 s in traces)" onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}>+ timing</button>
           <button title="A condition in words, for something not modelled as a variable; traces treat it as true / false" onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
           {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
         </div>
@@ -569,6 +583,22 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       <button className="x" onClick={onRemove}>×</button>
     </div>
   )
+  if (isEvent(c)) {
+    const events = Object.values(p.items).filter((x) => x.kind === 'ca' || x.kind === 'feedback')
+    return (
+      <div className="cond">
+        <span className="cond-word">{word}</span>
+        <TimeEdit t={c.time ?? TIME} onChange={(time) => upd({ time })} />
+        <span className="cond-word">after</span>
+        <Select value={c.event ?? ''} onChange={(e) => upd({ event: e.target.value })}>
+          <option value="" disabled hidden>control action or feedback…</option>
+          {events.map((x) => <option key={x.id} value={x.id}>{labels[x.id]} {renderText(labels, x.title)}</option>)}
+        </Select>
+        <span className="cond-word">occurred</span>
+        <button className="x" onClick={onRemove}>×</button>
+      </div>
+    )
+  }
   const v = p.items[c.variable]
   const vr = v?.kind === 'variable' ? v : undefined
   const values = valuesOf(vr)
@@ -685,6 +715,8 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
         {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
         {!cmp && vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
       </div>
+      {c.time ? <><span className="cond-word">for</span><TimeEdit t={c.time} onChange={(time) => upd({ time })} /><button className="x" title="Remove the duration" onClick={() => upd({ time: undefined })}>⊘</button></>
+        : vr && <button type="button" className="btn" title="Require the condition to have held for some time" style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={() => upd({ time: TIME })}>⏱</button>}
       <button className="x" onClick={onRemove}>×</button>
       {err && <small className="cond-err">{err}</small>}
     </div>

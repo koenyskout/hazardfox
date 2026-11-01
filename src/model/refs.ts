@@ -70,7 +70,7 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions.flatMap(leaves)) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions.flatMap(leaves)) { if (c.variable) out.push(c.variable); if (c.event) out.push(c.event); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
   if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '', ...(isText(c) ? mentions(c.text ?? '') : [])]).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
@@ -92,7 +92,7 @@ export function linkedTo(p: Project, id: Id): Item[] {
 
 /** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
 const reref = (c: Condition, from: Id, to: Id | null): Condition[] =>
-  isText(c) ? [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c] : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
+  c.event ? (c.event !== from ? [c] : to ? [{ ...c, event: to }] : []) : isText(c) ? [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c] : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
 
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {

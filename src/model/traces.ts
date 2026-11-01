@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condInstances, condKey, conditionComplete, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
+import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -39,14 +39,50 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
 }
 
 /** Reads trace values; `instances` gives the values of a variable's per-instance lanes ("<variable>@t1"). */
-export type Getter = ((id: Id) => string | undefined) & { instances?: (id: Id) => string[] }
-export const getter = (state: Record<Id, string>): Getter => Object.assign((id: Id) => state[id], { instances: (id: Id) => Object.keys(state).filter((k) => k.startsWith(id + '@') && state[k] !== '').map((k) => state[k]) })
+/** Timing at one trace step: seconds a condition has held continuously, and since an event last occurred (null when step times are not numeric or it never did). */
+export interface Clock { held(c: Condition, strict: boolean): number | null; since(on: Id): number | null }
+export type Getter = ((id: Id) => string | undefined) & { instances?: (id: Id) => string[]; clock?: Clock }
+
+/** The clock at step i: needs numeric step times ("5", "200 ms"; `parseTime`) from step 0 to i. */
+export function clockAt(p: Project, t: Trace, i: number): Clock {
+  const times = t.steps.slice(0, i + 1).map((s) => parseTime(s.t))
+  const ok = times.length > 0 && times.every((x) => x !== null)
+  const states: Record<number, Record<Id, string>> = {}
+  const st = (k: number) => (states[k] ??= traceState(p, t, k))
+  return {
+    since(on) {
+      if (!ok) return null
+      for (let k = i; k >= 0; k--) if (t.steps[k].events.some((e) => e.on === on && e.what === 'occurs')) return times[i]! - times[k]!
+      return null
+    },
+    held(c, strict) {
+      if (!ok) return null
+      const base = { ...c, time: undefined }
+      let k = i
+      while (k >= 0 && condHolds(p, base, getter(st(k)), strict) === true) k--
+      return k === i ? null : times[i]! - times[k + 1]!
+    },
+  }
+}
+export const getter = (state: Record<Id, string>, clock?: Clock): Getter => Object.assign((id: Id) => state[id], { clock, instances: (id: Id) => Object.keys(state).filter((k) => k.startsWith(id + '@') && state[k] !== '').map((k) => state[k]) })
 
 /** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text.
  *  A variable of a many-instance entity has either one lane for all instances alike, or lanes per instance; a condition naming an instance reads its lane
  *  (else the common one, unless `strict`: instances named differently are different instances, each needing a lane of its own), an unnamed one is
  *  quantified over all lanes: some / all / no instance. */
 export function condHolds(p: Project, c: Condition, get: Getter, strict = false): boolean | null | undefined {
+  if (isEvent(c)) {
+    if (!conditionComplete(c)) return undefined
+    const d = get.clock?.since(c.event!)
+    return d == null ? null : c.time!.op === '≥' ? d >= boundSeconds(c.time!) : d < boundSeconds(c.time!)
+  }
+  if (c.time) {
+    if (!conditionComplete(c)) return undefined
+    const base = condHolds(p, { ...c, time: undefined }, get, strict)
+    if (base !== true) return base
+    const d = get.clock?.held(c, strict)
+    return d == null ? null : c.time.op === '≥' ? d >= boundSeconds(c.time) : d < boundSeconds(c.time)
+  }
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
@@ -120,13 +156,13 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
 }
 
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
-export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
+export function contextHolds(p: Project, u: Uca, state: Record<Id, string>, clock?: Clock): boolean | null {
   let all: boolean | null = true
   const names = new Map<string, Set<string>>()
   for (const c of u.conditions.flatMap(leaves)) for (const i of condInstances(p, c)) names.set(i.entity, (names.get(i.entity) ?? new Set()).add(i.name))
   const strict = (c: Condition) => condInstances(p, c).some((i) => (names.get(i.entity)?.size ?? 0) > 1)
   for (const c of u.conditions) {
-    const h = whenHolds(p, c, getter(state), strict)
+    const h = whenHolds(p, c, getter(state, clock), strict)
     if (h === false) return false
     if (h === null) all = null
   }
@@ -174,7 +210,7 @@ export function witness(p: Project, s: Scenario): { step: number; ok: boolean | 
   if (step < 0) return { step, ok: false, why: 'no step shows the control action (sent or not sent)' }
   const ev = s.trace.steps[step].events.find((e) => e.on === u.ca)!
   if ((u.guide === 'not-provided') !== (ev.what === 'absent')) return { step, ok: false, why: u.guide === 'not-provided' ? 'the UCA is about not providing the action, but the trace sends it' : 'the UCA is about providing the action, but the trace does not send it' }
-  const ctx = contextHolds(p, u, traceState(p, s.trace, step))
+  const ctx = contextHolds(p, u, traceState(p, s.trace, step), clockAt(p, s.trace, step))
   return { step, ok: ctx, why: ctx === false ? 'the UCA context does not hold at that step' : ctx === null ? 'some context conditions have no value at that step' : 'the UCA context holds when the action is ' + (ev.what === 'absent' ? 'withheld' : 'sent') }
 }
 
@@ -245,6 +281,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const lost = new Set<Id>(), sent = new Set<Id>()
     // Only the first condition is false initially; it becoming true makes the context hold.
     for (const [k, c] of u.conditions.flatMap(required).entries()) {
+      if (isEvent(c)) continue
       if (isText(c)) {
         if (!conditionComplete(c)) continue
         const key = condKey(c), after = String(c.op !== '≠')
@@ -284,6 +321,13 @@ export function draftTrace(p: Project, s: Scenario): Trace {
         init.values[b.id + suf] = before
         if (s.cause !== 'feedback' && s.cause !== 'process-model') ctx.values[b.id + suf] = after
       }
+    }
+    // timing conditions: numeric times, the action sent late enough; an event condition's event occurs as the context starts
+    const timed = u.conditions.flatMap(required).filter((c) => c.time && conditionComplete(c))
+    if (timed.length) {
+      const gap = Math.max(1, ...timed.filter((c) => c.time!.op === '≥').map((c) => Math.ceil(boundSeconds(c.time!))))
+      init.t = '0'; ctx.t = '1'; act.t = String(1 + gap)
+      for (const c of timed) if (c.event && p.items[c.event]) sent.add(c.event)
     }
     ctx.events = [...[...sent].map((on) => ({ on, what: 'occurs' as const })), ...[...lost].map((on) => ({ on, what: 'lost' as const }))]
     ctx.note = s.cause === 'feedback' ? 'The world changes into the UCA context, but the feedback does not report it.'
