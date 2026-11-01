@@ -1,13 +1,12 @@
 import ELK, { type ElkExtendedEdge, type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import { clusterStructs, predicateOf, structPath, variablesIn } from './formal'
 import { variableName } from './labels'
-import { operationsOf } from './operations'
 import type { Pt } from './structure'
 import { itemsOfKind } from './tree'
 import type { Id, Labels, Project } from './types'
 import { describeStates } from './variables'
 
-export interface DomainBox { id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[]; ops: string[] }
+export interface DomainBox { id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
 export interface DomainEdge { id: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
@@ -31,12 +30,11 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
       })
       attrs.push({ id: v.id, text: v.struct ? v.struct.path.split('.').pop()! : variableName(p, v), detail: v.type === 'enum' && v.states.length > 3 ? `: ${v.states.slice(0, 3).join(' | ')} …` : `: ${describeStates(v)}`, indent: path.length })
     })
-    const ops = operationsOf(p, e.id).map((o) => o.title)
     const head = labels[e.id] ?? ''
     const title = e.title.trim() || '(untitled)'
-    const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : '')), ...ops.map((o) => o + '()')].map((s) => s.length * DOM.charW + 2 * DOM.pad))
-    const rows = attrs.length + ops.length
-    boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + (ops.length ? 8 : 0) + 4, head, title, attrs, ops }
+    const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : ''))].map((s) => s.length * DOM.charW + 2 * DOM.pad))
+    const rows = attrs.length
+    boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + 4, head, title, attrs }
   }
   const edges: ElkExtendedEdge[] = []
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}

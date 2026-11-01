@@ -92,10 +92,7 @@ export function DomainDiagram() {
           {layout.boxes.map((b) => {
             const on = selected === b.id
             const stroke = on ? '#2563eb' : '#374151'
-            let y = head
-            const attrY = y + 14
-            y += b.attrs.length * row + (b.attrs.length ? 8 : 0)
-            const opY = y + 14
+            const attrY = head + 14
             return (
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id) }} style={{ cursor: 'pointer' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} />
@@ -103,8 +100,6 @@ export function DomainDiagram() {
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
                 <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}
-                {b.ops.length > 0 && b.attrs.length > 0 && <line x1={0} x2={b.w} y1={y} y2={y} stroke="#9ca3af" />}
-                {b.ops.map((o, i) => <text key={i} x={pad} y={opY + i * row} fill="#374151" fontSize={12}>{o}()</text>)}
               </g>
             )
           })}
