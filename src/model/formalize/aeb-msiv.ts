@@ -1,7 +1,7 @@
 import { createItem, updateItem } from '../ops'
 import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
-import { anyOf, nameAllInstances } from '../variables'
+import { anyOf, leaves, nameAllInstances } from '../variables'
 import type { Condition, Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
 
 /**
@@ -35,7 +35,7 @@ const kit = (c: Ctx) => {
   /** Add the conditions the UCA does not yet have (matched by variable and instance), before the existing ones. */
   const ucaConditions = (u: Uca, conditions: Condition[], context = '') => {
     const have = (c.p.items[u.id] as Uca)
-    const missing = conditions.filter((x) => !have.conditions.some((y) => y.variable === x.variable))
+    const missing = conditions.filter((x) => !have.conditions.flatMap(leaves).some((y) => y.variable === x.variable))
     set(u.id, { conditions: [...missing, ...have.conditions], ...(context && !have.context.trim() ? { context } : {}) })
   }
   const belief = (ctrl: Id, w: Id) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }

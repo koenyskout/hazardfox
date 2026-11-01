@@ -91,7 +91,7 @@ export interface Hazard extends Base {
   /** World (domain) variables describing the system state or environment conditions that make this a hazard. */
   variables: Id[]
   /** Logical definition of the hazardous state over world variables (all must hold). */
-  conditions: Condition[]
+  conditions: When[]
   /** STPA-Sec: hazard is caused by / relevant for adversarial actions. */
   security: boolean
 }
@@ -241,7 +241,7 @@ export interface Uca extends Base {
   kind: 'uca'
   ca: Id
   guide: GuideWord
-  conditions: Condition[]
+  conditions: When[]
   /** Free text refinement */
   context: string
   /** If set, replaces the generated sentence */

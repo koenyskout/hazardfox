@@ -266,7 +266,7 @@ describe('variable types and conditions', () => {
     old.items.push({ ...makeItem('uca'), conditions: [{ variable: v.id, state: '3', negate: true }] })
     const q = deserialize(JSON.stringify(old))
     const u = Object.values(q.items).find((i) => i.kind === 'uca')
-    expect(u && u.kind === 'uca' && u.conditions[0].op).toBe('≠')
+    expect(u && u.kind === 'uca' && (u.conditions[0] as { op: string }).op).toBe('≠')
   })
 })
 

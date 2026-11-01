@@ -3,7 +3,7 @@ import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { conditionComplete, conditionText, describeStates, whenText } from '../model/variables'
+import { describeStates, whenText, whenTexts } from '../model/variables'
 import { beliefsOf, controlledBy, signalsOf, variablesIn } from '../model/formal'
 import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
 
@@ -52,7 +52,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   const push = (section: SectionKey, name: string, columns: string[], rows: string[][], widths?: number[]) => out.push({ section, name, columns, rows, widths })
 
   push('step1', 'Losses', ['ID', 'Loss', ...tailH], tree('loss').map(({ item }) => [...common(item), ...tail(item)]), [1, 3, 5, 1.2, 1.5, 3])
-  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'State variables', 'Condition', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), lab(item.variables), T(item.conditions.filter(conditionComplete).map((c) => conditionText(p, c)).join(' and ')), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1.5, 2.5, 1, 4, 1.2, 1.5, 2.5])
+  push('step1', 'Hazards', ['ID', 'Hazard', 'Losses', 'State variables', 'Condition', 'Security', ...tailH], tree('hazard').map(({ item }) => [...common(item), lab(effectiveLosses(p, item.id)), lab(item.variables), T(whenTexts(p, item.conditions).join(' and ')), item.security ? 'yes' : '', ...tail(item)]), [1, 3, 1.3, 1.5, 2.5, 1, 4, 1.2, 1.5, 2.5])
   push('step1', 'System constraints', ['ID', 'Constraint', 'Hazards', ...tailH], tree('constraint').map(({ item }) => [...common(item), lab(item.hazards), ...tail(item)]), [1, 3, 1.3, 4, 1.2, 1.5, 2.5])
 
   push('domain', 'Entities', ['ID', 'Entity', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],

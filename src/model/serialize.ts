@@ -2,7 +2,7 @@ import { emptyProject, makeItem } from './create'
 import { addBelief, addSignal, predicateOf } from './formal'
 import { createItem } from './ops'
 import { groupKey } from './tree'
-import { allOf, nameAllInstances } from './variables'
+import { allOf, isGroup, mapLeaves, nameAllInstances } from './variables'
 import { KINDS, type Condition, type Id, type Item, type NodeRole, type Project, type VariableType } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
@@ -46,7 +46,10 @@ export function deserialize(text: string): Project {
   }
   for (const it of Object.values(p.items)) {
     if (it.kind === 'variable') { Object.assign(it, { ...makeItem('variable'), ...it }); it.rules = it.rules.map((r) => (Array.isArray(r.when) ? { ...r, when: allOf(...r.when) } : r)) }
-    if (it.kind === 'uca') it.conditions = it.conditions.map((c) => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } })
+    if (it.kind === 'uca') {
+      const fix = (c: Condition): Condition => { const { negate, ...rest } = c as Condition & { negate?: boolean }; return { ...rest, op: rest.op ?? (negate ? '≠' : '=') } }
+      it.conditions = it.conditions.map((w) => (isGroup(w) ? mapLeaves(w, fix) : fix(w)))
+    }
   }
   if (raw.rangeTypes) p.rangeTypes = raw.rangeTypes
   if (raw.enumTypes) p.enumTypes = raw.enumTypes

@@ -124,6 +124,8 @@ export function conditionText(p: Project, c: Condition, earlier: Condition[] = [
 }
 /** The sentences of a list of conditions, each knowing the ones before it. */
 export const conditionTexts = (p: Project, cs: Condition[]) => cs.map((c, i) => conditionText(p, c, cs.slice(0, i)))
+/** The sentences of a list of conditions and groups (all must hold), skipping incomplete ones. */
+export const whenTexts = (p: Project, ws: When[]): string[] => ws.map((w, i) => whenText(p, w, false, ws.slice(0, i).flatMap(leaves))).filter(Boolean)
 
 /** "speed of every Train is 0", "speed of some Train t1 is 0", "speed of t1 is 0", "some Train t1 at Station", "no Train at Station", "some Train t1 approaches Crossing c1". */
 function quantText(p: Project, c: Condition, q: Quantifier, another = false, another2 = false): string {
@@ -189,13 +191,15 @@ export const allOf = (...of: When[]): Group => ({ any: false, of })
 export const anyOf = (...of: When[]): Group => ({ any: true, of })
 /** The conditions in a condition tree. */
 export const leaves = (w: When): Condition[] => (isGroup(w) ? w.of.flatMap(leaves) : [w])
+/** The conditions to make true to satisfy a tree: all of an all-of group, the first branch of an any-of group (to draft traces). */
+export const required = (w: When): Condition[] => (isGroup(w) ? (w.any ? w.of.slice(0, 1) : w.of).flatMap(required) : [w])
 /** The tree with each condition replaced (null drops it). */
 export const mapLeaves = (g: Group, f: (c: Condition) => Condition | null): Group =>
   ({ ...g, of: g.of.flatMap((w) => { const x = isGroup(w) ? mapLeaves(w, f) : f(w); return x ? [x] : [] }) })
 /** "A and (B or C)", from complete conditions only. */
-export function whenText(p: Project, w: When, top = true): string {
-  if (!isGroup(w)) return conditionComplete(w) ? conditionText(p, w) : ''
-  const parts = w.of.map((x) => whenText(p, x, false)).filter(Boolean)
+export function whenText(p: Project, w: When, top = true, before: Condition[] = []): string {
+  if (!isGroup(w)) return conditionComplete(w) ? conditionText(p, w, before) : ''
+  const parts = w.of.map((x, i) => whenText(p, x, false, [...before, ...w.of.slice(0, i).flatMap(leaves)])).filter(Boolean)
   const s = parts.join(w.any ? ' or ' : ' and ')
   return !top && parts.length > 1 ? `(${s})` : s
 }
@@ -209,16 +213,18 @@ export function autoName(p: Project, entity: Id | null, scope: Condition[], take
   return base + n
 }
 /** Every instance a condition introduces gets a name, so conditions and traces can always refer to it. */
-export function nameInstances(p: Project, cs: Condition[]): Condition[] {
-  const out = cs.map((c) => ({ ...c }))
-  for (const c of out) {
+export function nameInstances(p: Project, ws: When[]): When[] {
+  const copy = (w: When): When => (isGroup(w) ? { ...w, of: w.of.map(copy) } : { ...w })
+  const out = ws.map(copy)
+  const all = out.flatMap(leaves)
+  for (const c of all) {
     const v = isText(c) ? undefined : p.items[c.variable]
     if (v?.kind !== 'variable') continue
     const e1 = quantOf(p, c) === 'some' && !c.same ? boundEntity(p, v) : null
-    if (e1 && !c.as) c.as = autoName(p, e1, out)
+    if (e1 && !c.as) c.as = autoName(p, e1, all)
     const e2 = !c.same2 ? otherEnd(p, v) : null
-    if (e2 && !c.as2) c.as2 = autoName(p, e2, out)
-    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, out)
+    if (e2 && !c.as2) c.as2 = autoName(p, e2, all)
+    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, all)
   }
   return out
 }

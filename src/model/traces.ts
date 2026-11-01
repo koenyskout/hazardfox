@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { condInstances, condKey, conditionComplete, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, stepOf, valuesOf } from './variables'
+import { condInstances, condKey, conditionComplete, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -67,12 +67,12 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
-  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && conditionComplete(c)).map(condKey)))]
+  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
-export function whenHolds(p: Project, w: When, get: Getter): boolean | null | undefined {
-  if (!isGroup(w)) return condHolds(p, w, get)
-  const hs = w.of.map((x) => whenHolds(p, x, get)).filter((h) => h !== undefined)
+export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Condition) => boolean): boolean | null | undefined {
+  if (!isGroup(w)) return condHolds(p, w, get, strict?.(w))
+  const hs = w.of.map((x) => whenHolds(p, x, get, strict)).filter((h) => h !== undefined)
   return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
 }
 
@@ -123,9 +123,10 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>): boolean | null {
   let all: boolean | null = true
   const names = new Map<string, Set<string>>()
-  for (const c of u.conditions) for (const i of condInstances(p, c)) names.set(i.entity, (names.get(i.entity) ?? new Set()).add(i.name))
+  for (const c of u.conditions.flatMap(leaves)) for (const i of condInstances(p, c)) names.set(i.entity, (names.get(i.entity) ?? new Set()).add(i.name))
+  const strict = (c: Condition) => condInstances(p, c).some((i) => (names.get(i.entity)?.size ?? 0) > 1)
   for (const c of u.conditions) {
-    const h = condHolds(p, c, getter(state), condInstances(p, c).some((i) => (names.get(i.entity)?.size ?? 0) > 1))
+    const h = whenHolds(p, c, getter(state), strict)
     if (h === false) return false
     if (h === null) all = null
   }
@@ -206,7 +207,7 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
   const st = traceState(p, s.trace, step)
   const fbs = feedbackInto(p, ca.from)
   let anyBelief = false
-  for (const c of u.conditions) {
+  for (const c of u.conditions.flatMap(required)) {
     const w = p.items[c.variable]
     if (w?.kind !== 'variable' || w.layer !== 'domain') continue
     // per-instance lanes of a named instance ("<variable>@t1"), else the lanes for all instances
@@ -243,7 +244,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const [init, ctx, act] = [step('t0', 'Initially the context does not hold.'), step('t1', ''), step('t2', '')]
     const lost = new Set<Id>(), sent = new Set<Id>()
     // Only the first condition is false initially; it becoming true makes the context hold.
-    for (const [k, c] of u.conditions.entries()) {
+    for (const [k, c] of u.conditions.flatMap(required).entries()) {
       if (isText(c)) {
         if (!conditionComplete(c)) continue
         const key = condKey(c), after = String(c.op !== '≠')

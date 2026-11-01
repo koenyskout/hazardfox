@@ -4,7 +4,7 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -412,7 +412,7 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = conditionTexts(p, it.conditions.filter(conditionComplete)).map((l) => renderText(labels, l))
+  const lines = whenTexts(p, it.conditions).map((l) => renderText(labels, l))
   return (
     <div className="ctx-summary">
       {lines.length || it.context ? (
@@ -439,7 +439,7 @@ function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = conditionTexts(p, it.conditions.filter(conditionComplete)).map((l) => renderText(labels, l))
+  const lines = whenTexts(p, it.conditions).map((l) => renderText(labels, l))
   return (
     <div className="ctx-summary">
       {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">No condition yet</span>}
@@ -465,14 +465,22 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
 }
 
 /** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
-function ConditionList({ conditions, onChange, vars, head }: { conditions: Condition[]; onChange: (cs: Condition[]) => void; vars: Variable[]; head: ReactNode }) {
+function ConditionList({ conditions, onChange, vars, head }: { conditions: When[]; onChange: (cs: When[]) => void; vars: Variable[]; head: ReactNode }) {
   const p = useProject()
-  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of.filter((w): w is Condition => !isGroup(w))))} vars={vars} head={head} flat scope={conditions} /></div>
+  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of))} vars={vars} head={head} flat scope={conditions.flatMap(leaves)} /></div>
+}
+
+/** The tree list with `f` applied to each condition (given its position among the conditions in reading order). */
+const mapAt = (ws: When[], f: (c: Condition, i: number) => Condition): When[] => {
+  let k = 0
+  const go = (w: When): When => (isGroup(w) ? { ...w, of: w.of.map(go) } : f(w, k++))
+  return ws.map(go)
 }
 
 /** The instances the conditions talk about (an entity with several instances), one line each: quantifier, entity, name. Edits apply to the condition that introduces the instance; conditions refer to it by name. */
-function Declarations({ conditions, onChange }: { conditions: Condition[]; onChange: (cs: Condition[]) => void }) {
+function Declarations({ conditions: tree, onChange }: { conditions: When[]; onChange: (cs: When[]) => void }) {
   const p = useProject()
+  const conditions = tree.flatMap(leaves)
   const decls = conditions.flatMap((c, i) => {
     const v = isText(c) ? undefined : p.items[c.variable]
     if (v?.kind !== 'variable') return []
@@ -487,7 +495,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
   if (!decls.length) return null
   const rename = (d: (typeof decls)[number], to: string) => {
     const old = d.name
-    onChange(conditions.map((c, i) => {
+    onChange(mapAt(tree, (c, i) => {
       const x = i === d.i ? { ...c, [d.cmp ? (d.end === 1 ? 'oAs' : 'oAs2') : d.end === 1 ? 'as' : 'as2']: to || undefined } : { ...c }
       if (old) { for (const k of ['same', 'same2', 'oSame', 'oSame2'] as const) if (x[k] === old) x[k] = to || undefined }
       return x
@@ -499,7 +507,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
         <div key={d.i + ':' + d.end + (d.cmp ? 'c' : '')} className="decl">
           <span className="cond-word">{d.quant === 'all' ? (n ? 'and for' : 'For') : n ? 'and' : 'There is'}</span>
           {d.end === 1 && !d.cmp && (
-            <Select value={d.quant ?? 'some'} onChange={(e) => onChange(conditions.map((c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
+            <Select value={d.quant ?? 'some'} onChange={(e) => onChange(mapAt(tree, (c, i) => (i === d.i ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
               {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
             </Select>
           )}
@@ -516,8 +524,9 @@ const BLANK: Condition = { variable: '', op: '=', state: '' }
 const WORDS: Condition = { variable: '', op: '=', state: 'true', text: '' }
 
 /** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
-function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
-  const upd = (i: number, w: When | null, binds: Binds = []) => onChange({ ...g, of: (w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i)).map((x) => (isGroup(x) ? x : binds.filter((b) => b.target === x).reduce(withName, x))) })
+function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group, binds?: Binds) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
+  const bound = (x: When, binds: Binds): When => (isGroup(x) ? { ...x, of: x.of.map((y) => bound(y, binds)) } : binds.filter((b) => b.target === x).reduce(withName, x))
+  const upd = (i: number, w: When | null, binds: Binds = []) => onChange({ ...g, of: (w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i)).map((x, j) => (j === i ? x : bound(x, binds))) }, binds)
   const join = g.of.length > 1 ? (g.any ? 'or' : 'and') : ''
   return (
     <>
@@ -528,12 +537,12 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
       </div>
       <div className={'conds' + (onRemove ? ' group' : '')}>
         {g.of.map((w, i) => isGroup(w)
-          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} scope={scope} onChange={(x) => upd(i, x)} onRemove={() => upd(i, null)} />
+          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} scope={scope} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />
           : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
           <button title="A condition in words, for something not modelled as a variable; traces treat it as true / false" onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
-          {!flat && <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
+          {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
         </div>
       </div>
     </>
@@ -737,7 +746,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
 function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const kids = itemsOfKind(p, 'uca').filter((u) => u.refines === it.id)
-  const refinable = it.conditions.map((c, i) => [c, i] as const).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && v.rules.length > 0 && conditionComplete(c) })
+  const refinable = it.conditions.map((c, i) => [c, i] as const).filter((x): x is readonly [Condition, number] => !isGroup(x[0])).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && v.rules.length > 0 && conditionComplete(c) })
   return (
     <>
       {it.refines && (

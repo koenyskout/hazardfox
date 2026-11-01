@@ -8,7 +8,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { nameAllInstances, condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { leaves, nameAllInstances, condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario } from './types'
 
@@ -112,11 +112,11 @@ describe('level crossing example', () => {
     const { crossingExampleProject } = await import('./crossingExample')
     const p = crossingExampleProject()
     expect(validate(p).filter((i) => i.severity === 'error')).toEqual([])
-    const texts = Object.values(p.items).flatMap((i) => (i.kind === 'uca' ? i.conditions.map((c) => conditionText(p, c)) : []))
+    const texts = Object.values(p.items).flatMap((i) => (i.kind === 'uca' ? i.conditions.flatMap(leaves).map((c) => conditionText(p, c)) : []))
     expect(texts).toContain('Position of some Train tr1 is approaching')
     expect(texts).toContain('Position of every Train is far')
     expect(texts).toContain('no Train approaches Crossing')
-    const hz = Object.values(p.items).flatMap((i) => (i.kind === 'hazard' ? [i.conditions.map((c) => conditionText(p, c)).join(' and ')] : []))
+    const hz = Object.values(p.items).flatMap((i) => (i.kind === 'hazard' ? [i.conditions.flatMap(leaves).map((c) => conditionText(p, c)).join(' and ')] : []))
     expect(hz).toContain('Gate position is open and some Train tr1 approaches Crossing')
     expect(hz).toContain('Gate position is closed and no Train approaches Crossing')
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))

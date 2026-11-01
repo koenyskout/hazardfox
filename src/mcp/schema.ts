@@ -2,8 +2,8 @@ import { makeItem } from '../model/create'
 import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKinds } from '../model/tree'
-import { allOf, conditionError, isRangeOp, isText as inWords, laneText, mapLeaves } from '../model/variables'
-import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { allOf, isGroup, conditionError, isRangeOp, isText as inWords, laneText, mapLeaves } from '../model/variables'
+import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -55,7 +55,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'conditions') info.type = COND + '[]'
+    if (f === 'conditions') info.type = `(${COND} | Group)[] where Group = {any: boolean, of: (${COND} | Group)[]}: a list means all of; {any: true, of: [...]} is a disjunction (any of)`
     if (f === 'rules') info.type = `{state: string (a value of this variable), when: Group}[] where Group = {any: boolean, of: (${COND} | Group)[]} (all of / any of; a plain ${COND}[] means all of) (refinement of a world variable: the first rule whose condition holds gives its value, else otherwise)`
     if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
@@ -180,7 +180,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
         out[f] = [...new Set(v.map((x) => { const id = r.resolve(x); checkKind(id, f); return id }))]
       } else if (f === 'conditions') {
         if (!Array.isArray(v)) throw new Error('expected an array')
-        out[f] = v.map(parseCond)
+        out[f] = v.map((x: Rec) => (x && Array.isArray(x.of) ? parseWhen(x) : parseCond(x)))
       } else if (f === 'rules') {
         if (!Array.isArray(v)) throw new Error('expected an array')
         out[f] = v.map((x: Rec) => ({ state: String(x?.state ?? ''), when: parseWhen(x?.when) }))
@@ -266,7 +266,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'status' && v === 'draft') continue
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
-    else if (f === 'conditions') out[f] = (v as Condition[]).map(cond)
+    else if (f === 'conditions') out[f] = (v as When[]).map((w) => (isGroup(w) ? mapLeaves(w, cond as (c: Condition) => Condition) : cond(w)))
     else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: mapLeaves(x.when, cond as (c: Condition) => Condition) }))
     else if (f === 'trace') {
       const t = v as Trace

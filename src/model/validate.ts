@@ -145,7 +145,7 @@ export function validate(p: Project): Issue[] {
   // named instances: a reference needs an earlier-introduced name on the same entity, and a name denotes one entity
   for (const u of ucas) {
     const named = new Map<string, Id | null>()
-    const all = u.conditions.map((c) => condInstances(p, c))
+    const all = u.conditions.flatMap(leaves).map((c) => condInstances(p, c))
     for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && named.get(x.name) !== x.entity) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
     for (const x of all.flat().filter((x) => !x.intro)) {
       if (!named.has(x.name)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} is not introduced by any condition`)
@@ -153,7 +153,7 @@ export function validate(p: Project): Issue[] {
     }
   }
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
-  for (const u of ucas) for (const c of u.conditions) {
+  for (const u of ucas) for (const c of u.conditions.flatMap(leaves)) {
     const v = p.items[c.variable]
     if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !c.same && !instName(c)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
@@ -161,7 +161,7 @@ export function validate(p: Project): Issue[] {
 
   for (const u of ucas) {
     const ca = p.items[u.ca]
-    for (const id of u.conditions.flatMap((c) => [c.variable, c.other ?? ''])) {
+    for (const id of u.conditions.flatMap(leaves).flatMap((c) => [c.variable, c.other ?? ''])) {
       const v = p.items[id]
       if (v?.kind !== 'variable') continue
       if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])

@@ -73,16 +73,18 @@ export function expand(p: Project, v: Variable, c: Condition, max = 64): Dnf | n
 /** Lower-level UCAs from substituting the rules of the refined variable in condition `index` of a UCA; existing identical refinements are kept. */
 export function refineUca(p: Project, uca: Id, index: number): { project: Project; ids: Id[] } {
   const u = p.items[uca]
-  const c = u?.kind === 'uca' ? u.conditions[index] : undefined
+  const w = u?.kind === 'uca' ? u.conditions[index] : undefined
+  const c = w && !isGroup(w) ? w : undefined
   const v = c ? p.items[c.variable] : undefined
   if (u?.kind !== 'uca' || !c || c.other || v?.kind !== 'variable') return { project: p, ids: [] }
   const rest = u.conditions.filter((_, i) => i !== index)
-  const same = (a: Condition[], b: Condition[]) => a.length === b.length && a.every((x) => b.some((y) => key(x) === key(y)))
+  const wkey = (x: When) => (isGroup(x) ? JSON.stringify(x) : key(x))
+  const same = (a: When[], b: When[]) => a.length === b.length && a.every((x) => b.some((y) => wkey(x) === wkey(y)))
   const have = itemsOfKind(p, 'uca').filter((x) => x.refines === uca)
   const ids: Id[] = []
   for (const alt of expand(p, v, c) ?? []) {
-    const conditions = dedupe([...rest, ...alt])
-    if (!consistent(p, conditions)) continue
+    const conditions: When[] = [...new Map([...rest, ...alt].map((x) => [wkey(x), x])).values()]
+    if (!consistent(p, conditions.filter((x): x is Condition => !isGroup(x)))) continue
     const old = have.find((x) => same(x.conditions, conditions))
     if (old) { ids.push(old.id); continue }
     const r = createItem(p, 'uca', { ca: u.ca, guide: u.guide, conditions, context: u.context, hazards: [...u.hazards], refines: uca })

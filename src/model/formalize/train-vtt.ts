@@ -1,7 +1,7 @@
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
-import { anyOf, autoName, conditionComplete, isText, quantOf } from '../variables'
+import { anyOf, autoName, conditionComplete, isText, leaves, quantOf } from '../variables'
 import type { Condition, Id, Item, Project, Variable } from '../types'
 
 /**
@@ -27,7 +27,7 @@ function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: 
 const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, patch as never) }
 const cond = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
 const words = (text: string): Condition => ({ variable: '', op: '=', state: 'true', text })
-const isEmpty = (cs: Condition[]) => cs.length === 0
+const isEmpty = (cs: unknown[]) => cs.length === 0
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 
 /** Gives the first condition on a variable of `many` entity `e` the name, later ones refer to it (`same`): all describe one instance. */
@@ -71,8 +71,8 @@ function train(p0: Project): Project {
 
   // The existing UCA conditions on door variables are about the door the controller drives: one named instance.
   for (const u of itemsOfKind(b.p, 'uca')) {
-    const cs = oneInstance(b, u.conditions, doorVars, d1)
-    if (cs.some((c, i) => c !== u.conditions[i])) set(b, u.id, { conditions: cs })
+    const cs = oneInstance(b, u.conditions.flatMap(leaves), doorVars, d1)
+    if (cs.some((c, i) => c !== u.conditions.flatMap(leaves)[i])) set(b, u.id, { conditions: cs })
   }
 
   const [h1, h2, h3] = ['Doors close on a person in the doorway', 'Doors open when the train is moving or not aligned with a platform', 'Passengers or personnel are unable to exit the train during an emergency']

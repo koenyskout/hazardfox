@@ -7,7 +7,7 @@ import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, textCond
 import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { condInstances, instLane, isMany, isText, laneParts, laneText, stepOf, valuesOf } from '../model/variables'
+import { condInstances, instLane, isMany, isText, laneParts, leaves, laneText, stepOf, valuesOf } from '../model/variables'
 import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
@@ -58,7 +58,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   // lanes for the instances the UCA's conditions name, and a custom one for any variable with several instances
   // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
   const ctrl = uca ? p.items[uca.ca] : null
-  const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap((c) => {
+  const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap(leaves).flatMap((c) => {
     const v = isText(c) ? undefined : p.items[c.variable]
     const k = instLane(c)
     if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []

@@ -1,5 +1,5 @@
-import { isText, laneParts, laneText, leaves, mapLeaves } from './variables'
-import type { Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
+import { isGroup, isText, laneParts, laneText, leaves, mapLeaves } from './variables'
+import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
 type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
@@ -70,7 +70,7 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
+  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions.flatMap(leaves)) { if (c.variable) out.push(c.variable); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
   if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '', ...(isText(c) ? mentions(c.text ?? '') : [])]).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
@@ -107,7 +107,7 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     setField(it, f, next)
   }
   if (it.kind === 'uca' || it.kind === 'hazard') {
-    it.conditions = it.conditions.flatMap((c) => reref(c, from, to))
+    it.conditions = it.conditions.flatMap((w) => (isGroup(w) ? [mapLeaves(w, (c) => reref(c, from, to)[0] ?? null)] : reref(w, from, to) as When[]))
   }
   if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
