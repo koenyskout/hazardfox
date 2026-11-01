@@ -623,6 +623,18 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       return { key: `${v.id}|${a?.value}|${b?.value}`, variable: v, before, after, text: `${before ?? ''} ${variableName(p, v)} ${labels[v.id]} ${after ?? ''}`, pick: () => onChange(r2.c, [...r1.binds, ...r2.binds]) }
     }))
   })
+  /** Names the compared variable can be read at (instances introduced by the other conditions), per end of a variable. */
+  const otherNames = (ent: Id) => [...new Set(scope.flatMap((o) => (o === c ? [] : condInstances(p, o).filter((x) => x.entity === ent && x.intro).map((x) => x.name))))]
+  const otherChoices = (): SubjectChoice[] => !vr ? [] : vars.filter((x) => x.id !== vr.id && x.type === vr.type).flatMap((x) => {
+    const e1 = boundEntity(p, x), e2 = otherEnd(p, x)
+    const o1 = e1 ? ['', ...otherNames(e1)] : [''], o2 = e2 ? ['', ...otherNames(e2)] : ['']
+    const word = (e: Id | null, n: string) => !e ? undefined : n ? n : `any ${entityTitle(e)}`
+    return o1.flatMap((a) => o2.map((b) => {
+      const [before, after] = [word(e1, a), word(e2, b)]
+      return { key: `${x.id}|${a}|${b}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => upd({ other: x.id, oSame: a || undefined, oSame2: b || undefined }) }
+    }))
+  })
+  const instOf = (end: 1 | 2) => { const e = ov?.kind === 'variable' ? (end === 1 ? boundEntity(p, ov) : otherEnd(p, ov)) : null; return e ? (c[end === 1 ? 'oSame' : 'oSame2'] ?? `any ${entityTitle(e)}`) : '' }
   const err = vr && (cmp ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
   const toVar = () => vr && upd({ other: '', state: '', to: '', set: [], op: opsForVar(vr).includes(c.op) ? c.op : '=' })
   const toValue = () => vr && upd({ other: undefined, oSame: undefined, oSame2: undefined, state: '', to: '', op: opsFor(vr).includes(c.op) ? c.op : '=' })
@@ -648,22 +660,10 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       </Select>
       <div className={'cond-val' + (!cmp && bar && !isSetOp(c.op) ? ' bar' : '')}>
         {cmp && vr && (
-          <Picker options={vars.filter((x) => x.id !== vr.id && x.type === vr.type)} onPick={(id) => upd({ other: id ?? '', oSame: undefined, oSame2: undefined })}>
-            {ov?.kind === 'variable' ? <ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
-          </Picker>
+          <SubjectPicker choices={otherChoices}>
+            {ov?.kind === 'variable' ? <>{instOf(1) && <span className="subj-inst">{instOf(1)}</span>}<ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover>{instOf(2) && <span className="subj-inst">{instOf(2)}</span>}</> : <span className="muted">variable…</span>}
+          </SubjectPicker>
         )}
-        {cmp && ov?.kind === 'variable' && ([1, 2] as const).map((end) => {
-          const ent = end === 1 ? boundEntity(p, ov) : otherEnd(p, ov), key = end === 1 ? 'oSame' : 'oSame2'
-          if (!ent) return null
-          const names = [...new Set(scope.flatMap((o) => (o === c ? [] : condInstances(p, o).filter((x) => x.entity === ent && x.intro).map((x) => x.name))))]
-          if (c[key] && !names.includes(c[key]!)) names.push(c[key]!)
-          return (
-            <Select key={end} value={c[key] ?? ''} onChange={(e) => upd({ [key]: e.target.value || undefined })} title={`Which ${entityTitle(ent)} the compared variable is read at`}>
-              <option value="">any {entityTitle(ent)}</option>
-              {names.map((n) => <option key={n} value={n}>of {n}</option>)}
-            </Select>
-          )
-        })}
         {cmp && vr && swap('Compare with a fixed value instead', toValue)}
         {!cmp && bar && vr && (
           <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => upd(isRangeOp(c.op) ? { state: a, to: b } : { state: a })} />
