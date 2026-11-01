@@ -484,3 +484,15 @@ table.plain td { padding: 4px 10px 4px 0; }
 .cond .cond-time select, .cond .cond-time .select { width: auto; }
 .cond .cond-time .time-amount { width: 64px; min-width: 56px; }
 .params .cond input.time-amount, .cond .cond-time input.time-amount { width: 70px; flex: none; }
+
+.cond.cond-ev { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.cond.cond-ev .cond-word { text-align: left; min-width: 34px; }
+.cond.cond-ev .select, .cond.cond-ev select { width: auto; min-width: 200px; flex: 1 1 200px; }
+.cond.cond-ev .x { margin-left: auto; }
+.cond.cond-ev .cond-time { display: inline-flex; gap: 6px; align-items: center; } .cond.cond-ev .cond-time select, .cond.cond-ev .cond-time .select { width: auto; min-width: 90px; flex: none; }
+
+.cond .cond-dur { grid-column: 2 / 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.cond .cond-dur .cond-word { text-align: left; }
+.cond .cond-dur .cond-time { display: inline-flex; gap: 6px; align-items: center; }
+.cond .cond-dur .cond-time select, .cond .cond-dur .cond-time .select { width: auto; min-width: 90px; }
+.cond .cond-dur .btn { width: auto; min-height: 0; padding: 1px 6px; }

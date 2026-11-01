@@ -683,7 +683,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
   if (isEvent(c)) {
     const events = Object.values(p.items).filter((x) => x.kind === 'ca' || x.kind === 'feedback')
     return (
-      <div className="cond">
+      <div className="cond cond-ev">
         <span className="cond-word">{word}</span>
         <TimeEdit t={c.time ?? TIME} onChange={(time) => upd({ time })} />
         <span className="cond-word">after</span>
@@ -812,7 +812,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
         {!cmp && vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
         {!cmp && vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
       </div>
-      {c.time ? <><span className="cond-word">for</span><TimeEdit t={c.time} onChange={(time) => upd({ time })} /><button className="x" title="Remove the duration" onClick={() => upd({ time: undefined })}>⊘</button></>
+      {c.time ? <div className="cond-dur"><span className="cond-word">held for</span><TimeEdit t={c.time} onChange={(time) => upd({ time })} /><button type="button" className="btn" title="Remove the duration" onClick={() => upd({ time: undefined })}>⊘</button></div>
         : vr && <button type="button" className="btn" title="Require the condition to have held for some time" style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={() => upd({ time: TIME })}>⏱</button>}
       <button className="x" onClick={onRemove}>×</button>
       {err && <small className="cond-err">{err}</small>}
