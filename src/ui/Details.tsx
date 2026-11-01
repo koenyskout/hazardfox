@@ -1,6 +1,6 @@
 import { ControllerEditorButton } from './VariableMap'
 import { Select } from './Select'
-import { renderText, shortName, variableName } from '../model/labels'
+import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
@@ -599,10 +599,10 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       const ov = isText(o) || o === c ? undefined : p.items[o.variable]
       if (ov?.kind !== 'variable') return []
       return ([1, 2] as const).filter((e) => (e === 1 ? quantOf(p, o) === 'some' && !o.same && boundEntity(p, ov) === ent : !o.same2 && otherEnd(p, ov) === ent))
-        .map((e) => ({ o, i, e, name: e === 1 ? o.as : o.as2, label: shortName(p, ov) }))
-    })
+        .map((e) => ({ o, i, e, name: (e === 1 ? o.as : o.as2) ?? '' }))
+    }).filter((x) => x.name)
     const mine = c0[asK]
-    const other = mine ? pool.find((x) => x.name && x.name !== mine && x.i < idx) : undefined
+    const other = mine ? pool.find((x) => x.name !== mine && x.i < idx) : undefined
     const value = c0[sameK] ? 'same:' + c0[sameK] : other ? `other:${other.i}:${other.e}` : end === 1 ? quantOf(p, c0)! : 'some'
     const apply = (x: string) => (c1: Condition): { c: Condition; binds: Bind[] } => {
       // leaving a reference may orphan the name it used
@@ -612,18 +612,17 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       const base: Condition = { ...c1, [sameK]: undefined, [asK]: undefined, ...(end === 1 ? { quant: undefined } : {}) }
       const drop: Bind[] = intro ? [{ ...intro, as: undefined }] : []
       if (x.startsWith('same:')) return { c: { ...base, [sameK]: x.slice(5) }, binds: drop.filter((d) => d.target[d.end === 1 ? 'as' : 'as2'] !== x.slice(5)) }
-      if (x.startsWith('bind:') || x.startsWith('other:')) {
-        const [kind, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (e === '1' ? t.as : t.as2) ?? autoName(p, ent, scope)
-        const bind: Bind[] = (e === '1' ? t.as : t.as2) ? [] : [{ target: t, end: Number(e) as 1 | 2, as: tn }]
-        return { c: kind === 'bind' ? { ...base, [sameK]: tn } : { ...base, [asK]: autoName(p, ent, scope, [tn]) }, binds: [...bind, ...drop] }
+      if (x.startsWith('other:')) {
+        const [, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (e === '1' ? t.as : t.as2) ?? ''
+        return { c: { ...base, [asK]: autoName(p, ent, scope, [tn]) }, binds: drop }
       }
       return { c: end === 1 ? { ...base, quant: x === 'some' ? undefined : x as Quantifier } : base, binds: drop }
     }
     const t = entityTitle(ent)
     const opts = [
       ...(end === 1 ? QUANTIFIERS.map((q) => ({ value: q as string, short: QUANT_LABELS[q], long: `${QUANT_LABELS[q]} ${t}` })) : [{ value: 'some', short: `some ${t}`, long: `some ${t}` }]),
-      ...pool.map(({ i, e, name, label }) => ({ value: name ? 'same:' + name : `bind:${i}:${e}`, short: name ?? `the same ${t} (${label})`, long: name ?? `the same ${t} (${label})` })),
-      ...pool.filter(({ i }) => i < idx).map(({ i, e, name, label }) => ({ value: `other:${i}:${e}`, short: `another ${t} than ${name ?? `(${label})`}`, long: `another ${t} than ${name ?? `(${label})`}` })),
+      ...pool.map(({ name }) => ({ value: 'same:' + name, short: name, long: name })),
+      ...pool.filter(({ i }) => i < idx).map(({ i, e, name }) => ({ value: `other:${i}:${e}`, short: `another ${t} than ${name}`, long: `another ${t} than ${name}` })),
     ].map((o) => ({ ...o, apply: apply(o.value) }))
     return { value, opts, asK }
   }
