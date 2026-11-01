@@ -467,3 +467,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .pk-ends .pk-use { grid-column: 1 / -1; justify-self: end; }
 .pk-ends label { text-align: left; justify-content: flex-start; line-height: 1.25; }
 .picker-list .pk-ends input[type=radio] { width: auto; flex: none; margin: 0; padding: 0; border: 0; }
+.picker-list .pk-ends input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
+.pk-ends label { position: relative; padding: 4px 8px; border-left: 3px solid transparent; }
+.pk-ends label:hover { background: var(--hover); }
+.pk-ends label.on { background: var(--cur); border-left-color: var(--accent); font-weight: 600; }
