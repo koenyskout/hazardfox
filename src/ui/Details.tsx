@@ -545,7 +545,7 @@ type Bind = { target: Condition; end: 1 | 2; as: string | undefined }
 type Binds = Bind[]
 /** A short unused instance name for an entity: t1, t2, … */
 function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
-  const base = (p.items[entity ?? '']?.title.trim()[0] || 'x').toLowerCase()
+  const base = ((p.items[entity ?? '']?.title.trim().replace(/[^\p{L}]/gu, '').slice(0, 2)) || 'x').toLowerCase()
   const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2, o.oAs, o.oAs2, o.oSame, o.oSame2]), ...taken])
   let n = 1
   while (used.has(base + n)) n++
