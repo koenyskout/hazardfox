@@ -4,7 +4,7 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { argError, paramOf, paramVar } from '../model/params'
+import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type ArgCondition, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
@@ -305,7 +305,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <Select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</Select>
             </Field>
           )}
-          {it.kind === 'ca' && <Field label="Parameters" hint="Typed values the action carries (e.g. a dose); UCAs can constrain them. Optional."><ParamsEditor params={it.params} onChange={(params) => set({ params })} /></Field>}
+          {it.kind === 'ca' && <Field label="Parameters" hint="Typed values the action carries (e.g. a dose); UCAs can constrain them. Optional."><ParamsSummary params={it.params} onChange={(params) => set({ params })} /></Field>}
           {it.kind === 'ca' && (
             <Field label="Guide words not applicable">
               {GUIDE_WORDS.filter((g) => guideApplies(it, g)).map((g) => {
@@ -334,7 +334,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Context">
             <ContextSummary it={it} set={set} />
           </Field>
-          {p.items[it.ca]?.kind === 'ca' && (p.items[it.ca] as ItemOf<'ca'>).params.length > 0 && <Field label="Parameters"><ArgsEditor ca={p.items[it.ca] as ItemOf<'ca'>} args={it.args} onChange={(args) => set({ args })} /></Field>}
+          {p.items[it.ca]?.kind === 'ca' && (p.items[it.ca] as ItemOf<'ca'>).params.length > 0 && <Field label="Parameters"><ArgsSummary ca={p.items[it.ca] as ItemOf<'ca'>} uca={it} onChange={(args) => set({ args })} /></Field>}
           <Field single label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
           </Field>
@@ -527,6 +527,34 @@ const PARAM_TYPES = ['enum', 'boolean', 'range'] as const
 const BLANK_PARAM: Param = { name: '', type: 'range', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' }
 
 /** The parameters of a control action: a name and a type (enum with states / boolean / range with bounds and unit), as for variables. */
+/** Summary lines with a button that opens the editor in a dialog. */
+function EditPopup({ title, lines, empty, button, children }: { title: string; lines: string[]; empty: string; button: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="ctx-summary">
+      {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">{empty}</span>}
+      <button type="button" onClick={() => setOpen(true)}>{button}</button>
+      {open && (
+        <Modal title={title} onClose={() => setOpen(false)} wide>
+          {children}
+          <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function ParamsSummary({ params, onChange }: { params: Param[]; onChange: (p: Param[]) => void }) {
+  const p = useProject()
+  return <EditPopup title="Edit parameters" lines={params.filter((x) => x.name).map((x) => paramSummary(p, x))} empty="No parameters" button="Edit parameters…"><ParamsEditor params={params} onChange={onChange} /></EditPopup>
+}
+
+function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca'>; onChange: (a: ArgCondition[]) => void }) {
+  const p = useProject()
+  const labels = useLabels()
+  return <EditPopup title="Edit parameter conditions" lines={argTexts(p, uca).map((l) => renderText(labels, l))} empty="No conditions on parameters" button="Edit parameter conditions…"><ArgsEditor ca={ca} args={uca.args} onChange={onChange} /></EditPopup>
+}
+
 function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Param[]) => void }) {
   const p = useProject()
   const upd = (i: number, patch: Partial<Param>) => onChange(params.map((x, j) => (j === i ? { ...x, ...patch } : x)))

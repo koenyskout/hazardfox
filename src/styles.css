@@ -474,4 +474,13 @@ table.plain td { padding: 4px 10px 4px 0; }
 
 .cond-time { display: inline-flex; gap: 4px; align-items: center; }
 .time-amount { width: 64px; }
-.params .cond { flex-wrap: wrap; }
+.params .cond { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-bottom: 4px; }
+.params .cond > input:not(.time-amount) { flex: 1 1 110px; min-width: 110px; width: auto; }
+.time-amount { width: 64px; min-width: 56px; }
+.params .cond select, .params .cond .select, .params .cond input:not([type=range]) { width: auto; }
+.params .cond > input:not(.time-amount) { flex: 1 1 110px; }
+.params .cond .time-amount { width: 70px; }
+.cond-time { display: inline-flex; gap: 4px; align-items: center; }
+.cond .cond-time select, .cond .cond-time .select { width: auto; }
+.cond .cond-time .time-amount { width: 64px; min-width: 56px; }
+.params .cond input.time-amount, .cond .cond-time input.time-amount { width: 70px; flex: none; }
