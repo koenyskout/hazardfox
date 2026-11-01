@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Variable } from '../model/types'
 import { ChipLabel } from './Icon'
-import { useLabels } from './hooks'
+import { useLabels, useProject } from './hooks'
 
 /** One way to start a condition: a variable with its instances ("every Train", "the same Train t1", …). `text` is what typing is matched against. */
 export interface SubjectChoice { key: string; variable: Variable; before?: string; after?: string; text: string; pick: () => void }
@@ -13,6 +13,7 @@ const STOP = new Set(['of', 'the', 'a', 'an', 'that', 'same', 'is'])
 /** Completion box for the subject of a condition: type words of the variable and instance ("t1 pos x", "every train speed") and pick. */
 export function SubjectPicker({ choices, create, children }: { choices: () => SubjectChoice[]; create?: { label: string; run: () => void }; children: ReactNode }) {
   const labels = useLabels()
+  const p = useProject()
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
   const [q, setQ] = useState('')
@@ -32,8 +33,9 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
   const byVar = new Map<string, SubjectChoice[]>()
   for (const c of all) byVar.set(c.variable.id, [...(byVar.get(c.variable.id) ?? []), c])
   const grouped = !words.length && stage === null
+  const owner = (v: Variable) => (v.layer === 'domain' && v.parent ? v.parent : '')
   const rows: { key: string; choice: SubjectChoice; more: number }[] = grouped
-    ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 }))
+    ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 })).sort((a, b) => (owner(a.choice.variable) ? 0 : 1) - (owner(b.choice.variable) ? 0 : 1) || labels[owner(a.choice.variable)]?.localeCompare(labels[owner(b.choice.variable)] ?? '') || 0)
     : (stage !== null ? byVar.get(stage) ?? [] : all).filter((c) => { const t = norm(c.text); return words.every((w) => t.includes(w)) }).slice(0, 60).map((c) => ({ key: c.key, choice: c, more: 0 }))
   const cur = rows[Math.min(sel, rows.length - 1)]
   const pick = (r: { choice: SubjectChoice; more: number }) => { if (r.more) { setStage(r.choice.variable.id); setQ(''); setSel(0) } else { close(); r.choice.pick() } }
@@ -55,13 +57,14 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
             {stage !== null && <div className="subj-back" onClick={() => { setStage(null); setQ(''); setSel(0) }}>← {byVar.get(stage)?.[0] && <ChipLabel it={byVar.get(stage)![0].variable} label={labels[stage]} />} — which instance?</div>}
             <ul>
               {create && stage === null && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
-              {rows.map((r, n) => { const c = r.choice; return (
-                <li key={r.key} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(r)}>
+              {rows.map((r, n) => { const c = r.choice, g = grouped ? owner(c.variable) : '', head = grouped && (n === 0 || owner(rows[n - 1].choice.variable) !== g), po = p.items[g]; return (
+                <Fragment key={r.key}>{head && <li className="pk-group">{po ? <><span className={'chip k-' + po.kind}>{po.title.trim() || labels[g]}</span></> : 'Other variables'}</li>}
+                <li className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(r)}>
                   {!r.more && c.before && <span className="subj-inst">{c.before}</span>}
                   {stage === null || !r.more ? <span className={'chip k-' + c.variable.kind}><ChipLabel it={c.variable} label={labels[c.variable.id]} /></span> : null}
                   {!r.more && c.after && <span className="subj-inst">{c.after}</span>}
                   {r.more > 0 && <span className="muted pk-more">{r.more} instance choices ▸</span>}
-                </li>
+                </li></Fragment>
               ) })}
               {rows.length === 0 && <li className="muted">No matches</li>}
             </ul>
