@@ -8,7 +8,6 @@ type Registry<V> = { [K in Kind]?: readonly Fields<K, V>[] }
 /** Required single references: if the target disappears, the item is deleted too. */
 export const REQUIRED_REFS: Registry<Id> = {
   relationship: ['from', 'to'],
-  operation: ['entity'],
   ca: ['from', 'to'],
   feedback: ['from', 'to'],
   uca: ['ca'],
@@ -16,6 +15,7 @@ export const REQUIRED_REFS: Registry<Id> = {
 /** Optional single references: cleared when the target disappears. */
 export const OPTIONAL_REFS: Registry<Id | null> = {
   variable: ['about'],
+  operation: ['owner'],
   ca: ['operation'],
   uca: ['refines'],
   scenario: ['uca', 'ca', 'element'],

@@ -171,7 +171,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field single label="Operations" hint="What the entity can do or undergo. An operation may have effects on world variables; a control action can realize it (optional).">
             <div className="reflist">
               {operationsOf(p, it.id).map((o) => <Ref key={o.id} id={o.id} />)}
-              <button className="link" onClick={() => addItemInDialog('operation', { entity: it.id })}>+ new operation</button>
+              <button className="link" onClick={() => addItemInDialog('operation', { owner: it.id })}>+ new operation</button>
             </div>
           </Field>
         </>
@@ -179,7 +179,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'operation':
       return (
         <>
-          <Field label="Entity"><SingleRef value={it.entity || null} options={of('entity')} onChange={(v) => set({ entity: v ?? '' })} /></Field>
+          <Field label="Owner" hint="Optional: the entity or relationship this operation is shown with. An operation can stand alone and have effects on any world variables."><SingleRef value={it.owner} options={[...of('entity'), ...of('relationship')]} onChange={(v) => set({ owner: v })} /></Field>
           <Field single label="Effects" hint="World variables that have a given value after the operation. In a trace they are applied when the operation (or a control action realizing it) occurs. Optional.">
             <EffectsSummary p={p} it={it} set={set} />
           </Field>
@@ -310,7 +310,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="Domain operation">
               <Select value={it.operation ?? ''} onChange={(e) => set({ operation: e.target.value || null })}>
                 <option value="">— none —</option>
-                {of('operation').map((o) => <option key={o.id} value={o.id}>{p.items[o.entity]?.title ?? '?'}: {o.title}</option>)}
+                {of('operation').map((o) => <option key={o.id} value={o.id}>{o.owner && p.items[o.owner]?.title ? p.items[o.owner].title + ': ' : ''}{o.title}</option>)}
               </Select>
               {it.operation && p.items[it.operation]?.kind === 'operation' && (p.items[it.operation] as ItemOf<'operation'>).effects.length > 0 && <div className="muted">Effects: {(p.items[it.operation] as ItemOf<'operation'>).effects.map((ef) => renderText(labels, effectText(ef))).join('; ')}</div>}
             </Field>

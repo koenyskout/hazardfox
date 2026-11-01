@@ -12,7 +12,7 @@ function setup() {
   const v = b.add('variable', { layer: 'domain', parent: e, title: 'power', type: 'enum', states: ['on', 'off'] })
   const n = b.add('node', { title: 'Nurse', role: 'controller' })
   const pr = b.add('node', { title: 'Patient', role: 'process' })
-  const op = b.add('operation', { title: 'Stop', entity: e, effects: [{ variable: v, state: 'off' }] })
+  const op = b.add('operation', { title: 'Stop', owner: e, effects: [{ variable: v, state: 'off' }] })
   const ca = b.add('ca', { from: n, to: pr, title: 'Stop pump', operation: op })
   const u = b.add('uca', { ca, guide: 'not-provided' })
   const s = b.add('scenario', { scenarioType: 'uca', uca: u, cause: 'control-algorithm' })
@@ -36,7 +36,7 @@ describe('operations', () => {
     const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: {}, events: [{ on: ca, what: 'occurs' }] }, { t: '4', note: '', values: {}, events: [] }] }
     expect(clockAt(b.project, t, 1).since(op)).toBe(4)
     expect(operationOfCa(b.project, ca)?.id).toBe(op)
-    expect(operationsOf(b.project, b.project.items[op] && (b.project.items[op] as { entity: string }).entity).length).toBe(1)
+    expect(operationsOf(b.project, (b.project.items[op] as { owner: string }).owner).length).toBe(1)
   })
   it('migrate from the old name list and round-trip', () => {
     const b = projectBuilder()
@@ -45,9 +45,9 @@ describe('operations', () => {
     expect(operationsOf(p, e).map((o) => o.title)).toEqual(['Lower'])
     expect(deserialize(serialize(p))).toEqual(p)
   })
-  it('are cleaned up with their entity, and unlinked from control actions', () => {
+  it('lose their owner, not themselves, when it is deleted, and are unlinked from control actions', () => {
     const { b, e, op, ca } = setup()
     expect(deleteItems(b.project, [op]).items[ca]).toMatchObject({ operation: null })
-    expect(deleteItems(b.project, [e]).items[op]).toBeUndefined()
+    expect(deleteItems(b.project, [e]).items[op]).toMatchObject({ owner: null })
   })
 })

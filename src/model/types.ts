@@ -121,10 +121,12 @@ export interface Entity extends Base {
   /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
   many?: boolean
 }
-/** Something an entity can do or undergo (e.g. Gate: lower). Optionally with effects on its world variables; a control action may realize it, and traces apply its effects when it occurs. */
+/** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing; optionally owned by an entity or relationship (shown there) and with effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
 export interface Operation extends Base {
   kind: 'operation'
-  entity: Id
+  owner: Id | null
+  /** Older files: the owning entity; `deserialize` moves it to `owner`. */
+  entity?: Id
   effects: Effect[]
 }
 /** After the operation, world variable `variable` has value `state`. */

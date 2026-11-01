@@ -1,7 +1,7 @@
 import { StructViewToggle, useStructView } from './structView'
 import type { ItemOf } from '../model/types'
 import { useState } from 'react'
-import { operationsOf } from '../model/operations'
+import { effectText, operationsOf } from '../model/operations'
 import { clusterStructs, isPredicate, structPath } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { describeStates, whenTexts } from '../model/variables'
@@ -88,7 +88,7 @@ export function Domain() {
   const sel = selected ? p.items[selected] : null
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
   const structMode = useStructView()
-  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'types'>('diagram')
+  const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'operation' | 'types'>('diagram')
   const [layer, setLayer] = useState<VariableLayer | ''>('')
   const vars = itemsOfKind(p, 'variable')
   return (
@@ -98,6 +98,7 @@ export function Domain() {
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
         <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
+        <button className={tab === 'operation' ? 'on' : ''} onClick={() => setTab('operation')}>Operations <i>{itemsOfKind(p, 'operation').length}</i></button>
         <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length + Object.keys(p.enumTypes ?? {}).length + Object.keys(p.structTypes ?? {}).length}</i></button>
       </div>
       {tab === 'diagram' && <DomainDiagram />}
@@ -128,6 +129,11 @@ export function Domain() {
         </>
       )}
       {tab === 'types' && <TypesPage />}
+      {tab === 'operation' && (
+        <FlatTable kind="operation" titleEditable
+          columns={[{ head: 'Owner', cell: (o) => o.kind === 'operation' && o.owner ? <Ref id={o.owner} /> : <span className="muted">—</span> }, { head: 'Effects', cell: (o) => o.kind === 'operation' ? <span className="muted">{o.effects.filter((e) => e.variable && e.state).map((e) => renderText(labels, effectText(e))).join('; ')}</span> : null }]}
+          items={itemsOfKind(p, 'operation')} />
+      )}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
           columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}

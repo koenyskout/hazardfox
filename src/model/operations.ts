@@ -3,7 +3,7 @@ import { itemsOfKind } from './tree'
 import type { Effect, Id, ItemOf, Project, TraceStep } from './types'
 
 /** Operation items of an entity, in order. */
-export const operationsOf = (p: Project, entity: Id): ItemOf<'operation'>[] => itemsOfKind(p, 'operation').filter((o) => o.entity === entity).sort((a, b) => a.rank - b.rank)
+export const operationsOf = (p: Project, owner: Id): ItemOf<'operation'>[] => itemsOfKind(p, 'operation').filter((o) => o.owner === owner).sort((a, b) => a.rank - b.rank)
 
 /** The operation a control action realizes, if it exists. */
 export const operationOfCa = (p: Project, ca: Id): ItemOf<'operation'> | null => {
@@ -31,14 +31,19 @@ export function migrateOperations(p0: Project): Project {
   for (const e of itemsOfKind(p0, 'entity')) {
     const names = e.operations
     if (!names) continue
-    for (const name of names) p = createItem(p, 'operation', { title: name, entity: e.id }).project
+    for (const name of names) p = createItem(p, 'operation', { title: name, owner: e.id }).project
     const { operations: _, ...rest } = p.items[e.id] as typeof e
     p = { ...p, items: { ...p.items, [e.id]: rest as typeof e } }
+  }
+  for (const o of itemsOfKind(p, 'operation')) {
+    if (o.entity === undefined) continue
+    const { entity, ...rest } = o
+    p = { ...p, items: { ...p.items, [o.id]: { ...rest, owner: o.owner ?? (p.items[entity] ? entity : null) } } }
   }
   for (const c of itemsOfKind(p, 'ca')) {
     if (!c.operation || p.items[c.operation]) continue
     const [eid, ...name] = c.operation.split(':')
-    const o = itemsOfKind(p, 'operation').find((x) => x.entity === eid && x.title === name.join(':'))
+    const o = itemsOfKind(p, 'operation').find((x) => x.owner === eid && x.title === name.join(':'))
     p = { ...p, items: { ...p.items, [c.id]: { ...c, operation: o?.id ?? null } } }
   }
   return p
