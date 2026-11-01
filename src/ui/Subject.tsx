@@ -59,7 +59,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
               {create && stage === null && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
               {rows.map((r, n) => { const c = r.choice, g = grouped ? owner(c.variable) : '', head = grouped && (n === 0 || owner(rows[n - 1].choice.variable) !== g), po = p.items[g]; return (
                 <Fragment key={r.key}>{head && <li className="pk-group">{po ? <><span className={'chip k-' + po.kind}>{po.title.trim() || labels[g]}</span></> : 'Other variables'}</li>}
-                <li className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(r)}>
+                <li className={(n === sel ? 'on' : '') + (grouped ? ' pk-in' : '')} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(r)}>
                   {!r.more && c.before && <span className="subj-inst">{c.before}</span>}
                   {stage === null || !r.more ? <span className={'chip k-' + c.variable.kind}><ChipLabel it={c.variable} label={labels[c.variable.id]} /></span> : null}
                   {!r.more && c.after && <span className="subj-inst">{c.after}</span>}
