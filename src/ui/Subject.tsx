@@ -17,7 +17,8 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
   const [q, setQ] = useState('')
   const [sel, setSel] = useState(0)
-  const close = () => { setAt(null); setQ(''); setSel(0) }
+  const [stage, setStage] = useState<string | null>(null)
+  const close = () => { setAt(null); setQ(''); setSel(0); setStage(null) }
   useEffect(() => {
     if (!at) return
     const down = (e: MouseEvent) => { if (!(e.target as Element).closest('.picker-pop') && !btn.current?.contains(e.target as Node)) close() }
@@ -26,33 +27,43 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
   }, [at])
   const open = () => { const r = btn.current!.getBoundingClientRect(); setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - 480)), y: r.bottom + 4 }) }
   const words = norm(q).split(/\s+/).filter((w) => w && !STOP.has(w))
-  const hits = at ? choices().filter((c) => { const t = norm(c.text); return words.every((w) => t.includes(w)) }).slice(0, 60) : []
-  const cur = hits[Math.min(sel, hits.length - 1)]
-  const pick = (c: SubjectChoice) => { close(); c.pick() }
+  const all = at ? choices() : []
+  // Without typing the list is one row per variable; one with several instance choices opens a second list of them. Typing searches all choices at once.
+  const byVar = new Map<string, SubjectChoice[]>()
+  for (const c of all) byVar.set(c.variable.id, [...(byVar.get(c.variable.id) ?? []), c])
+  const grouped = !words.length && stage === null
+  const rows: { key: string; choice: SubjectChoice; more: number }[] = grouped
+    ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 }))
+    : (stage !== null ? byVar.get(stage) ?? [] : all).filter((c) => { const t = norm(c.text); return words.every((w) => t.includes(w)) }).slice(0, 60).map((c) => ({ key: c.key, choice: c, more: 0 }))
+  const cur = rows[Math.min(sel, rows.length - 1)]
+  const pick = (r: { choice: SubjectChoice; more: number }) => { if (r.more) { setStage(r.choice.variable.id); setQ(''); setSel(0) } else { close(); r.choice.pick() } }
   return (
     <>
       <button ref={btn} type="button" className="picker-btn subject-btn" onClick={() => (at ? close() : open())}>{children}</button>
       {at && createPortal(
         <div className="picker-pop subject-pop" style={{ left: at.x, top: at.y, maxHeight: Math.max(240, window.innerHeight - at.y - 12) }}>
           <div className="picker-list">
-            <input autoFocus placeholder="Type the variable and instance, e.g. “t1 position x”, “every train speed”…" value={q}
+            <input autoFocus placeholder={stage !== null ? 'Filter the instances…' : 'Type the variable and instance, e.g. “t1 position x”, “every train speed”…'} value={q}
               onChange={(e) => { setQ(e.target.value); setSel(0) }}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); setSel(Math.min(sel + 1, hits.length - 1)) }
+                if (e.key === 'ArrowDown') { e.preventDefault(); setSel(Math.min(sel + 1, rows.length - 1)) }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(Math.max(sel - 1, 0)) }
                 else if (e.key === 'Enter' && cur) pick(cur)
-                else if (e.key === 'Escape') close()
+                else if (e.key === 'Escape') (stage !== null ? setStage(null) : close())
+                else if (e.key === 'Backspace' && !q && stage !== null) setStage(null)
               }} />
+            {stage !== null && <div className="subj-back" onClick={() => { setStage(null); setQ(''); setSel(0) }}>← {byVar.get(stage)?.[0] && <ChipLabel it={byVar.get(stage)![0].variable} label={labels[stage]} />} — which instance?</div>}
             <ul>
-              {create && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
-              {hits.map((c, n) => (
-                <li key={c.key} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(c)}>
-                  {c.before && <span className="subj-inst">{c.before}</span>}
-                  <span className={'chip k-' + c.variable.kind}><ChipLabel it={c.variable} label={labels[c.variable.id]} /></span>
-                  {c.after && <span className="subj-inst">{c.after}</span>}
+              {create && stage === null && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
+              {rows.map((r, n) => { const c = r.choice; return (
+                <li key={r.key} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(r)}>
+                  {!r.more && c.before && <span className="subj-inst">{c.before}</span>}
+                  {stage === null || !r.more ? <span className={'chip k-' + c.variable.kind}><ChipLabel it={c.variable} label={labels[c.variable.id]} /></span> : null}
+                  {!r.more && c.after && <span className="subj-inst">{c.after}</span>}
+                  {r.more > 0 && <span className="muted pk-more">{r.more} instance choices ▸</span>}
                 </li>
-              ))}
-              {hits.length === 0 && <li className="muted">No matches</li>}
+              ) })}
+              {rows.length === 0 && <li className="muted">No matches</li>}
             </ul>
           </div>
         </div>,
