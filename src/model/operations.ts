@@ -1,4 +1,3 @@
-import { createItem } from './ops'
 import { itemsOfKind } from './tree'
 import type { Effect, Id, ItemOf, Project, TraceEvent } from './types'
 
@@ -28,32 +27,3 @@ export const isOccurrence = (p: Project, e: TraceEvent, target: Id): boolean =>
 
 /** Effect as text, e.g. "@[v] = down". */
 export const effectText = (ef: Effect) => `@[${ef.variable}] = ${ef.state}${ef.on ? ` (of ${ef.on})` : ''}`
-
-/** Older files kept operation names on entities, `ca.operation` as "<entityId>:<name>" and operations with a single owner: turn them into operation items with parameters. */
-export function migrateOperations(p0: Project): Project {
-  let p = p0
-  for (const e of itemsOfKind(p0, 'entity')) {
-    const names = e.operations
-    if (!names) continue
-    for (const name of names) p = createItem(p, 'operation', { title: name, owner: e.id }).project
-    const { operations: _, ...rest } = p.items[e.id] as typeof e
-    p = { ...p, items: { ...p.items, [e.id]: rest as typeof e } }
-  }
-  for (const o of itemsOfKind(p, 'operation')) {
-    const owner = o.owner ?? o.entity ?? null
-    if (o.owner === undefined && o.entity === undefined) continue
-    const { owner: _o, entity: _e, ...rest } = o
-    const own = owner && p.items[owner] ? p.items[owner] : null
-    const name = own ? (own.title.trim().split(/\s+/).pop() ?? '').toLowerCase() || 'x' : ''
-    const params = o.params?.length ? o.params : own ? [{ name, entity: own.id }] : []
-    const effects = (o.effects ?? []).map((ef) => (own && !ef.on && (p.items[ef.variable] as { parent?: Id } | undefined)?.parent === own.id ? { ...ef, on: name } : ef))
-    p = { ...p, items: { ...p.items, [o.id]: { ...rest, params, effects } as typeof o } }
-  }
-  for (const c of itemsOfKind(p, 'ca')) {
-    if (!c.operation || p.items[c.operation]) continue
-    const [eid, ...name] = c.operation.split(':')
-    const o = itemsOfKind(p, 'operation').find((x) => x.params.some((q) => q.entity === eid) && x.title === name.join(':'))
-    p = { ...p, items: { ...p.items, [c.id]: { ...c, operation: o?.id ?? null } } }
-  }
-  return p
-}

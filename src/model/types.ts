@@ -116,20 +116,15 @@ export const CARDINALITIES = ['1', '0..1', '*', '1..*'] as const
 /** Domain model entity (tree: a child may be a part/specialisation of its parent). Its attributes are its world variables V(e). */
 export interface Entity extends Base {
   kind: 'entity'
-  /** Older files and builders: operation names; `deserialize` turns them into operation items. */
-  operations?: string[]
   /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
   many?: boolean
 }
-/** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing; optionally owned by an entity or relationship (shown there) and with effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
+/** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing, with typed parameters and effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
 export interface Operation extends Base {
   kind: 'operation'
   /** What it acts on: named parameters typed by an entity or relationship (e.g. `gate: Gate`); an event on the operation names an instance per parameter. */
   params: OpParam[]
   effects: Effect[]
-  /** Older files: a single owner (`owner`, earlier `entity`); `deserialize` turns it into a parameter. */
-  owner?: Id | null
-  entity?: Id
 }
 export interface OpParam { name: string; entity: Id }
 /** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */

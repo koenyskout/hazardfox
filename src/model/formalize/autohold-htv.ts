@@ -1,4 +1,3 @@
-import { migrateOperations } from '../operations'
 import { addBelief, addSignal } from '../formal'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
@@ -13,7 +12,7 @@ import type { Condition, ConditionOp, Id, Kind, Patch, Project } from '../types'
  */
 export function formalizeAutoholdHtv(id: 'hb-autohold' | 'hb-htv', p: Project): Project {
   if (itemsOfKind(p, 'variable').length) return p
-  return migrateOperations(nameAllInstances(id === 'hb-autohold' ? autohold(p) : htv(p)))
+  return nameAllInstances(id === 'hb-autohold' ? autohold(p) : htv(p))
 }
 
 /** Small mutable builder over an existing project. */
@@ -70,7 +69,8 @@ function autohold(p: Project): Project {
 
   // --- domain model -----------------------------------------------------------------------------------------
   const vehicle = add('entity', { title: 'Vehicle', description: 'The ego vehicle with Auto-Hold.' })
-  const brakes = add('entity', { title: 'Braking system', parent: vehicle, operations: ['Hold', 'Release', 'Add pressure'] })
+  const brakes = add('entity', { title: 'Braking system', parent: vehicle })
+  for (const title of ['Hold', 'Release', 'Add pressure']) add('operation', { title, params: [{ name: 'brakes', entity: brakes }] })
   const drive = add('entity', { title: 'Propulsion system', parent: vehicle })
   const driver = add('entity', { title: 'Driver' })
   const object = add('entity', { title: 'Nearby object', many: true, description: 'Other vehicles, pedestrians, obstacles around the vehicle.' })

@@ -59,18 +59,6 @@ describe('formal variable layers', () => {
     expect(s.trace.steps.every((x) => !(level in x.values))).toBe(true)
     expect(beliefsOf(p, ctrl)[0].about).toBeNull()
   })
-
-  it('migrates old process models and feedback variables', () => {
-    const { p, level, ctrl, fb } = base()
-    const raw = JSON.parse(serialize(p))
-    const at = (id: Id) => raw.items.find((i: { id: Id }) => i.id === id)
-    at(ctrl).processModel = [level]
-    at(fb).variables = [level]
-    const q = deserialize(JSON.stringify(raw))
-    expect(beliefsAbout(q, ctrl, level)).toHaveLength(1)
-    expect(signalsOf(q, fb).map((s) => s.about)).toEqual([level])
-    expect('processModel' in q.items[ctrl]).toBe(false)
-  })
 })
 
 describe('traces', () => {
@@ -111,27 +99,14 @@ describe('traces', () => {
     const c = createItem(p, 'node', { title: 'Ctrl', role: 'controller' }); p = addBelief(c.project, c.id, pred.id).project
     expect(beliefsAbout(p, c.id, pred.id)[0]).toMatchObject({ title: 'Person is in doorway of Door', type: 'boolean' })
     expect(validate(p).filter((i) => i.rule === 'no-title' || i.rule === 'variable-owner')).toEqual([])
-    const old = JSON.parse(serialize(p))
-    for (const it of old.items) if (it.kind === 'entity') it.attributes = [{ name: 'Open', type: 'boolean' }, { name: 'Width', type: 'number' }]
-    old.items = old.items.filter((it: { parent?: string }) => it.parent !== r.id)
-    const q = deserialize(JSON.stringify(old))
-    const vars = itemsOfKind(q, 'variable').filter((v) => v.parent === d.id).map((v) => [v.title, v.type])
-    expect(vars).toEqual([['Open', 'boolean'], ['Width', 'range']])
-    expect(predicateOf(q, r.id)).toBeTruthy()
-    expect('attributes' in q.items[d.id]).toBe(false)
   })
 
-  it('links a node to several entities; old single `entity` links migrate', () => {
+  it('links a node to several entities', () => {
     let p = emptyProject()
     const a = createItem(p, 'entity', { title: 'Door' }); p = a.project
     const b = createItem(p, 'entity', { title: 'Platform' }); p = b.project
     const n = createItem(p, 'node', { title: 'Physical process', role: 'process', entities: [a.id, b.id] }); p = n.project
     expect(deserialize(serialize(p)).items[n.id]).toMatchObject({ entities: [a.id, b.id] })
-    const old = JSON.parse(serialize(p))
-    for (const it of old.items) if (it.kind === 'node') { delete it.entities; it.entity = a.id }
-    const q = deserialize(JSON.stringify(old))
-    expect(q.items[n.id]).toMatchObject({ entities: [a.id] })
-    expect('entity' in q.items[n.id]).toBe(false)
     expect(deleteItems(p, [b.id]).items[n.id]).toMatchObject({ entities: [a.id] })
   })
 })
@@ -160,7 +135,7 @@ describe('refinement', () => {
     expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ variable: fire, op: '=', state: 'false' }, { variable: smoke, op: '=', state: 'false' }]])
   })
 
-  it('evaluates and expands nested all / any groups; old condition lists load as all of', () => {
+  it('evaluates and expands nested all / any groups', () => {
     let { p, fire, smoke, speed, em } = train()
     const [f, s, fast] = [{ variable: fire, op: '=' as const, state: 'true' }, { variable: smoke, op: '=' as const, state: 'true' }, { variable: speed, op: '>' as const, state: '100' }]
     p = updateItem(p, em, { rules: [{ state: 'evacuation', when: allOf(fast, anyOf(f, s)) }] })
@@ -171,9 +146,6 @@ describe('refinement', () => {
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false' })[id])).toBeUndefined()
     expect(expand(p, v, { variable: em, op: '=', state: 'evacuation' })).toEqual([[fast, f], [fast, s]])
     expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ ...fast, op: '≤' }], [{ ...f, state: 'false' }, { ...s, state: 'false' }]])
-    const raw = JSON.parse(serialize(p))
-    raw.items.find((x: { id: Id }) => x.id === em).rules = [{ state: 'evacuation', when: [f, s] }]
-    expect((deserialize(JSON.stringify(raw)).items[em] as Variable).rules[0].when).toEqual(allOf(f, s))
   })
 
   it('treats conditions in words as booleans keyed by their text', () => {

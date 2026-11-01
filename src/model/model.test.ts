@@ -189,25 +189,6 @@ describe('sensors and actuators', () => {
     expect(acc.filter((i) => i.kind === 'ca' && i.actuator)).toHaveLength(5)
     expect(acc.filter((i) => i.kind === 'feedback' && i.sensor)).toHaveLength(4)
   })
-
-  it('migrate old files: node roles become plain elements, their names move to the arrows', async () => {
-    const { serialize, deserialize } = await import('./serialize')
-    let p = emptyProject()
-    let c: string, a: string, s: string
-    ;[p, c] = add(p, 'node', { title: 'Ctl', role: 'controller' })
-    ;[p, a] = add(p, 'node', { title: 'Valve', role: 'process' })
-    ;[p] = add(p, 'node', { title: 'Proc', role: 'process' })
-    ;[p, s] = add(p, 'node', { title: 'Gauge', role: 'external' })
-    ;[p] = add(p, 'ca', { title: 'Open', from: c, to: a })
-    ;[p] = add(p, 'feedback', { title: 'Level', from: s, to: c })
-    const raw = JSON.parse(serialize(p))
-    for (const i of raw.items) { delete i.actuator; delete i.sensor; if (i.title === 'Valve') i.role = 'actuator'; if (i.title === 'Gauge') i.role = 'sensor' }
-    const q = deserialize(JSON.stringify(raw))
-    const items = Object.values(q.items)
-    expect(items.filter((i) => i.kind === 'node').map((n) => n.kind === 'node' && n.role).sort()).toEqual(['controller', 'external', 'process', 'process'])
-    expect(items.find((i) => i.kind === 'ca' && i.actuator === 'Valve')).toBeTruthy()
-    expect(items.find((i) => i.kind === 'feedback' && i.sensor === 'Gauge')).toBeTruthy()
-  })
 })
 
 describe('control action duration', () => {
@@ -241,9 +222,8 @@ describe('variable types and conditions', () => {
     q = deleteItems(h.project, [dose])
     expect((q.items[h.id] as Hazard).conditions).toEqual([])
   })
-  it('describes states, validates conditions per type and migrates negate', async () => {
+  it('describes states, validates conditions per type', async () => {
     const { describeStates, conditionError, conditionText, opsFor } = await import('./variables')
-    const { deserialize, serialize } = await import('./serialize')
     const { makeItem } = await import('./create')
     const range = { ...makeItem('variable'), type: 'range' as const, unit: '%', min: 0, max: 100 }
     expect(describeStates(range)).toBe('0–100 %')
@@ -262,11 +242,6 @@ describe('variable types and conditions', () => {
     p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
     const v = Object.values(p.items)[0]
     expect(conditionText(p, { variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
-    const old = JSON.parse(serialize(p))
-    old.items.push({ ...makeItem('uca'), conditions: [{ variable: v.id, state: '3', negate: true }] })
-    const q = deserialize(JSON.stringify(old))
-    const u = Object.values(q.items).find((i) => i.kind === 'uca')
-    expect(u && u.kind === 'uca' && (u.conditions[0] as { op: string }).op).toBe('≠')
   })
 })
 

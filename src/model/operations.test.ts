@@ -45,9 +45,9 @@ describe('operations', () => {
     expect(operationOfCa(b.project, ca)?.id).toBe(op)
     expect(operationsOf(b.project, e).length).toBe(1)
   })
-  it('migrate from the old name list and round-trip', () => {
+  it('round-trip', () => {
     const b = projectBuilder()
-    const e = b.add('entity', { title: 'Gate', operations: ['Lower'] } as never)
+    const e = b.add('entity', { title: 'Gate', operations: ['Lower'] })
     const p = deserialize(serialize(b.project))
     expect(operationsOf(p, e).map((o) => o.title)).toEqual(['Lower'])
     expect(operationsOf(p, e)[0].params).toEqual([{ name: 'gate', entity: e }])
