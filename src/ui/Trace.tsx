@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
+import { operationOf } from '../model/operations'
 import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, textConditions, traceState, valueAt, witness } from '../model/traces'
 import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
@@ -147,6 +148,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                     {st.events.map((e, k) => (
                       <div key={k} className="ev">
                         <Ref id={e.on} />
+                        {(operationOf(p, e.on)?.params ?? []).map((q) => <input key={q.name} className="ev-arg" size={6} placeholder={q.name} title={`${q.name}: instance of ${p.items[q.entity]?.title ?? '?'}`} value={e.args?.[q.name] ?? ''} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, args: { ...y.args, [q.name]: x.target.value } } : y)) })), `${i}:${k}:${q.name}`)} />)}
                         <Select value={e.what} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, what: x.target.value as TraceEventKind } : y)) })))}>
                           {TRACE_EVENTS.map((w) => <option key={w} value={w}>{TRACE_EVENT_LABELS[w]}</option>)}
                         </Select>

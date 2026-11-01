@@ -4,10 +4,10 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { effectText, operationsOf } from '../model/operations'
+import { effectText, opSignature, operationsOf } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Project, type ArgCondition, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -171,7 +171,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field single label="Operations" hint="What the entity can do or undergo. An operation may have effects on world variables; a control action can realize it (optional).">
             <div className="reflist">
               {operationsOf(p, it.id).map((o) => <Ref key={o.id} id={o.id} />)}
-              <button className="link" onClick={() => addItemInDialog('operation', { owner: it.id })}>+ new operation</button>
+              <button className="link" onClick={() => addItemInDialog('operation', { params: [{ name: it.title.trim().split(/\s+/).pop()!.toLowerCase() || 'x', entity: it.id }] })}>+ new operation</button>
             </div>
           </Field>
         </>
@@ -179,7 +179,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'operation':
       return (
         <>
-          <Field label="Owner" hint="Optional: the entity or relationship this operation is shown with. An operation can stand alone and have effects on any world variables."><SingleRef value={it.owner} options={[...of('entity'), ...of('relationship')]} onChange={(v) => set({ owner: v })} /></Field>
+          <Field single label="Parameters" hint="What the operation acts on, e.g. gate: Gate. An event on the operation in a trace names an instance for each parameter.">
+            <OpParamsSummary p={p} it={it} set={set} />
+          </Field>
           <Field single label="Effects" hint="World variables that have a given value after the operation. In a trace they are applied when the operation (or a control action realizing it) occurs. Optional.">
             <EffectsSummary p={p} it={it} set={set} />
           </Field>
@@ -310,7 +312,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <Field label="Domain operation">
               <Select value={it.operation ?? ''} onChange={(e) => set({ operation: e.target.value || null })}>
                 <option value="">— none —</option>
-                {of('operation').map((o) => <option key={o.id} value={o.id}>{o.owner && p.items[o.owner]?.title ? p.items[o.owner].title + ': ' : ''}{o.title}</option>)}
+                {of('operation').map((o) => <option key={o.id} value={o.id}>{opSignature(p, o)}</option>)}
               </Select>
               {it.operation && p.items[it.operation]?.kind === 'operation' && (p.items[it.operation] as ItemOf<'operation'>).effects.length > 0 && <div className="muted">Effects: {(p.items[it.operation] as ItemOf<'operation'>).effects.map((ef) => renderText(labels, effectText(ef))).join('; ')}</div>}
             </Field>
@@ -979,6 +981,27 @@ function EnumTypePicker({ v }: { v: Variable }) {
   )
 }
 
+/** Parameters of an operation (name and entity / relationship), edited in a dialog. */
+function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; set: Set }) {
+  const types = [...itemsOfKind(p, 'entity'), ...itemsOfKind(p, 'relationship')]
+  const upd = (i: number, patch: Partial<OpParam>) => set({ params: it.params.map((x, j) => (j === i ? { ...x, ...patch } : x)) })
+  return (
+    <EditPopup title={`Parameters of ${it.title || 'operation'}`} lines={it.params.map((x) => `${x.name || '?'}: ${p.items[x.entity]?.title || '?'}`)} empty="No parameters" button="Edit parameters…">
+      <div className="params">
+        {it.params.map((x, i) => (
+          <div key={i} className="cond cond-ev">
+            <input placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: name } : ef)) }) }} />
+            <span className="cond-word">of</span>
+            <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />
+            <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef)) })}>×</button>
+          </div>
+        ))}
+        <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>
+      </div>
+    </EditPopup>
+  )
+}
+
 /** Effects of an operation as lines, edited in a dialog. */
 function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; set: Set }) {
   const labels = useLabels()
@@ -991,7 +1014,8 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
           const v = p.items[ef.variable] as Variable | undefined, values = v?.kind === 'variable' ? valuesOf(v) : null
           return (
             <div key={i} className="cond cond-ev">
-              <SingleRef value={ef.variable || null} options={vars} onChange={(x) => upd(i, { variable: x ?? '', state: '' })} />
+              <SingleRef value={ef.variable || null} options={vars} onChange={(x) => { const par = it.params.filter((q) => q.entity && q.entity === (p.items[x ?? ''] as Variable | undefined)?.parent); upd(i, { variable: x ?? '', state: '', on: par.length === 1 ? par[0].name : undefined }) }} />
+              {it.params.some((q) => q.entity && q.entity === v?.parent) && <Select value={ef.on ?? ''} onChange={(e) => upd(i, { on: e.target.value || undefined })}><option value="">of any instance</option>{it.params.filter((q) => q.entity === v?.parent).map((q) => <option key={q.name} value={q.name}>of {q.name}</option>)}</Select>}
               <span className="cond-word">becomes</span>
               {values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
                 : <input className="time-amount" type="number" placeholder="value…" value={ef.state} onChange={(e) => upd(i, { state: e.target.value })} />}

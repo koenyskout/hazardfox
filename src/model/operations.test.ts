@@ -12,7 +12,7 @@ function setup() {
   const v = b.add('variable', { layer: 'domain', parent: e, title: 'power', type: 'enum', states: ['on', 'off'] })
   const n = b.add('node', { title: 'Nurse', role: 'controller' })
   const pr = b.add('node', { title: 'Patient', role: 'process' })
-  const op = b.add('operation', { title: 'Stop', owner: e, effects: [{ variable: v, state: 'off' }] })
+  const op = b.add('operation', { title: 'Stop', params: [{ name: 'pump', entity: e }], effects: [{ variable: v, state: 'off', on: 'pump' }] })
   const ca = b.add('ca', { from: n, to: pr, title: 'Stop pump', operation: op })
   const u = b.add('uca', { ca, guide: 'not-provided' })
   const s = b.add('scenario', { scenarioType: 'uca', uca: u, cause: 'control-algorithm' })
@@ -31,23 +31,31 @@ describe('operations', () => {
     expect(traceState(b.project, t, 1)[v]).toBe('off')
     expect(traceState(b.project, t, 2)[v]).toBe('on')
   })
+  it('apply effects to the instance named in the event', () => {
+    const { b, v, op } = setup()
+    const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: { [v]: 'on', [v + '@p2']: 'on' }, events: [] }, { t: '1', note: '', values: {}, events: [{ on: op, what: 'occurs', args: { pump: 'p2' } }] }] }
+    const st = traceState(b.project, t, 1)
+    expect(st[v + '@p2']).toBe('off')
+    expect(st[v]).toBe('on')
+  })
   it('count as events for the control actions that realize them', () => {
-    const { b, op, ca } = setup()
+    const { b, e, op, ca } = setup()
     const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: {}, events: [{ on: ca, what: 'occurs' }] }, { t: '4', note: '', values: {}, events: [] }] }
     expect(clockAt(b.project, t, 1).since(op)).toBe(4)
     expect(operationOfCa(b.project, ca)?.id).toBe(op)
-    expect(operationsOf(b.project, (b.project.items[op] as { owner: string }).owner).length).toBe(1)
+    expect(operationsOf(b.project, e).length).toBe(1)
   })
   it('migrate from the old name list and round-trip', () => {
     const b = projectBuilder()
     const e = b.add('entity', { title: 'Gate', operations: ['Lower'] } as never)
     const p = deserialize(serialize(b.project))
     expect(operationsOf(p, e).map((o) => o.title)).toEqual(['Lower'])
+    expect(operationsOf(p, e)[0].params).toEqual([{ name: 'gate', entity: e }])
     expect(deserialize(serialize(p))).toEqual(p)
   })
-  it('lose their owner, not themselves, when it is deleted, and are unlinked from control actions', () => {
+  it('lose the parameter and its effects when the entity is deleted, and are unlinked from control actions', () => {
     const { b, e, op, ca } = setup()
     expect(deleteItems(b.project, [op]).items[ca]).toMatchObject({ operation: null })
-    expect(deleteItems(b.project, [e]).items[op]).toMatchObject({ owner: null })
+    expect(deleteItems(b.project, [e]).items[op]).toMatchObject({ params: [], effects: [] })
   })
 })

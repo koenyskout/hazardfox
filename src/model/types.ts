@@ -124,13 +124,16 @@ export interface Entity extends Base {
 /** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing; optionally owned by an entity or relationship (shown there) and with effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
 export interface Operation extends Base {
   kind: 'operation'
-  owner: Id | null
-  /** Older files: the owning entity; `deserialize` moves it to `owner`. */
-  entity?: Id
+  /** What it acts on: named parameters typed by an entity or relationship (e.g. `gate: Gate`); an event on the operation names an instance per parameter. */
+  params: OpParam[]
   effects: Effect[]
+  /** Older files: a single owner (`owner`, earlier `entity`); `deserialize` turns it into a parameter. */
+  owner?: Id | null
+  entity?: Id
 }
-/** After the operation, world variable `variable` has value `state`. */
-export interface Effect { variable: Id; state: string }
+export interface OpParam { name: string; entity: Id }
+/** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */
+export interface Effect { variable: Id; state: string; on?: string }
 /** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
   kind: 'relationship'
@@ -313,7 +316,8 @@ export const isCauseOf = (t: ScenarioType, c: string): c is Cause => CAUSES[t].s
 export const TRACE_EVENTS = ['occurs', 'absent', 'lost'] as const
 export type TraceEventKind = (typeof TRACE_EVENTS)[number]
 export const TRACE_EVENT_LABELS: Record<TraceEventKind, string> = { occurs: 'sent', absent: 'not sent', lost: 'sent but lost / not executed' }
-export interface TraceEvent { on: Id; what: TraceEventKind }
+/** `args`: the instance of each parameter of the operation (by parameter name), e.g. `{ train: 't1' }`; a relationship's two ends are "t1|c1". */
+export interface TraceEvent { on: Id; what: TraceEventKind; args?: Record<string, string> }
 /** `values` sets variables at this step (unset ones keep their previous value). */
 export interface TraceStep { t: string; note: string; values: Record<Id, string>; events: TraceEvent[] }
 /** A finite run σ of the system (world, signals, beliefs, internal state) that exhibits the scenario. */

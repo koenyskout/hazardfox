@@ -26,8 +26,8 @@ export function crossingExampleProject(): Project {
   const vNear = predicateOf(b.project, rel)!.id
   const vGate = add('variable', { title: 'Gate position', parent: gate, states: ['open', 'closed'] })
 
-  const opLower = add('operation', { title: 'Lower', owner: gate, effects: [{ variable: vGate, state: 'closed' }] })
-  const opRaise = add('operation', { title: 'Raise', owner: gate, effects: [{ variable: vGate, state: 'open' }] })
+  const opLower = add('operation', { title: 'Lower', params: [{ name: 'gate', entity: gate }], effects: [{ variable: vGate, state: 'closed', on: 'gate' }] })
+  const opRaise = add('operation', { title: 'Raise', params: [{ name: 'gate', entity: gate }], effects: [{ variable: vGate, state: 'open', on: 'gate' }] })
 
   const ctrl = add('node', { title: 'Gate controller', role: 'controller' })
   const gateNode = add('node', { title: 'Crossing gate', role: 'process', entities: [gate, crossing] })

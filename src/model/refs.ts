@@ -15,7 +15,6 @@ export const REQUIRED_REFS: Registry<Id> = {
 /** Optional single references: cleared when the target disappears. */
 export const OPTIONAL_REFS: Registry<Id | null> = {
   variable: ['about'],
-  operation: ['owner'],
   ca: ['operation'],
   uca: ['refines'],
   scenario: ['uca', 'ca', 'element'],
@@ -73,6 +72,7 @@ export function refsOf(it: Item): Id[] {
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
   if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions.flatMap(leaves)) { if (c.variable) out.push(c.variable); if (c.event) out.push(c.event); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
+  if (it.kind === 'operation') out.push(...it.params.map((x) => x.entity).filter(Boolean), ...it.effects.map((e) => e.variable).filter(Boolean))
   if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '', ...(isText(c) ? mentions(c.text ?? '') : [])]).filter(Boolean))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
@@ -110,6 +110,11 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   }
   if (it.kind === 'uca' || it.kind === 'hazard') {
     it.conditions = it.conditions.flatMap((w) => (isGroup(w) ? [mapLeaves(w, (c) => reref(c, from, to)[0] ?? null)] : reref(w, from, to) as When[]))
+  }
+  if (it.kind === 'operation') {
+    const gone = it.params.filter((x) => x.entity === from && !to).map((x) => x.name)
+    it.params = it.params.flatMap((x) => (x.entity !== from ? [x] : to ? [{ ...x, entity: to }] : []))
+    it.effects = it.effects.flatMap((e) => (e.variable === from ? (to ? [{ ...e, variable: to }] : []) : e.on && gone.includes(e.on) ? [] : [e]))
   }
   if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {

@@ -131,7 +131,7 @@ export function Domain() {
       {tab === 'types' && <TypesPage />}
       {tab === 'operation' && (
         <FlatTable kind="operation" titleEditable
-          columns={[{ head: 'Owner', cell: (o) => o.kind === 'operation' && o.owner ? <Ref id={o.owner} /> : <span className="muted">—</span> }, { head: 'Effects', cell: (o) => o.kind === 'operation' ? <span className="muted">{o.effects.filter((e) => e.variable && e.state).map((e) => renderText(labels, effectText(e))).join('; ')}</span> : null }]}
+          columns={[{ head: 'Parameters', cell: (o) => o.kind === 'operation' ? <span>{o.params.map((x, i) => <span key={i}>{i > 0 && ', '}<span className="muted">{x.name}:</span> {x.entity ? <Ref id={x.entity} /> : '?'}</span>)}</span> : null }, { head: 'Effects', cell: (o) => o.kind === 'operation' ? <span className="muted">{o.effects.filter((e) => e.variable && e.state).map((e) => renderText(labels, effectText(e))).join('; ')}</span> : null }]}
           items={itemsOfKind(p, 'operation')} />
       )}
       {tab === 'relationship' && (

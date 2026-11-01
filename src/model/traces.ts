@@ -1,6 +1,6 @@
 import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
-import { effectsOf, isOccurrence } from './operations'
+import { appliedEffects, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
 import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
@@ -128,7 +128,7 @@ export function traceState(p: Project, t: Trace, i: number): Record<Id, string> 
   // effects of operations that occurred (directly or through a control action) apply before the values set at the same step
   const raw: Record<Id, string> = {}
   for (const s of t.steps.slice(0, i + 1)) {
-    for (const e of s.events) if (e.what === 'occurs') for (const ef of effectsOf(p, e.on)) if (ef.variable && ef.state !== '') raw[ef.variable] = ef.state
+    for (const e of s.events) if (e.what === 'occurs') for (const ef of appliedEffects(p, e)) raw[ef.key] = ef.state
     Object.assign(raw, s.values)
   }
   const out = { ...raw }
