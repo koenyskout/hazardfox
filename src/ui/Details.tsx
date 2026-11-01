@@ -990,7 +990,7 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
       <div className="params">
         {it.params.map((x, i) => (
           <div key={i} className="cond cond-ev">
-            <input placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: name } : ef)) }) }} />
+            <input className="op-name" placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: name } : ef)) }) }} />
             <span className="cond-word">of</span>
             <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />
             <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef)) })}>×</button>
