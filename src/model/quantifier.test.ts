@@ -8,7 +8,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { nameAllInstances, condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario } from './types'
 
@@ -29,6 +29,19 @@ describe('instance quantification', () => {
     expect(isMany(s.p, s.p.items[s.speed] as never)).toBe(false)
     expect(quantOf(s.p, cond(s.speed))).toBeNull()
     expect(conditionText(s.p, cond(s.speed))).toBe('speed is 0')
+  })
+  it('names "some" instances when a file or tool leaves them out, but not "every" or "no"', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const made = createItem(s.p, 'uca')
+    const u = made.id
+    let p = updateItem(made.project, u, { conditions: [cond(s.speed), cond(s.speed, { quant: 'all' }), cond(s.speed, { quant: 'none' })] } as never)
+    p = deserialize(serialize(p))
+    const cs = (p.items[u] as { conditions: Condition[] }).conditions
+    expect(cs[0].as).toBe('tr1')
+    expect(cs[1].as).toBeUndefined()
+    expect(cs[2].as).toBeUndefined()
+    expect(nameAllInstances(p)).toBe(p)
   })
   it('reads quantified conditions as sentences', () => {
     const s = setup()
@@ -100,11 +113,11 @@ describe('level crossing example', () => {
     const p = crossingExampleProject()
     expect(validate(p).filter((i) => i.severity === 'error')).toEqual([])
     const texts = Object.values(p.items).flatMap((i) => (i.kind === 'uca' ? i.conditions.map((c) => conditionText(p, c)) : []))
-    expect(texts).toContain('Position of some Train is approaching')
+    expect(texts).toContain('Position of some Train tr1 is approaching')
     expect(texts).toContain('Position of every Train is far')
     expect(texts).toContain('no Train approaches Crossing')
     const hz = Object.values(p.items).flatMap((i) => (i.kind === 'hazard' ? [i.conditions.map((c) => conditionText(p, c)).join(' and ')] : []))
-    expect(hz).toContain('Gate position is open and some Train approaches Crossing')
+    expect(hz).toContain('Gate position is open and some Train tr1 approaches Crossing')
     expect(hz).toContain('Gate position is closed and no Train approaches Crossing')
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
   })

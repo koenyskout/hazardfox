@@ -199,3 +199,36 @@ export function whenText(p: Project, w: When, top = true): string {
   const s = parts.join(w.any ? ' or ' : ' and ')
   return !top && parts.length > 1 ? `(${s})` : s
 }
+
+/** A short unused instance name for an entity: t1, t2, … */
+export function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
+  const base = ((p.items[entity ?? '']?.title.trim().replace(/[^\p{L}]/gu, '').slice(0, 2)) || 'x').toLowerCase()
+  const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2, o.oAs, o.oAs2, o.oSame, o.oSame2]), ...taken])
+  let n = 1
+  while (used.has(base + n)) n++
+  return base + n
+}
+/** Every instance a condition introduces gets a name, so conditions and traces can always refer to it. */
+export function nameInstances(p: Project, cs: Condition[]): Condition[] {
+  const out = cs.map((c) => ({ ...c }))
+  for (const c of out) {
+    const v = isText(c) ? undefined : p.items[c.variable]
+    if (v?.kind !== 'variable') continue
+    const e1 = quantOf(p, c) === 'some' && !c.same ? boundEntity(p, v) : null
+    if (e1 && !c.as) c.as = autoName(p, e1, out)
+    const e2 = !c.same2 ? otherEnd(p, v) : null
+    if (e2 && !c.as2) c.as2 = autoName(p, e2, out)
+    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, out)
+  }
+  return out
+}
+/** The project with every "some" instance in UCA and hazard conditions named (files and tool calls may leave names out). */
+export function nameAllInstances(p: Project): Project {
+  let q = p
+  for (const it of Object.values(p.items)) {
+    if (it.kind !== 'uca' && it.kind !== 'hazard') continue
+    const cs = nameInstances(p, it.conditions)
+    if (JSON.stringify(cs) !== JSON.stringify(it.conditions)) q = { ...q, items: { ...q.items, [it.id]: { ...it, conditions: cs } } }
+  }
+  return q
+}

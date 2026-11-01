@@ -1,3 +1,4 @@
+import { nameAllInstances } from './variables'
 import { projectBuilder } from './build'
 import { predicateOf } from './formal'
 import type { Condition, Id, Project, Quantifier } from './types'
@@ -50,5 +51,5 @@ export function crossingExampleProject(): Project {
   add('scenario', { uca: u1, cause: 'process-model', element: ctrl, title: 'A second train approaches while the first one is leaving: the controller keeps one "approaching" flag and clears it when the first train has passed' })
   add('scenario', { uca: u2, cause: 'feedback', element: trains, title: 'The track sensor only reports the first train of a convoy, so the controller does not know that another train is still on the crossing' })
   add('requirement', { title: 'The controller shall count approaching trains and keep the gate closed until the count is zero', sources: [u1], type: 'requirement' })
-  return b.project
+  return nameAllInstances(b.project)
 }

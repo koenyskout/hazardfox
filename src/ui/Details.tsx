@@ -4,8 +4,8 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { allOf, condInstances, oName, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
-import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Project, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, conditionTexts, otherEnd, describeStates, isGroup, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText } from '../model/variables'
+import { CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -543,28 +543,6 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
 /** A change to another condition of the same context made alongside a row's own change: set / clear the instance name of one of its ends. */
 type Bind = { target: Condition; end: 1 | 2; as: string | undefined }
 type Binds = Bind[]
-/** A short unused instance name for an entity: t1, t2, … */
-function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
-  const base = ((p.items[entity ?? '']?.title.trim().replace(/[^\p{L}]/gu, '').slice(0, 2)) || 'x').toLowerCase()
-  const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2, o.oAs, o.oAs2, o.oSame, o.oSame2]), ...taken])
-  let n = 1
-  while (used.has(base + n)) n++
-  return base + n
-}
-/** Every instance a condition introduces gets a name, so conditions and traces can always refer to it. */
-function nameInstances(p: Project, cs: Condition[]): Condition[] {
-  const out = cs.map((c) => ({ ...c }))
-  for (const c of out) {
-    const v = isText(c) ? undefined : p.items[c.variable]
-    if (v?.kind !== 'variable') continue
-    const e1 = quantOf(p, c) === 'some' && !c.same ? boundEntity(p, v) : null
-    if (e1 && !c.as) c.as = autoName(p, e1, out)
-    const e2 = !c.same2 ? otherEnd(p, v) : null
-    if (e2 && !c.as2) c.as2 = autoName(p, e2, out)
-    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, out)
-  }
-  return out
-}
 const withName = (x: Condition, bind: Bind): Condition => ({ ...x, [bind.end === 1 ? 'as' : 'as2']: bind.as })
 
 const VAR_OPTION = '\u0000var'
