@@ -457,3 +457,13 @@ table.plain td { padding: 4px 10px 4px 0; }
 @media (prefers-color-scheme: dark) { .picker-list li.pk-group { background: hsl(var(--h) 30% 22%); color: hsl(var(--h) 60% 80%); } }
 .picker-list li.pk-in { position: relative; padding-left: 30px; }
 .picker-list li.pk-in::before { content: '↳'; position: absolute; left: 14px; color: var(--muted); }
+
+.pk-ends { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 8px 10px; align-items: start; }
+.pk-ends > div { display: flex; flex-direction: column; gap: 2px; }
+.pk-ends label { display: flex; gap: 6px; align-items: center; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.pk-ends label.on { background: hsl(var(--accent-h, 24) 90% 94%); }
+@media (prefers-color-scheme: dark) { .pk-ends label.on { background: hsl(var(--accent-h, 24) 30% 24%); } }
+.pk-ends .pk-mid { grid-column: 1 / -1; align-items: flex-start; padding-bottom: 4px; border-bottom: 1px solid var(--border, #ddd); }
+.pk-ends .pk-use { grid-column: 1 / -1; justify-self: end; }
+.pk-ends label { text-align: left; justify-content: flex-start; line-height: 1.25; }
+.picker-list .pk-ends input[type=radio] { width: auto; flex: none; margin: 0; padding: 0; border: 0; }
