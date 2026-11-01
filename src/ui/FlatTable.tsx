@@ -97,7 +97,7 @@ export function FlatTable<K extends Kind>(props: {
         </div>
         {props.items.length === 0 && !props.groups?.length && <div className="empty">Nothing here yet.</div>}
         {rows.map((r, i) => {
-          if ('head' in r && props.nestAsGroup) return <div key={'h' + i} className="row group" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="chip k-scenario">{r.head}</span></div>
+          if ('head' in r && props.nestAsGroup) return <div key={'h' + i} className="row group" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="gtitle">{r.head}</span></div>
           if ('head' in r) return <div key={'h' + i} className="row group sub" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="muted">▸</span> <b>{r.head}</b></div>
           if ('group' in r) {
             const g = r.group
