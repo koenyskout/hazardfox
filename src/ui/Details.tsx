@@ -505,7 +505,7 @@ function Declarations({ conditions, onChange }: { conditions: Condition[]; onCha
           )}
           {(d.end === 2 || d.cmp) && <span className="cond-word">some</span>}
           <span className="chip k-entity">{p.items[d.entity ?? '']?.title.trim() || 'instance'}</span>
-          <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />
+          {d.quant !== 'all' && d.quant !== 'none' && <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />}
         </div>
       ))}
     </div>
@@ -557,7 +557,7 @@ function nameInstances(p: Project, cs: Condition[]): Condition[] {
   for (const c of out) {
     const v = isText(c) ? undefined : p.items[c.variable]
     if (v?.kind !== 'variable') continue
-    const e1 = quantOf(p, c) && !c.same ? boundEntity(p, v) : null
+    const e1 = quantOf(p, c) === 'some' && !c.same ? boundEntity(p, v) : null
     if (e1 && !c.as) c.as = autoName(p, e1, out)
     const e2 = !c.same2 ? otherEnd(p, v) : null
     if (e2 && !c.as2) c.as2 = autoName(p, e2, out)
