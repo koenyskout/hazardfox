@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Variable } from '../model/types'
 import { ChipLabel } from './Icon'
+import { shortName } from '../model/labels'
 import { useLabels, useProject } from './hooks'
 
 /** One way to start a condition: a variable with its instances ("every Train", "the same Train t1", …). `text` is what typing is matched against. */
@@ -42,6 +43,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
   const bs = [...new Set(inVar.map((c) => c.before ?? ''))], as = [...new Set(inVar.map((c) => c.after ?? ''))]
   const two = stage !== null && !words.length && bs.length > 1 && as.length > 1
   const [curB, curA] = [pb ?? bs[0], pa ?? as[0]]
+  const own = (t: string) => { if (!both) return t; const x = ` (${shortName(p, both.variable)})`; return t.endsWith(' than' + x) ? t.slice(0, -x.length) + ' the earlier one' : t.split(x).join('') }
   const both = inVar.find((c) => (c.before ?? '') === curB && (c.after ?? '') === curA)
   const rows: { key: string; choice: SubjectChoice; more: number }[] = two ? [] : grouped
     ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 })).sort((a, b) => (owner(a.choice.variable) ? 0 : 1) - (owner(b.choice.variable) ? 0 : 1) || labels[owner(a.choice.variable)]?.localeCompare(labels[owner(b.choice.variable)] ?? '') || 0)
@@ -64,12 +66,12 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
                 else if (e.key === 'Escape') (stage !== null ? back() : close())
                 else if (e.key === 'Backspace' && !q && stage !== null) back()
               }} />
-            {stage !== null && <div className="subj-back" onClick={back}>← {byVar.get(stage)?.[0] && <ChipLabel it={byVar.get(stage)![0].variable} label={labels[stage]} />} {two ? '— which instances?' : '— which instance?'}</div>}
+            {stage !== null && <div className="subj-back" onClick={back}>← {two ? 'Back to the variables' : byVar.get(stage)?.[0] && <ChipLabel it={byVar.get(stage)![0].variable} label={labels[stage]} />} {!two && '— which instance?'}</div>}
             {two && both && (
               <div className="pk-ends">
                 <div className="pk-mid"><span className={'chip k-' + both.variable.kind}><ChipLabel it={both.variable} label={labels[both.variable.id]} /></span></div>
-                <div>{bs.map((b) => <label key={b} className={b === curB ? 'on' : ''}><input type="radio" checked={b === curB} onChange={() => setPb(b)} />{b}</label>)}</div>
-                <div>{as.map((a) => <label key={a} className={a === curA ? 'on' : ''}><input type="radio" checked={a === curA} onChange={() => setPa(a)} />{a}</label>)}</div>
+                <div>{bs.map((b) => <label key={b} className={b === curB ? 'on' : ''}><input type="radio" checked={b === curB} onChange={() => setPb(b)} />{own(b)}</label>)}</div>
+                <div>{as.map((a) => <label key={a} className={a === curA ? 'on' : ''}><input type="radio" checked={a === curA} onChange={() => setPa(a)} />{own(a)}</label>)}</div>
                 <button type="button" className="pk-use" onClick={() => { close(); both.pick() }}>Use</button>
               </div>
             )}
