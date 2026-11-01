@@ -97,11 +97,11 @@ export function FlatTable<K extends Kind>(props: {
         </div>
         {props.items.length === 0 && !props.groups?.length && <div className="empty">Nothing here yet.</div>}
         {rows.map((r, i) => {
-          if ('head' in r && props.nestAsGroup) return <div key={'h' + i} className="row group" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="muted">↳</span><span className="gtitle">{r.head}</span></div>
+          if ('head' in r && props.nestAsGroup) return <div key={'h' + i} className="row group" style={{ paddingLeft: 12 + r.depth * 18, position: 'relative' }}><span className="muted" style={{ position: 'absolute', left: 12 + r.depth * 18 - 16 }}>↳</span><span className="gtitle">{r.head}</span></div>
           if ('head' in r) return <div key={'h' + i} className="row group sub" style={{ paddingLeft: 12 + r.depth * 18 }}><span className="muted">▸</span> <b>{r.head}</b></div>
           if ('group' in r) {
             const g = r.group
-            return <div key={'g' + i + (g ?? '')} className="row group" style={r.depth ? { paddingLeft: 12 + r.depth * 18 } : undefined}>{g ? <>{r.depth > 0 && <span className="muted">↳</span>}<Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g, r.first))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>
+            return <div key={'g' + i + (g ?? '')} className="row group" style={r.depth ? { paddingLeft: 12 + r.depth * 18, position: 'relative' } : undefined}>{g ? <>{r.depth > 0 && <span className="muted" style={{ position: 'absolute', left: 12 + r.depth * 18 - 16 }}>↳</span>}<Ref id={g} /><GroupTitle id={g} /></> : <span className="muted">No owner</span>}{props.groupAdd && <button className="add" title="Add to this group" onClick={() => addItem(props.kind, props.groupAdd!(g, r.first))}><Icon name="plus" size={12} /> {KIND_NAMES[props.kind].toLowerCase()}</button>}</div>
           }
           const it = r.item
           return (
