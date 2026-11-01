@@ -54,7 +54,7 @@ export function exampleProject(): Project {
   add('variable', { layer: 'belief', parent: ctrl, about: vRun, title: 'Infusion state', states: enumOf(vRun).states, definition: 'The motor is commanded to run.' })
   add('variable', { layer: 'belief', parent: ctrl, about: vOcc, title: 'Line occlusion', states: enumOf(vOcc).states, definition: 'The controller believes the line downstream is blocked.' })
   add('variable', { layer: 'belief', parent: ctrl, about: vFlow, title: 'Flow', type: 'range', min: 0, max: 500, unit: 'ml/h' })
-  add('variable', { layer: 'belief', parent: ctrl, about: vSrc, title: 'Therapy change source', states: enumOf(vSrc).states, definition: 'Whether the controller believes the request is authenticated.' })
+  add('variable', { layer: 'belief', parent: nurse, about: vSrc, title: 'Therapy change source', states: enumOf(vSrc).states, definition: 'Whether the issuer believes the request comes from an authorised source.' })
   const vMode = add('variable', { layer: 'internal', parent: ctrl, title: 'Mode', states: ['priming', 'infusing', 'alarm'], definition: 'Operating mode; occlusion detection is suppressed while priming.' })
 
   const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ variable: vOcc, op: '=', state: 'occluded' }], constraint: 'Controller must not drive the motor when the line is occluded' })
