@@ -38,3 +38,8 @@ First consumers: the ~12 crew/BSCU timing UCAs (see docs/formalize-crew-bscu.md)
 - Train end offers "another Train than t1" but not "than t3".
 - MCP exposure of quantifiers and instance names is incomplete.
 - Work only in /Users/koeny/Development/hazardfox (main), not the stale worktree.
+
+
+## Status (update)
+Done: any-of groups (a014ad5), timing/event conditions (91b4462), typed CA parameters + UCA `args` (631396d).
+Open: use timing conditions in the formalized crew/BSCU examples; parameters in traces (lanes for parameter values) and refinement; browser-verify the new editors; wire `formalize*` into the Example menu.
