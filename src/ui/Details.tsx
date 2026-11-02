@@ -1,5 +1,7 @@
 import { ControllerEditorButton } from './VariableMap'
 import { Select } from './Select'
+import { WhenView } from './WhenView'
+import { conditionLine, isExpr, lineCondition, namesOf, textable, textToWhen, whenToText } from '../model/expr'
 import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
@@ -449,10 +451,10 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   return (
     <div className="ctx-summary">
       {lines.length || it.context ? (
-        <ul>
-          {lines.map((l, i) => <li key={i}>{l}</li>)}
-          {it.context && <li>{renderText(labels, it.context)}</li>}
-        </ul>
+        <>
+          {lines.length > 0 && <WhenView ws={it.conditions} />}
+          {it.context && <ul><li>{renderText(labels, it.context)}</li></ul>}
+        </>
       ) : <span className="muted">No context yet</span>}
       <button type="button" onClick={() => setOpen(true)}>Edit context…</button>
       {open && (
@@ -475,7 +477,7 @@ function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
   const lines = whenTexts(p, it.conditions).map((l) => renderText(labels, l))
   return (
     <div className="ctx-summary">
-      {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">No condition yet</span>}
+      {lines.length ? <WhenView ws={it.conditions} /> : <span className="muted">No condition yet</span>}
       <button type="button" onClick={() => setOpen(true)}>Edit condition…</button>
       {open && (
         <Modal title="Edit hazardous condition" onClose={() => setOpen(false)} wide>
@@ -500,7 +502,50 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
 /** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
 function ConditionList({ conditions, onChange, vars, head }: { conditions: When[]; onChange: (cs: When[]) => void; vars: Variable[]; head: ReactNode }) {
   const p = useProject()
-  return <div className="rule"><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of))} vars={vars} head={head} flat scope={conditions.flatMap(leaves)} /></div>
+  const [mode, setMode] = useState<'rows' | 'text'>('rows')
+  const can = textable(p, conditions)
+  return (
+    <div className="rule">
+      <div className="tx-tabs">
+        <button type="button" className={mode === 'rows' ? 'on' : ''} onClick={() => setMode('rows')}>Rows</button>
+        <button type="button" className={mode === 'text' && can ? 'on' : ''} disabled={!can} title={can ? 'Edit the condition as text' : 'This condition uses quantifiers, instance names, timing or words that only the rows editor can show'} onClick={() => setMode('text')}>Text</button>
+      </div>
+      {mode === 'text' && can
+        ? <><span className="rule-head">{head}</span><TextTree conditions={conditions} onChange={(cs) => onChange(nameInstances(p, cs))} /></>
+        : <><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of))} vars={vars} head={head} flat scope={conditions.flatMap(leaves)} /></>}
+    </div>
+  )
+}
+
+/** A condition tree as text: `all of:` / `any of:` / `not:` headers with members marked `&` / `|`, nesting by indentation; markers are optional when typing. */
+function TextTree({ conditions, onChange }: { conditions: When[]; onChange: (cs: When[]) => void }) {
+  const p = useProject()
+  const canonical = whenToText(p, conditions)
+  const [draft, setDraft] = useState(canonical)
+  const [focus, setFocus] = useState(false)
+  useEffect(() => { if (!focus) setDraft(canonical) }, [canonical, focus])
+  let error: string | null = null
+  let parsed: When[] | null = null
+  try { parsed = textToWhen(p, draft) } catch (e) {
+    const line = draft.split('\n').filter((l) => l.trim())
+    error = (e as Error).message
+    // locate the first line that does not read
+    for (let i = 0; i < line.length; i++) { try { const b = line[i].trim().replace(/^(&|\||-|∧|∨|and\b|or\b)\s+/, ''); if (!/^(all of|any of|not):$/i.test(b)) lineCondition(p, b.replace(/^not:\s*/i, '')) } catch (x) { error = `line ${i + 1}: ${(x as Error).message}`; break } }
+  }
+  const hl = draft.split('\n').map((l, i) => {
+    const m = /^(\s*)(&|\||-)?(\s*)(all of:|any of:|not:)?(.*)$/.exec(l)!
+    return <div key={i}>{m[1]}{m[2] && <span className={m[2] === '|' ? 'tx-or' : 'tx-and'}>{m[2]}</span>}{m[3]}{m[4] && <span className={m[4] === 'not:' ? 'tx-not' : 'tx-hd'}>{m[4]}</span>}{m[5]}{'\u200b'}</div>
+  })
+  const commit = () => { setFocus(false); if (parsed && whenToText(p, parsed) !== canonical) onChange(parsed); else if (parsed) setDraft(whenToText(p, parsed)) }
+  return (
+    <div>
+      <div className="tx" style={{ height: Math.max(1, draft.split('\n').length) * 22 + 18 }}>
+        <pre aria-hidden>{hl}</pre>
+        <textarea spellCheck={false} value={draft} onFocus={() => setFocus(true)} onChange={(e) => setDraft(e.target.value)} onBlur={commit} />
+      </div>
+      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>all of:</code> / <code>any of:</code> / <code>not:</code> open a group, members start with <code>&amp;</code> or <code>|</code>. Also: prev(x), succ(x), pred(x), + − ×, min, max, abs, between … and …, ∈ {'{a, b}'}.</div>}
+    </div>
+  )
 }
 
 /** The tree list with `f` applied to each condition (given its position among the conditions in reading order). */
@@ -706,6 +751,7 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
 }
 
 const BLANK: Condition = { variable: '', op: '=', state: '' }
+const EXPR: Condition = { variable: '', op: '=', state: '', text: '', expr: true }
 const WORDS: Condition = { variable: '', op: '=', state: 'true', text: '' }
 const TIME: TimeBound = { op: '≥', amount: '', unit: 's' }
 const EVENT: Condition = { variable: '', op: '=', state: '', event: '', time: TIME }
@@ -725,23 +771,26 @@ function TimeEdit({ t, onChange }: { t: TimeBound; onChange: (t: TimeBound) => v
 function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group, binds?: Binds) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
   const bound = (x: When, binds: Binds): When => (isGroup(x) ? { ...x, of: x.of.map((y) => bound(y, binds)) } : binds.filter((b) => b.target === x).reduce(withName, x))
   const upd = (i: number, w: When | null, binds: Binds = []) => onChange({ ...g, of: (w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i)).map((x, j) => (j === i ? x : bound(x, binds))) }, binds)
-  const join = g.of.length > 1 ? (g.any ? 'or' : 'and') : ''
+  const kind = g.not ? 'not' : g.any ? 'any' : 'all'
+  const setKind = (k: string) => { const { not: _, ...rest } = g; onChange({ ...rest, any: k === 'any', ...(k === 'not' ? { not: true } : {}) }) }
   return (
     <>
       <div className="rule-head">
         {head}
-        {g.of.length > 1 && (flat ? <span className="cond-word">all of these hold:</span> : <><Select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all</option><option value="any">any</option></Select><span className="cond-word">of these hold:</span></>)}
+        {flat ? <span className="wv-tag">all of</span> : <Select className={'tagsel ' + kind} value={kind} onChange={(e) => setKind(e.target.value)}><option value="all">All of</option><option value="any">Any of</option><option value="not">Not</option></Select>}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
       </div>
-      <div className={'conds' + (onRemove ? ' group' : '')}>
+      <div className={'conds g-' + (flat ? 'all' : kind) + (onRemove ? ' group' : '')}>
         {g.of.map((w, i) => isGroup(w)
-          ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} scope={scope} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />
-          : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
+          ? <GroupEditor key={i} g={w} head={null} vars={vars} scope={scope} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />
+          : <ConditionRow key={i} c={w} word="" scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}><Icon name="plus" size={12} /> condition</button>
+          <button title="An arithmetic comparison such as Gap − 2 × Speed < 5, or Door state ≠ prev(Door state)" onClick={() => onChange({ ...g, of: [...g.of, EXPR] })}><Icon name="plus" size={12} /> expression</button>
           <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}><Icon name="plus" size={12} /> time since an event</button>
           <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}><Icon name="plus" size={12} /> free text</button>
-          {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all-of' : 'any-of'} group</button>}
+          <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all of' : 'any of'}</button>
+          <button title="True when the conditions inside do not all hold" onClick={() => onChange({ ...g, of: [...g.of, { any: false, not: true, of: [BLANK] }] })}><Icon name="plus" size={12} /> not</button>
         </div>
       </div>
     </>
@@ -755,11 +804,34 @@ const withName = (x: Condition, bind: Bind): Condition => ({ ...x, [bind.end ===
 
 const VAR_OPTION = '\u0000var'
 
+/** An arithmetic comparison, typed with variable names; a plain "variable op constant" becomes an ordinary row. */
+function ExprRow({ c, word, vars, onChange, onRemove }: { c: Condition; word: string; vars: Variable[]; onChange: (c: Condition) => void; onRemove: () => void }) {
+  const p = useProject()
+  const shown = conditionLine(p, c) ?? ''
+  const [draft, setDraft] = useState(shown)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => { setDraft(shown) }, [shown])
+  const names = namesOf(p, (v) => vars.some((x) => x.id === v.id))
+  const commit = () => {
+    if (!draft.trim()) { setError(null); return }
+    try { const x = lineCondition(p, draft, names); setError(null); if (JSON.stringify(x) !== JSON.stringify(c)) onChange(x) } catch (e) { setError((e as Error).message) }
+  }
+  return (
+    <div className="cond">
+      <span className="cond-word">{word}</span>
+      <input className={'cond-expr' + (error ? ' bad' : '')} value={draft} placeholder="e.g. Gap − 2 × Speed < 5   or   Door state ≠ prev(Door state)" spellCheck={false} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') commit() }} />
+      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
+      {error && <div className="cond-err">{error}</div>}
+    </div>
+  )
+}
+
 function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }: { scope?: Condition[]; c: Condition; onChange: (c: Condition, binds?: Binds) => void; onRemove: () => void; vars: Variable[]; word: string }) {
   const p = useProject()
   const labels = useLabels()
   const onChange = (x: Condition, binds?: Binds) => change(x, binds)
   const upd = (patch: Partial<Condition>) => onChange({ ...c, ...patch })
+  if (isExpr(c)) return <ExprRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} />
   if (isText(c)) return (
     <div className="cond">
       <span className="cond-word">{word}</span>

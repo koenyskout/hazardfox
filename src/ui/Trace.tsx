@@ -4,7 +4,7 @@ import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
 import { operationOf } from '../model/operations'
-import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, symbolViolations, textConditions, traceState, valueAt, witness } from '../model/traces'
+import { clockAt, contextHolds, diagnose, getter, whenHolds, draftTrace, mismatches, ruleConflicts, symbolViolations, textConditions, traceState, valueAt, witness } from '../model/traces'
 import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
@@ -13,6 +13,8 @@ import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
 import { Ref, RichText } from './Fields'
+import { WhenView } from './WhenView'
+
 import { commit, useLabels, useProject } from './hooks'
 import { askConfirm } from './dialogs'
 import { Picker } from './Picker'
@@ -39,10 +41,13 @@ function TraceChecks({ s }: { s: Scenario }) {
   const p = useProject()
   const w = witness(p, s)
   const d = diagnose(p, s)
+  const u = s.uca ? p.items[s.uca] : null
+  const uca = u?.kind === 'uca' ? u : null
   if (!s.trace.steps.length) return null
   return (
     <div className="trace-checks">
       {w && <span className={w.ok ? 'ok' : w.ok === false ? 'bad' : 'unk'}>{w.ok ? '✓' : w.ok === false ? '✗' : '?'} Witness: {w.why}</span>}
+      {w && uca && uca.conditions.length > 0 && <WhenView ws={uca.conditions} verdict={(x) => whenHolds(p, x, getter(traceState(p, s.trace, w.step), clockAt(p, s.trace, w.step)))} />}
       {d && <span className={!s.cause || d.cause === s.cause ? 'ok' : 'bad'}>{!s.cause || d.cause === s.cause ? '✓' : '✗'} Trace points at <b>{CAUSE_LABELS[d.cause]}</b> ({d.why}){s.cause && d.cause !== s.cause && <> but the causal factor is {CAUSE_LABELS[s.cause]}</>}</span>}
     </div>
   )
