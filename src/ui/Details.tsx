@@ -11,7 +11,7 @@ import { type Effect, type Project, type ArgCondition, type OpParam, type Param,
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, EnumTypeDialog, RangeDialog, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -27,7 +27,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { SubjectPicker, type SubjectChoice } from './Subject'
-import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
+import { Field, ItemHover, NumberInput, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
 
 export function Details() {
   const p = useProject()
@@ -540,7 +540,6 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
   )
 }
 
-const PARAM_TYPES = ['enum', 'boolean', 'range'] as const
 const BLANK_PARAM: Param = { name: '', type: 'range', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' }
 
 /** The parameters of a control action: a name and a type (enum with states / boolean / range with bounds and unit), as for variables. */
@@ -573,23 +572,47 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
 }
 
 type ParamData = Omit<Param, 'name'>
-const TypeSelect = ({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) =>
-  <Select value={x.type} onChange={(e) => onChange({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
+const rangeSum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
-/** Details of a parameter's type, like a variable's: enum (type picker, state list) or range (summary, dialog); nothing for boolean. */
-function ParamTypeDetails({ x, name, onChange }: { x: ParamData; name: string; onChange: (patch: Partial<Param>) => void }) {
+/** One select for a parameter's datatype: number / true-false / own choice, the project's named range and enum types, or a new type. */
+function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
-  const [editRange, setEditRange] = useState(false)
-  if (x.type === 'enum') return <><EnumTypePicker x={x} name={name} onChange={onChange} />{!x.enumType && <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />}</>
-  if (x.type !== 'range') return null
-  const t = x.rangeType ? p.rangeTypes?.[x.rangeType] ?? x : x
+  const [creating, setCreating] = useState<'range' | 'enum' | null>(null)
+  const value = x.type === 'boolean' ? 'boolean' : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
+  const pick = (v: string) => {
+    if (v === 'new-range' || v === 'new-enum') return setCreating(v === 'new-range' ? 'range' : 'enum')
+    onChange(v === 'boolean' ? { type: 'boolean', rangeType: '', enumType: '' } : v === 'range' ? { type: 'range', rangeType: '', enumType: '' } : v === 'enum' ? { type: 'enum', rangeType: '', enumType: '' } : v.startsWith('r:') ? { type: 'range', rangeType: v.slice(2), enumType: '' } : { type: 'enum', enumType: v.slice(2), rangeType: '' })
+  }
   return (
+    <>
+      <Select value={value} onChange={(e) => pick(e.target.value)}>
+        <option value="range">Number</option>
+        <option value="boolean">True / false</option>
+        <option value="enum">Choice of states</option>
+        {Object.keys(p.rangeTypes ?? {}).sort().map((n) => <option key={'r' + n} value={'r:' + n}>{n} ({rangeSum(p.rangeTypes![n])})</option>)}
+        {Object.keys(p.enumTypes ?? {}).sort().map((n) => <option key={'e' + n} value={'e:' + n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
+        <option value="new-range">New number type…</option>
+        <option value="new-enum">New choice type…</option>
+      </Select>
+      {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'range', rangeType: n, enumType: '' })} />}
+      {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'enum', enumType: n, rangeType: '' })} />}
+    </>
+  )
+}
+
+const ownType = (x: ParamData) => (x.type === 'enum' && !x.enumType) || (x.type === 'range' && !x.rangeType)
+
+/** Fields for a parameter with its own bounds or states (named types are edited in Domain model → Types). */
+function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
+  if (x.type === 'enum' && !x.enumType) return <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />
+  if (x.type === 'range' && !x.rangeType) return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <span>{x.rangeType && <b>{x.rangeType} · </b>}{describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)}</span>
-      <button className="btn" onClick={() => setEditRange(true)}>Edit…</button>
-      {editRange && <RangeDialog title={`Range of ${name || 'parameter'}`} value={x} onClose={() => setEditRange(false)} onApply={onChange} />}
+      <span className="muted">min</span><span style={{ width: 80 }}><NumberInput value={x.min} onChange={(min) => onChange({ min })} /></span>
+      <span className="muted">max</span><span style={{ width: 80 }}><NumberInput value={x.max} onChange={(max) => onChange({ max })} /></span>
+      <span className="muted">unit</span><span style={{ width: 90 }}><TextInput value={x.unit} onChange={(unit) => onChange({ unit })} placeholder="e.g. s, mL/h" /></span>
     </div>
   )
+  return null
 }
 
 /** One parameter: cells in a grid (name, type, …), remove button, and the type details underneath. */
@@ -609,8 +632,8 @@ function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Par
     <div className="params">
       {params.map((x, i) => (
         <ParamRow key={i} onRemove={() => onChange(params.filter((_, j) => j !== i))}
-          cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <TypeSelect x={x} onChange={(patch) => upd(i, patch)} />]}
-          details={<ParamTypeDetails x={x} name={x.name} onChange={(patch) => upd(i, patch)} />} />
+          cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <DataTypeSelect x={x} onChange={(patch) => upd(i, patch)} />]}
+          details={ownType(x) && <ParamTypeDetails x={x} onChange={(patch) => upd(i, patch)} />} />
       ))}
       <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}>+ parameter</button></div>
     </div>
@@ -1011,9 +1034,9 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
               cells={[
                 <input placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />,
                 <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>,
-                x.data ? <TypeSelect x={x.data} onChange={setData} /> : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />,
+                x.data ? <DataTypeSelect x={x.data} onChange={setData} /> : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />,
               ]}
-              details={x.data && <ParamTypeDetails x={x.data} name={x.name} onChange={setData} />} />
+              details={x.data && ownType(x.data) && <ParamTypeDetails x={x.data} onChange={setData} />} />
           )
         })}
         <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>
