@@ -523,3 +523,5 @@ button.icon-btn:hover:not(:disabled) { color: var(--accent); }
 button.icon-btn.danger { color: var(--danger); } button.icon-btn.danger:hover:not(:disabled) { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
 .toolbar .picker-btn { width: auto; font-size: inherit; padding: 4px 10px; border-color: var(--line); border-radius: 6px; overflow: visible; display: inline-flex; align-items: center; gap: 5px; }
 .toolbar .picker-btn:hover { border-color: var(--accent); }
+.row .lbl.wide { flex-basis: 190px; }
+.row .lbl.wide .chip { white-space: nowrap; } .row .lbl.wide.rel { flex-basis: 215px; }

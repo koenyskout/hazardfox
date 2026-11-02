@@ -96,7 +96,7 @@ export function FlatTable<K extends Kind>(props: {
       </div>
       <div className="rows">
         <div className="row head">
-          <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}>ID</span>
+          <span className={'lbl' + (props.kind === 'variable' || props.kind === 'relationship' || props.kind === 'operation' ? (props.kind === 'relationship' ? ' wide rel' : ' wide') : '')}>ID</span>
           {props.titleEditable !== false && <span className="ttl">Title</span>}
           {props.columns.map((c) => (
             <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.head}</span>
@@ -113,7 +113,7 @@ export function FlatTable<K extends Kind>(props: {
           const it = r.item
           return (
           <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} style={(props.groups || props.nest) && r.depth ? { paddingLeft: 10 + r.depth * 18 } : undefined} onClick={() => select(it.id)}>
-            <span className={'lbl' + (props.kind === 'variable' ? ' wide' : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
+            <span className={'lbl' + (props.kind === 'variable' || props.kind === 'relationship' || props.kind === 'operation' ? (props.kind === 'relationship' ? ' wide rel' : ' wide') : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <span className="tline">
