@@ -579,11 +579,15 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
 type ParamData = Omit<Param, 'name'>
 const rangeSum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
+const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic'; plus?: boolean; children: ReactNode }) =>
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <Icon name="plus" size={12} />}<Icon name={`type-${t}`} size={13} />{children}</span>
+
 /** One select for a parameter's datatype: number / true-false / own choice, the project's named range and enum types, or a new type. */
 function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
   const [creating, setCreating] = useState<'range' | 'enum' | 'symbolic' | null>(null)
   const value = x.type === 'boolean' ? 'boolean' : x.type === 'symbolic' ? (x.symbolicType ? 's:' + x.symbolicType : 'symbolic') : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
+  const named = !!(Object.keys(p.rangeTypes ?? {}).length || Object.keys(p.enumTypes ?? {}).length || Object.keys(p.symbolicTypes ?? {}).length)
   const pick = (v: string) => {
     if (v === 'new-range' || v === 'new-enum' || v === 'new-symbolic') return setCreating(v.slice(4) as 'range' | 'enum' | 'symbolic')
     if (v === 'symbolic' || v.startsWith('s:')) return onChange({ type: 'symbolic', rangeType: '', enumType: '', symbolicType: v.slice(2) })
@@ -592,16 +596,22 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
   return (
     <>
       <Select value={value} onChange={(e) => pick(e.target.value)}>
-        <option value="range">Number</option>
-        <option value="boolean">True / false</option>
-        <option value="enum">Choice of states</option>
-        <option value="symbolic">Symbol (opaque value)</option>
-        {Object.keys(p.rangeTypes ?? {}).sort().map((n) => <option key={'r' + n} value={'r:' + n}>{n} ({rangeSum(p.rangeTypes![n])})</option>)}
-        {Object.keys(p.enumTypes ?? {}).sort().map((n) => <option key={'e' + n} value={'e:' + n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
-        <option value="new-range">New number type…</option>
-        {Object.keys(p.symbolicTypes ?? {}).sort().map((n) => <option key={'s' + n} value={'s:' + n}>{n} (symbolic)</option>)}
-        <option value="new-enum">New choice type…</option>
-        <option value="new-symbolic">New symbolic type…</option>
+        <optgroup label="Own definition">
+          <option value="range"><TypeLabel t="range">Range</TypeLabel></option>
+          <option value="enum"><TypeLabel t="enum">Enumeration</TypeLabel></option>
+          <option value="boolean"><TypeLabel t="boolean">Boolean</TypeLabel></option>
+          <option value="symbolic"><TypeLabel t="symbolic">Symbolic</TypeLabel></option>
+        </optgroup>
+        {named && <optgroup label="Named types">
+          {Object.keys(p.rangeTypes ?? {}).sort().map((n) => <option key={'r' + n} value={'r:' + n}><TypeLabel t="range">{n} ({rangeSum(p.rangeTypes![n])})</TypeLabel></option>)}
+          {Object.keys(p.enumTypes ?? {}).sort().map((n) => <option key={'e' + n} value={'e:' + n}><TypeLabel t="enum">{n} ({p.enumTypes![n].join(' | ')})</TypeLabel></option>)}
+          {Object.keys(p.symbolicTypes ?? {}).sort().map((n) => <option key={'s' + n} value={'s:' + n}><TypeLabel t="symbolic">{n}</TypeLabel></option>)}
+        </optgroup>}
+        <optgroup label="Create">
+          <option value="new-range"><TypeLabel t="range" plus>New range type…</TypeLabel></option>
+          <option value="new-enum"><TypeLabel t="enum" plus>New enumeration type…</TypeLabel></option>
+          <option value="new-symbolic"><TypeLabel t="symbolic" plus>New symbolic type…</TypeLabel></option>
+        </optgroup>
       </Select>
       {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'range', rangeType: n, enumType: '' })} />}
       {creating === 'symbolic' && <SymbolicTypeDialog init={{ ordered: !!x.ordered, equatable: x.equatable ?? true }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'symbolic', symbolicType: n, rangeType: '', enumType: '' })} />}

@@ -35,6 +35,10 @@ const PATHS: Record<string, ReactNode> = {
   entity: <><rect x="2.5" y="3" width="11" height="10" rx="1.2" /><path d="M2.5 6.5h11M2.5 9.8h11" /></>,
   /** relationship: two boxes joined by a line */
   relationship: <><rect x="1.5" y="5.5" width="4" height="5" rx="1" /><rect x="10.5" y="5.5" width="4" height="5" rx="1" /><path d="M5.5 8h5" /></>,
+  'type-range': <path d="M1.5 6v4M14.5 6v4M1.5 8h13M5.5 7v2M8 7v2M10.5 7v2" />,
+  'type-enum': <><path d="M6 4h8M6 8h8M6 12h8" /><circle cx="2.8" cy="4" r=".7" /><circle cx="2.8" cy="8" r=".7" /><circle cx="2.8" cy="12" r=".7" /></>,
+  'type-boolean': <><rect x="1.5" y="4.5" width="13" height="7" rx="3.5" /><circle cx="11" cy="8" r="1.7" /></>,
+  'type-symbolic': <path d="M8 2l5.5 6L8 14 2.5 8z" />,
   gear: <><circle cx="8" cy="8" r="2" /><path d="M8 1.8v1.8M8 12.4v1.8M1.8 8h1.8M12.4 8h1.8M3.6 3.6l1.3 1.3M11.1 11.1l1.3 1.3M3.6 12.4l1.3-1.3M11.1 4.9l1.3-1.3" /></>,
 }
 
