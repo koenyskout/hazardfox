@@ -74,16 +74,15 @@ export function RangeBar(props: { min: number; max: number; step: number; op: Co
   const out = (x: number) => String(Math.round(x / step) * step === x ? x : +x.toFixed(Math.max(0, -Math.floor(Math.log10(step)))))
   return (
     <div className={'rangebar' + (touched ? '' : ' untouched')}>
-      <span className="rb-lbl">{min}</span>
+      <input className="rb-val" type="number" min={min} max={max} step={step} value={props.a} placeholder="–" onChange={(e) => props.onChange(e.target.value, dual ? props.b || out(b) : '')} />
       <div className="rb-bar">
         <span className="rb-track" />
         {fills}
         <input type="range" min={min} max={max} step={step} value={a} onChange={(e) => { const x = Number(e.target.value); props.onChange(out(dual ? Math.min(x, b) : x), dual ? props.b || out(b) : '') }} />
         {dual && <input type="range" min={min} max={max} step={step} value={b} onChange={(e) => { const x = Number(e.target.value); props.onChange(props.a || out(a), out(Math.max(x, a))) }} />}
-        <input className={'rb-val' + (dual ? ' lo' : '')} type="number" min={min} max={max} step={step} style={{ left: at(a) }} value={props.a} placeholder="–" onChange={(e) => props.onChange(e.target.value, dual ? props.b || out(b) : '')} />
-        {dual && <input className="rb-val hi" type="number" min={min} max={max} step={step} style={{ left: at(b) }} value={props.b} placeholder="–" onChange={(e) => props.onChange(props.a || out(a), e.target.value)} />}
       </div>
-      <span className="rb-lbl">{max}{props.unit ? ' ' + props.unit : ''}</span>
+      {dual && <input className="rb-val" type="number" min={min} max={max} step={step} value={props.b} placeholder="–" onChange={(e) => props.onChange(props.a || out(a), e.target.value)} />}
+      <span className="rb-lbl" title={`${min} … ${max}`}>{props.unit ?? ''}</span>
     </div>
   )
 }

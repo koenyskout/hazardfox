@@ -628,16 +628,11 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .rule .conds.g-all, .rule .conds.g-any, .rule .conds.g-not { margin-bottom: 2px; }
 .conds .add, .conds > .rule-add { padding: 2px 0; }
 
-.conds > .cond > .cond-val.bar { grid-column: 4; grid-row: auto; }
-.conds > .cond .cond-val .rangebar { flex: 1 1 0; min-width: 0; }
-.conds > .cond .cond-val .rb-bar { min-width: 60px; }
-/* rows with a range bar: boxes, buttons and the bar's track share one baseline */
-.conds > .cond:has(.cond-val.bar) { align-items: end; }
-.conds > .cond:has(.cond-val.bar):before { top: auto; bottom: 11px; } .conds > .cond:has(.cond-val.bar):after { top: auto; bottom: 15px; }
-.conds > .cond .cond-val.bar .rb-track, .conds > .cond .cond-val.bar .rb-fill { top: 28px; }
-.conds > .cond .cond-val.bar .rangebar input[type=range] { top: 22px; }
-.conds > .cond .cond-val.bar .rb-lbl { margin-bottom: 6px; }
-.conds > .cond .cond-val.bar { align-items: flex-end; flex-wrap: nowrap; }
-.conds > .cond .cond-val.bar > .btn { margin-bottom: 0; min-height: 26px; }
-.conds > .cond:has(.cond-val.bar) > .btn, .conds > .cond:has(.cond-val.bar) > .x { margin-bottom: 1px; min-height: 26px; }
-.conds > .cond .cond-val.bar { padding-left: 28px; }
+.conds > .cond > .cond-val.bar { grid-column: 4; grid-row: auto; flex-wrap: nowrap; }
+.rangebar { align-items: center; gap: 8px; }
+.rb-bar { height: 28px; min-width: 90px; }
+.rb-track, .rb-fill { top: 12px; }
+.rangebar input[type=range] { top: 6px; }
+.rangebar input.rb-val { position: static; transform: none; width: 64px; flex: none; text-align: center; }
+.rb-lbl { margin: 0; min-width: 0; }
+.cond input.rb-val { height: 28px; min-height: 28px; font-size: 13px; padding: 2px 4px; }
