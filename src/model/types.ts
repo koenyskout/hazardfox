@@ -126,9 +126,10 @@ export interface Operation extends Base {
   params: OpParam[]
   effects: Effect[]
 }
-export interface OpParam { name: string; entity: Id }
+/** `entity` types an instance parameter; a value parameter has no entity (`''`) and a datatype `data` instead (typed like a control-action parameter). */
+export interface OpParam { name: string; entity: Id; data?: Omit<Param, 'name'> }
 /** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */
-export interface Effect { variable: Id; state: string; on?: string }
+export interface Effect { variable: Id; state: string; on?: string; /** name of a value parameter whose argument becomes the value (instead of `state`) */ from?: string }
 /** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
   kind: 'relationship'
@@ -311,7 +312,7 @@ export const isCauseOf = (t: ScenarioType, c: string): c is Cause => CAUSES[t].s
 export const TRACE_EVENTS = ['occurs', 'absent', 'lost'] as const
 export type TraceEventKind = (typeof TRACE_EVENTS)[number]
 export const TRACE_EVENT_LABELS: Record<TraceEventKind, string> = { occurs: 'sent', absent: 'not sent', lost: 'sent but lost / not executed' }
-/** `args`: the instance of each parameter of the operation (by parameter name), e.g. `{ train: 't1' }`; a relationship's two ends are "t1|c1". */
+/** `args`: the instance (or, for a value parameter, the value) of each parameter of the operation (by parameter name), e.g. `{ train: 't1' }`; a relationship's two ends are "t1|c1". */
 export interface TraceEvent { on: Id; what: TraceEventKind; args?: Record<string, string> }
 /** `values` sets variables at this step (unset ones keep their previous value). */
 export interface TraceStep { t: string; note: string; values: Record<Id, string>; events: TraceEvent[] }

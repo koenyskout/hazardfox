@@ -4,7 +4,7 @@ import { renderText, variableName } from '../model/labels'
 import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { effectText, opSignature, operationsOf } from '../model/operations'
+import { effectText, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
@@ -572,28 +572,38 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
   return <EditPopup title="Edit parameter conditions" lines={argTexts(p, uca).map((l) => renderText(labels, l))} empty="No conditions on parameters" button="Edit parameter conditions…"><ArgsEditor ca={ca} args={uca.args} onChange={onChange} /></EditPopup>
 }
 
-function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Param[]) => void }) {
+/** Type fields of a parameter: enum (states / named type), boolean, or range (bounds and unit / named type). */
+function ParamType({ x, onChange }: { x: Omit<Param, 'name'>; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
-  const upd = (i: number, patch: Partial<Param>) => onChange(params.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   const num = (s: string) => (s.trim() === '' || !Number.isFinite(Number(s)) ? null : Number(s))
+  const upd = onChange
+  return (
+    <>
+      <Select value={x.type} onChange={(e) => upd({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
+      {x.type === 'enum' && <>
+        <Select value={x.enumType} onChange={(e) => upd({ enumType: e.target.value })}><option value="">own states</option>{Object.keys(p.enumTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
+        {!x.enumType && <input placeholder="states, comma-separated" value={x.states.join(', ')} onChange={(e) => upd({ states: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />}
+      </>}
+      {x.type === 'range' && <>
+        <Select value={x.rangeType} onChange={(e) => upd({ rangeType: e.target.value })}><option value="">own bounds</option>{Object.keys(p.rangeTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
+        {!x.rangeType && <>
+          <input className="time-amount" placeholder="min" value={x.min ?? ''} onChange={(e) => upd({ min: num(e.target.value) })} />
+          <input className="time-amount" placeholder="max" value={x.max ?? ''} onChange={(e) => upd({ max: num(e.target.value) })} />
+          <input className="time-amount" placeholder="unit" value={x.unit} onChange={(e) => upd({ unit: e.target.value })} />
+        </>}
+      </>}
+    </>
+  )
+}
+
+function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Param[]) => void }) {
+  const upd = (i: number, patch: Partial<Param>) => onChange(params.map((x, j) => (j === i ? { ...x, ...patch } : x)))
   return (
     <div className="params">
       {params.map((x, i) => (
         <div key={i} className="cond">
           <input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />
-          <Select value={x.type} onChange={(e) => upd(i, { type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
-          {x.type === 'enum' && <>
-            <Select value={x.enumType} onChange={(e) => upd(i, { enumType: e.target.value })}><option value="">own states</option>{Object.keys(p.enumTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
-            {!x.enumType && <input placeholder="states, comma-separated" value={x.states.join(', ')} onChange={(e) => upd(i, { states: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />}
-          </>}
-          {x.type === 'range' && <>
-            <Select value={x.rangeType} onChange={(e) => upd(i, { rangeType: e.target.value })}><option value="">own bounds</option>{Object.keys(p.rangeTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
-            {!x.rangeType && <>
-              <input className="time-amount" placeholder="min" value={x.min ?? ''} onChange={(e) => upd(i, { min: num(e.target.value) })} />
-              <input className="time-amount" placeholder="max" value={x.max ?? ''} onChange={(e) => upd(i, { max: num(e.target.value) })} />
-              <input className="time-amount" placeholder="unit" value={x.unit} onChange={(e) => upd(i, { unit: e.target.value })} />
-            </>}
-          </>}
+          <ParamType x={x} onChange={(patch) => upd(i, patch)} />
           <button className="x" onClick={() => onChange(params.filter((_, j) => j !== i))}>×</button>
         </div>
       ))}
@@ -986,14 +996,15 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
   const types = [...itemsOfKind(p, 'entity'), ...itemsOfKind(p, 'relationship')]
   const upd = (i: number, patch: Partial<OpParam>) => set({ params: it.params.map((x, j) => (j === i ? { ...x, ...patch } : x)) })
   return (
-    <EditPopup title={`Parameters of ${it.title || 'operation'}`} lines={it.params.map((x) => `${x.name || '?'}: ${p.items[x.entity]?.title || '?'}`)} empty="No parameters" button="Edit parameters…">
+    <EditPopup title={`Parameters of ${it.title || 'operation'}`} lines={it.params.map((x) => paramText(p, x))} empty="No parameters" button="Edit parameters…">
       <div className="params">
         {it.params.map((x, i) => (
           <div key={i} className="cond cond-ev">
-            <input className="op-name" placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: name } : ef)) }) }} />
-            <span className="cond-word">of</span>
-            <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />
-            <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef)) })}>×</button>
+            <input className="op-name" placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />
+            <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>
+            {x.data ? <ParamType x={x.data} onChange={(patch) => upd(i, { data: { ...x.data!, ...patch } })} />
+              : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />}
+            <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef.from === x.name ? { ...ef, from: undefined, state: '' } : ef)) })}>×</button>
           </div>
         ))}
         <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>
@@ -1017,9 +1028,10 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
               <SingleRef value={ef.variable || null} options={vars} onChange={(x) => { const par = it.params.filter((q) => q.entity && q.entity === (p.items[x ?? ''] as Variable | undefined)?.parent); upd(i, { variable: x ?? '', state: '', on: par.length === 1 ? par[0].name : undefined }) }} />
               {it.params.some((q) => q.entity && q.entity === v?.parent) && <Select value={ef.on ?? ''} onChange={(e) => upd(i, { on: e.target.value || undefined })}><option value="">of any instance</option>{it.params.filter((q) => q.entity === v?.parent).map((q) => <option key={q.name} value={q.name}>of {q.name}</option>)}</Select>}
               <span className="cond-word">becomes</span>
-              {values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
+              {it.params.some((q) => q.data) && <Select value={ef.from ?? ''} onChange={(e) => upd(i, { from: e.target.value || undefined, state: '' })}><option value="">a fixed value</option>{it.params.filter((q) => q.data).map((q) => <option key={q.name} value={q.name}>the value of {q.name}</option>)}</Select>}
+              {ef.from ? null : values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
                 : <input className="time-amount" type="number" placeholder="value…" value={ef.state} onChange={(e) => upd(i, { state: e.target.value })} />}
-              {v?.kind === 'variable' && v.type === 'range' && v.unit && <span className="muted">{v.unit}</span>}
+              {!ef.from && v?.kind === 'variable' && v.type === 'range' && v.unit && <span className="muted">{v.unit}</span>}
               <button className="x" onClick={() => set({ effects: it.effects.filter((_, j) => j !== i) })}>×</button>
             </div>
           )

@@ -38,6 +38,14 @@ describe('operations', () => {
     expect(st[v + '@p2']).toBe('off')
     expect(st[v]).toBe('on')
   })
+  it('set a variable to the value argument of a value parameter', () => {
+    const b = projectBuilder()
+    const e = b.add('entity', { title: 'Pump' })
+    const v = b.add('variable', { layer: 'domain', parent: e, title: 'rate', type: 'range', min: 0, max: 10 })
+    const op = b.add('operation', { title: 'Set rate', params: [{ name: 'r', entity: '', data: { type: 'range', states: [], min: 0, max: 10, unit: 'ml/h', rangeType: '', enumType: '' } }], effects: [{ variable: v, state: '', from: 'r' }] })
+    const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: {}, events: [{ on: op, what: 'occurs', args: { r: '7' } }] }] }
+    expect(traceState(b.project, t, 0)[v]).toBe('7')
+  })
   it('count as events for the control actions that realize them', () => {
     const { b, e, op, ca } = setup()
     const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: {}, events: [{ on: ca, what: 'occurs' }] }, { t: '4', note: '', values: {}, events: [] }] }

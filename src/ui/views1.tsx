@@ -2,6 +2,7 @@ import { StructViewToggle, useStructView } from './structView'
 import type { ItemOf } from '../model/types'
 import { useState } from 'react'
 import { effectText, operationsOf } from '../model/operations'
+import { paramSummary } from '../model/params'
 import { clusterStructs, isPredicate, structPath } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
 import { describeStates, whenTexts } from '../model/variables'
@@ -131,7 +132,7 @@ export function Domain() {
       {tab === 'types' && <TypesPage />}
       {tab === 'operation' && (
         <FlatTable kind="operation" titleEditable
-          columns={[{ head: 'Parameters', cell: (o) => o.kind === 'operation' ? <span>{o.params.map((x, i) => <span key={i}>{i > 0 && ', '}<span className="muted">{x.name}:</span> {x.entity ? <Ref id={x.entity} /> : '?'}</span>)}</span> : null }, { head: 'Effects', cell: (o) => o.kind === 'operation' ? <span className="muted">{o.effects.filter((e) => e.variable && e.state).map((e) => renderText(labels, effectText(e))).join('; ')}</span> : null }]}
+          columns={[{ head: 'Parameters', cell: (o) => o.kind === 'operation' ? <span>{o.params.map((x, i) => <span key={i}>{i > 0 && ', '}{x.data ? paramSummary(p, { ...x.data, name: x.name }) : <><span className="muted">{x.name}:</span> {x.entity ? <Ref id={x.entity} /> : '?'}</>}</span>)}</span> : null }, { head: 'Effects', cell: (o) => o.kind === 'operation' ? <span className="muted">{o.effects.filter((e) => e.variable && e.state).map((e) => renderText(labels, effectText(e))).join('; ')}</span> : null }]}
           items={itemsOfKind(p, 'operation')} />
       )}
       {tab === 'relationship' && (

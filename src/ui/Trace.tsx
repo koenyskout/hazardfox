@@ -148,7 +148,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                     {st.events.map((e, k) => (
                       <div key={k} className="ev">
                         <Ref id={e.on} />
-                        {(operationOf(p, e.on)?.params ?? []).map((q) => <input key={q.name} className="ev-arg" size={6} placeholder={q.name} title={`${q.name}: instance of ${p.items[q.entity]?.title ?? '?'}`} value={e.args?.[q.name] ?? ''} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, args: { ...y.args, [q.name]: x.target.value } } : y)) })), `${i}:${k}:${q.name}`)} />)}
+                        {(operationOf(p, e.on)?.params ?? []).map((q) => <input key={q.name} className="ev-arg" size={6} placeholder={q.name} title={q.data ? `${q.name}: value` : `${q.name}: instance of ${p.items[q.entity]?.title ?? '?'}`} value={e.args?.[q.name] ?? ''} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, args: { ...y.args, [q.name]: x.target.value } } : y)) })), `${i}:${k}:${q.name}`)} />)}
                         <Select value={e.what} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, what: x.target.value as TraceEventKind } : y)) })))}>
                           {TRACE_EVENTS.map((w) => <option key={w} value={w}>{TRACE_EVENT_LABELS[w]}</option>)}
                         </Select>
