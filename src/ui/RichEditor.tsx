@@ -19,9 +19,10 @@ import { byLabel } from '../model/labels'
 import { isRef, parseRich, serializeRich, type Seg } from '../model/richtext'
 import { KIND_NAMES, type Id, type Item } from '../model/types'
 import { generateUcaText } from '../model/uca'
-import { Ref } from './Fields'
+import { Ref, VIEW_OF } from './Fields'
+import { useStore } from '../model/store'
 import { useLabels, useProject } from './hooks'
-import { summary } from './ItemCard'
+import { ItemCard, summary } from './ItemCard'
 
 type SerializedMention = Spread<{ id: Id }, SerializedLexicalNode>
 
@@ -90,6 +91,7 @@ function MentionMenu({ options }: { options: Item[] }) {
   const [editor] = useLexicalComposerContext()
   const p = useProject()
   const labels = useLabels()
+  const goto = useStore((s) => s.goto)
   const [query, setQuery] = useState<string | null>(null)
   const text = (it: Item) => it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const hits = useMemo(() => {
@@ -122,6 +124,7 @@ function MentionMenu({ options }: { options: Item[] }) {
       menuRenderFn={(anchor, { selectedIndex, selectOptionAndCleanUp, setHighlightedIndex }) =>
         anchor.current && hits.length
           ? createPortal(
+              <div className="mention-pop" onMouseDown={(e) => e.preventDefault()}>
               <ul className="mention-menu">
                 {hits.map((o, n) => { const g = o.item.kind === 'variable' ? o.item.parent ?? '' : '', po = p.items[g], head = !!po && (n === 0 || (hits[n - 1].item.kind === 'variable' ? hits[n - 1].item.parent ?? '' : '') !== g); return (
                   <Fragment key={o.key}>{head && <li className={'pk-group k-' + po.kind}><ChipLabel it={po} label={labels[g]} /></li>}
@@ -134,7 +137,9 @@ function MentionMenu({ options }: { options: Item[] }) {
                     </span>
                   </li></Fragment>
                 ) })}
-              </ul>,
+              </ul>
+              {window.innerWidth >= 780 && hits[selectedIndex] && <div className="picker-card"><ItemCard it={hits[selectedIndex].item} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} /></div>}
+              </div>,
               anchor.current,
             )
           : null}

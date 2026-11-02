@@ -257,6 +257,9 @@ table.plain td { padding: 4px 10px 4px 0; }
 .rich-ph { position: absolute; top: 28px; left: 9px; color: var(--muted); pointer-events: none; font-size: 13px; }
 .rt-bold { font-weight: 700; } .rt-italic { font-style: italic; }
 .mention-slot { display: inline-block; vertical-align: baseline; user-select: all; }
+.mention-pop { display: flex; align-items: flex-start; margin-top: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,.18); overflow: hidden; }
+.mention-pop .mention-menu { margin: 0; border: 0; box-shadow: none; border-radius: 0; flex: none; }
+.mention-pop .picker-card { max-height: 260px; }
 .mention-menu { list-style: none; margin: 4px 0 0; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,.18); min-width: 320px; max-width: 520px; max-height: 260px; overflow: auto; }
 #typeahead-menu { z-index: 1003; }
 .mention-menu li { display: flex; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
