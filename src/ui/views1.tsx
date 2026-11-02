@@ -106,7 +106,7 @@ export function Domain() {
       {tab === 'variable' && (
         <>
           {vars.some((v) => v.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
-          <FlatTable kind="variable" addLabel="Add variable to" addTo={itemsOfKind(p, 'entity')}
+          <FlatTable kind="variable" addLabel="Add variable…" addTo={itemsOfKind(p, 'entity')}
             groupBy={(v) => v.parent}
             nest={structMode === 'nested' ? structPath : undefined}
             titleView={structMode === 'nested' ? (v) => v.struct ? v.struct.path.split('.').pop() : null : undefined}

@@ -79,7 +79,7 @@ export function FlatTable<K extends Kind>(props: {
       <div className="toolbar">
         {(props.adds ?? [{ label: props.addLabel ?? `Add ${KIND_NAMES[props.kind].toLowerCase()}`, init: props.init }]).map((a) => (
           props.addTo
-            ? <Picker key={a.label} options={props.addTo} onPick={(id) => id && addItem(props.kind, { ...a.init, parent: id } as Patch<K>)}><Icon name="plus" /> {a.label}…</Picker>
+            ? <Picker key={a.label} options={props.addTo} onPick={(id) => id && addItem(props.kind, { ...a.init, parent: id } as Patch<K>)}><Icon name="plus" /> {a.label}</Picker>
             : <button key={a.label} onClick={() => addItem(props.kind, a.init)}><Icon name="plus" /> {a.label}</button>
         ))}
         <button disabled={!selected} title="Move up" onClick={() => selected && commit((q) => shift(q, selected, -1))}><Icon name="up" /></button>
