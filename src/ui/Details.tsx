@@ -91,7 +91,7 @@ function DetailsForm({ it, popup }: { it: Item; popup?: boolean }) {
         </Field>
       )}
       <div className={'actions' + (popup ? ' split' : '')}>
-        <button className="danger" onClick={() => setDeleting(true)}><Icon name="trash" /> Delete</button>
+        <button className="icon-btn danger" title="Delete" aria-label="Delete" onClick={() => setDeleting(true)}><Icon name="trash" size={16} /></button>
         {popup && <button className="primary" onClick={closeEditor}>Done</button>}
       </div>
       {deleting && <DeleteDialog ids={[it.id]} onClose={() => { setDeleting(false); if (popup) closeEditor() }} />}
@@ -644,7 +644,7 @@ function ParamRow({ cells, details, onRemove }: { cells: ReactNode[]; details?: 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr)) auto`, gap: '6px 8px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
       {cells.map((c, i) => <Fragment key={i}>{c}</Fragment>)}
-      <button className="x" onClick={onRemove}>×</button>
+      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
       {details && <div style={{ gridColumn: '1 / -1', paddingLeft: 4 }}>{details}</div>}
     </div>
   )
@@ -686,7 +686,7 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
                 : <input className="time-amount" type={pv?.type === 'symbolic' ? 'text' : 'number'} placeholder={pv?.type === 'symbolic' ? 'symbol…' : 'value…'} value={a.state} onChange={(e) => upd(i, { state: e.target.value })} />}
             {isRangeOp(a.op) && <><span className="cond-word">and</span><input className="time-amount" type="number" placeholder="value…" value={a.to ?? ''} onChange={(e) => upd(i, { to: e.target.value })} /></>}
             {pv?.type === 'range' && pv.unit && <span className="muted">{pv.unit}</span>}
-            <button className="x" onClick={() => onChange(args.filter((_, j) => j !== i))}>×</button>
+            <button className="x" title="Remove" onClick={() => onChange(args.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
             {err && a.param && (a.state || a.set?.length) ? <small className="cond-err">{err}</small> : null}
           </div>
         )
@@ -722,7 +722,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
       <div className="rule-head">
         {head}
         {g.of.length > 1 && (flat ? <span className="cond-word">all of these hold:</span> : <><Select value={g.any ? 'any' : 'all'} onChange={(e) => onChange({ ...g, any: e.target.value === 'any' })}><option value="all">all</option><option value="any">any</option></Select><span className="cond-word">of these hold:</span></>)}
-        {onRemove && <button className="x" title="Remove group" onClick={onRemove}>×</button>}
+        {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
       </div>
       <div className={'conds' + (onRemove ? ' group' : '')}>
         {g.of.map((w, i) => isGroup(w)
@@ -756,7 +756,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       <span className="cond-word">{word}</span>
       <span className="cond-text"><RichText compact value={c.text ?? ''} onChange={(text) => upd({ text })} only={(it) => it.kind === 'variable' || it.kind === 'entity' || it.kind === 'relationship'} placeholder="condition in words… (type @ to refer to a variable)" /></span>
       <Select value={c.op} onChange={(e) => upd({ op: e.target.value as ConditionOp })}><option value="=">holds</option><option value="≠">does not hold</option></Select>
-      <button className="x" onClick={onRemove}>×</button>
+      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
     </div>
   )
   if (isEvent(c)) {
@@ -771,7 +771,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
           {events.map((x) => <option key={x.id} value={x.id}>{labels[x.id]} {renderText(labels, x.title)}</option>)}
         </Select>
         <span className="cond-word">occurred</span>
-        <button className="x" onClick={onRemove}>×</button>
+        <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
       </div>
     )
   }
@@ -895,7 +895,7 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
       </div>
       {c.time ? <div className="cond-dur"><span className="cond-word">held for</span><TimeEdit t={c.time} onChange={(time) => upd({ time })} /><button type="button" className="btn" title="Remove the duration" onClick={() => upd({ time: undefined })}>⊘</button></div>
         : vr && <button type="button" className="btn" title="Require the condition to have held for some time" style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={() => upd({ time: TIME })}>⏱</button>}
-      <button className="x" onClick={onRemove}>×</button>
+      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
       {err && <small className="cond-err">{err}</small>}
     </div>
   )
@@ -943,7 +943,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
         <div key={i} className="rule">
           <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars}
             head={<><span>{i ? 'Else, ' : ''}{name} is</span>{value(r.state, (v) => upd(i, { state: v }), 'value…')}<span>when</span></>} />
-          <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}>×</button>
+          <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}><Icon name="x" size={12} /></button>
         </div>
       ))}
       {it.rules.length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
@@ -1090,7 +1090,7 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
               {ef.from ? null : values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
                 : <input className="time-amount" type={v?.kind === 'variable' && v.type === 'symbolic' ? 'text' : 'number'} placeholder={v?.kind === 'variable' && v.type === 'symbolic' ? 'symbol…' : 'value…'} value={ef.state} onChange={(e) => upd(i, { state: e.target.value })} />}
               {!ef.from && v?.kind === 'variable' && v.type === 'range' && v.unit && <span className="muted">{v.unit}</span>}
-              <button className="x" onClick={() => set({ effects: it.effects.filter((_, j) => j !== i) })}>×</button>
+              <button className="x" title="Remove" onClick={() => set({ effects: it.effects.filter((_, j) => j !== i) })}><Icon name="x" size={12} /></button>
             </div>
           )
         })}

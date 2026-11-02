@@ -38,7 +38,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
       {users > 1 && <p className="muted">Used by {users} variables; they all follow this change.</p>}
       {bad && <p className="muted">{bad}</p>}
       <div className="modal-actions">
-        {name && <button className="btn" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Variables keep their current bounds as custom ones">Delete type</button>}
+        {name && <button className="icon-btn danger" aria-label="Delete type" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Delete type — variables keep their current bounds as custom ones"><Icon name="trash" size={15} /></button>}
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="primary" disabled={!!bad} onClick={save}>Save</button>
       </div>
@@ -128,7 +128,7 @@ function RangeTypes() {
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head"><strong>{n}</strong><span className="type-def">{show(p.rangeTypes![n])}</span>
-            <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}>Edit</button><button className="btn" onClick={() => commit((q) => deleteRangeType(q, n))} title="Variables keep their bounds">Delete</button></span></div>
+            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" onClick={() => setEdit(n)}>Edit</button><button className="btn" onClick={() => commit((q) => deleteRangeType(q, n))} title="Delete — Variables keep their bounds"><Icon name="trash" size={15} /></button></span></div>
           <Used vars={usersOf(p.items, 'rangeType', n)} />
         </div>
       ))}
@@ -179,7 +179,7 @@ function EnumTypes() {
         <div key={n} className="type-card">
           <div className="type-head">
             <RenameInput name={n} rename={(to) => commit((q) => renameEnumType(q, n, to))} />
-            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteEnumType(q, n))} title="Variables keep their states">Delete</button></span>
+            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteEnumType(q, n))} title="Delete — Variables keep their states"><Icon name="trash" size={15} /></button></span>
           </div>
           <StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" />
           <Used vars={usersOf(p.items, 'enumType', n)} />
@@ -210,7 +210,7 @@ function StructFields({ self, fields, onChange }: { self: string; fields: Struct
             </Select>
             {!f.structType && f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
           </td>
-          <td><button className="btn" onClick={() => onChange(fields.filter((_, j) => j !== i))}>×</button></td>
+          <td><button className="icon-btn" title="Remove field" onClick={() => onChange(fields.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button></td>
         </tr>
       ))}
       <tr><td colSpan={3}><button className="btn" onClick={() => onChange([...fields, blankField()])}>+ Field</button></td></tr>
@@ -248,7 +248,7 @@ function StructTypes() {
         <div key={n} className="type-card">
           <div className="type-head">
             <RenameInput name={n} rename={(to) => commit((q) => renameStructType(q, n, to))} />
-            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteStructType(q, n))}>Delete</button></span>
+            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" title="Delete" onClick={() => commit((q) => deleteStructType(q, n))}><Icon name="trash" size={15} /></button></span>
           </div>
           <table className="grid"><tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody></table>
         </div>
@@ -365,7 +365,7 @@ function SymbolicTypes() {
             <b className="type-name" style={{ border: 'none' }}>{n}</b>
             <span className="type-actions">
               <button className="btn" onClick={() => setEditing(n)}><Icon name="draft" size={12} /> Edit</button>
-              <button className="btn" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Variables keep their properties">Delete</button>
+              <button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Delete — Variables keep their properties"><Icon name="trash" size={15} /></button>
             </span>
           </div>
           <SymbolicChips t={p.symbolicTypes![n]} />

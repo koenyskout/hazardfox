@@ -503,3 +503,8 @@ table.plain td { padding: 4px 10px 4px 0; }
 .trace-grid .ev .ev-arg { width: 60px; padding: 1px 4px; font-size: 12px; }
 .params .cond > input.op-name { flex: 0 0 110px; min-width: 0; width: 110px; }
 .params .cond.cond-ev > .picker-btn { flex: 1 1 160px; min-width: 0; width: auto; max-width: 100%; }
+
+/* icon-only action buttons (delete, remove) */
+button.icon-btn { border: none; background: none; padding: 4px; color: var(--muted); display: inline-flex; align-items: center; }
+button.icon-btn:hover:not(:disabled) { color: var(--accent); }
+button.icon-btn.danger { color: var(--muted); } button.icon-btn.danger:hover:not(:disabled) { color: var(--danger); }

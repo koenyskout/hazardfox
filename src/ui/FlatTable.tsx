@@ -80,11 +80,13 @@ export function FlatTable<K extends Kind>(props: {
         <button disabled={!selected} title="Move up" onClick={() => selected && commit((q) => shift(q, selected, -1))}><Icon name="up" /></button>
         <button disabled={!selected} title="Move down" onClick={() => selected && commit((q) => shift(q, selected, 1))}><Icon name="down" /></button>
         <button
-          className="danger"
+          className="icon-btn danger"
+          title="Delete"
+          aria-label="Delete"
           disabled={!selected || !props.items.some((i) => i.id === selected)}
           onClick={() => selected && (commit((q) => deleteItems(q, [selected as Id])), select(null))}
         >
-          <Icon name="trash" /> Delete
+          <Icon name="trash" size={16} />
         </button>
       </div>
       <div className="rows">

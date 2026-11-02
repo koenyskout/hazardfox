@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { ChipLabel } from './Icon'
+import { ChipLabel, Icon } from './Icon'
 import { DELETED } from '../model/labels'
 import { useStore, type View } from '../model/store'
 import type { ConditionOp, Id, Item, Kind, Labels } from '../model/types'
@@ -123,7 +123,7 @@ export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[
       {props.value.map((id) => (
         <span key={id} className="chipwrap">
           <Ref id={id} />
-          <button className="x" title="Remove" onClick={() => props.onChange(props.value.filter((v) => v !== id))}>×</button>
+          <button className="x" title="Remove" onClick={() => props.onChange(props.value.filter((v) => v !== id))}><Icon name="x" size={12} /></button>
         </span>
       ))}
       <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id])} create={props.create && { label: props.create.label, run: () => { const id = props.create!.run(); props.onChange([...props.value, id]) } }}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>

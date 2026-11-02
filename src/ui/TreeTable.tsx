@@ -154,7 +154,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
         <button disabled={!one} onClick={() => one && setDialog({ type: 'split', id: one.id })}><Icon name="split" /> Split…</button>
         <button disabled={ids.length < 2} onClick={() => askMerge()}><Icon name="merge" /> Merge…</button>
         <span className="sep" />
-        <button disabled={ids.length < 1} className="danger" onClick={() => setDialog({ type: 'delete', ids })} title="Ctrl+Backspace"><Icon name="trash" /> Delete</button>
+        <button disabled={ids.length < 1} className="icon-btn danger" aria-label="Delete" onClick={() => setDialog({ type: 'delete', ids })} title="Delete (Ctrl+Backspace)"><Icon name="trash" size={16} /></button>
         <span className="hint">Enter: new · Tab/⇧Tab: indent · Alt+↑↓: move · drag to reorder</span>
       </div>
       <div className="rows">

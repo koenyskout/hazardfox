@@ -16,7 +16,7 @@ import { Ref, RichText } from './Fields'
 import { commit, useLabels, useProject } from './hooks'
 import { askConfirm } from './dialogs'
 import { Picker } from './Picker'
-import { LayerIcon, LayerTag } from './Icon'
+import { Icon, LayerIcon, LayerTag } from './Icon'
 import { StructureSvg } from './StructureSvg'
 
 /** A trace lane: a variable (all instances alike), a variable's single instance(s) ("<variable>@t1"), or a condition in words. */
@@ -86,7 +86,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const sym = new Map(symbolViolations(p, t).map((x) => [`${x.step}:${x.id}`, `Breaks "${x.property}": ${x.previous} → ${x.value}`]))
   const lane = ({ key, v }: Lane, head: ReactNode) => (
     <tr key={key}>
-      <th>{head} <button className="x" title="Remove lane" onClick={() => delLane(key)}>×</button></th>
+      <th>{head} <button className="x" title="Remove lane" onClick={() => delLane(key)}><Icon name="x" size={12} /></button></th>
       {t.steps.map((_, i) => {
         const { value, set } = valueAt(t, i, key)
         const m = mm[i].get(key)
@@ -125,7 +125,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                 {t.steps.map((st, i) => (
                   <th key={i} className={i === actionAt ? 'act' : ''}>
                     <input className="step-t" value={st.t} onChange={(e) => save(s, setStep(t, i, () => ({ t: e.target.value })), `${i}:t`)} />
-                    <button className="x" title="Remove step" onClick={() => delStep(i)}>×</button>
+                    <button className="x" title="Remove step" onClick={() => delStep(i)}><Icon name="x" size={12} /></button>
                   </th>
                 ))}
               </tr>
@@ -154,7 +154,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
                         <Select value={e.what} onChange={(x) => save(s, setStep(t, i, (o) => ({ events: o.events.map((y, j) => (j === k ? { ...y, what: x.target.value as TraceEventKind } : y)) })))}>
                           {TRACE_EVENTS.map((w) => <option key={w} value={w}>{TRACE_EVENT_LABELS[w]}</option>)}
                         </Select>
-                        <button className="x" onClick={() => save(s, setStep(t, i, (o) => ({ events: o.events.filter((_, j) => j !== k) })))}>×</button>
+                        <button className="x" title="Remove" onClick={() => save(s, setStep(t, i, (o) => ({ events: o.events.filter((_, j) => j !== k) })))}><Icon name="x" size={12} /></button>
                       </div>
                     ))}
                     <Picker options={events} onPick={(id) => id && save(s, setStep(t, i, (o) => ({ events: [...o.events, { on: id, what: 'occurs' }] })))}><span className="muted">+ event</span></Picker>
