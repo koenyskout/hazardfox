@@ -114,7 +114,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       const eff = effectiveLosses(p, it.id)
       return (
         <>
-          <Field label="Leads to losses" hint={inh.length ? 'Losses inherited from the parent hazard are greyed; you can switch them off.' : undefined}>
+          <Field label="Leads to losses" hint={inh.length ? 'Losses inherited from the parent hazard have a dashed outline; you can switch them off.' : undefined}>
             {inh.length > 0 && (
               <div className="reflist inherited">
                 {inh.map((l) => (
