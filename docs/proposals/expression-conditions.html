@@ -65,6 +65,16 @@ ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 .sed .row{display:grid;grid-template-columns:1fr 22px;gap:6px}
 .g.sedg>.its{}
 .g .ver{margin-right:6px}.g:has(>.its>.it:only-child .ver.f)>.its{}
+
+.g{--gc:var(--accent-2)}.g.any{--gc:var(--accent)}.g.not{--gc:var(--danger)}
+.g>.its,.g.any>.its,.g.not>.its{border-left:0;position:relative;margin-left:0;padding-left:16px}
+.it{position:relative}
+.it:before{content:"";position:absolute;left:-16px;top:0;bottom:0;width:3px;background:var(--gc);margin-left:6px}
+.it:last-child:before{bottom:auto;height:15px}
+.it:after{content:"";position:absolute;left:-10px;top:14px;width:36px;height:2px;background:var(--gc);opacity:.55}
+.it .cn{position:relative;z-index:1;justify-self:start;margin-left:2px;background:var(--panel);padding:0 3px;line-height:20px;margin-top:5px;font-size:11px}
+.it>.bd{padding-left:6px}
+.sed .it .cn{background:var(--panel)}
 </style></head><body><main>
 
 <h1>Expression conditions</h1>
