@@ -25,8 +25,8 @@ const ExportView = lazy(() => import('./ui/ExportView').then((m) => ({ default: 
 const NAV: [View, string, string][] = [
   ['welcome', 'Welcome', '🦊'],
   ['overview', 'Overview', '◎'],
-  ['step1', '1 · Losses & hazards', '⚠'],
   ['domain', 'Domain model', '▦'],
+  ['step1', '1 · Losses & hazards', '⚠'],
   ['structure', '2 · Control structure', '⛓'],
   ['ucas', '3 · Unsafe control actions', '✖'],
   ['scenarios', '4 · Loss scenarios', '⤳'],
