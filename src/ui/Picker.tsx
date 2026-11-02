@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ChipLabel } from './Icon'
 import { createPortal } from 'react-dom'
 import { generateUcaText } from '../model/uca'
@@ -27,6 +27,15 @@ export function Picker({ options, onPick, children, className, create, autoOpen,
     return options.filter((o) => { const s = `${labels[o.id]} ${ids[o.id]} ${text(o)} ${KIND_NAMES[o.kind]} ${summary(p, labels, o)}`.toLowerCase(); return t.every((w) => s.includes(w)) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, options, labels, p])
+  // variables are listed under the entity, relationship, controller or feedback they belong to (as in the condition picker)
+  const byOwner = options.length > 0 && options.every((o) => o.kind === 'variable')
+  const owner = (o: Item) => (o.kind === 'variable' && o.parent && p.items[o.parent] ? o.parent : '')
+  const shown = useMemo(() => {
+    if (!byOwner) return hits
+    const order = [...new Set(hits.map(owner))]
+    return order.flatMap((g) => hits.filter((o) => owner(o) === g))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hits, byOwner])
   const reset = () => { setAt(null); setQ(''); setSel(0) }
   const close = () => { reset(); onClose?.() }
   const pick = (id: Id | null) => { onPick(id); close() }
@@ -45,7 +54,7 @@ export function Picker({ options, onPick, children, className, create, autoOpen,
   }
   useEffect(() => { if (autoOpen) open() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const mixed = new Set(options.map((o) => o.kind)).size > 1
-  const cur = hits[Math.min(sel, hits.length - 1)]
+  const cur = shown[Math.min(sel, shown.length - 1)]
   const wide = window.innerWidth >= 780
   return (
     <>
@@ -57,22 +66,23 @@ export function Picker({ options, onPick, children, className, create, autoOpen,
             <input autoFocus placeholder="Search label, title, kind…" value={q}
               onChange={(e) => { setQ(e.target.value); setSel(0) }}
               onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') { e.preventDefault(); setSel(Math.min(sel + 1, hits.length - 1)) }
+                if (e.key === 'ArrowDown') { e.preventDefault(); setSel(Math.min(sel + 1, shown.length - 1)) }
                 else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(Math.max(sel - 1, 0)) }
                 else if (e.key === 'Enter' && cur) pick(cur.id)
                 else if (e.key === 'Escape') close()
               }} />
             <ul>
               {create && <li className="pk-create" onClick={() => { close(); create.run() }}>{create.label}</li>}
-              {hits.map((o, n) => (
-                <li key={o.id} className={n === sel ? 'on' : ''} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
+              {shown.map((o, n) => { const g = byOwner ? owner(o) : '', head = byOwner && (n === 0 || owner(shown[n - 1]) !== g), po = p.items[g]; return (
+                <Fragment key={o.id}>{head && <li className={'pk-group' + (po ? ' k-' + po.kind : '')}>{po ? <ChipLabel it={po} label={labels[g]} /> : 'Other variables'}</li>}
+                <li className={(n === sel ? 'on' : '') + (byOwner ? ' pk-in' : '')} ref={(el) => { if (el && n === sel) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => setSel(n)} onClick={() => pick(o.id)}>
                   <span className={'chip k-' + o.kind}><ChipLabel it={o} label={labels[o.id]} /></span>
                   <span className="pk-main">
                     {!NAMED.has(o.kind) && <span className="pk-title">{text(o) || <i className="muted">{KIND_NAMES[o.kind]}</i>}</span>}
                     <span className="pk-sub">{[mixed && KIND_NAMES[o.kind], summary(p, labels, o)].filter(Boolean).join(' · ')}</span>
                   </span>
-                </li>
-              ))}
+                </li></Fragment>
+              ) })}
               {hits.length === 0 && <li className="muted">No matches</li>}
             </ul>
           </div>
