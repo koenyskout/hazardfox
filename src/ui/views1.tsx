@@ -84,9 +84,6 @@ export function Step1() {
 export function Domain() {
   const p = useProject()
   const labels = useLabels()
-  const selected = useStore((s) => s.selected)
-  const sel = selected ? p.items[selected] : null
-  const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
   const structMode = useStructView()
   const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'operation' | 'types'>('diagram')
   const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain')
@@ -109,7 +106,7 @@ export function Domain() {
       {tab === 'variable' && (
         <>
           {vars.some((v) => v.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
-          <FlatTable kind="variable" init={{ parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
+          <FlatTable kind="variable" addLabel="Add variable to" addTo={itemsOfKind(p, 'entity')}
             groupBy={(v) => v.parent}
             nest={structMode === 'nested' ? structPath : undefined}
             titleView={structMode === 'nested' ? (v) => v.struct ? v.struct.path.split('.').pop() : null : undefined}

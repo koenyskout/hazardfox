@@ -1,12 +1,13 @@
 import { type ReactNode } from 'react'
 import { deleteItems, shift, updateItem } from '../model/ops'
 import { useStore } from '../model/store'
-import { KIND_NAMES, type Id, type ItemOf, type Kind, type Patch } from '../model/types'
+import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
 import { generateUcaText } from '../model/uca'
 import { Ref } from './Fields'
 import { addItem, commit, select, useIds, useLabels, useProject } from './hooks'
 import { ReviewDot } from './Review'
 import { ChipLabel, Icon, StatusIcon } from './Icon'
+import { Picker } from './Picker'
 
 export interface Column<K extends Kind> {
   head: string
@@ -38,6 +39,8 @@ export function FlatTable<K extends Kind>(props: {
   /** Groups always shown (in this order, before any others), also when they have no items. */
   groups?: { id: Id; depth?: number }[]
   addLabel?: string
+  /** the add button first asks for the owner (set as `parent`) among these */
+  addTo?: Item[]
   /** Several add buttons (e.g. different kinds of one item); replaces the default one. */
   adds?: { label: string; init?: Patch<K> }[]
 }) {
@@ -75,7 +78,9 @@ export function FlatTable<K extends Kind>(props: {
     <div className="tree">
       <div className="toolbar">
         {(props.adds ?? [{ label: props.addLabel ?? `Add ${KIND_NAMES[props.kind].toLowerCase()}`, init: props.init }]).map((a) => (
-          <button key={a.label} onClick={() => addItem(props.kind, a.init)}><Icon name="plus" /> {a.label}</button>
+          props.addTo
+            ? <Picker key={a.label} options={props.addTo} onPick={(id) => id && addItem(props.kind, { ...a.init, parent: id } as Patch<K>)}><Icon name="plus" /> {a.label}…</Picker>
+            : <button key={a.label} onClick={() => addItem(props.kind, a.init)}><Icon name="plus" /> {a.label}</button>
         ))}
         <button disabled={!selected} title="Move up" onClick={() => selected && commit((q) => shift(q, selected, -1))}><Icon name="up" /></button>
         <button disabled={!selected} title="Move down" onClick={() => selected && commit((q) => shift(q, selected, 1))}><Icon name="down" /></button>
