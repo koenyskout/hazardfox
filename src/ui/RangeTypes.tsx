@@ -46,17 +46,20 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
   )
 }
 
-/** Popup to choose a range variable's type, or give it custom bounds. */
-export function VariableRangeDialog({ v, onClose }: { v: Variable; onClose: () => void }) {
+export const VariableRangeDialog = ({ v, onClose }: { v: Variable; onClose: () => void }) =>
+  <RangeDialog title={`Range of ${v.title || 'variable'}`} value={v} onClose={onClose} onApply={(patch) => commit((q) => updateItem(q, v.id, patch))} />
+
+/** Popup to choose a range type (existing or new) or give custom bounds, for a variable or parameter. */
+export function RangeDialog({ title, value, onClose, onApply }: { title: string; value: { rangeType: string; min: number | null; max: number | null; unit: string }; onClose: () => void; onApply: (patch: { rangeType: string; min?: number | null; max?: number | null; unit?: string }) => void }) {
   const p = useProject()
-  const [type, setType] = useState(v.rangeType)
-  const [t, setT] = useState<RangeType>({ min: v.min, max: v.max, unit: v.unit })
+  const [type, setType] = useState(value.rangeType)
+  const [t, setT] = useState<RangeType>({ min: value.min, max: value.max, unit: value.unit })
   const [creating, setCreating] = useState(false)
   const types = Object.keys(p.rangeTypes ?? {}).sort()
   const cur = type ? p.rangeTypes![type] : t
-  const apply = () => { commit((q) => updateItem(q, v.id, type ? { rangeType: type } : { rangeType: '', ...t })); onClose() }
+  const apply = () => { onApply(type ? { rangeType: type } : { rangeType: '', ...t }); onClose() }
   return (
-    <Modal title={`Range of ${v.title || 'variable'}`} onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <Field single label="Type">
         <div style={{ display: 'flex', gap: 6 }}>
           <Select value={type} onChange={(e) => setType(e.target.value)}>

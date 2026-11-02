@@ -11,7 +11,7 @@ import { type Effect, type Project, type ArgCondition, type OpParam, type Param,
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, RangeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -230,7 +230,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           </Field>
           {it.type === 'enum' && (
             <Field label="States" hint="Named values. Enter adds a state. Pick a shared type to reuse a state list across variables.">
-              <EnumTypePicker v={it} />
+              <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
               <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
             </Field>
           )}
@@ -572,32 +572,24 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
   return <EditPopup title="Edit parameter conditions" lines={argTexts(p, uca).map((l) => renderText(labels, l))} empty="No conditions on parameters" button="Edit parameter conditions…"><ArgsEditor ca={ca} args={uca.args} onChange={onChange} /></EditPopup>
 }
 
-/** Type fields of a parameter: enum (states / named type), boolean, or range (bounds and unit / named type). */
-function ParamType({ x, onChange }: { x: Omit<Param, 'name'>; onChange: (patch: Partial<Param>) => void }) {
+/** Type fields of a parameter, like a variable's: enum (state list editor, named type), boolean, or range (bounds and unit / named type). */
+function ParamType({ x, name, onChange }: { x: Omit<Param, 'name'>; name: string; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
-  const num = (s: string) => (s.trim() === '' || !Number.isFinite(Number(s)) ? null : Number(s))
-  const upd = onChange
-  const [newType, setNewType] = useState(false)
+  const [editRange, setEditRange] = useState(false)
+  const sum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
   return (
-    <>
-      <Select value={x.type} onChange={(e) => upd({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
+    <div className="param-type" style={{ flexBasis: '100%' }}>
+      <Select value={x.type} onChange={(e) => onChange({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
       {x.type === 'enum' && <>
-        <Select value={x.enumType} onChange={(e) => upd({ enumType: e.target.value })}><option value="">own states</option>{Object.keys(p.enumTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
-        {!x.enumType && <input placeholder="states, comma-separated" value={x.states.join(', ')} onChange={(e) => upd({ states: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />}
-        {!x.enumType && <button type="button" onClick={() => setNewType(true)} title="Define a shared state list">New type…</button>}
-        {newType && <EnumTypeDialog init={x.states} onClose={() => setNewType(false)} then={(n) => upd({ enumType: n })} />}
+        <EnumTypePicker x={x} name={name} onChange={onChange} />
+        {!x.enumType && <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />}
       </>}
-      {x.type === 'range' && <>
-        <Select value={x.rangeType} onChange={(e) => upd({ rangeType: e.target.value })}><option value="">own bounds</option>{Object.keys(p.rangeTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
-        {!x.rangeType && <>
-          <input className="time-amount" placeholder="min" value={x.min ?? ''} onChange={(e) => upd({ min: num(e.target.value) })} />
-          <input className="time-amount" placeholder="max" value={x.max ?? ''} onChange={(e) => upd({ max: num(e.target.value) })} />
-          <input className="time-amount" placeholder="unit" value={x.unit} onChange={(e) => upd({ unit: e.target.value })} />
-          <button type="button" onClick={() => setNewType(true)} title="Define a shared range type">New type…</button>
-        </>}
-        {newType && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setNewType(false)} then={(n) => upd({ rangeType: n })} />}
-      </>}
-    </>
+      {x.type === 'range' && <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <span>{x.rangeType && <b>{x.rangeType} · </b>}{sum(x.rangeType ? p.rangeTypes![x.rangeType] ?? x : x)}</span>
+        <button className="btn" onClick={() => setEditRange(true)}>Edit…</button>
+        {editRange && <RangeDialog title={`Range of ${name || 'parameter'}`} value={x} onClose={() => setEditRange(false)} onApply={onChange} />}
+      </div>}
+    </div>
   )
 }
 
@@ -606,9 +598,9 @@ function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Par
   return (
     <div className="params">
       {params.map((x, i) => (
-        <div key={i} className="cond">
+        <div key={i} className="cond" style={{ flexWrap: 'wrap' }}>
           <input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />
-          <ParamType x={x} onChange={(patch) => upd(i, patch)} />
+          <ParamType x={x} name={x.name} onChange={(patch) => upd(i, patch)} />
           <button className="x" onClick={() => onChange(params.filter((_, j) => j !== i))}>×</button>
         </div>
       ))}
@@ -974,24 +966,24 @@ function VariableLinks({ v }: { v: Variable }) {
   ))
 }
 
-/** Choose a named, reusable state list for an enum variable, or save its own states as one. */
-function EnumTypePicker({ v }: { v: Variable }) {
+/** Choose a named, reusable state list for an enum variable or parameter, or save its own states as one. */
+function EnumTypePicker({ x, name, onChange }: { x: { enumType: string; states: string[] }; name: string; onChange: (patch: { enumType: string }) => void }) {
   const p = useProject()
   const [isNew, setNew] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
   const save = async () => {
-    const n = await askText({ title: 'Save states as a type', label: 'Name for this state list (e.g. On/Off, Severity)', initial: v.title, confirm: 'Save' })
-    if (n && !p.enumTypes?.[n]) commit((q) => updateItem(defineEnumType(q, n, v.states), v.id, { enumType: n }))
+    const n = await askText({ title: 'Save states as a type', label: 'Name for this state list (e.g. On/Off, Severity)', initial: name, confirm: 'Save' })
+    if (n && !p.enumTypes?.[n]) { commit((q) => defineEnumType(q, n, x.states)); onChange({ enumType: n }) }
   }
   return (
     <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-      <Select value={v.enumType} onChange={(e) => commit((q) => updateItem(q, v.id, { enumType: e.target.value }))}>
+      <Select value={x.enumType} onChange={(e) => onChange({ enumType: e.target.value })}>
         <option value="">Own states</option>
         {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
       </Select>
-      {!v.enumType && v.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
-      {!v.enumType && !v.states.length && <button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New type…</button>}
-      {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => commit((q) => updateItem(q, v.id, { enumType: n }))} />}
+      {!x.enumType && x.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
+      {!x.enumType && !x.states.length && <button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New type…</button>}
+      {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => onChange({ enumType: n })} />}
     </div>
   )
 }
@@ -1004,10 +996,10 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
     <EditPopup title={`Parameters of ${it.title || 'operation'}`} lines={it.params.map((x) => paramText(p, x))} empty="No parameters" button="Edit parameters…">
       <div className="params">
         {it.params.map((x, i) => (
-          <div key={i} className="cond cond-ev">
+          <div key={i} className="cond cond-ev" style={{ flexWrap: 'wrap' }}>
             <input className="op-name" placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />
             <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>
-            {x.data ? <ParamType x={x.data} onChange={(patch) => upd(i, { data: { ...x.data!, ...patch } })} />
+            {x.data ? <ParamType x={x.data} name={x.name} onChange={(patch) => upd(i, { data: { ...x.data!, ...patch } })} />
               : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />}
             <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef.from === x.name ? { ...ef, from: undefined, state: '' } : ef)) })}>×</button>
           </div>
