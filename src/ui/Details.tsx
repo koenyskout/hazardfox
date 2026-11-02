@@ -572,23 +572,33 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
   return <EditPopup title="Edit parameter conditions" lines={argTexts(p, uca).map((l) => renderText(labels, l))} empty="No conditions on parameters" button="Edit parameter conditions…"><ArgsEditor ca={ca} args={uca.args} onChange={onChange} /></EditPopup>
 }
 
-/** Type fields of a parameter, like a variable's: enum (state list editor, named type), boolean, or range (bounds and unit / named type). */
-function ParamType({ x, name, onChange }: { x: Omit<Param, 'name'>; name: string; onChange: (patch: Partial<Param>) => void }) {
+type ParamData = Omit<Param, 'name'>
+const TypeSelect = ({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) =>
+  <Select value={x.type} onChange={(e) => onChange({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
+
+/** Details of a parameter's type, like a variable's: enum (type picker, state list) or range (summary, dialog); nothing for boolean. */
+function ParamTypeDetails({ x, name, onChange }: { x: ParamData; name: string; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
   const [editRange, setEditRange] = useState(false)
-  const sum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
+  if (x.type === 'enum') return <><EnumTypePicker x={x} name={name} onChange={onChange} />{!x.enumType && <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />}</>
+  if (x.type !== 'range') return null
+  const t = x.rangeType ? p.rangeTypes?.[x.rangeType] ?? x : x
   return (
-    <div className="param-type" style={{ flexBasis: '100%' }}>
-      <Select value={x.type} onChange={(e) => onChange({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
-      {x.type === 'enum' && <>
-        <EnumTypePicker x={x} name={name} onChange={onChange} />
-        {!x.enumType && <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />}
-      </>}
-      {x.type === 'range' && <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <span>{x.rangeType && <b>{x.rangeType} · </b>}{sum(x.rangeType ? p.rangeTypes![x.rangeType] ?? x : x)}</span>
-        <button className="btn" onClick={() => setEditRange(true)}>Edit…</button>
-        {editRange && <RangeDialog title={`Range of ${name || 'parameter'}`} value={x} onClose={() => setEditRange(false)} onApply={onChange} />}
-      </div>}
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <span>{x.rangeType && <b>{x.rangeType} · </b>}{describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)}</span>
+      <button className="btn" onClick={() => setEditRange(true)}>Edit…</button>
+      {editRange && <RangeDialog title={`Range of ${name || 'parameter'}`} value={x} onClose={() => setEditRange(false)} onApply={onChange} />}
+    </div>
+  )
+}
+
+/** One parameter: cells in a grid (name, type, …), remove button, and the type details underneath. */
+function ParamRow({ cells, details, onRemove }: { cells: ReactNode[]; details?: ReactNode; onRemove: () => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr)) auto`, gap: '6px 8px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
+      {cells}
+      <button className="x" onClick={onRemove}>×</button>
+      {details && <div style={{ gridColumn: '1 / -1', paddingLeft: 4 }}>{details}</div>}
     </div>
   )
 }
@@ -598,11 +608,9 @@ function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Par
   return (
     <div className="params">
       {params.map((x, i) => (
-        <div key={i} className="cond" style={{ flexWrap: 'wrap' }}>
-          <input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />
-          <ParamType x={x} name={x.name} onChange={(patch) => upd(i, patch)} />
-          <button className="x" onClick={() => onChange(params.filter((_, j) => j !== i))}>×</button>
-        </div>
+        <ParamRow key={i} onRemove={() => onChange(params.filter((_, j) => j !== i))}
+          cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <TypeSelect x={x} onChange={(patch) => upd(i, patch)} />]}
+          details={<ParamTypeDetails x={x} name={x.name} onChange={(patch) => upd(i, patch)} />} />
       ))}
       <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}>+ parameter</button></div>
     </div>
@@ -995,15 +1003,19 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
   return (
     <EditPopup title={`Parameters of ${it.title || 'operation'}`} lines={it.params.map((x) => paramText(p, x))} empty="No parameters" button="Edit parameters…">
       <div className="params">
-        {it.params.map((x, i) => (
-          <div key={i} className="cond cond-ev" style={{ flexWrap: 'wrap' }}>
-            <input className="op-name" placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />
-            <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>
-            {x.data ? <ParamType x={x.data} name={x.name} onChange={(patch) => upd(i, { data: { ...x.data!, ...patch } })} />
-              : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />}
-            <button className="x" onClick={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef.from === x.name ? { ...ef, from: undefined, state: '' } : ef)) })}>×</button>
-          </div>
-        ))}
+        {it.params.map((x, i) => {
+          const setData = (patch: Partial<Param>) => upd(i, { data: { ...x.data!, ...patch } })
+          return (
+            <ParamRow key={i}
+              onRemove={() => set({ params: it.params.filter((_, j) => j !== i), effects: it.effects.map((ef) => (ef.on === x.name ? { ...ef, on: undefined } : ef.from === x.name ? { ...ef, from: undefined, state: '' } : ef)) })}
+              cells={[
+                <input placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />,
+                <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>,
+                x.data ? <TypeSelect x={x.data} onChange={setData} /> : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />,
+              ]}
+              details={x.data && <ParamTypeDetails x={x.data} name={x.name} onChange={setData} />} />
+          )
+        })}
         <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>
       </div>
     </EditPopup>
