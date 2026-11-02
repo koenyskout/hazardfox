@@ -95,6 +95,7 @@ ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 .it>.cn:before{left:-10.5px;top:7.5px}
 .it:before{left:-13.5px}
 .it:after{left:-6px;width:18px}
+.ed .mk.all{color:var(--accent-2)}.ed .mk.any{color:var(--accent)}
 </style></head><body><main>
 
 <h1>Expression conditions</h1>
@@ -105,26 +106,26 @@ ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 <div class="cols">
 <div class="card"><h3>UCA-4 · Train door controller</h3><div class="uca"><b>Open doors</b> provided when</div><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Train speed</span><span class="op">&gt;</span><span class="k">0</span></div></div><div class="it"><span class="cn"></span><div class="bd"><div class="g any"><div class="gh"><span class="tag any">Any of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Door state</span><span class="op">=</span><span class="k">closed</span></div></div><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Platform side</span><span class="op">≠</span><span class="k">left</span></div></div></div></div></div></div><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Emergency brake</span><span class="op">=</span><span class="k">applied</span></div></div></div></div></div></div><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Gap</span><span class="op">−</span><span class="k">2</span><span class="op">×</span><span class="v ">Speed</span><span class="op">&lt;</span><span class="k">5</span> <span class="tm">m</span></div></div><div class="it"><span class="cn"></span><div class="bd"><span class="tag not inl">Not</span> <span class="v b">Door state</span><span class="op">=</span><span class="fn">prev</span>(<span class="v b">Door state</span>)</div></div></div></div></div>
 <div class="card"><h3>The same, as text</h3><div class="ed" style="border-color:var(--line)"><span class="kw">all of</span>:
-  <span class="mk">-</span> <span class="id ">Train speed</span> <span class="nm">&gt; 0</span>
-  <span class="mk">-</span> <span class="kw">any of</span>:
-    <span class="mk">-</span> <span class="kw">all of</span>:
-      <span class="mk">-</span> <span class="id ">Door state</span> = <span class="nm">closed</span>
-      <span class="mk">-</span> <span class="id ">Platform side</span> ≠ <span class="nm">left</span>
-    <span class="mk">-</span> <span class="id ">Emergency brake</span> = <span class="nm">applied</span>
-  <span class="mk">-</span> <span class="id ">Gap</span> − <span class="nm">2</span> × <span class="id ">Speed</span> &lt; <span class="nm">5 m</span>
-  <span class="mk">-</span> <span class="kw">not</span>: <span class="id b">Door state</span> = <span class="f">prev</span>(<span class="id b">Door state</span>)</div>
-<p class="hint">Layout is a YAML-style list: a line ending in <code>all of:</code> / <code>any of:</code> opens a group; its members are the <code>-</code> lines indented below it. <code>not:</code> in front of a single condition stays on its line (<code>not: Door state = …</code>); for several conditions it opens a group like the others. <code>and</code>/<code>or</code>/<code>∧</code>/<code>∨</code> are accepted as aliases and rewritten on blur.</p></div></div>
+  <span class="mk all">&amp;</span> <span class="id ">Train speed</span> <span class="nm">&gt; 0</span>
+  <span class="mk all">&amp;</span> <span class="kw">any of</span>:
+    <span class="mk any">|</span> <span class="kw">all of</span>:
+      <span class="mk all">&amp;</span> <span class="id ">Door state</span> = <span class="nm">closed</span>
+      <span class="mk all">&amp;</span> <span class="id ">Platform side</span> ≠ <span class="nm">left</span>
+    <span class="mk any">|</span> <span class="id ">Emergency brake</span> = <span class="nm">applied</span>
+  <span class="mk all">&amp;</span> <span class="id ">Gap</span> − <span class="nm">2</span> × <span class="id ">Speed</span> &lt; <span class="nm">5 m</span>
+  <span class="mk all">&amp;</span> <span class="kw">not</span>: <span class="id b">Door state</span> = <span class="f">prev</span>(<span class="id b">Door state</span>)</div>
+<p class="hint">Layout is a YAML-style list: a line ending in <code>all of:</code> / <code>any of:</code> opens a group; its members are the lines indented below it, each starting with <code>&amp;</code> (all of: every one holds) or <code>|</code> (any of: at least one holds). <code>and</code>/<code>or</code> are accepted too. <code>not:</code> in front of a single condition stays on its line (<code>not: Door state = …</code>); for several conditions it opens a group like the others. Aliases (<code>-</code>, <code>and</code>, <code>or</code>, <code>∧</code>, <code>∨</code>) are rewritten on blur.</p></div></div>
 <h2>2 · Editing</h2>
 <p class="lead">One representation, two editors. The text editor is the fast path (autocomplete on variable names, typed errors inline); the rows editor is today's builder, extended so each row holds one expression instead of fixed variable/op/value boxes. In the rows editor the group tag is a dropdown (All of / Any of / Not) and groups are added with <i>+ all of</i> / <i>+ any of</i>.</p>
 <div class="cols">
 <div class="card" style="position:relative"><div class="tabs"><span class="on">Text</span><span>Rows</span></div>
 <div class="ed" style="min-height:190px"><span class="kw">all of</span>:
-  <span class="mk">-</span> <span class="id ">Request id</span> ≠ <span class="f">prev</span>(<span class="id ">Request id</span>)
-  <span class="mk">-</span> <span class="id ">Msg seq</span> = <span class="f">succ</span>(<span class="f">prev</span>(<span class="id ">Msg seq</span>))
-  <span class="mk">-</span> <span class="id ">Received at</span> &lt; <span class="err">Sent</span><span class="cur"></span>
-  <span class="mk">-</span> <span class="kw">any of</span>:
-    <span class="mk">-</span> <span class="id ">Retries</span> ≥ <span class="nm">3</span>
-    <span class="mk">-</span> <span class="id ">Ack id</span> ∈ {<span class="id ">Request id</span>, <span class="f">prev</span>(<span class="id ">Request id</span>)}
+  <span class="mk all">&amp;</span> <span class="id ">Request id</span> ≠ <span class="f">prev</span>(<span class="id ">Request id</span>)
+  <span class="mk all">&amp;</span> <span class="id ">Msg seq</span> = <span class="f">succ</span>(<span class="f">prev</span>(<span class="id ">Msg seq</span>))
+  <span class="mk all">&amp;</span> <span class="id ">Received at</span> &lt; <span class="err">Sent</span><span class="cur"></span>
+  <span class="mk all">&amp;</span> <span class="kw">any of</span>:
+    <span class="mk any">|</span> <span class="id ">Retries</span> ≥ <span class="nm">3</span>
+    <span class="mk any">|</span> <span class="id ">Ack id</span> ∈ {<span class="id ">Request id</span>, <span class="f">prev</span>(<span class="id ">Request id</span>)}
 <div class="pop"><div class="on"><span class="v">Sent at</span><small>Timestamp · ordered</small></div><div><span class="v">Sent count</span><small>range 0–99</small></div><div><span class="v">Sender</span><small>ID</small></div></div></div>
 <div class="msg">Line 4: <code>Sent</code> is not a variable — did you mean <i>Sent at</i>?</div></div>
 <div class="card sed"><div class="tabs"><span>Text</span><span class="on">Rows</span></div><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Request id</span><span class="op">≠</span><span class="fn">prev</span>(<span class="v ">Request id</span>)</div><span class="x">✕</span></div></div></div><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Msg seq</span><span class="op">=</span><span class="fn">succ</span>(<span class="fn">prev</span>(<span class="v ">Msg seq</span>))</div><span class="x">✕</span></div></div></div><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Received at</span><span class="op">&lt;</span><span class="v ">Sent at</span></div><span class="x">✕</span></div></div></div><div class="it"><span class="cn"></span><div class="bd"><div class="g any"><div class="gh"><span class="tag any">Any of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Retries</span><span class="op">≥</span><span class="k">3</span></div><span class="x">✕</span></div></div></div><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Ack id</span><span class="op">∈</span><span class="k">{</span><span class="v ">Request id</span>, <span class="fn">prev</span>(<span class="v ">Request id</span>)<span class="k">}</span></div><span class="x">✕</span></div></div></div></div></div><div class="add"><span>+ condition</span><span>+ group</span><span>make Not</span></div></div></div></div></div><div class="add"><span>+ condition</span><span>+ all of</span><span>+ any of</span><span>+ in words</span></div></div></div>
