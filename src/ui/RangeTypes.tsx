@@ -62,10 +62,10 @@ export function RangeDialog({ title, value, onClose, onApply }: { title: string;
     <Modal title={title} onClose={onClose}>
       <Field single label="Type">
         <div style={{ display: 'flex', gap: 6 }}>
-          <Select value={type} onChange={(e) => setType(e.target.value)}>
+          {types.length > 0 && <Select value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">Custom</option>
             {types.map((x) => <option key={x} value={x}>{x} ({show(p.rangeTypes![x])})</option>)}
-          </Select>
+          </Select>}
           <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> New type…</button>
         </div>
       </Field>

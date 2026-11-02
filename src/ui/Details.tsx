@@ -977,10 +977,10 @@ function EnumTypePicker({ x, name, onChange }: { x: { enumType: string; states: 
   }
   return (
     <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-      <Select value={x.enumType} onChange={(e) => onChange({ enumType: e.target.value })}>
+      {names.length > 0 && <Select value={x.enumType} onChange={(e) => onChange({ enumType: e.target.value })}>
         <option value="">Own states</option>
         {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
-      </Select>
+      </Select>}
       {!x.enumType && x.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
       {!x.enumType && !x.states.length && <button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New type…</button>}
       {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => onChange({ enumType: n })} />}
