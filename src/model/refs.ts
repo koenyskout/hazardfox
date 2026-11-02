@@ -94,7 +94,7 @@ export function linkedTo(p: Project, id: Id): Item[] {
 
 /** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
 const reref = (c: Condition, from: Id, to: Id | null): Condition[] =>
-  c.event ? (c.event !== from ? [c] : to ? [{ ...c, event: to }] : []) : isText(c) ? [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c] : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
+  c.event ? (c.event !== from ? [c] : to ? [{ ...c, event: to }] : []) : isText(c) ? (c.expr && !to && c.text?.includes(mention(from)) ? [] : [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c]) : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
 
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {

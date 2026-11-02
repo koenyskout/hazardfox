@@ -179,8 +179,8 @@ export interface SymbolicType { ordered: boolean; unique?: boolean; monotonic?: 
 export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
 export interface StructType { fields: StructField[] }
-/** Condition tree: all (`any` false) or any of its conditions and nested groups hold. */
-export interface Group { any: boolean; of: When[] }
+/** Condition tree: all (`any` false) or any of its conditions and nested groups hold; with `not` the group is negated (not all of its members hold). */
+export interface Group { any: boolean; of: When[]; not?: boolean }
 export type When = Condition | Group
 /** The refined variable has value `state` when `when` holds. */
 export interface Rule { state: string; when: Group }
@@ -249,6 +249,8 @@ export interface Condition {
   to?: string
   set?: string[]
   text?: string
+  /** With `text`: the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts` */
+  expr?: boolean
   /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
   other?: Id
   /** Only meaningful for variables of a many-instance entity / relationship; absent = `some` */

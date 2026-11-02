@@ -8,6 +8,7 @@ import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 import { shortName } from './labels'
+import { condVars, conditionLine, exprError, isExpr } from './expr'
 import { condInstances, conditionError, instName, isText, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
@@ -50,6 +51,7 @@ export const RULES = {
   'param-name': { title: 'Parameter without a unique name', why: 'UCAs refer to a control action parameter by its name.', fix: 'Give each parameter of the control action its own name.' },
   'param-type': { title: 'Parameter without a named type', why: 'Range, enumeration and symbolic parameters take their bounds, states or properties from a named type of the project, so they are defined once and reused.', fix: 'Pick a named type for the parameter, or create one from the type picker (Boolean parameters need none).' },
   'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
+  'expr-invalid': { title: 'Comparison does not make sense', why: 'An arithmetic comparison needs variables that exist, numbers where it calculates, the same type (and unit) on both sides, and an order only for numbers or ordered symbolic types.', fix: 'Edit the comparison so both sides have the same type, or drop the order operator.' },
   'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
   'instance-unnamed': { title: 'Instance without a name', why: 'A condition says "some" instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'quantifier-single': { title: 'Quantifier on a single-instance variable', why: 'The condition says "some / every / no", but its variable belongs to an entity (or relationship) with one instance, so the quantifier has no effect.', fix: 'Mark the entity as having several instances, or remove the quantifier.' },
@@ -141,7 +143,7 @@ export function validate(p: Project): Issue[] {
     if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
     for (const r of v.rules) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && v.type !== 'symbolic' && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
-        : leaves(r.when).map((c) => { if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
+        : leaves(r.when).map((c) => { if (isExpr(c)) return exprError(p, c); if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
@@ -167,6 +169,10 @@ export function validate(p: Project): Issue[] {
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
   }
 
+  for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isExpr)) {
+    const e = exprError(p, c)
+    if (e) add('warning', it, 'expr-invalid', `${nm(it)}: the comparison "${conditionLine(p, c) ?? c.text}" ${e}`, condVars(c))
+  }
   for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter((c) => c.event)) {
     const e = p.items[c.event!]
     if (e && e.kind !== 'ca' && e.kind !== 'feedback' && e.kind !== 'operation') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action, feedback or operation`)
@@ -184,7 +190,7 @@ export function validate(p: Project): Issue[] {
   for (const u of ucas) {
     const ca = p.items[u.ca]
     for (const a of u.args) { const e = ca?.kind === 'ca' ? argError(p, ca, a) : null; if (e) add('warning', u, 'arg-invalid', `${L[u.id]}: ${e}`) }
-    for (const id of u.conditions.flatMap(leaves).flatMap((c) => [c.variable, c.other ?? ''])) {
+    for (const id of u.conditions.flatMap(leaves).flatMap(condVars)) {
       const v = p.items[id]
       if (v?.kind !== 'variable') continue
       if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])

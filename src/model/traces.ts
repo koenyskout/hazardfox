@@ -1,5 +1,6 @@
 import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
+import { exprHolds } from './expr'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
@@ -45,7 +46,7 @@ export function holds(v: Variable, c: Condition, value: string | undefined): boo
 
 /** Reads trace values; `instances` gives the values of a variable's per-instance lanes ("<variable>@t1"). */
 /** Timing at one trace step: seconds a condition has held continuously, and since an event last occurred (null when step times are not numeric or it never did). */
-export interface Clock { held(c: Condition, strict: boolean): number | null; since(on: Id): number | null }
+export interface Clock { held(c: Condition, strict: boolean): number | null; since(on: Id): number | null; /** value at the previous step */ prev(id: Id): string | undefined }
 export type Getter = ((id: Id) => string | undefined) & { instances?: (id: Id) => string[]; clock?: Clock }
 
 /** The clock at step i: needs numeric step times ("5", "200 ms"; `parseTime`) from step 0 to i. */
@@ -55,6 +56,7 @@ export function clockAt(p: Project, t: Trace, i: number): Clock {
   const states: Record<number, Record<Id, string>> = {}
   const st = (k: number) => (states[k] ??= traceState(p, t, k))
   return {
+    prev: (id) => (i > 0 ? st(i - 1)[id] : undefined),
     since(on) {
       if (!ok) return null
       for (let k = i; k >= 0; k--) if (t.steps[k].events.some((e) => isOccurrence(p, e, on))) return times[i]! - times[k]!
@@ -88,6 +90,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
     const d = get.clock?.held(c, strict)
     return d == null ? null : c.time.op === '≥' ? d >= boundSeconds(c.time) : d < boundSeconds(c.time)
   }
+  if (c.expr && isText(c)) { if (!conditionComplete(c)) return undefined; return exprHolds(p, c, get, get.clock?.prev) }
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
@@ -108,12 +111,13 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
-  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && conditionComplete(c)).map(condKey)))]
+  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c) => isText(c) && !c.expr && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
 export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Condition) => boolean): boolean | null | undefined {
   if (!isGroup(w)) return condHolds(p, w, get, strict?.(w))
   const hs = w.of.map((x) => whenHolds(p, x, get, strict)).filter((h) => h !== undefined)
+  if (w.not) { if (!hs.length) return undefined; return hs.includes(false) ? true : hs.includes(null) ? null : false }
   return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
 }
 

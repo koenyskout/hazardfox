@@ -1,6 +1,7 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
+import { cmpOf, exprCondition, isExpr } from './expr'
 import { condKey, instName, instName2, isGroup, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
 import type { Condition, Id, Project, Variable, When } from './types'
 
@@ -33,6 +34,7 @@ export function consistent(p: Project, cs: Condition[]): boolean {
 const and = (p: Project, a: Dnf, b: Dnf): Dnf => a.flatMap((x) => b.map((y) => dedupe([...x, ...y]))).filter((x) => consistent(p, x))
 /** ¬(c1 ∧ c2 …) = ¬c1 ∨ ¬c2 …; on a two-valued variable, "≠ a" reads better as "= b". */
 const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
+  if (isExpr(c)) { const m = cmpOf(c); return m ? [exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })] : [c] }
   const q = quantOf(p, c)
   if (c.same) return [{ ...c, op: NEGATE[c.op] }]
   if (q === 'some' || q === 'none') return [{ ...c, as: undefined, as2: undefined, quant: q === 'some' ? 'none' : 'some' }]
@@ -45,6 +47,7 @@ const not = (p: Project, cs: Condition[]): Dnf => cs.map((c) => {
 /** A condition tree (or its negation) in DNF. */
 const dnf = (p: Project, w: When, neg = false): Dnf => {
   if (!isGroup(w)) return neg ? not(p, [w]) : [[w]]
+  if (w.not) return dnf(p, { any: false, of: w.of }, !neg)
   const parts = w.of.map((x) => dnf(p, x, neg))
   return w.any === neg ? parts.reduce((a, b) => and(p, a, b), [[]]) : simplify(parts.flat())
 }

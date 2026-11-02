@@ -191,7 +191,7 @@ function quantText(p: Project, c: Condition, q: Quantifier, another = false, ano
 }
 
 function plainText(p: Project, c: Condition): string {
-  if (isText(c)) return c.op === '≠' ? `not (${c.text!.trim()})` : c.text!.trim()
+  if (isText(c)) return c.op === '≠' && !c.expr ? `not (${c.text!.trim()})` : c.text!.trim()
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
@@ -233,7 +233,7 @@ export const anyOf = (...of: When[]): Group => ({ any: true, of })
 /** The conditions in a condition tree. */
 export const leaves = (w: When): Condition[] => (isGroup(w) ? w.of.flatMap(leaves) : [w])
 /** The conditions to make true to satisfy a tree: all of an all-of group, the first branch of an any-of group (to draft traces). */
-export const required = (w: When): Condition[] => (isGroup(w) ? (w.any ? w.of.slice(0, 1) : w.of).flatMap(required) : [w])
+export const required = (w: When): Condition[] => (isGroup(w) ? (w.not ? [] : w.any ? w.of.slice(0, 1) : w.of).flatMap(required) : [w])
 /** The tree with each condition replaced (null drops it). */
 export const mapLeaves = (g: Group, f: (c: Condition) => Condition | null): Group =>
   ({ ...g, of: g.of.flatMap((w) => { const x = isGroup(w) ? mapLeaves(w, f) : f(w); return x ? [x] : [] }) })
@@ -242,6 +242,7 @@ export function whenText(p: Project, w: When, top = true, before: Condition[] = 
   if (!isGroup(w)) return conditionComplete(w) ? conditionText(p, w, before) : ''
   const parts = w.of.map((x, i) => whenText(p, x, false, [...before, ...w.of.slice(0, i).flatMap(leaves)])).filter(Boolean)
   const s = parts.join(w.any ? ' or ' : ' and ')
+  if (w.not) return parts.length ? `not (${s})` : ''
   return !top && parts.length > 1 ? `(${s})` : s
 }
 
