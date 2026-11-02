@@ -6,7 +6,7 @@ import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -580,7 +580,7 @@ type ParamData = Omit<Param, 'name'>
 const rangeSum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
 const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic'; plus?: boolean; children: ReactNode }) =>
-  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <Icon name="plus" size={12} />}<Icon name={`type-${t}`} size={13} />{children}</span>
+  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative', ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <span style={{ position: 'absolute', left: -17, display: 'flex' }}><Icon name="plus" size={12} /></span>}<Icon name={`type-${t}`} size={13} />{children}</span>
 
 /** One select for a parameter's datatype: number / true-false / own choice, the project's named range and enum types, or a new type. */
 function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
@@ -614,7 +614,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
         </optgroup>
       </Select>
       {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'range', rangeType: n, enumType: '' })} />}
-      {creating === 'symbolic' && <SymbolicTypeDialog init={{ ordered: !!x.ordered, equatable: x.equatable ?? true }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'symbolic', symbolicType: n, rangeType: '', enumType: '' })} />}
+      {creating === 'symbolic' && <SymbolicTypeDialog init={symProps(x)} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'symbolic', symbolicType: n, rangeType: '', enumType: '' })} />}
       {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'enum', enumType: n, rangeType: '' })} />}
     </>
   )
@@ -625,7 +625,7 @@ const ownType = (x: ParamData) => (x.type === 'enum' && !x.enumType) || (x.type 
 /** Fields for a parameter with its own bounds or states (named types are edited in Domain model → Types). */
 function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   if (x.type === 'enum' && !x.enumType) return <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />
-  if (x.type === 'symbolic' && !x.symbolicType) return <SymbolicProps t={{ ordered: !!x.ordered, equatable: x.equatable ?? true }} onChange={onChange} />
+  if (x.type === 'symbolic' && !x.symbolicType) return <SymbolicProps t={symProps(x)} onChange={onChange} />
   if (x.type === 'range' && !x.rangeType) return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <span className="muted">min</span><span style={{ width: 80 }}><NumberInput value={x.min} onChange={(min) => onChange({ min })} /></span>
