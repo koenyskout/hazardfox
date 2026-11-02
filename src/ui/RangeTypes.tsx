@@ -1,5 +1,5 @@
 import { Select } from './Select'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { StringList } from './StringList'
 import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
@@ -281,26 +281,35 @@ const symbolicText = (t: SymbolicType) => {
 
 const PROPS: { key: 'equatable' | 'ordered' | 'unique' | 'monotonic' | 'sequential'; tip: string; info: string }[] = [
   { key: 'equatable', tip: 'Values can be compared for equality (is / is not)', info: 'Values can be compared: conditions may say “is” / “is not” (e.g. ID = id7).' },
-  { key: 'ordered', tip: 'Values have an order (is less than / at least …); natural order of the symbols, t2 before t10', info: 'Values have an order: conditions may say “less than” / “at least” (t2 comes before t10). Implies equatable.' },
+  { key: 'ordered', tip: 'Values have an order (is less than / at least …); natural order of the symbols, t2 before t10', info: 'Values have an order: conditions may say “less than” / “at least” (t2 comes before t10).' },
   { key: 'unique', tip: 'Every new value differs from all earlier ones (IDs, nonces); a repeat in a trace is a replay', info: 'Every new value differs from all earlier ones, like an ID or nonce. A repeat in a trace is flagged as a replay.' },
-  { key: 'monotonic', tip: 'The value never decreases over time (timestamps, counters); implies ordered', info: 'The value never decreases over time, like a timestamp or counter. A decrease in a trace is flagged as stale data. Implies ordered.' },
-  { key: 'sequential', tip: 'Each change goes to the direct successor (sequence numbers: t3 → t4); a jump is a lost value; implies ordered', info: 'Each change goes to the direct successor, like a sequence number (t3 → t4). A jump in a trace is flagged as a lost value. Implies ordered.' },
+  { key: 'monotonic', tip: 'The value never decreases over time (timestamps, counters); implies ordered', info: 'The value never decreases over time, like a timestamp or counter. A decrease in a trace is flagged as stale data.' },
+  { key: 'sequential', tip: 'Each change goes to the direct successor (sequence numbers: t3 → t4); a jump is a lost value; implies ordered', info: 'Each change goes to the direct successor, like a sequence number (t3 → t4). A jump in a trace is flagged as a lost value.' },
 ]
-/** The properties of a symbolic type as checkboxes (`detailed`: one per row with an explanation); ordered implies equatable, monotonic / sequential imply ordered. */
+type PropKey = (typeof PROPS)[number]['key']
+/** What each property implies (shown nested in the detailed list). */
+const PROP_TREE: [PropKey, ...unknown[]] = ['equatable', ['ordered', ['monotonic'], ['sequential']], ['unique']]
+/** The properties of a symbolic type as checkboxes (`detailed`: nested by implication, each with an explanation); ordered implies equatable, monotonic / sequential imply ordered, unique implies equatable. */
 export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onChange: (t: SymbolicType) => void; detailed?: boolean }) {
   const n = normSym(t)
   const forced = (k: string) => (k === 'equatable' && (n.ordered || n.unique)) || (k === 'ordered' && (n.monotonic || n.sequential))
+  const row = (key: PropKey, kids: unknown[] = []): ReactNode => {
+    const { tip, info } = PROPS.find((x) => x.key === key)!
+    return (
+      <div key={key} title={tip}>
+        <label className="check" style={{ gap: 6, alignItems: 'center' }}>
+          <input type="checkbox" checked={!!n[key]} disabled={forced(key)} onChange={(e) => onChange(normSym({ ...t, [key]: e.target.checked }))} />
+          <Icon name={key} size={14} /> <b>{key}</b>
+        </label>
+        {detailed && <div className="muted" style={{ fontSize: 12, margin: '1px 0 0 24px' }}>{info}</div>}
+        {detailed && kids.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '8px 0 0 12px', paddingLeft: 12, borderLeft: '2px solid var(--line)' }}>{kids.map((k) => { const [kk, ...rest] = k as [PropKey, ...unknown[]]; return row(kk, rest) })}</div>}
+      </div>
+    )
+  }
+  if (detailed) { const [k, ...rest] = PROP_TREE; return <div>{row(k, rest)}</div> }
   return (
-    <div style={detailed ? { display: 'flex', flexDirection: 'column', gap: 10 } : { display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-      {PROPS.map(({ key, tip, info }) => (
-        <div key={key} title={tip}>
-          <label className="check" style={{ gap: 6, alignItems: 'center' }}>
-            <input type="checkbox" checked={!!n[key]} disabled={forced(key)} onChange={(e) => onChange(normSym({ ...t, [key]: e.target.checked }))} />
-            <Icon name={key} size={14} /> <b>{key}</b>
-          </label>
-          {detailed && <div className="muted" style={{ fontSize: 12, margin: '1px 0 0 24px' }}>{info}</div>}
-        </div>
-      ))}
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {PROPS.map(({ key }) => row(key))}
     </div>
   )
 }
