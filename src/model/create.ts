@@ -31,7 +31,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   entity: () => ({}),
   operation: () => ({ params: [], effects: [] }),
   relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*' }),
-  variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, equatable: true, symbolicType: '', rules: [], otherwise: '' }),
+  variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, symbolicType: '', rules: [], otherwise: '' }),
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], params: [], operation: null, actuator: '', notApplicable: [], bend: null, labelShift: null }),
   feedback: () => ({ from: '', to: '', sensor: '', bend: null, labelShift: null }),

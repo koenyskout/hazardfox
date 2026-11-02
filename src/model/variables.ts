@@ -12,15 +12,15 @@ export const isSetOp = (op: ConditionOp) => op === 'in' || op === 'not in'
 export const opsFor = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? RANGE_OPS : v?.type === 'boolean' ? ['=', '≠'] : v?.type === 'symbolic' ? symbolicOps(v) : ENUM_OPS)
 
 export const isSymbolic = (v: Variable | undefined) => v?.type === 'symbolic'
-/** Symbolic properties made consistent: monotonic / sequential imply ordered, ordered / unique imply equatable. */
+/** Symbolic properties made consistent: monotonic / sequential imply ordered. */
 export const normSym = (t: Partial<SymbolicType>): SymbolicType => {
   const monotonic = !!t.monotonic, sequential = !!t.sequential, ordered = !!t.ordered || monotonic || sequential, unique = !!t.unique
-  return { ordered, equatable: ordered || unique || !!t.equatable, unique, monotonic, sequential }
+  return { ordered, unique, monotonic, sequential }
 }
-export const SYMBOLIC_DEFAULT: SymbolicType = { ordered: false, equatable: true, unique: false, monotonic: false, sequential: false }
+export const SYMBOLIC_DEFAULT: SymbolicType = { ordered: false, unique: false, monotonic: false, sequential: false }
 export const symProps = (v: Partial<SymbolicType>): SymbolicType => normSym({ ...SYMBOLIC_DEFAULT, ...v })
-/** Operators of a symbolic type: none when not equatable, = / ≠ when equatable, plus the order operators when ordered. */
-const symbolicOps = (v: Variable): readonly ConditionOp[] => (v.ordered ? ['=', '≠', '<', '≤', '>', '≥'] : v.equatable ? ['=', '≠'] : [])
+/** Operators of a symbolic type: = / ≠, plus the order operators when ordered. */
+const symbolicOps = (v: Variable): readonly ConditionOp[] => (v.ordered ? ['=', '≠', '<', '≤', '>', '≥'] : ['=', '≠'])
 const NATURAL = new Intl.Collator(undefined, { numeric: true })
 /** Order of two symbolic constants: natural order of the symbols (t2 < t10). */
 export const compareSymbols = (a: string, b: string) => NATURAL.compare(a, b)
@@ -38,7 +38,7 @@ const num = (n: number) => String(n)
 /** "running | stopped", "true | false" or "0–100 %". */
 export function describeStates(v: Variable): string {
   if (v.type === 'boolean') return 'true | false'
-  if (v.type === 'symbolic') return `${v.symbolicType || 'symbolic'} (${[v.ordered ? 'ordered' : v.equatable ? 'equatable' : 'opaque', v.unique && 'unique', v.monotonic && 'monotonic', v.sequential && 'sequential'].filter(Boolean).join(', ')})`
+  if (v.type === 'symbolic') return `${v.symbolicType || 'symbolic'} (${[v.ordered && 'ordered', v.unique && 'unique', v.monotonic && 'monotonic', v.sequential && 'sequential'].filter(Boolean).join(', ')})`
   if (v.type !== 'range') return v.states.join(' | ')
   const u = v.unit ? ' ' + v.unit : ''
   if (v.min !== null && v.max !== null) return `${num(v.min)}–${num(v.max)}${u}`
@@ -207,14 +207,14 @@ export function conditionError(v: Variable, c: Condition, p?: Project): string |
   if (c.other) {
     const o = p?.items[c.other]
     if (p && o?.kind !== 'variable') return 'compared variable not found'
-    if (!opsForVar(v).includes(c.op)) return v.type === 'symbolic' && !v.equatable ? `${v.title} values cannot be compared` : `operator ${c.op} does not apply to ${v.type} variables`
+    if (!opsForVar(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
     if (o?.kind === 'variable' && o.type !== v.type) return `cannot compare ${v.type} ${v.title} with ${o.type} ${o.title}`
     if (o?.kind === 'variable' && v.type === 'range' && v.unit && o.unit && v.unit !== o.unit) return `units differ (${v.unit} vs ${o.unit})`
     if (o?.kind === 'variable' && v.type === 'symbolic' && v.symbolicType !== o.symbolicType) return `${v.title} (${v.symbolicType || 'untyped'}) and ${o.title} (${o.symbolicType || 'untyped'}) are of different symbolic types`
     if (o?.kind === 'variable' && v.type === 'enum' && !v.states.some((s) => o.states.includes(s))) return `${v.title} and ${o.title} share no states`
     return null
   }
-  if (!opsFor(v).includes(c.op)) return v.type === 'symbolic' && !v.equatable ? `${v.title} values cannot be compared` : `operator ${c.op} does not apply to ${v.type} variables`
+  if (!opsFor(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
   if (v.type === 'symbolic') return c.state.trim() === '' ? 'a symbol is required' : null
   const vals = valuesOf(v)
   if (isSetOp(c.op)) { const bad = (c.set ?? []).find((x) => !vals?.includes(x)); return bad === undefined ? null : `"${bad}" is not one of ${(vals ?? []).join(', ')}` }

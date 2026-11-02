@@ -10,8 +10,8 @@ import type { Condition, Project, Variable } from './types'
 const setup = () => {
   let p: Project = emptyProject()
   const ent = createItem(p, 'entity', { title: 'Clock' }); p = ent.project
-  p = defineSymbolicType(p, 'Timestamp', { ordered: true, equatable: true })
-  p = defineSymbolicType(p, 'ID', { ordered: false, equatable: true })
+  p = defineSymbolicType(p, 'Timestamp', { ordered: true })
+  p = defineSymbolicType(p, 'ID', { ordered: false })
   const mk = (title: string, symbolicType: string) => { const r = createItem(p, 'variable', { title, parent: ent.id, type: 'symbolic' }); p = updateItem(r.project, r.id, { symbolicType }); return r.id }
   const t1 = mk('Sent at', 'Timestamp'), t2 = mk('Received at', 'Timestamp'), id = mk('Request id', 'ID')
   const v = (i: string) => p.items[i] as Variable
@@ -22,15 +22,15 @@ const c = (variable: string, op: Condition['op'], state: string, other?: string)
 describe('symbolic types', () => {
   it('a named type gives its properties to the variables', () => {
     const s = setup()
-    expect(s.v(s.t1)).toMatchObject({ ordered: true, equatable: true })
-    expect(s.v(s.id)).toMatchObject({ ordered: false, equatable: true })
+    expect(s.v(s.t1)).toMatchObject({ ordered: true })
+    expect(s.v(s.id)).toMatchObject({ ordered: false })
     expect(opsFor(s.v(s.t1))).toContain('<')
     expect(opsFor(s.v(s.id))).toEqual(['=', '≠'])
-    s.set((q) => defineSymbolicType(q, 'ID', { ordered: true, equatable: false }))
-    expect(s.v(s.id)).toMatchObject({ ordered: true, equatable: true }) // ordered implies equatable
-    s.set((q) => defineSymbolicType(q, 'ID', { ordered: false, equatable: false }))
-    expect(opsFor(s.v(s.id))).toEqual([])
-    expect(conditionError(s.v(s.id), c(s.id, '=', 'a'))).toMatch(/cannot be compared/)
+    s.set((q) => defineSymbolicType(q, 'ID', { ordered: true }))
+    expect(s.v(s.id)).toMatchObject({ ordered: true })
+    s.set((q) => defineSymbolicType(q, 'ID', { ordered: false }))
+    expect(opsFor(s.v(s.id))).toEqual(['=', '≠'])
+    expect(conditionError(s.v(s.id), c(s.id, '<', 'a'))).toMatch(/does not apply/)
   })
 
   it('rename and delete keep variables consistent', () => {
@@ -44,7 +44,7 @@ describe('symbolic types', () => {
   it('editing properties of a variable on a named type updates the type', () => {
     const s = setup()
     s.set((q) => updateItem(q, s.id, { ordered: true }))
-    expect(s.p().symbolicTypes!.ID).toMatchObject({ ordered: true, equatable: true })
+    expect(s.p().symbolicTypes!.ID).toMatchObject({ ordered: true })
   })
 
   it('conditions compare symbols; order is natural', () => {
@@ -72,23 +72,23 @@ describe('symbolic types', () => {
   it('parameters resolve named types and the file round-trips', () => {
     const s = setup()
     const pa = { name: 'at', type: 'symbolic' as const, states: [], min: null, max: null, unit: '', rangeType: '', enumType: '', symbolicType: 'Timestamp' }
-    expect(paramVar(s.p(), pa)).toMatchObject({ ordered: true, equatable: true })
+    expect(paramVar(s.p(), pa)).toMatchObject({ ordered: true })
     const q = deserialize(serialize(s.p()))
     expect(q.symbolicTypes).toEqual(s.p().symbolicTypes)
     expect((q.items[s.t1] as Variable).symbolicType).toBe('Timestamp')
   })
 
-  it('monotonic / sequential imply ordered, unique implies equatable', () => {
-    let p = defineSymbolicType(emptyProject(), 'Seq', { ordered: false, equatable: false, sequential: true })
-    expect(p.symbolicTypes!.Seq).toMatchObject({ ordered: true, equatable: true, sequential: true })
-    p = defineSymbolicType(p, 'Id', { ordered: false, equatable: false, unique: true })
-    expect(p.symbolicTypes!.Id).toMatchObject({ ordered: false, equatable: true, unique: true })
+  it('monotonic / sequential imply ordered', () => {
+    let p = defineSymbolicType(emptyProject(), 'Seq', { ordered: false, sequential: true })
+    expect(p.symbolicTypes!.Seq).toMatchObject({ ordered: true, sequential: true })
+    p = defineSymbolicType(p, 'Id', { ordered: false, unique: true })
+    expect(p.symbolicTypes!.Id).toMatchObject({ ordered: false, unique: true })
   })
 
   it('traces flag repeated, decreasing and skipped values', () => {
     const s = setup()
-    s.set((q) => defineSymbolicType(q, 'Timestamp', { ordered: true, equatable: true, monotonic: true }))
-    s.set((q) => defineSymbolicType(q, 'ID', { ordered: false, equatable: true, unique: true }))
+    s.set((q) => defineSymbolicType(q, 'Timestamp', { ordered: true, monotonic: true }))
+    s.set((q) => defineSymbolicType(q, 'ID', { ordered: false, unique: true }))
     const seq = createItem(s.p(), 'variable', { title: 'Seq', parent: (s.v(s.t1)).parent!, type: 'symbolic' })
     s.set(() => updateItem(seq.project, seq.id, { sequential: true }))
     const step = (values: Record<string, string>) => ({ t: '', values, events: {}, note: '' })

@@ -86,8 +86,8 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
   })
 }
 
-/** Create or change a named symbolic type (ordered implies equatable); variables using it follow. Works on a draft. */
-const SYM_KEYS = ['ordered', 'equatable', 'unique', 'monotonic', 'sequential']
+/** Create or change a named symbolic type variables using it follow. Works on a draft. */
+const SYM_KEYS = ['ordered', 'unique', 'monotonic', 'sequential']
 function setSymbolicType(d: Draft, name: string, t: SymbolicType) {
   const s = normSym(t)
   ;(d.symbolicTypes ??= {})[name] = s

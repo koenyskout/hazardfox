@@ -4,7 +4,6 @@ import { isComputed, useProject } from './hooks'
 import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
-  equatable: <path d="M3.5 6h9M3.5 10h9" />,
   ordered: <path d="M3.5 13V10.5M7 13V7.5M10.5 13V4.5" />,
   unique: <><circle cx="3.5" cy="8" r="1.7" /><circle cx="12.5" cy="8" r="1.7" /><circle cx="8" cy="8" r="2" fill="currentColor" /></>,
   monotonic: <path d="M2.5 12.5h3.2V9h3V5.5h3V3M10 1.8l1.7 1.2L10.4 4.6" />,

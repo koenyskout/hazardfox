@@ -275,12 +275,11 @@ export function ApplyStruct({ parent }: { parent: string }) {
 }
 
 const symbolicText = (t: SymbolicType) => {
-  const n = normSym(t), l = [n.ordered ? 'ordered' : n.equatable ? 'equatable' : 'opaque (not equatable)', n.unique && 'unique', n.monotonic && 'monotonic', n.sequential && 'sequential'].filter(Boolean)
-  return l.join(', ')
+  const n = normSym(t), l = [n.ordered && 'ordered', n.unique && 'unique', n.monotonic && 'monotonic', n.sequential && 'sequential'].filter(Boolean)
+  return l.join(', ') || 'no properties'
 }
 
-const PROPS: { key: 'equatable' | 'ordered' | 'unique' | 'monotonic' | 'sequential'; tip: string; info: string }[] = [
-  { key: 'equatable', tip: 'Values can be compared for equality (is / is not)', info: 'Values can be compared: conditions may say “is” / “is not” (e.g. ID = id7).' },
+const PROPS: { key: 'ordered' | 'unique' | 'monotonic' | 'sequential'; tip: string; info: string }[] = [
   { key: 'ordered', tip: 'Values have an order (is less than / at least …); natural order of the symbols, t2 before t10', info: 'Values have an order: conditions may say “less than” / “at least” (t2 comes before t10).' },
   { key: 'unique', tip: 'Every new value differs from all earlier ones (IDs, nonces); a repeat in a trace is a replay', info: 'Every new value differs from all earlier ones, like an ID or nonce. A repeat in a trace is flagged as a replay.' },
   { key: 'monotonic', tip: 'The value never decreases over time (timestamps, counters); implies ordered', info: 'The value never decreases over time, like a timestamp or counter. A decrease in a trace is flagged as stale data.' },
@@ -288,11 +287,11 @@ const PROPS: { key: 'equatable' | 'ordered' | 'unique' | 'monotonic' | 'sequenti
 ]
 type PropKey = (typeof PROPS)[number]['key']
 /** What each property implies (shown nested in the detailed list). */
-const PROP_TREE: [PropKey, ...unknown[]] = ['equatable', ['ordered', ['monotonic'], ['sequential']], ['unique']]
-/** The properties of a symbolic type as checkboxes (`detailed`: nested by implication, each with an explanation); ordered implies equatable, monotonic / sequential imply ordered, unique implies equatable. */
+const PROP_TREE: unknown[][] = [['ordered', ['monotonic'], ['sequential']], ['unique']]
+/** The properties of a symbolic type as checkboxes (`detailed`: nested by implication, each with an explanation); monotonic / sequential imply ordered. */
 export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onChange: (t: SymbolicType) => void; detailed?: boolean }) {
   const n = normSym(t)
-  const forced = (k: string) => (k === 'equatable' && (n.ordered || n.unique)) || (k === 'ordered' && (n.monotonic || n.sequential))
+  const forced = (k: string) => (k === 'ordered' && (n.monotonic || n.sequential))
   const row = (key: PropKey, kids: unknown[] = []): ReactNode => {
     const { tip, info } = PROPS.find((x) => x.key === key)!
     return (
@@ -306,7 +305,7 @@ export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onCh
       </div>
     )
   }
-  if (detailed) { const [k, ...rest] = PROP_TREE; return <div>{row(k, rest)}</div> }
+  if (detailed) return <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{PROP_TREE.map(([k, ...rest]) => row(k as PropKey, rest))}</div>
   return (
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
       {PROPS.map(({ key }) => row(key))}
@@ -318,7 +317,7 @@ export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onCh
 const SymbolicChips = ({ t }: { t: SymbolicType }) => {
   const n = normSym(t)
   const on = PROPS.filter(({ key }) => n[key])
-  return <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>{on.length ? on.map(({ key, tip }) => <span key={key} title={tip} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Icon name={key} size={14} />{key}</span>) : <span className="muted">no properties (values cannot be compared)</span>}</div>
+  return <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>{on.length ? on.map(({ key, tip }) => <span key={key} title={tip} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Icon name={key} size={14} />{key}</span>) : <span className="muted">no special properties</span>}</div>
 }
 
 /** Popup to create a named symbolic (opaque) type. `then` gets the saved name. */
@@ -364,7 +363,7 @@ function SymbolicTypes() {
   const [editing, setEditing] = useState<string | null>(null)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
   return (
-    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
+    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: no properties). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
       {editing && <SymbolicTypeDialog edit={editing} onClose={() => setEditing(null)} />}
