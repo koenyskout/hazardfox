@@ -409,10 +409,13 @@ table.plain td { padding: 4px 10px 4px 0; }
 .types-head button { white-space: nowrap; flex: none; }
 .types-head { background: none; position: static; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
 .types-section h3 { margin: 0 0 2px; font-size: 15px; } .types-head p { margin: 0; font-size: 12.5px; }
-.types-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; align-items: start; }
+.types-list { display: flex; flex-direction: column; gap: 4px; }
 .types-list > .empty { grid-column: 1 / -1; padding: 12px; text-align: left; }
 .type-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.type-head { display: flex; align-items: center; gap: 10px; } .type-def { color: var(--muted); }
+.type-row { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 8px 4px 12px; min-height: 34px; }
+.type-row .type-name { flex: 0 0 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.type-row .type-def { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.type-row .type-used { flex: none; font-size: 12px; white-space: nowrap; }
 .type-actions { margin-left: auto; display: flex; gap: 6px; }
 .type-name { font-weight: 600; flex: 1; min-width: 0; }
 .type-used { font-size: 12px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; color: var(--muted); }

@@ -5,7 +5,7 @@ import { nestableStructs, applyStructType, blankField, defineStructType, deleteS
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
 import type { RangeType, StructField, SymbolicType, Variable, VariableType } from '../model/types'
 import { commit, useProject } from './hooks'
-import { Field, NumberInput, Ref, TextInput } from './Fields'
+import { Field, NumberInput, TextInput } from './Fields'
 import { Modal } from './Modal'
 import { Icon } from './Icon'
 import { askText } from './dialogs'
@@ -97,11 +97,17 @@ function Section({ title, hint, onNew, children }: { title: string; hint: string
   )
 }
 
-const Used = ({ vars }: { vars: Variable[] }) => <div className="type-used">{vars.length ? <>Used by {vars.map((v) => <Ref key={v.id} id={v.id} />)}</> : <span className="muted">Not used yet</span>}</div>
-
-/** Name field of a type card; renames on blur when changed and not empty. */
-const RenameInput = ({ name, rename }: { name: string; rename: (to: string) => void }) =>
-  <input className="type-name" defaultValue={name} onBlur={(e) => { const to = e.target.value.trim(); if (to && to !== name) rename(to) }} />
+/** One line per type: name, short definition, usage count, Edit and delete. */
+function TypeRow({ name, def, vars, onEdit, onDelete, deleteTip }: { name: string; def: ReactNode; vars: Variable[]; onEdit: () => void; onDelete: () => void; deleteTip: string }) {
+  return (
+    <div className="type-row">
+      <strong className="type-name">{name}</strong>
+      <span className="type-def">{def}</span>
+      <span className="type-used muted" title={vars.map((v) => v.title || 'untitled').join(', ')}>{vars.length ? `${vars.length} ${vars.length === 1 ? 'variable' : 'variables'}` : 'not used'}</span>
+      <span className="type-actions"><button className="btn" onClick={onEdit}><Icon name="draft" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={onDelete} title={deleteTip}><Icon name="trash" size={15} /></button></span>
+    </div>
+  )
+}
 
 /** Footer of the "new type" dialogs: the name problem (if any) and Cancel / Create. */
 const CreateActions = ({ name, bad, onClose, onCreate, label = 'Create' }: { name: string; bad: string; onClose: () => void; onCreate: () => void; label?: string }) => (
@@ -132,13 +138,7 @@ function RangeTypes() {
   return (
     <Section title="Range types" hint="A numeric range with a unit that several variables can share (e.g. Percentage 0–100 %)." onNew={() => setEdit(null)}>
       {!names.length && <p className="empty">No range types. Create one, or give a variable its own bounds.</p>}
-      {names.map((n) => (
-        <div key={n} className="type-card">
-          <div className="type-head"><strong>{n}</strong><span className="type-def">{show(p.rangeTypes![n])}</span>
-            <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}><Icon name="draft" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteRangeType(q, n))} title="Delete type (variables keep their bounds)"><Icon name="trash" size={15} /></button></span></div>
-          <Used vars={usersOf(p.items, 'rangeType', n)} />
-        </div>
-      ))}
+      {names.map((n) => <TypeRow key={n} name={n} def={show(p.rangeTypes![n])} vars={usersOf(p.items, 'rangeType', n)} onEdit={() => setEdit(n)} onDelete={() => commit((q) => deleteRangeType(q, n))} deleteTip="Delete type (variables keep their bounds)" />)}
       {edit !== undefined && <RangeTypeDialog name={edit} onClose={() => setEdit(undefined)} />}
     </Section>
   )
@@ -157,18 +157,18 @@ export function RangeCell({ v }: { v: Variable }) {
 }
 
 /** Popup to create a named, reusable state list (enum type). `then` gets the saved name. */
-export function EnumTypeDialog({ init, onClose, then }: { init?: string[]; onClose: () => void; then?: (name: string) => void }) {
+export function EnumTypeDialog({ init, edit, onClose, then }: { init?: string[]; edit?: string; onClose: () => void; then?: (name: string) => void }) {
   const p = useProject()
-  const [n, setN] = useState('')
-  const [states, setStates] = useState<string[]>(init ?? [])
+  const [n, setN] = useState(edit ?? '')
+  const [states, setStates] = useState<string[]>(init ?? (edit ? p.enumTypes?.[edit] : undefined) ?? [])
   const nm = n.trim()
-  const bad = !nm ? 'Name required' : p.enumTypes?.[nm] ? 'Name already used' : ''
-  const save = () => { commit((q) => defineEnumType(q, nm, states.map((x) => x.trim()).filter(Boolean))); then?.(nm); onClose() }
+  const bad = !nm ? 'Name required' : nm !== edit && p.enumTypes?.[nm] ? 'Name already used' : ''
+  const save = () => { commit((q) => defineEnumType(edit && nm !== edit ? renameEnumType(q, edit, nm) : q, nm, states.map((x) => x.trim()).filter(Boolean))); then?.(nm); onClose() }
   return (
-    <Modal title="New enum type" onClose={onClose}>
+    <Modal title={edit ? `Edit ${edit}` : 'New enum type'} onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
       <Field single label="States"><StringList value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
-      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={save} />
+      <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={save} />
     </Modal>
   )
 }
@@ -177,21 +177,14 @@ export function EnumTypeDialog({ init, onClose, then }: { init?: string[]; onClo
 function EnumTypes() {
   const p = useProject()
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const names = Object.keys(p.enumTypes ?? {}).sort()
   return (
     <Section title="Enum types" hint="Shared state lists (e.g. On / Off). A variable can also keep its own states." onNew={() => setCreating(true)}>
       {creating && <EnumTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No enum types yet. Create one here, or in a variable’s States field with “Save as type…”.</p>}
-      {names.map((n) => (
-        <div key={n} className="type-card">
-          <div className="type-head">
-            <RenameInput name={n} rename={(to) => commit((q) => renameEnumType(q, n, to))} />
-            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteEnumType(q, n))} title="Delete type (variables keep their states)"><Icon name="trash" size={15} /></button></span>
-          </div>
-          <StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" />
-          <Used vars={usersOf(p.items, 'enumType', n)} />
-        </div>
-      ))}
+      {editing && <EnumTypeDialog edit={editing} onClose={() => setEditing(null)} />}
+      {names.map((n) => <TypeRow key={n} name={n} def={p.enumTypes![n].join(', ') || 'no states'} vars={usersOf(p.items, 'enumType', n)} onEdit={() => setEditing(n)} onDelete={() => commit((q) => deleteEnumType(q, n))} deleteTip="Delete type (variables keep their states)" />)}
     </Section>
   )
 }
@@ -226,18 +219,18 @@ function StructFields({ self, fields, onChange }: { self: string; fields: Struct
 }
 
 /** Popup to create a struct type: name and fields together. */
-function NewStructDialog({ onClose }: { onClose: () => void }) {
+function StructTypeDialog({ edit, onClose }: { edit?: string; onClose: () => void }) {
   const p = useProject()
-  const [n, setN] = useState('')
-  const [fields, setFields] = useState<StructField[]>([blankField()])
+  const [n, setN] = useState(edit ?? '')
+  const [fields, setFields] = useState<StructField[]>(edit ? p.structTypes![edit].fields : [blankField()])
   const nm = n.trim()
-  const bad = !nm ? 'Name required' : p.structTypes?.[nm] ? 'Name already used' : ''
-  const save = () => { commit((q) => defineStructType(q, nm, { fields: fields.filter((f) => f.name.trim()) })); onClose() }
+  const bad = !nm ? 'Name required' : nm !== edit && p.structTypes?.[nm] ? 'Name already used' : ''
+  const save = () => { commit((q) => defineStructType(edit && nm !== edit ? renameStructType(q, edit, nm) : q, nm, { fields: fields.filter((f) => f.name.trim()) })); onClose() }
   return (
-    <Modal title="New struct type" onClose={onClose} wide>
+    <Modal title={edit ? `Edit ${edit}` : 'New struct type'} onClose={onClose} wide>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Position" /></Field>
-      <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={nm} fields={fields} onChange={setFields} /></tbody></table>
-      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={save} />
+      <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={edit ?? nm} fields={fields} onChange={setFields} /></tbody></table>
+      <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={save} />
     </Modal>
   )
 }
@@ -246,20 +239,14 @@ function NewStructDialog({ onClose }: { onClose: () => void }) {
 function StructTypes() {
   const p = useProject()
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const names = Object.keys(p.structTypes ?? {}).sort()
   return (
     <Section title="Struct types" hint="Groups of fields (e.g. Position: x, y). Applying one to an entity adds a world variable for each field." onNew={() => setCreating(true)}>
-      {creating && <NewStructDialog onClose={() => setCreating(false)} />}
+      {creating && <StructTypeDialog onClose={() => setCreating(false)} />}
+      {editing && <StructTypeDialog edit={editing} onClose={() => setEditing(null)} />}
       {!names.length && <p className="empty">No struct types yet.</p>}
-      {names.map((n) => (
-        <div key={n} className="type-card">
-          <div className="type-head">
-            <RenameInput name={n} rename={(to) => commit((q) => renameStructType(q, n, to))} />
-            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" title="Delete type (existing variables stay)" onClick={() => commit((q) => deleteStructType(q, n))}><Icon name="trash" size={15} /></button></span>
-          </div>
-          <table className="grid"><tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody></table>
-        </div>
-      ))}
+      {names.map((n) => <TypeRow key={n} name={n} def={p.structTypes![n].fields.map((f) => f.name).filter(Boolean).join(', ') || 'no fields'} vars={Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.struct?.type === n)} onEdit={() => setEditing(n)} onDelete={() => commit((q) => deleteStructType(q, n))} deleteTip="Delete type (existing variables stay)" />)}
     </Section>
   )
 }
@@ -320,13 +307,6 @@ export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onCh
   )
 }
 
-/** Read-only overview of the properties that are set. */
-const SymbolicChips = ({ t }: { t: SymbolicType }) => {
-  const n = normSym(t)
-  const on = PROPS.filter(({ key }) => n[key])
-  return <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>{on.length ? on.map(({ key, tip }) => <span key={key} title={tip} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Icon name={key} size={14} />{key}</span>) : <span className="muted">no special properties</span>}</div>
-}
-
 /** Popup to create a named symbolic (opaque) type. `then` gets the saved name. */
 /** Popup to create a named symbolic (opaque) type, or with `edit` (a type's name) to rename it and change its properties. */
 export function SymbolicTypeDialog({ init, edit, onClose, then }: { init?: SymbolicType; edit?: string; onClose: () => void; then?: (name: string) => void }) {
@@ -374,19 +354,7 @@ function SymbolicTypes() {
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
       {editing && <SymbolicTypeDialog edit={editing} onClose={() => setEditing(null)} />}
-      {names.map((n) => (
-        <div key={n} className="type-card">
-          <div className="type-head">
-            <b className="type-name" style={{ border: 'none' }}>{n}</b>
-            <span className="type-actions">
-              <button className="btn" onClick={() => setEditing(n)}><Icon name="draft" size={12} /> Edit</button>
-              <button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Delete type (variables keep their properties)"><Icon name="trash" size={15} /></button>
-            </span>
-          </div>
-          <SymbolicChips t={p.symbolicTypes![n]} />
-          <Used vars={usersOf(p.items, 'symbolicType', n)} />
-        </div>
-      ))}
+      {names.map((n) => <TypeRow key={n} name={n} def={symbolicText(p.symbolicTypes![n])} vars={usersOf(p.items, 'symbolicType', n)} onEdit={() => setEditing(n)} onDelete={() => commit((q) => deleteSymbolicType(q, n))} deleteTip="Delete type (variables keep their properties)" />)}
     </Section>
   )
 }
