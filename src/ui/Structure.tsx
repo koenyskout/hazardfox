@@ -1,3 +1,4 @@
+import { Icon } from './Icon'
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from 'react'
 import { download } from '../model/persist'
 import { updateItem } from '../model/ops'
@@ -156,7 +157,7 @@ function Diagram() {
   return (
     <div className="diagram-wrap" tabIndex={-1} onKeyDown={(e) => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); setDeleting(sel) } }}>
       <div className="toolbar">
-        <button onClick={addNode}>+ Element</button>
+        <button onClick={addNode}><Icon name="plus" size={12} /> Element</button>
         <button onClick={fit}>Fit</button>
         <button disabled={!hasNudges} onClick={() => commit((q) => {
           let n = q

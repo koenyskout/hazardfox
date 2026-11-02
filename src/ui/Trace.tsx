@@ -105,7 +105,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
     <div className="trace">
       <div className="toolbar">
         <button onClick={draft} title="Generate steps from the UCA context (or the control action) and the causal factor">Draft trace</button>
-        <button onClick={addStep}>+ step</button>
+        <button onClick={addStep}><Icon name="plus" size={12} /> step</button>
         <Picker options={lanePick} onPick={(id) => id && save(s, { ...t, lanes: [...t.lanes, id] })}><span className="muted">+ variable lane…</span></Picker>
         {(instPick.length > 0 || manyVars.length > 0) && <Select value="" title="Add a row for one instance of a variable that exists several times (e.g. one particular train)" onChange={(e) => { const x = e.target.value; if (x === '*') return; x && save(s, { ...t, lanes: [...t.lanes, x] }) }}>
           <option value="">+ instance lane…</option>

@@ -525,3 +525,6 @@ button.icon-btn.danger { color: var(--danger); } button.icon-btn.danger:hover:no
 .toolbar .picker-btn:hover { border-color: var(--accent); }
 .row .lbl.wide { flex-basis: 190px; }
 .row .lbl.wide .chip { white-space: nowrap; } .row .lbl.wide.rel { flex-basis: 215px; }
+
+.icon-plus { color: var(--accent); }
+button:disabled .icon-plus { opacity: .5; }

@@ -246,7 +246,7 @@ function SplitDialog({ id, onClose }: { id: Id; onClose: () => void }) {
           <input autoFocus={i === 0} value={t} onChange={(e) => setTitles(titles.map((x, j) => (j === i ? e.target.value : x)))} />
         </label>
       ))}
-      <button onClick={() => setTitles([...titles, ''])}>+ Another</button>
+      <button onClick={() => setTitles([...titles, ''])}><Icon name="plus" size={12} /> Another</button>
       {refs.length > 0 && (
         <>
           <h4>Reassign links</h4>

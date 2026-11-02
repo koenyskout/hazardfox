@@ -213,7 +213,7 @@ function StructFields({ self, fields, onChange }: { self: string; fields: Struct
           <td><button className="icon-btn danger" aria-label="Remove field" title="Remove field" onClick={() => onChange(fields.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button></td>
         </tr>
       ))}
-      <tr><td colSpan={3}><button className="btn" onClick={() => onChange([...fields, blankField()])}>+ Field</button></td></tr>
+      <tr><td colSpan={3}><button className="btn" onClick={() => onChange([...fields, blankField()])}><Icon name="plus" size={12} /> Field</button></td></tr>
     </>
   )
 }

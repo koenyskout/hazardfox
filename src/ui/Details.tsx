@@ -172,7 +172,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field single label="Operations" hint="Things this entity can do, or that can happen to it. An operation can change world variables, and a control action can carry it out. Optional.">
             <div className="reflist">
               {operationsOf(p, it.id).map((o) => <Ref key={o.id} id={o.id} />)}
-              <button className="link" onClick={() => addItemInDialog('operation', { params: [{ name: it.title.trim().split(/\s+/).pop()!.toLowerCase() || 'x', entity: it.id }] })}>+ new operation</button>
+              <button className="link" onClick={() => addItemInDialog('operation', { params: [{ name: it.title.trim().split(/\s+/).pop()!.toLowerCase() || 'x', entity: it.id }] })}><Icon name="plus" size={12} /> new operation</button>
             </div>
           </Field>
         </>
@@ -661,7 +661,7 @@ function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Par
         <ParamRow key={i} onRemove={() => onChange(params.filter((_, j) => j !== i))}
           cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <DataTypeSelect x={x} onChange={(patch) => upd(i, patch)} />]} />
       ))}
-      <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}>+ parameter</button></div>
+      <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}><Icon name="plus" size={12} /> parameter</button></div>
     </div>
   )
 }
@@ -693,7 +693,7 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
           </div>
         )
       })}
-      <div className="rule-add"><button onClick={() => onChange([...args, { param: ca.params[0]?.name ?? '', op: '=', state: '' }])}>+ condition on a parameter</button></div>
+      <div className="rule-add"><button onClick={() => onChange([...args, { param: ca.params[0]?.name ?? '', op: '=', state: '' }])}><Icon name="plus" size={12} /> condition on a parameter</button></div>
     </div>
   )
 }
@@ -731,10 +731,10 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
           ? <GroupEditor key={i} g={w} head={<span className="cond-word">{i ? join : ''}</span>} vars={vars} scope={scope} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />
           : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
-          <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
-          <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}>+ timing</button>
-          <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
-          {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
+          <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}><Icon name="plus" size={12} /> condition</button>
+          <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}><Icon name="plus" size={12} /> timing</button>
+          <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}><Icon name="plus" size={12} /> in words</button>
+          {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'and' : 'or'}-group</button>}
         </div>
       </div>
     </>
@@ -949,7 +949,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
         </div>
       ))}
       {it.rules.length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
-      <div className="rule-add"><button onClick={() => set({ rules: [...it.rules, { state: '', when: allOf(BLANK) }] })}>+ rule</button></div>
+      <div className="rule-add"><button onClick={() => set({ rules: [...it.rules, { state: '', when: allOf(BLANK) }] })}><Icon name="plus" size={12} /> rule</button></div>
     </div>
   )
 }
@@ -1066,7 +1066,7 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
               ]} />
           )
         })}
-        <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>
+        <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}><Icon name="plus" size={12} /> parameter</button></div>
       </div>
     </EditPopup>
   )
@@ -1097,7 +1097,7 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
             </div>
           )
         })}
-        <div className="rule-add"><button onClick={() => set({ effects: [...it.effects, { variable: '', state: '' }] })}>+ effect</button></div>
+        <div className="rule-add"><button onClick={() => set({ effects: [...it.effects, { variable: '', state: '' }] })}><Icon name="plus" size={12} /> effect</button></div>
       </div>
     </EditPopup>
   )

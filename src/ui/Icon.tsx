@@ -50,7 +50,7 @@ export type IconName = keyof typeof PATHS
 
 export function Icon({ name, size = 15 }: { name: IconName; size?: number }) {
   return (
-    <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg className={name === 'plus' ? 'icon icon-plus' : 'icon'} width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={name === 'plus' ? 2 : 1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       {PATHS[name]}
     </svg>
   )

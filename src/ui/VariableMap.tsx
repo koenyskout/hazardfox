@@ -6,7 +6,7 @@ import type { Id, Project, Variable } from '../model/types'
 import { describeStates, leaves } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
-import { LayerIcon } from './Icon'
+import { Icon, LayerIcon } from './Icon'
 import { addItemInDialog, commit, isComputed, useProject } from './hooks'
 import { Picker } from './Picker'
 import { Modal } from './Modal'
@@ -20,7 +20,7 @@ function AddSignal({ c, w }: { c: string; w: string }) {
   const [choosing, setChoosing] = useState(false)
   const fbs = feedbackInto(p, c)
   const sources = itemsOfKind(p, 'node').filter((n) => n.id !== c).sort((a, b) => a.rank - b.rank)
-  const label = <span title="Add a signal about this variable to a feedback">+ <LayerIcon layer="signal" />signal</span>
+  const label = <span title="Add a signal about this variable to a feedback"><Icon name="plus" size={11} /> <LayerIcon layer="signal" />signal</span>
   const create = (from: Id | null) => from && commit((q) => { const r = createItem(q, 'feedback', { from, to: c }); return addSignal(r.project, r.id, w).project })
   return choosing
     ? <Picker key="src" className="add" autoOpen options={sources} onPick={create} onClose={() => setChoosing(false)}>{label}</Picker>
@@ -51,7 +51,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
         </thead>
         <tbody>
           {owners.flatMap((o) => [
-            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}>+ <LayerIcon layer="domain" />variable</button>}</th></tr>,
+            <tr key={'o' + o} className="group"><th colSpan={2 + ctrls.length}>{p.items[o] ? <Ref id={o} /> : <span className="muted">No owner</span>} {o && <button className="add" title="Add a world variable to this owner" onClick={() => addItemInDialog('variable', { layer: 'domain', parent: o })}><Icon name="plus" size={11} /> <LayerIcon layer="domain" />variable</button>}</th></tr>,
             ...clusterStructs(ordered(p, world.filter((w) => (w.parent ?? '') === o))).flatMap((w, i, all) => {
             const path = dotted ? [] : structPath(w), prev = i && !dotted ? structPath(all[i - 1]) : []
             let k = 0
@@ -69,7 +69,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
                     {bel.map((b) => <Ref key={b.id} id={b.id} />)}
                     {sig.length > 0 && <div className="via"><span className="muted">from</span> {sig.map((s) => <Ref key={s.id} id={s.id} />)}</div>}
                     <div className="cell-add">
-                      {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}>+ <LayerIcon layer="belief" />belief</button>}
+                      {!bel.length && <button className="add" title="Add a belief about this variable to the controller's process model" onClick={() => commit((q) => addBelief(q, c.id, w.id).project)}><Icon name="plus" size={11} /> <LayerIcon layer="belief" />belief</button>}
                       {!sig.length && <AddSignal c={c.id} w={w.id} />}
                     </div>
                   </td>
@@ -85,7 +85,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
             {ctrls.map((c) => (
               <td key={c.id}>
                 {variablesIn(p, 'internal', c.id).map((v) => <Ref key={v.id} id={v.id} />)}
-                <div className="cell-add"><button className="add" onClick={() => addItemInDialog('variable', { layer: 'internal', parent: c.id })}>+ <LayerIcon layer="internal" />internal</button></div>
+                <div className="cell-add"><button className="add" onClick={() => addItemInDialog('variable', { layer: 'internal', parent: c.id })}><Icon name="plus" size={11} /> <LayerIcon layer="internal" />internal</button></div>
               </td>
             ))}
           </tr>
