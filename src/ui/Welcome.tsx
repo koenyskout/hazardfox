@@ -3,6 +3,7 @@ import { exampleProject } from '../model/example'
 import { openProject } from '../model/persist'
 import { useStore } from '../model/store'
 import { useProject } from './hooks'
+import { Icon } from './Icon'
 
 export function Welcome() {
   const p = useProject()
@@ -10,53 +11,50 @@ export function Welcome() {
   const hasWork = Object.keys(p.items).length > 0
   return (
     <div className="page welcome">
-      <h2>🦊 Welcome to HazardFox</h2>
-      <p className="lead">
-        HazardFox is a workspace for <b>STPA</b> (System-Theoretic Process Analysis) and <b>STPA-Sec</b>, a method for
-        finding how a system can get into unsafe or insecure states, and for turning that into requirements. It
-        keeps your losses, hazards, control actions and requirements linked, so numbering, traceability and export stay up to date automatically.
-      </p>
-      <div className="actions">
-        {hasWork && <button className="primary" onClick={() => setView('overview')}>Continue “{p.meta.name}”{fileName ? ` (${fileName})` : ''}</button>}
-        <button className={hasWork ? '' : 'primary'} onClick={() => load(newProject(), null)}>New analysis</button>
-        <button onClick={() => openProject().catch(() => {})}>Open a file…</button>
-        <button onClick={() => load(exampleProject(), null, null, true)}>Explore the infusion-pump example</button>
-      </div>
+      <section className="hero">
+        <h2>🦊 HazardFox</h2>
+        <p className="lead">
+          Find how a system can get into <b>unsafe or insecure states</b>, and turn that into requirements.
+          A workspace for <b>STPA</b> and <b>STPA-Sec</b> that keeps everything linked.
+        </p>
+        <div className="actions">
+          {hasWork && <button className="primary" onClick={() => setView('overview')}>Continue “{p.meta.name}”{fileName ? ` (${fileName})` : ''}</button>}
+          <button className={hasWork ? '' : 'primary'} onClick={() => load(newProject(), null)}>New analysis</button>
+          <button onClick={() => openProject().catch(() => {})}>Open a file…</button>
+          <button onClick={() => load(exampleProject(), null, null, true)}>Explore the infusion-pump example</button>
+        </div>
+      </section>
 
       <h3>The four steps</h3>
-      <ol className="steps">
-        <li><b>Losses &amp; hazards.</b> What must never happen (losses), and which system states could lead to them (hazards), with system-level constraints.</li>
-        <li><b>Control structure.</b> Model the system as controllers, controlled processes and the control actions and feedback between them.</li>
-        <li><b>Unsafe control actions.</b> For every control action: when would providing, not providing, or mistiming it be hazardous?</li>
-        <li><b>Loss scenarios.</b> Why could those unsafe actions occur, or control actions go wrong? In STPA-Sec, scenarios can also carry threats (STRIDE).</li>
-      </ol>
+      <div className="steps-row">
+        <div className="step"><span className="num">1</span><b>Losses &amp; hazards</b><p>What must never happen, and which system states could lead to it.</p></div>
+        <div className="step"><span className="num">2</span><b>Control structure</b><p>Controllers, controlled processes, and the control actions and feedback between them.</p></div>
+        <div className="step"><span className="num">3</span><b>Unsafe control actions</b><p>When would providing, not providing or mistiming a control action be hazardous?</p></div>
+        <div className="step"><span className="num">4</span><b>Loss scenarios</b><p>Why could those happen? In STPA-Sec, scenarios can also carry threats (STRIDE).</p></div>
+      </div>
 
       <h3>Beyond plain STPA</h3>
-      <p className="muted">
-        Everything can be done with plain text, as in a regular STPA. When you want more rigour, you can add as much
-        formalism as you like, step by step; nothing is required, and the text always stays.
-      </p>
+      <p className="lead small">Everything works with plain text. Add formalism where it pays off: it is optional, and your text always stays.</p>
       <div className="cols">
-        <div className="card"><b>Domain model</b><p className="muted">Describe the things in the system’s world (entities, their properties and relationships) and use them as the vocabulary of your analysis.</p></div>
-        <div className="card"><b>Precise conditions</b><p className="muted">State when a hazard or unsafe control action applies with conditions on variables (including “some / every train”, timing and alternatives), alongside the free-text context.</p></div>
-        <div className="card"><b>Process models</b><p className="muted">Give each controller beliefs about the world, and feedback signals that update them. See at a glance what a controller cannot know.</p></div>
-        <div className="card"><b>Scenario traces</b><p className="muted">Step through a loss scenario over time and watch the world, signals and beliefs drift apart. Play it on the control structure.</p></div>
-        <div className="card"><b>Extra checks</b><p className="muted">The more you formalize, the more Validation can check: contexts the controller cannot recognize, traces that don’t show the UCA, and the likely cause of each scenario.</p></div>
-        <div className="card"><b>Refinement</b><p className="muted">Compute a high-level variable from more detailed ones and derive more detailed UCAs from a general one.</p></div>
+        <div className="card feat"><Icon name="entity" size={22} /><b>Domain model</b><p>Entities, properties and relationships as the vocabulary of your analysis.</p></div>
+        <div className="card feat"><Icon name="layer-domain" size={22} /><b>Precise conditions</b><p>State exactly when a hazard or UCA applies: “some train”, timing, alternatives.</p></div>
+        <div className="card feat"><Icon name="layer-belief" size={22} /><b>Process models</b><p>Beliefs per controller, updated by feedback. See what a controller cannot know.</p></div>
+        <div className="card feat"><Icon name="layer-signal" size={22} /><b>Scenario traces</b><p>Step through a scenario and watch world, signals and beliefs drift apart.</p></div>
+        <div className="card feat"><Icon name="check" size={22} /><b>Extra checks</b><p>The more you formalize, the more Validation can check for you.</p></div>
+        <div className="card feat"><Icon name="layer-computed" size={22} /><b>Refinement</b><p>Compute a variable from more detailed ones; derive detailed UCAs from a general one.</p></div>
       </div>
 
-      <h3>What HazardFox does for you</h3>
+      <h3>And it keeps things tidy</h3>
       <div className="cols">
-        <div className="card"><b>Linked artifacts</b><p className="muted">Numbers like H-2.1 or UCA-3 are assigned automatically. When you move or regroup items, every reference follows. Type <code>@</code> in any text to refer to an item.</p></div>
-        <div className="card"><b>Checks &amp; traceability</b><p className="muted">Validation points out missing links and gaps, and the traceability view follows a loss down to the requirements. An optional AI review, running on your own computer (Ollama), comments on wording.</p></div>
-        <div className="card"><b>Local &amp; portable</b><p className="muted">Everything stays on your computer. Your project is a single file that you open and save yourself, and a backup copy is kept in your browser. Export to Word or Excel, or let an AI agent edit the file through MCP.</p></div>
+        <div className="card feat"><Icon name="relationship" size={22} /><b>Linked artifacts</b><p>Numbers like H-2.1 or UCA-3 are assigned automatically and references follow when you move items. Type <code>@</code> to refer to an item.</p></div>
+        <div className="card feat"><Icon name="warn" size={22} /><b>Checks &amp; traceability</b><p>Validation points out gaps; the trace view follows a loss down to requirements. Optional AI review on your own computer.</p></div>
+        <div className="card feat"><Icon name="gear" size={22} /><b>Local &amp; portable</b><p>Everything stays on your computer, in one file you save yourself. Export to Word or Excel, or let an AI agent edit it through MCP.</p></div>
       </div>
 
-      <h3>Getting started</h3>
-      <p className="muted">
-        Start with a new analysis and describe the system under analysis on the Overview page, then work through the
-        steps in the left menu in order. Press <kbd>⌘K</kbd> to search and jump to any item. The <b>Example…</b> menu
-        in the header has worked examples from the STPA Handbook and published analyses to learn from.
+      <p className="muted tip">
+        Start with a new analysis, describe the system on the Overview page, then follow the steps in the left menu.
+        Press <kbd>⌘K</kbd> to jump to any item. The <b>Example…</b> menu has worked examples from the STPA Handbook and
+        published analyses.
       </p>
     </div>
   )

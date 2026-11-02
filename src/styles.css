@@ -275,8 +275,17 @@ table.plain td { padding: 4px 10px 4px 0; }
 .welcome .lead { font-size: 15px; line-height: 1.55; color: var(--muted); margin: 4px 0 16px; }
 .welcome .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 22px; }
 .welcome .actions button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.welcome ol.steps { padding-left: 22px; line-height: 1.5; }
-.welcome ol.steps li { margin-bottom: 6px; }
+.welcome .hero { background: linear-gradient(135deg, var(--accent-soft), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px 8px; margin-bottom: 8px; }
+.welcome .hero h2 { margin: 0 0 4px; font-size: 26px; }
+.welcome .lead.small { font-size: 13.5px; margin: 0 0 12px; }
+.welcome h3 { margin: 26px 0 10px; }
+.welcome .steps-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.welcome .step { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; }
+.welcome .step .num { display: block; font-size: 28px; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+.welcome .step p, .welcome .feat p { margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+.welcome .feat { display: flex; flex-direction: column; gap: 2px; }
+.welcome .feat svg { color: var(--accent); margin-bottom: 4px; }
+.welcome .tip { margin-top: 24px; }
 .welcome .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 
 .modal-back.stacked { background: transparent; }
