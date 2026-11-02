@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import {
   deleteItems,
   group,
@@ -11,7 +11,7 @@ import {
   updateItem,
 } from '../model/ops'
 import { useStore } from '../model/store'
-import { cascadeSet, linkedTo } from '../model/refs'
+import { cascadeSet, incoming, linkedTo } from '../model/refs'
 import { children, descendants, flatten, isLeaf } from '../model/tree'
 import { KIND_NAMES, count, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
 import { addItem, commit, select, toggled, useIds, useLabels, useProject } from './hooks'
@@ -152,9 +152,9 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
         <button onClick={() => add(null)}><Icon name="plus" /> Add {KIND_NAMES[kind].toLowerCase()}</button>
         <button disabled={!one} onClick={() => one && add(one.id)}><Icon name="plus" /> Child</button>
         <span className="sep" />
-        <button disabled={ids.length < 1} onClick={() => askGroup()} title="Ctrl+G"><Icon name="group" /> Group…</button>
-        <button disabled={!one} onClick={() => one && setDialog({ type: 'split', id: one.id })}><Icon name="split" /> Split…</button>
-        <button disabled={ids.length < 2} onClick={() => askMerge()}><Icon name="merge" /> Merge…</button>
+        <button disabled={ids.length < 1} onClick={() => askGroup()} title="Put the selected items under a new parent (Ctrl+G)"><Icon name="group" /> Group…</button>
+        <button disabled={!one} title="Replace the selected item by several, each taking over some of its links" onClick={() => one && setDialog({ type: 'split', id: one.id })}><Icon name="split" /> Split…</button>
+        <button disabled={ids.length < 2} title="Combine the selected items into one that keeps all their links" onClick={() => askMerge()}><Icon name="merge" /> Merge…</button>
         <span className="sep" />
         <button disabled={ids.length < 1} className="icon-btn danger" aria-label="Delete" onClick={() => setDialog({ type: 'delete', ids })} title="Delete (Ctrl+Backspace)"><Icon name="trash" size={16} /></button>
         <span className="hint">Enter: new item · Tab / ⇧Tab: indent / outdent · Alt+↑↓: move up / down · or drag to reorder</span>
@@ -301,13 +301,17 @@ export function DeleteDialog({ ids, onClose }: { ids: Id[]; onClose: () => void 
   for (const i of ids) below.delete(i)
   const dependents = [...cascadeSet(p, [...ids, ...below])].filter((i) => !ids.includes(i) && !below.has(i))
   const names = ids.map((i) => labels[i]).join(', ')
+  const gone = new Set([...ids, ...below, ...dependents])
+  const losing = [...new Set(ids.flatMap((i) => incoming(p, i).map((x) => x.id)))].filter((i) => !gone.has(i))
+  const empty = ids.every((i) => { const it = p.items[i]; return it && it.kind !== 'uca' && !it.title.trim() }) && below.size === 0 && dependents.length === 0 && losing.length === 0
+  useEffect(() => { if (empty) { commit((q) => deleteItems(q, ids)); onClose() } }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const run = (promote: boolean) => {
     commit((q) => deleteItems(q, ids, promote ? { promote: true } : undefined))
     onClose()
   }
   return (
     <Modal title={`Delete ${names}?`} onClose={onClose}>
-      <p className="muted">Links pointing to {ids.length > 1 ? 'these items' : 'this item'} are removed.</p>
+      {losing.length > 0 && <p className="muted">{losing.length > 1 ? 'These items lose' : 'This item loses'} the link to {ids.length > 1 ? 'them' : 'it'}: {losing.slice(0, 8).map((i, n) => <Fragment key={i}>{n > 0 && ', '}<ItemHover id={i}><b>{labels[i]}</b></ItemHover></Fragment>)}{losing.length > 8 && ` and ${losing.length - 8} more`}.</p>}
       {below.size > 0 ? (
         <div className="choices">
           <button className="choice" onClick={() => run(true)}>
@@ -320,17 +324,15 @@ export function DeleteDialog({ ids, onClose }: { ids: Id[]; onClose: () => void 
           </button>
         </div>
       ) : (
-        <div className="choices">
-          <button className="choice danger" autoFocus onClick={() => run(false)}>
-            <Icon name="trash" size={22} />
-            <span><b>Delete {ids.length > 1 ? `${ids.length} items` : names}</b></span>
-          </button>
-        </div>
+        losing.length === 0 && dependents.length === 0 && <p className="muted">Nothing else refers to {ids.length > 1 ? 'these items' : 'this item'}.</p>
       )}
       {dependents.length > 0 && (
         <p className="note-warn"><Icon name="warn" /> Also deleted because they depend on {ids.length > 1 ? 'these' : 'it'}: {dependents.map((i, n) => <Fragment key={i}>{n > 0 && ', '}<ItemHover id={i}><b>{labels[i]}</b></ItemHover></Fragment>)}</p>
       )}
-      <div className="actions"><button onClick={onClose}>Cancel</button></div>
+      <div className="actions">
+        <button onClick={onClose}>Cancel</button>
+        {below.size === 0 && <button className="primary danger" autoFocus onClick={() => run(false)}>Delete</button>}
+      </div>
     </Modal>
   )
 }

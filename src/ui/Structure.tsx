@@ -150,7 +150,7 @@ function Diagram() {
       return { k, x: mx - (mx - v.x) * (k / v.k), y: my - (my - v.y) * (k / v.k) }
     })
   }
-  const addNode = () => addItem('node', { title: 'New element', parent: selected && p.items[selected]?.kind === 'node' ? selected : null })
+  const addNode = () => addItem('node', { title: '', parent: selected && p.items[selected]?.kind === 'node' ? selected : null })
   const hasBends = Object.values(p.items).some((i) => (i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift))
   const hasNudges = Object.values(p.items).some((i) => (i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift)))
 
