@@ -42,7 +42,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
     <div className="varmap-wrap">
       <p className="hint">
         Each row is a world variable; each column a controller. A cell shows what that controller believes about the variable and which feedback signals update that belief.
-        <b>Red</b>: a UCA context uses the variable, but the controller has no belief about it. <b>Amber</b>: the controller has a belief, but no feedback updates it.
+        <span className="legend"><span><i className="sw red" /><b>Red</b>: a UCA context uses the variable, but the controller has no belief about it.</span> <span><i className="sw amber" /><b>Amber</b>: the controller has a belief, but no feedback updates it.</span></span>
       </p>
       {world.some((w) => w.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
       <table className="grid varmap">

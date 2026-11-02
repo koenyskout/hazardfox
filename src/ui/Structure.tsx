@@ -6,7 +6,7 @@ import { applyOverrides, layoutStructure, type Layout } from '../model/structure
 import { useStore } from '../model/store'
 import { signalsOf } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
-import type { Id } from '../model/types'
+import type { Id, Project } from '../model/types'
 import { structureSvg } from '../export/structureImage'
 import { Ref, VIEW_OF } from './Fields'
 import { useHoverCard } from './HoverCard'
@@ -19,6 +19,7 @@ import { DeleteDialog, TreeTable } from './TreeTable'
 
 type Tab = 'diagram' | 'map' | 'nodes' | 'ca' | 'feedback'
 
+const end = (p: Project, id: Id | null) => (id && p.items[id] ? <span className="end"><Ref id={id} /> <span className="muted">{p.items[id].title}</span></span> : '?')
 export function Structure() {
   const p = useProject()
   const [tab, setTab] = useState<Tab>('diagram')
@@ -41,11 +42,11 @@ export function Structure() {
       {tab === 'nodes' && <TreeTable kind="node" empty="Add controllers, controlled processes and external elements. Nest elements to build the hierarchy. Sensors and actuators are set on the feedback and control action arrows." extraHeader="Role" extra={(n) => (n.kind === 'node' ? <span className="muted">{n.role}</span> : null)} />}
       {tab === 'ca' && (
         <FlatTable kind="ca" items={itemsOfKind(p, 'ca')} init={{ from: sel ?? '', to: nodes[1]?.id ?? '' }}
-          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'ca' ? <span>{c.from ? <Ref id={c.from} /> : '?'} → {c.to ? <Ref id={c.to} /> : '?'}</span> : null) }]} />
+          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'ca' ? <span className="ends">{end(p, c.from)} → {end(p, c.to)}</span> : null) }]} />
       )}
       {tab === 'feedback' && (
         <FlatTable kind="feedback" items={itemsOfKind(p, 'feedback')} init={{ from: nodes[1]?.id ?? '', to: sel ?? '' }}
-          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'feedback' ? <span>{c.from ? <Ref id={c.from} /> : '?'} → {c.to ? <Ref id={c.to} /> : '?'}</span> : null) }, { head: 'Signals', cell: (c) => (c.kind === 'feedback' ? <span className="reflist">{signalsOf(p, c.id).map((v) => <Ref key={v.id} id={v.id} />)}</span> : null) }]} />
+          columns={[{ head: 'From → To', cell: (c) => (c.kind === 'feedback' ? <span className="ends">{end(p, c.from)} → {end(p, c.to)}</span> : null) }, { head: 'Signals', cell: (c) => (c.kind === 'feedback' ? <span className="reflist">{signalsOf(p, c.id).map((v) => <Ref key={v.id} id={v.id} />)}</span> : null) }]} />
       )}
     </div>
   )
@@ -159,19 +160,19 @@ function Diagram() {
       <div className="toolbar">
         <button onClick={addNode}><Icon name="plus" size={12} /> Element</button>
         <button onClick={fit}>Fit</button>
-        <button disabled={!hasNudges} onClick={() => commit((q) => {
+        <button disabled={!hasNudges} title={hasNudges ? 'Put elements, arrows and labels you moved by hand back to their automatic positions' : 'Nothing has been moved by hand'} onClick={() => commit((q) => {
           let n = q
           for (const i of Object.values(q.items)) if ((i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift))) n = updateItem(n, i.id, i.kind === 'node' ? { nudge: null } : { bend: null, labelShift: null })
           return n
         })}>Reset manual positions</button>
-        <button disabled={!hasBends} title="Reset arrows and labels you moved by hand to their automatic positions" onClick={() => commit((q) => {
+        <button disabled={!hasBends} title={hasBends ? 'Reset only the arrows and labels you moved by hand' : 'No arrow or label has been moved by hand'} onClick={() => commit((q) => {
           let n = q
           for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift)) n = updateItem(n, i.id, { bend: null, labelShift: null })
           return n
         })}>Auto-arrange arrows</button>
         <button title="Show or hide the sensors and actuators drawn on the arrows" onClick={toggleDevices}>{devices ? 'Hide' : 'Show'} sensors/actuators</button>
         <button onClick={async () => { const s = await structureSvg(p); if (s) download('control-structure.svg', s.svg, 'image/svg+xml') }}>Export SVG</button>
-        <span className="hint">Select an element and press Delete to remove it · drag elements, arrows or labels to move them · scroll to zoom · drag the background to pan</span>
+        <span className="hint">Add control actions and feedback in their tabs · select an element and press Delete to remove it · drag elements, arrows or labels to move them · scroll to zoom · drag the background to pan</span>
       </div>
       <div className="canvas" ref={box} onMouseDown={(e) => down(e, 'pan')} onMouseMove={move} onMouseUp={up} onMouseLeave={up} onWheel={wheel}>
         {err && <div className="empty">{err}</div>}

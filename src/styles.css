@@ -559,3 +559,6 @@ header button.on { background: var(--sel); color: var(--accent); }
 }
 button.primary.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .toolbar button { flex: none; } .toolbar .hint { flex: 1 1 240px; text-align: right; }
+.tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; } .tabs button { white-space: nowrap; flex: none; }
+.ends { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: baseline; } .ends .end { white-space: nowrap; }
+.legend { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; } .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; } .sw.red { background: var(--danger); } .sw.amber { background: #e0a030; }

@@ -79,9 +79,9 @@ export function DomainDiagram() {
         <button onClick={() => step(1 / 1.25)} title="Zoom out">−</button>
         <button onClick={() => step(1.25)} title="Zoom in">+</button>
         <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')}>Fit</button>
-        <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>100%</button>
+        <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>Actual size</button>
         <span className="muted">{Math.round(scale * 100)}%</span>
-        <span className="hint">Attributes are the entity’s world variables; lines are relationships; dashed arrows point to the parent entity. Click an element to select it.</span>
+        <span className="hint">Attributes are the entity’s world variables; lines are relationships; dashed arrows point to the parent entity. Click an element to select it; add entities, relationships and variables in their tabs.</span>
       </div>
       <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width={layout.width * scale} height={layout.height * scale} viewBox={`0 0 ${layout.width} ${layout.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width * scale, height: layout.height * scale }} onMouseDown={() => select(null)}>
