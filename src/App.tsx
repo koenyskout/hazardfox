@@ -1,5 +1,5 @@
 import { Select } from './ui/Select'
-import { lazy, Suspense, useEffect, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { fsAccess, openProject, saveProject } from './model/persist'
 import { newProject } from './model/create'
 import { useStore, type View } from './model/store'
@@ -44,6 +44,7 @@ export default function App() {
   const issues = useMemo(() => validate(p), [p])
   const aiFindings = useAiIssues()
   useAutoReview()
+  const [detailsOpen, setDetailsOpen] = useState(() => window.innerWidth > 860)
   const errs = issues.concat(aiFindings).filter((i) => i.severity !== 'info').length
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export default function App() {
         <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
         <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v === 'crossing' ? crossingExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
-          <option value="pump">Infusion pump (demo)</option>
+          <option value="pump">Infusion pump (example)</option>
           <option value="medication">Hospital medication (large domain model)</option>
           <option value="crossing">Level crossing (several trains: some / every / no)</option>
           <optgroup label="STPA Handbook, appendices">
@@ -93,17 +94,18 @@ export default function App() {
         <button disabled={!past.length} onClick={undo} title="Undo (Ctrl+Z)">↶</button>
         <button disabled={!future.length} onClick={redo} title="Redo (Ctrl+Shift+Z)">↷</button>
         <AutoReviewToggle />
-        <button onClick={() => setPalette(true)} title="Ctrl+K">Search ⌘K</button>
+        <button onClick={() => setPalette(true)} title="Ctrl+K">Search <span className="wide-only">⌘K</span></button>
+        {wideDetails && <button className={detailsOpen ? 'on' : ''} onClick={() => setDetailsOpen(!detailsOpen)} title={detailsOpen ? 'Hide the details panel' : 'Show the details panel'}>Details</button>}
       </header>
       <nav>
         {NAV.map(([v, l, ic]) => (
-          <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
-            <span className="ic">{ic}</span>{l}{v === 'validation' && errs > 0 && <i className="badge" title="Errors and warnings">{errs}</i>}
+          <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)} title={l}>
+            <span className="ic">{ic}</span><span className="nav-l">{l}</span>{v === 'validation' && errs > 0 && <i className="badge" title="Errors and warnings">{errs}</i>}
           </button>
         ))}
       </nav>
       <main><Suspense fallback={<p className="muted" style={{ padding: 16 }}>Loading…</p>}>{body}</Suspense></main>
-      {wideDetails && <Details />}
+      {wideDetails && detailsOpen && <Details />}
       <Palette />
       <EditDialog />
       <DialogHost />
