@@ -54,61 +54,50 @@ td.e{white-space:nowrap}
 ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 .trace{display:grid;grid-template-columns:repeat(6,1fr);font-size:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .trace div{padding:3px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap}.trace .h{background:var(--chip);color:var(--muted);font-weight:600}.trace .cur{background:var(--sel);outline:2px solid var(--accent);outline-offset:-2px}
+
+.g{margin:0}.g>.gh{display:flex;align-items:center;gap:8px;padding:2px 0}
+.tag{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 7px;color:#fff;background:var(--accent-2)}
+.g.any>.gh .tag{background:var(--accent)}.g.not>.gh .tag{background:var(--danger)}
+.g>.its{border-left:3px solid var(--accent-2);margin-left:6px;padding-left:10px}.g.any>.its{border-color:var(--accent)}.g.not>.its{border-color:var(--danger)}
+.it{display:grid;grid-template-columns:26px 1fr;align-items:start;padding:3px 0}.it .cn{color:var(--muted);font-size:11px;line-height:24px;text-transform:lowercase}
+.it>.bd{min-width:0;line-height:24px}.it>.bd>.g{margin:2px 0}.it>.bd>.g>.gh{padding-top:0}
+.ed .kw{color:var(--accent-2);font-weight:700}
+.sed .row{display:grid;grid-template-columns:1fr 22px;gap:6px}
+.g.sedg>.its{}
+.g .ver{margin-right:6px}.g:has(>.its>.it:only-child .ver.f)>.its{}
 </style></head><body><main>
 
 <h1>Expression conditions</h1>
-<p class="lead">Proposal: hazard and UCA conditions become small typed expressions. Conditions are still grouped TLA+-style — a list of lines, each introduced by <code>∧</code> or <code>∨</code>, nesting by indentation instead of parentheses — and that same layout is used for reading, text editing, structured editing and trace verdicts.</p>
+<p class="lead">Proposal: hazard and UCA conditions become small typed expressions. Conditions are grouped by indentation instead of parentheses — each group has a header in words (<i>All of</i>, <i>Any of</i>, <i>Not</i>) and a coloured vertical bar — and that same layout is used for reading, text editing, structured editing and trace verdicts.</p>
 
 <h2>1 · How a condition reads</h2>
-<p class="lead">Rendered everywhere (UCA context, hazard condition, tables, docx/xlsx). The symbol sits in a fixed column, so nested lists line up on the content column exactly as in TLA+.</p>
+<p class="lead">Rendered everywhere (UCA context, hazard condition, tables, docx/xlsx). A group is a header in words plus a coloured vertical bar that spans its members; nesting is indentation. In an all-of list the members are joined by a quiet “and”, in an any-of list by “or”, so it reads as a sentence. No logic symbols.</p>
 <div class="cols">
-<div class="card"><h3>UCA-4 · Train door controller</h3>
-<div class="uca"><b>Open doors</b> provided when</div>
-<div class="jl">
- <div class="ji"><span class="sym">∧</span><div class="body"><span class="v">Train speed</span><span class="op">&gt;</span><span class="k">0</span></div></div>
- <div class="ji"><span class="sym">∧</span><div class="body"><div class="jl">
-   <div class="ji"><span class="sym">∨</span><div class="body"><div class="jl">
-      <div class="ji"><span class="sym">∧</span><div class="body"><span class="v">Door state</span><span class="op">=</span><span class="k">closed</span></div></div>
-      <div class="ji"><span class="sym">∧</span><div class="body"><span class="v">Platform side</span><span class="op">≠</span><span class="k">left</span></div></div></div></div></div>
-   <div class="ji"><span class="sym">∨</span><div class="body"><span class="v">Emergency brake</span><span class="op">=</span><span class="k">applied</span></div></div></div></div></div>
- <div class="ji"><span class="sym">∧</span><div class="body"><span class="v">Gap</span><span class="op">−</span><span class="k">2</span><span class="op">×</span><span class="v">Speed</span><span class="op">&lt;</span><span class="k">5</span> <span class="tm">m</span></div></div>
- <div class="ji neg"><span class="sym">¬</span><div class="body"><div class="jl"><div class="ji"><span class="sym">∧</span><div class="body"><span class="v b">Door state</span><span class="op">=</span><span class="fn">prev</span>(<span class="v b">Door state</span>)</div></div></div></div></div>
-</div></div>
-<div class="card"><h3>The same, as text</h3>
-<div class="ed" style="border-color:var(--line)"><span class="g">∧</span> <span class="id">Train speed</span> <span class="nm">&gt; 0</span>
-<span class="g">∧</span> <span class="g">∨</span> <span class="g">∧</span> <span class="id">Door state</span> = <span class="nm">closed</span>
-    <span class="g">∧</span> <span class="id">Platform side</span> ≠ <span class="nm">left</span>
-  <span class="g">∨</span> <span class="id">Emergency brake</span> = <span class="nm">applied</span>
-<span class="g">∧</span> <span class="id">Gap</span> − <span class="nm">2</span> × <span class="id">Speed</span> &lt; <span class="nm">5 m</span>
-<span class="g">∧</span> <span class="g">¬</span> <span class="id b">Door state</span> = <span class="f">prev</span>(<span class="id b">Door state</span>)</div>
-<p class="hint">Rule: a line that starts with <code>∧</code>/<code>∨</code> opens a list item; further <code>∧</code>/<code>∨</code> on the same line, or lines indented to that column, belong to the same item. Typed in ASCII (<code>/\</code>, <code>\/</code>, <code>~</code>, <code>and</code>/<code>or</code>/<code>not</code>) they are rewritten on blur.</p></div>
-</div>
-
+<div class="card"><h3>UCA-4 · Train door controller</h3><div class="uca"><b>Open doors</b> provided when</div><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Train speed</span><span class="op">&gt;</span><span class="k">0</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="g any"><div class="gh"><span class="tag any">Any of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="v ">Door state</span><span class="op">=</span><span class="k">closed</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><span class="v ">Platform side</span><span class="op">≠</span><span class="k">left</span></div></div></div></div></div></div><div class="it"><span class="cn">or</span><div class="bd"><span class="v ">Emergency brake</span><span class="op">=</span><span class="k">applied</span></div></div></div></div></div></div><div class="it"><span class="cn">and</span><div class="bd"><span class="v ">Gap</span><span class="op">−</span><span class="k">2</span><span class="op">×</span><span class="v ">Speed</span><span class="op">&lt;</span><span class="k">5</span> <span class="tm">m</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="g not"><div class="gh"><span class="tag not">Not</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="v b">Door state</span><span class="op">=</span><span class="fn">prev</span>(<span class="v b">Door state</span>)</div></div></div></div></div></div></div></div></div>
+<div class="card"><h3>The same, as text</h3><div class="ed" style="border-color:var(--line)"><span class="kw">all of</span>:
+  <span class="id">Train speed</span> <span class="nm">&gt; 0</span>
+  <span class="kw">any of</span>:
+    <span class="kw">all of</span>:
+      <span class="id">Door state</span> = <span class="nm">closed</span>
+      <span class="id">Platform side</span> ≠ <span class="nm">left</span>
+    <span class="id">Emergency brake</span> = <span class="nm">applied</span>
+  <span class="id">Gap</span> − <span class="nm">2</span> × <span class="id">Speed</span> &lt; <span class="nm">5 m</span>
+  <span class="kw">not</span>: <span class="id b">Door state</span> = <span class="f">prev</span>(<span class="id b">Door state</span>)</div>
+<p class="hint">Layout is indentation, like YAML or Python: a line ending in <code>all of:</code> / <code>any of:</code> / <code>not:</code> opens a group; its members are the lines indented below it. <code>not:</code> followed by a single condition may stay on one line. <code>and</code>/<code>or</code>/<code>∧</code>/<code>∨</code> are accepted as aliases and rewritten on blur.</p></div></div>
 <h2>2 · Editing</h2>
-<p class="lead">One representation, two editors. The text editor is the fast path (autocomplete on variable names, typed errors inline); the structured editor is today's row builder, extended so each row holds one expression instead of fixed variable/op/value boxes.</p>
+<p class="lead">One representation, two editors. The text editor is the fast path (autocomplete on variable names, typed errors inline); the rows editor is today's builder, extended so each row holds one expression instead of fixed variable/op/value boxes. In the rows editor the group tag is a dropdown (All of / Any of / Not) and groups are added with <i>+ all of</i> / <i>+ any of</i>.</p>
 <div class="cols">
 <div class="card" style="position:relative"><div class="tabs"><span class="on">Text</span><span>Rows</span></div>
-<div class="ed"><span class="g">∧</span> <span class="id">Request id</span> ≠ <span class="f">prev</span>(<span class="id">Request id</span>)
-<span class="g">∧</span> <span class="id">Msg seq</span> = <span class="f">succ</span>(<span class="f">prev</span>(<span class="id">Msg seq</span>))
-<span class="g">∧</span> <span class="id">Received at</span> &lt; <span class="err">Sent</span><span class="cur"></span>
-<span class="g">∧</span> <span class="id">Speed</span> + <span class="id">Gap</span> &gt; <span class="err">t5</span>
+<div class="ed" style="min-height:190px"><span class="kw">all of</span>:
+  <span class="id">Request id</span> ≠ <span class="f">prev</span>(<span class="id">Request id</span>)
+  <span class="id">Msg seq</span> = <span class="f">succ</span>(<span class="f">prev</span>(<span class="id">Msg seq</span>))
+  <span class="id">Received at</span> &lt; <span class="err">Sent</span><span class="cur"></span>
+  <span class="kw">any of</span>:
+    <span class="id">Retries</span> ≥ <span class="nm">3</span>
+    <span class="id">Ack id</span> ∈ {<span class="id">Request id</span>, <span class="f">prev</span>(<span class="id">Request id</span>)}
 <div class="pop"><div class="on"><span class="v">Sent at</span><small>Timestamp · ordered</small></div><div><span class="v">Sent count</span><small>range 0–99</small></div><div><span class="v">Sender</span><small>ID</small></div></div></div>
-<div class="msg">Line 4: <code>Speed + Gap &gt; t5</code> — range and symbol cannot be compared (<code>t5</code> is a Timestamp).</div>
-<p class="hint">Line 3 completes to <span class="v">Sent at</span>, the only Timestamp that can sit next to <span class="v">Received at</span> with <code>&lt;</code>.</p></div>
-
-<div class="card sed"><div class="tabs"><span>Text</span><span class="on">Rows</span></div>
-<div class="gh"><b>All of</b> <span>(∧) — click a symbol to flip a group to any-of</span></div>
-<div class="row"><span class="gl">∧</span><div class="ex"><span class="v">Request id</span><span class="op">≠</span><span class="fn">prev</span>(<span class="v">Request id</span>)</div><span class="x">✕</span></div>
-<div class="row"><span class="gl">∧</span><div class="ex"><span class="v">Msg seq</span><span class="op">=</span><span class="fn">succ</span>(<span class="fn">prev</span>(<span class="v">Msg seq</span>))</div><span class="x">✕</span></div>
-<div class="row"><span class="gl">∧</span><div class="ex"><span class="v">Received at</span><span class="op">&lt;</span><span class="v">Sent at</span></div><span class="x">✕</span></div>
-<div class="row"><span class="gl">∧</span><div class="gh" style="margin:0"><b>Any of</b></div><span class="x">✕</span></div>
-<div class="grp">
- <div class="row"><span class="gl">∨</span><div class="ex"><span class="v">Retries</span><span class="op">≥</span><span class="k">3</span></div><span class="x">✕</span></div>
- <div class="row"><span class="gl">∨</span><div class="ex"><span class="v">Ack id</span><span class="op">∈</span><span class="k">{</span><span class="v">Request id</span>, <span class="fn">prev</span>(<span class="v">Request id</span>)<span class="k">}</span></div><span class="x">✕</span></div>
- <div class="add"><span>+ condition</span><span>+ group</span><span>¬ negate</span></div></div>
-<div class="add" style="margin-left:0"><span>+ condition</span><span>+ group</span><span>+ in words</span></div></div>
-</div>
-
+<div class="msg" style="white-space:normal;margin-top:150px">Line 4: <code>Sent</code> is not a variable — did you mean <i>Sent at</i>?</div></div></div>
+<div class="card sed"><div class="tabs"><span>Text</span><span class="on">Rows</span></div><div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Request id</span><span class="op">≠</span><span class="fn">prev</span>(<span class="v ">Request id</span>)</div><span class="x">✕</span></div></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="row"><div class="ex"><span class="v ">Msg seq</span><span class="op">=</span><span class="fn">succ</span>(<span class="fn">prev</span>(<span class="v ">Msg seq</span>))</div><span class="x">✕</span></div></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="row"><div class="ex"><span class="v ">Received at</span><span class="op">&lt;</span><span class="v ">Sent at</span></div><span class="x">✕</span></div></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="g any"><div class="gh"><span class="tag any">Any of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><div class="row"><div class="ex"><span class="v ">Retries</span><span class="op">≥</span><span class="k">3</span></div><span class="x">✕</span></div></div></div><div class="it"><span class="cn">or</span><div class="bd"><div class="row"><div class="ex"><span class="v ">Ack id</span><span class="op">∈</span><span class="k">{</span><span class="v ">Request id</span>, <span class="fn">prev</span>(<span class="v ">Request id</span>)<span class="k">}</span></div><span class="x">✕</span></div></div></div></div></div><div class="add"><span>+ condition</span><span>+ group</span><span>make Not</span></div></div></div></div></div><div class="add"><span>+ condition</span><span>+ all of</span><span>+ any of</span><span>+ in words</span></div></div></div>
 <h2>3 · What you can write</h2>
 <div class="card"><table>
 <tr><th>Expression</th><th>Meaning</th><th>Needs</th></tr>
@@ -119,25 +108,18 @@ ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 <tr><td class="e"><code>Ack id ∈ {a, b}</code></td><td>one of several expressions</td><td>any type</td></tr>
 <tr><td class="e"><code>Gap − 2 × Speed &lt; 5</code></td><td>arithmetic: <code>+ − ×</code> (constant factor), <code>min max abs</code></td><td>range types, units must agree</td></tr>
 <tr><td class="e"><code>a ≤ Speed ≤ b</code> / <code>Speed between a and b</code></td><td>chained comparison; bounds may be expressions</td><td>range / ordered</td></tr>
-<tr><td class="e"><code>¬ …</code></td><td>negation of a line or of a whole list</td><td>—</td></tr>
+<tr><td class="e"><code>not: …</code></td><td>negation of a line or of a whole group</td><td>—</td></tr>
 <tr><td class="e"><code>Door state = open for ≥ 200 ms</code></td><td>today's timing; the event form (<code>Open doors occurred ≥ 2 s ago</code>) stays too</td><td>numeric step times</td></tr>
 <tr><td class="e"><code>"doors are safe"</code></td><td>a condition in words; still a boolean lane in traces</td><td>nothing</td></tr>
 </table></div>
 
 <h2>4 · In a trace</h2>
-<p class="lead">The scenario trace shows the context at the step where the action is sent, line by line with the same indentation. Failing lines are marked, so you see <i>which</i> part of an expression stops the witness. Unknown (no value yet, or non-numeric times) is grey, never red.</p>
+<p class="lead">The scenario trace shows the context at the step where the action is sent, line by line in the same layout. Failing lines are marked, so you see <i>which</i> part of an expression stops the witness; the bar of a group that does not hold turns red. Unknown (no value yet, or non-numeric times) is grey, never red.</p>
 <div class="cols"><div class="card">
 <div class="trace"><div class="h">step</div><div class="h">Request id</div><div class="h">Msg seq</div><div class="h">Received at</div><div class="h">Sent at</div><div class="h">Retries</div>
 <div>3</div><div>a1</div><div>n2</div><div>t6</div><div>t5</div><div>0</div>
 <div class="cur">4 · send</div><div class="cur">a1</div><div class="cur">n4</div><div class="cur">t7</div><div class="cur">t8</div><div class="cur">1</div></div>
-<div class="jl">
- <div class="ji f"><span class="sym">∧</span><div class="body"><span class="ver f">✕</span><span class="v">Request id</span><span class="op">≠</span><span class="fn">prev</span>(<span class="v">Request id</span>) <span class="tm">a1 ≠ a1</span></div></div>
- <div class="ji f"><span class="sym">∧</span><div class="body"><span class="ver f">✕</span><span class="v">Msg seq</span><span class="op">=</span><span class="fn">succ</span>(<span class="fn">prev</span>(<span class="v">Msg seq</span>)) <span class="tm">n4 ≠ succ(n2) = n3</span></div></div>
- <div class="ji t"><span class="sym">∧</span><div class="body"><span class="ver t">✓</span><span class="v">Received at</span><span class="op">&lt;</span><span class="v">Sent at</span> <span class="tm">t7 &lt; t8</span></div></div>
- <div class="ji f"><span class="sym">∧</span><div class="body"><div class="jl">
-   <div class="ji"><span class="sym">∨</span><div class="body"><span class="ver f">✕</span><span class="v">Retries</span><span class="op">≥</span><span class="k">3</span> <span class="tm">1</span></div></div>
-   <div class="ji"><span class="sym">∨</span><div class="body"><span class="ver u">?</span><span class="v">Ack id</span><span class="op">∈</span>{…} <span class="tm">no value</span></div></div></div></div></div>
-</div></div>
+<div class="g all"><div class="gh"><span class="tag all">All of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="ver f">✕</span><span class="v ">Request id</span><span class="op">≠</span><span class="fn">prev</span>(<span class="v ">Request id</span>) <span class="tm">a1 ≠ a1</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><span class="ver f">✕</span><span class="v ">Msg seq</span><span class="op">=</span><span class="fn">succ</span>(<span class="fn">prev</span>(<span class="v ">Msg seq</span>)) <span class="tm">n4 ≠ succ(n2) = n3</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><span class="ver t">✓</span><span class="v ">Received at</span><span class="op">&lt;</span><span class="v ">Sent at</span> <span class="tm">t7 &lt; t8</span></div></div><div class="it"><span class="cn">and</span><div class="bd"><div class="g any"><div class="gh"><span class="tag any">Any of</span></div><div class="its"><div class="it"><span class="cn"></span><div class="bd"><span class="ver f">✕</span><span class="v ">Retries</span><span class="op">≥</span><span class="k">3</span> <span class="tm">1</span></div></div><div class="it"><span class="cn">or</span><div class="bd"><span class="ver u">?</span><span class="v ">Ack id</span><span class="op">∈</span>{…} <span class="tm">no value</span></div></div></div></div></div></div></div></div></div>
 <div class="card"><h3>Also checked, as today</h3><ul>
 <li><b>Witness</b>: the whole condition must hold at the step the UCA action is sent / withheld; the failing lines above are what the author sees.</li>
 <li><b>Property violations</b> (<i>unique</i>, <i>monotonic</i>, <i>sequential</i>) stay as red cells; <code>prev</code> uses the same previous-value rule.</li>
