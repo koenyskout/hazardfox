@@ -102,12 +102,12 @@ const RenameInput = ({ name, rename }: { name: string; rename: (to: string) => v
   <input className="type-name" defaultValue={name} onBlur={(e) => { const to = e.target.value.trim(); if (to && to !== name) rename(to) }} />
 
 /** Footer of the "new type" dialogs: the name problem (if any) and Cancel / Create. */
-const CreateActions = ({ name, bad, onClose, onCreate }: { name: string; bad: string; onClose: () => void; onCreate: () => void }) => (
+const CreateActions = ({ name, bad, onClose, onCreate, label = 'Create' }: { name: string; bad: string; onClose: () => void; onCreate: () => void; label?: string }) => (
   <>
     {bad && name !== '' && <p className="muted">{bad}</p>}
     <div className="modal-actions">
       <button className="btn" onClick={onClose}>Cancel</button>
-      <button className="primary" disabled={!!bad} onClick={onCreate}>Create</button>
+      <button className="primary" disabled={!!bad} onClick={onCreate}>{label}</button>
     </div>
   </>
 )
@@ -305,18 +305,26 @@ export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onCh
   )
 }
 
+/** Read-only overview of the properties that are set. */
+const SymbolicChips = ({ t }: { t: SymbolicType }) => {
+  const n = normSym(t)
+  const on = PROPS.filter(({ key }) => n[key])
+  return <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>{on.length ? on.map(({ key, tip }) => <span key={key} title={tip} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Icon name={key} size={14} />{key}</span>) : <span className="muted">no properties (values cannot be compared)</span>}</div>
+}
+
 /** Popup to create a named symbolic (opaque) type. `then` gets the saved name. */
-export function SymbolicTypeDialog({ init, onClose, then }: { init?: SymbolicType; onClose: () => void; then?: (name: string) => void }) {
+/** Popup to create a named symbolic (opaque) type, or with `edit` (a type's name) to rename it and change its properties. */
+export function SymbolicTypeDialog({ init, edit, onClose, then }: { init?: SymbolicType; edit?: string; onClose: () => void; then?: (name: string) => void }) {
   const p = useProject()
-  const [n, setN] = useState('')
-  const [t, setT] = useState<SymbolicType>(init ?? SYMBOLIC_DEFAULT)
+  const [n, setN] = useState(edit ?? '')
+  const [t, setT] = useState<SymbolicType>(init ?? (edit ? p.symbolicTypes?.[edit] : undefined) ?? SYMBOLIC_DEFAULT)
   const nm = n.trim()
-  const bad = !nm ? 'Name required' : p.symbolicTypes?.[nm] ? 'Name already used' : ''
+  const bad = !nm ? 'Name required' : nm !== edit && p.symbolicTypes?.[nm] ? 'Name already used' : ''
   return (
-    <Modal title="New symbolic type" onClose={onClose}>
+    <Modal title={edit ? `Edit ${edit}` : 'New symbolic type'} onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Timestamp, ID" /></Field>
-      <Field single label="Properties"><SymbolicProps detailed t={t} onChange={setT} /></Field>
-      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={() => { commit((q) => defineSymbolicType(q, nm, t)); then?.(nm); onClose() }} />
+      <Field label="Properties"><SymbolicProps detailed t={t} onChange={setT} /></Field>
+      <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={() => { commit((q) => defineSymbolicType(edit && nm !== edit ? renameSymbolicType(q, edit, nm) : q, nm, t)); then?.(nm); onClose() }} />
     </Modal>
   )
 }
@@ -344,18 +352,23 @@ export function SymbolicPicker({ x, onChange }: { x: Partial<SymbolicType> & { s
 function SymbolicTypes() {
   const p = useProject()
   const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
   return (
     <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
+      {editing && <SymbolicTypeDialog edit={editing} onClose={() => setEditing(null)} />}
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head">
-            <RenameInput name={n} rename={(to) => commit((q) => renameSymbolicType(q, n, to))} />
-            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Variables keep their properties">Delete</button></span>
+            <b className="type-name" style={{ border: 'none' }}>{n}</b>
+            <span className="type-actions">
+              <button className="btn" onClick={() => setEditing(n)}><Icon name="draft" size={12} /> Edit</button>
+              <button className="btn" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Variables keep their properties">Delete</button>
+            </span>
           </div>
-          <SymbolicProps t={p.symbolicTypes![n]} onChange={(t) => commit((q) => defineSymbolicType(q, n, t))} />
+          <SymbolicChips t={p.symbolicTypes![n]} />
           <Used vars={usersOf(p.items, 'symbolicType', n)} />
         </div>
       ))}
