@@ -23,7 +23,7 @@ import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
 import { StringList } from './StringList'
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { SubjectPicker, type SubjectChoice } from './Subject'
@@ -594,7 +594,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
   }
   return (
     <>
-      <Select value={value} onChange={(e) => pick(e.target.value)} search always={['Own definition', 'Create']}>
+      <Select value={value} onChange={(e) => pick(e.target.value)} search always={['Create']}>
         <optgroup label="Own definition">
           <option value="range"><TypeLabel t="range">Range</TypeLabel></option>
           <option value="enum"><TypeLabel t="enum">Enumeration</TypeLabel></option>
@@ -643,7 +643,7 @@ function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Par
 function ParamRow({ cells, details, onRemove }: { cells: ReactNode[]; details?: ReactNode; onRemove: () => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr)) auto`, gap: '6px 8px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
-      {cells}
+      {cells.map((c, i) => <Fragment key={i}>{c}</Fragment>)}
       <button className="x" onClick={onRemove}>×</button>
       {details && <div style={{ gridColumn: '1 / -1', paddingLeft: 4 }}>{details}</div>}
     </div>

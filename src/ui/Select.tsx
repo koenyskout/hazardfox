@@ -78,7 +78,7 @@ export function Select({ value, onChange, children, className, style, title, dis
       </button>
       {at && createPortal(
         <ul className="select-pop" style={{ left: at.x, minWidth: at.w, ...(at.up ? { bottom: window.innerHeight - at.y } : { top: at.y }), maxHeight: Math.max(160, at.up ? at.y - 12 : window.innerHeight - at.y - 12) }}>
-          {searching && <li className="srch"><input autoFocus placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={key} /></li>}
+          {searching && <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={key} /></li>}
           {!opts.some((o) => !o.group) && <li className="off">No matches</li>}
           {opts.map((o, n) => (
             <li key={n} className={o.group ? 'grp' : (n === hi ? 'hi ' : '') + (o.value === v ? 'cur ' : '') + (o.disabled ? 'off' : '')} ref={(el) => { if (el && n === hi) el.scrollIntoView({ block: 'nearest' }) }} onMouseEnter={() => !o.disabled && setHi(n)} onClick={() => pick(o)}>{o.label}</li>
