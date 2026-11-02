@@ -98,6 +98,8 @@ main { overflow: auto; min-width: 0; }
 .row .ttl input, .row .col input { border-color: transparent; background: transparent; }
 .row .ttl input:hover { border-color: var(--line); }
 .row .ext, .row .col { flex: 1.2; min-width: 0; font-size: 13px; }
+.row .ext.ext2 { flex: 1.6; }
+.row .ext .muted { line-height: 1.35; }
 .row.drop-before::before, .row.drop-after::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; background: var(--accent); }
 .row.drop-before::before { top: -1px; } .row.drop-after::after { bottom: -1px; }
 .row.drop-into { outline: 2px solid var(--accent); outline-offset: -2px; }

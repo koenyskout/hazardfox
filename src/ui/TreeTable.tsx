@@ -28,6 +28,8 @@ export interface TreeTableProps<K extends Kind> {
   /** Extra cell content per row (e.g. linked losses). */
   extra?: (it: ItemOf<K>) => ReactNode
   extraHeader?: string
+  extra2?: (it: ItemOf<K>) => ReactNode
+  extra2Header?: string
   empty?: string
   /** Defaults applied to newly created items. */
   defaults?: Patch<K>
@@ -39,7 +41,7 @@ function dropPos(e: React.DragEvent<HTMLElement>): 'before' | 'after' | 'into' {
   return y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'into'
 }
 
-export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, defaults }: TreeTableProps<K>) {
+export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, extra2Header, empty, defaults }: TreeTableProps<K>) {
   const p = useProject()
   const labels = useLabels()
   const idLabels = useIds()
@@ -162,6 +164,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
           <span className="lbl">ID</span>
           <span className="ttl">Title</span>
           {extraHeader && <span className="ext">{extraHeader}</span>}
+          {extra2Header && <span className="ext ext2">{extra2Header}</span>}
         </div>
         {rows.length === 0 && <div className="empty">{empty ?? 'Nothing here yet – add the first item.'}</div>}
         {rows.map(({ item, depth }, i) => {
@@ -185,8 +188,9 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
               onClick={(e) => click(e, item.id)}
             >
               <span className="lbl"><span className={'chip k-' + item.kind}><ChipLabel it={item} label={idLabels[item.id]} /></span></span>
-              <span className="ttl" style={{ paddingLeft: depth * 20 }}>
+              <span className="ttl">
                 <button
+                  style={{ marginLeft: depth * 20 }}
                   className={'twisty' + (hasKids ? '' : ' none')}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -211,6 +215,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
                 <ReviewDot id={item.id} />
               </span>
               {extra && <span className="ext">{extra(item)}</span>}
+              {extra2 && <span className="ext ext2">{extra2(item)}</span>}
             </div>
           )
         })}
