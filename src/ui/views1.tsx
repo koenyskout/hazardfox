@@ -95,7 +95,7 @@ export function Domain() {
       <div className="tabs">
         <button className={tab === 'diagram' ? 'on' : ''} onClick={() => setTab('diagram')}>Diagram</button>
         <button className={tab === 'entity' ? 'on' : ''} onClick={() => setTab('entity')}>Entities <i>{itemsOfKind(p, 'entity').length}</i></button>
-        <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>Variables <i>{vars.length}</i></button>
+        <button className={tab === 'variable' ? 'on' : ''} onClick={() => setTab('variable')}>World variables <i>{vars.length}</i></button>
         <button className={tab === 'relationship' ? 'on' : ''} onClick={() => setTab('relationship')}>Relationships <i>{itemsOfKind(p, 'relationship').length}</i></button>
         <button className={tab === 'operation' ? 'on' : ''} onClick={() => setTab('operation')}>Operations <i>{itemsOfKind(p, 'operation').length}</i></button>
         <button className={tab === 'types' ? 'on' : ''} onClick={() => setTab('types')}>Types <i>{Object.keys(p.rangeTypes ?? {}).length + Object.keys(p.enumTypes ?? {}).length + Object.keys(p.structTypes ?? {}).length}</i></button>
