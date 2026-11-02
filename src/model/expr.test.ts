@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { cmpError, cmpOf, conditionLine, lineCondition, textToWhen, whenToText, parseComparison, printCmp, exprCondition } from './expr'
+import { cmpError, cmpOf, conditionLine, lineCondition, negate, textToWhen, whenToText, parseComparison, printCmp, exprCondition } from './expr'
 import { createItem, defineSymbolicType, updateItem } from './ops'
 import { clockAt, getter, traceState, whenHolds } from './traces'
 import { whenText } from './variables'
@@ -67,13 +67,17 @@ describe('expression conditions', () => {
     const s = setup()
     const text = 'all of:\n  & Speed > 0\n  & any of:\n    | Door state = closed\n    | Gap − 2 × Speed < 5\n  & not: Door state = open'
     const ws = textToWhen(s.p, text)
-    expect(whenToText(s.p, ws)).toBe(text)
+    expect(whenToText(s.p, ws)).toBe(text.replace('not: Door state = open', 'Door state ≠ open'))
     expect(textToWhen(s.p, 'all of:\n  - Speed > 0\n  and any of:\n    or Door state = closed\n    ∨ Gap − 2 × Speed < 5\n  - not: Door state = open')).toEqual(ws)
     const get = (v: Record<string, string>) => getter(v)
     const ok = { [s.speed]: '3', [s.door]: 'closed', [s.gap]: '100' }
     expect(whenHolds(s.p, { any: false, of: ws }, get(ok))).toBe(true)
     expect(whenHolds(s.p, { any: false, of: ws }, get({ ...ok, [s.door]: 'open' }))).toBe(false)
     expect(whenText(s.p, ws[1] as never)).toContain(' or ')
+    // negation is pushed to the leaves; a timed leaf has no opposite and keeps a not group
+    const nots = textToWhen(s.p, 'not:\n  & Speed > 0\n  & Door state = open')
+    expect(whenToText(s.p, nots)).toBe('any of:\n  | Speed ≤ 0\n  | Door state ≠ open')
+    expect(negate({ variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toMatchObject({ not: true })
     expect(conditionLine(s.p, { variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toBeNull()
   })
 })

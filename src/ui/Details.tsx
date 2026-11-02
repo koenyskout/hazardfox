@@ -777,7 +777,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
     <>
       <div className="rule-head">
         {head}
-        {flat ? <span className="wv-tag">all of</span> : <Select className={'tagsel ' + kind} value={kind} onChange={(e) => setKind(e.target.value)}><option value="all">All of</option><option value="any">Any of</option><option value="not">Not</option></Select>}
+        {flat ? <span className="wv-tag">all of</span> : <Select className={'tagsel ' + kind} value={kind} onChange={(e) => setKind(e.target.value)}><option value="all">All of</option><option value="any">Any of</option>{kind === 'not' && <option value="not">Not</option>}</Select>}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
       </div>
       <div className={'conds g-' + (flat ? 'all' : kind) + (onRemove ? ' group' : '')}>
@@ -790,7 +790,6 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
           <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}><Icon name="plus" size={12} /> time since an event</button>
           <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}><Icon name="plus" size={12} /> free text</button>
           <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all of' : 'any of'}</button>
-          <button title="True when the conditions inside do not all hold" onClick={() => onChange({ ...g, of: [...g.of, { any: false, not: true, of: [BLANK] }] })}><Icon name="plus" size={12} /> not</button>
         </div>
       </div>
     </>

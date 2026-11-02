@@ -1,6 +1,7 @@
 import { variableName } from './labels'
 import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
+import { NEGATE } from './traces'
 import { compareSymbols, conditionError, isSetOp, symbolAfter, symbolBefore } from './variables'
 import type { Condition, Group, Id, Project, Variable, When } from './types'
 
@@ -305,6 +306,15 @@ export function lineCondition(p: Project, src: string, names: Names = namesOf(p)
   return c
 }
 
+/** The negation of a tree with the negation pushed to the leaves (De Morgan, opposite operators); only leaves without an opposite (timing, events, quantifiers) keep a `not` group. */
+export function negate(w: When): When {
+  if ('of' in w) return w.not ? { any: false, of: w.of } : { any: !w.any, of: w.of.map(negate) }
+  const m = isExpr(w) ? cmpOf(w) : null
+  if (m) return exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })
+  if (w.time || w.event || w.quant || w.same || w.as || w.as2) return { any: false, not: true, of: [w] }
+  return { ...w, op: NEGATE[w.op] }
+}
+
 /** Reads the text form of a tree (markers `&` `|` `-` `and` `or` `∧` `∨` are optional and ignored; nesting is by indentation). */
 export function textToWhen(p: Project, text: string): When[] {
   const names = namesOf(p)
@@ -318,8 +328,8 @@ export function textToWhen(p: Project, text: string): When[] {
       const h = header(row.body)
       if (h) {
         const kids = i < rows.length && rows[i].indent > row.indent ? parse(rows[i].indent) : []
-        out.push(h === 'any of' ? { any: true, of: kids } : h === 'not' ? { any: false, not: true, of: kids } : { any: false, of: kids })
-      } else if (/^not:\s/i.test(row.body)) out.push({ any: false, not: true, of: [lineCondition(p, row.body.replace(/^not:\s*/i, ''), names)] })
+        out.push(h === 'any of' ? { any: true, of: kids } : h === 'not' ? negate({ any: false, of: kids }) : { any: false, of: kids })
+      } else if (/^not:\s/i.test(row.body)) out.push(negate(lineCondition(p, row.body.replace(/^not:\s*/i, ''), names)))
       else out.push(lineCondition(p, row.body, names))
     }
     return out
