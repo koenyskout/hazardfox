@@ -226,7 +226,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <VariableLinks v={it} />
           <Field single label="Type">
             <Select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
-              {VARIABLE_TYPES.map((t) => <option key={t} value={t}>{VARIABLE_TYPE_LABELS[t]}</option>)}
+              {VARIABLE_TYPES.map((t) => <option key={t} value={t}><TypeLabel t={t}>{VARIABLE_TYPE_LABELS[t]}</TypeLabel></option>)}
             </Select>
           </Field>
           {it.type === 'enum' && (
