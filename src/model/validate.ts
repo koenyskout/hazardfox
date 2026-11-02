@@ -136,7 +136,7 @@ export function validate(p: Project): Issue[] {
     const vals = valuesOf(v)
     if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
     for (const r of v.rules) {
-      const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
+      const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && v.type !== 'symbolic' && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
         : leaves(r.when).map((c) => { if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }

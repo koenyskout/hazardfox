@@ -3,7 +3,7 @@ import { variableName } from './labels'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf } from './variables'
+import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
 import type { Cause, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, Uca, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -23,6 +23,10 @@ export function stateAt(t: Trace, i: number): Record<Id, string> {
 export function holds(v: Variable, c: Condition, value: string | undefined): boolean | null {
   if (value === undefined || value === '') return null
   if (isSetOp(c.op)) return (c.set ?? []).includes(value) === (c.op === 'in')
+  if (v.type === 'symbolic') {
+    const k = compareSymbols(value, c.state)
+    return c.op === '=' ? value === c.state : c.op === '≠' ? value !== c.state : !v.ordered ? null : c.op === '<' ? k < 0 : c.op === '≤' ? k <= 0 : c.op === '>' ? k > 0 : c.op === '≥' ? k >= 0 : null
+  }
   if (v.type !== 'range') return c.op === '=' ? value === c.state : c.op === '≠' ? value !== c.state : null
   const x = Number(value), a = Number(c.state), b = Number(c.to)
   if (!Number.isFinite(x)) return null
@@ -187,6 +191,15 @@ export function pickValue(v: Variable, c: Condition, negate = false): string {
     const not = op === '≠' ? [c.state] : c.set ?? []
     return vals.find((x) => !not.includes(x)) ?? ''
   }
+  if (v.type === 'symbolic') {
+    const s = c.state
+    switch (op) {
+      case '=': case '≤': case '≥': return s
+      case '≠': case '>': return symbolAfter(s)
+      case '<': return symbolBefore(s)
+    }
+    return ''
+  }
   const d = stepOf(v)
   const clamp = (x: number) => String(+Math.min(v.max ?? Infinity, Math.max(v.min ?? -Infinity, x)).toFixed(6))
   const a = Number(c.state), b = Number(c.to)
@@ -201,7 +214,7 @@ export function pickValue(v: Variable, c: Condition, negate = false): string {
 }
 
 /** A neutral starting value. */
-export const initialValue = (v: Variable): string => (valuesOf(v)?.[0] ?? String(v.min ?? 0))
+export const initialValue = (v: Variable): string => (valuesOf(v)?.[0] ?? (v.type === 'symbolic' ? 'x1' : String(v.min ?? 0)))
 
 /** Index of the step where the trace's control action is sent / withheld (first event on it). */
 export function actionStep(t: Trace, ca: Id | null): number {
@@ -357,7 +370,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const words = new Set(ca.title.toLowerCase().split(/\W+/).filter(Boolean))
     const score = (x: string) => x.toLowerCase().split(/\W+/).filter((y) => words.has(y)).length
     const ranked = vals && [...vals].sort((x, y) => score(y) - score(x))
-    const intended = ranked ? ranked[0] ?? '' : String(Number(initialValue(w)) + stepOf(w) * 10)
+    const intended = ranked ? ranked[0] ?? '' : w.type === 'symbolic' ? symbolAfter(initialValue(w)) : String(Number(initialValue(w)) + stepOf(w) * 10)
     const a = ranked ? (ranked.find((x) => !score(x) && x !== intended) ?? ranked.find((x) => x !== intended) ?? intended) : initialValue(w)
     lanes.push(w.id)
     init.values[w.id] = a

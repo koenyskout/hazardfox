@@ -17,9 +17,9 @@ export const GUIDE_WORD_LABELS: Record<GuideWord, string> = {
   'stopped-too-soon': 'Stopped too soon / applied too long',
 }
 
-export const VARIABLE_TYPES = ['enum', 'boolean', 'range'] as const
+export const VARIABLE_TYPES = ['enum', 'boolean', 'range', 'symbolic'] as const
 export type VariableType = (typeof VARIABLE_TYPES)[number]
-export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range' }
+export const VARIABLE_TYPE_LABELS: Record<VariableType, string> = { enum: 'Enumeration (named states)', boolean: 'Boolean (true / false)', range: 'Numeric range', symbolic: 'Symbolic (opaque values)' }
 
 /** Where a variable lives (formalization: actual state x, observation o, process-model belief x̂, controller-internal state q). */
 export const VARIABLE_LAYERS = ['domain', 'signal', 'belief', 'internal'] as const
@@ -159,12 +159,19 @@ export interface Variable extends Base {
   struct?: { id: string; type: string; name: string; path: string }
   /** Name of the project's `enumTypes` entry that `states` follow ('' = own states) */
   enumType: string
+  /** symbolic: values are opaque symbolic constants ("t1", "id7"); `equatable` allows = / ≠, `ordered` (implies equatable) also < ≤ > ≥ (natural order of the symbols) */
+  ordered: boolean
+  equatable: boolean
+  /** Name of the project's `symbolicTypes` entry that `ordered` / `equatable` follow ('' = own properties) */
+  symbolicType: string
   /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
   rules: Rule[]
   otherwise: string
 }
 /** A reusable numeric type: bounds and unit shared by every variable that uses it. */
 export interface RangeType { min: number | null; max: number | null; unit: string }
+/** A reusable opaque type (Timestamp: ordered, equatable; ID: equatable only): properties shared by every symbolic variable that uses it. */
+export interface SymbolicType { ordered: boolean; equatable: boolean }
 /** A field of a struct type: a name and a variable type, optionally sharing a named range / enum type. */
 export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
@@ -190,7 +197,7 @@ export interface CsNode extends Base {
 }
 /** Control action edge. */
 /** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
-export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string }
+export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; symbolicType?: string; ordered?: boolean; equatable?: boolean }
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
 export interface ArgCondition { param: string; op: ConditionOp; state: string; to?: string; set?: string[] }
 export interface ControlAction extends Base {
@@ -392,6 +399,8 @@ export interface Project {
   rangeTypes?: Record<string, RangeType>
   /** Named reusable state lists for enum variables */
   enumTypes?: Record<string, string[]>
+  /** Named opaque types (ordered / equatable) for symbolic variables */
+  symbolicTypes?: Record<string, SymbolicType>
   /** Named composite types that can be applied to entities and relationships */
   structTypes?: Record<string, StructType>
   /** Mentioned tags registry is derived; nothing stored. */

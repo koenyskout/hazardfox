@@ -74,7 +74,7 @@ export const controlledBy = (p: Project, world: Id) => itemsOfKind(p, 'ca').filt
 
 
 /** A variable of another layer about `world`, with the same type and value set. */
-const copyOf = (p: Project, world: Variable) => ({ title: variableName(p, world), type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, rangeType: world.rangeType, enumType: world.enumType, about: world.id })
+const copyOf = (p: Project, world: Variable) => ({ title: variableName(p, world), type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, rangeType: world.rangeType, enumType: world.enumType, ordered: world.ordered, equatable: world.equatable, symbolicType: world.symbolicType, about: world.id })
 
 /** Add a belief about a world variable to a controller (no-op if it has one). */
 export function addBelief(p: Project, node: Id, world: Id): { project: Project; id: Id } {

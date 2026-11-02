@@ -1,16 +1,16 @@
 import { Select } from './Select'
 import { useState } from 'react'
 import { StringList } from './StringList'
-import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, updateItem } from '../model/ops'
+import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates } from '../model/variables'
-import type { RangeType, StructField, Variable, VariableType } from '../model/types'
+import type { RangeType, StructField, SymbolicType, Variable, VariableType } from '../model/types'
 import { commit, useProject } from './hooks'
 import { Field, NumberInput, Ref, TextInput } from './Fields'
 import { Modal } from './Modal'
 import { Icon } from './Icon'
 import { askText } from './dialogs'
 
-const usersOf = (items: ReturnType<typeof useProject>['items'], by: 'rangeType' | 'enumType', name: string) => Object.values(items).filter((i): i is Variable => i.kind === 'variable' && i[by] === name)
+const usersOf = (items: ReturnType<typeof useProject>['items'], by: 'rangeType' | 'enumType' | 'symbolicType', name: string) => Object.values(items).filter((i): i is Variable => i.kind === 'variable' && i[by] === name)
 const show = (t: RangeType) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
 /** Popup to create (`name` null) or edit a named range type. `then` gets the saved name. */
@@ -112,9 +112,9 @@ const CreateActions = ({ name, bad, onClose, onCreate }: { name: string; bad: st
   </>
 )
 
-/** Domain model Types tab: range, enum and struct types as three sections of cards. */
+/** Domain model Types tab: range, enum, symbolic and struct types as sections of cards. */
 export function TypesPage() {
-  return <div className="page types-page"><RangeTypes /><EnumTypes /><StructTypes /></div>
+  return <div className="page types-page"><RangeTypes /><EnumTypes /><SymbolicTypes /><StructTypes /></div>
 }
 
 /** Named numeric bounds and units for range variables. */
@@ -271,5 +271,75 @@ export function ApplyStruct({ parent }: { parent: string }) {
       <option value="">+ struct…</option>
       {names.map((x) => <option key={x}>{x}</option>)}
     </Select>
+  )
+}
+
+const symbolicText = (t: SymbolicType) => (t.ordered ? 'ordered, equatable' : t.equatable ? 'equatable' : 'opaque (not equatable)')
+
+/** The two properties of a symbolic type as checkboxes; ordered implies equatable. */
+export function SymbolicProps({ t, onChange }: { t: SymbolicType; onChange: (t: SymbolicType) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 14 }}>
+      <label className="check" title="Values can be compared for equality (is / is not)"><input type="checkbox" checked={t.equatable || t.ordered} disabled={t.ordered} onChange={(e) => onChange({ ...t, equatable: e.target.checked })} /> equatable</label>
+      <label className="check" title="Values have an order (is less than / at least …); natural order of the symbols, t2 before t10"><input type="checkbox" checked={t.ordered} onChange={(e) => onChange({ ordered: e.target.checked, equatable: t.equatable || e.target.checked })} /> ordered</label>
+    </div>
+  )
+}
+
+/** Popup to create a named symbolic (opaque) type. `then` gets the saved name. */
+export function SymbolicTypeDialog({ init, onClose, then }: { init?: SymbolicType; onClose: () => void; then?: (name: string) => void }) {
+  const p = useProject()
+  const [n, setN] = useState('')
+  const [t, setT] = useState<SymbolicType>(init ?? { ordered: false, equatable: true })
+  const nm = n.trim()
+  const bad = !nm ? 'Name required' : p.symbolicTypes?.[nm] ? 'Name already used' : ''
+  return (
+    <Modal title="New symbolic type" onClose={onClose}>
+      <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Timestamp, ID" /></Field>
+      <Field single label="Properties"><SymbolicProps t={t} onChange={setT} /></Field>
+      <CreateActions name={n} bad={bad} onClose={onClose} onCreate={() => { commit((q) => defineSymbolicType(q, nm, t)); then?.(nm); onClose() }} />
+    </Modal>
+  )
+}
+
+/** For a variable or parameter of symbolic type: pick a named type (or own properties) and create one. */
+export function SymbolicPicker({ x, onChange }: { x: { symbolicType?: string; ordered?: boolean; equatable?: boolean }; onChange: (patch: { symbolicType?: string; ordered?: boolean; equatable?: boolean }) => void }) {
+  const p = useProject()
+  const [isNew, setNew] = useState(false)
+  const names = Object.keys(p.symbolicTypes ?? {}).sort()
+  const t: SymbolicType = { ordered: !!x.ordered, equatable: x.equatable ?? true }
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+      {names.length > 0 && <Select value={x.symbolicType ?? ''} onChange={(e) => onChange({ symbolicType: e.target.value })}>
+        <option value="">Own properties</option>
+        {names.map((n) => <option key={n} value={n}>{n} ({symbolicText(p.symbolicTypes![n])})</option>)}
+      </Select>}
+      {x.symbolicType ? <span className="muted">{symbolicText(t)} — edit the type in Domain model → Types.</span> : <SymbolicProps t={t} onChange={onChange} />}
+      {!x.symbolicType && <button className="btn" onClick={() => setNew(true)} title="Define a named type (e.g. Timestamp) to share with other variables"><Icon name="plus" size={12} /> New type…</button>}
+      {isNew && <SymbolicTypeDialog init={t} onClose={() => setNew(false)} then={(n) => onChange({ symbolicType: n })} />}
+    </div>
+  )
+}
+
+/** Opaque named types (Timestamp, ID) whose values are symbolic constants; only the properties matter. */
+function SymbolicTypes() {
+  const p = useProject()
+  const [creating, setCreating] = useState(false)
+  const names = Object.keys(p.symbolicTypes ?? {}).sort()
+  return (
+    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
+      {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
+      {!names.length && <p className="empty">No symbolic types yet.</p>}
+      {names.map((n) => (
+        <div key={n} className="type-card">
+          <div className="type-head">
+            <RenameInput name={n} rename={(to) => commit((q) => renameSymbolicType(q, n, to))} />
+            <span className="type-actions"><button className="btn" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Variables keep their properties">Delete</button></span>
+          </div>
+          <SymbolicProps t={p.symbolicTypes![n]} onChange={(t) => commit((q) => defineSymbolicType(q, n, t))} />
+          <Used vars={usersOf(p.items, 'symbolicType', n)} />
+        </div>
+      ))}
+    </Section>
   )
 }

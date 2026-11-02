@@ -1,10 +1,11 @@
-import { OP_LABELS, conditionError, isRangeOp, isSetOp, opsFor } from './variables'
+import { OP_LABELS, conditionError, describeStates, isRangeOp, isSetOp, opsFor } from './variables'
 import type { ArgCondition, ControlAction, Param, Project, Uca, Variable } from './types'
 
 /** The parameter as a variable-like value (named range / enum types applied), to reuse the condition helpers. */
 export function paramVar(p: Project, pa: Param): Variable {
   const r = pa.rangeType ? p.rangeTypes?.[pa.rangeType] : undefined, e = pa.enumType ? p.enumTypes?.[pa.enumType] : undefined
-  return { ...pa, ...(r && pa.type === 'range' ? r : {}), ...(e && pa.type === 'enum' ? { states: e } : {}), id: '', kind: 'variable', title: pa.name } as unknown as Variable
+  const s = pa.symbolicType ? p.symbolicTypes?.[pa.symbolicType] : undefined
+  return { symbolicType: '', ordered: false, equatable: true, ...pa, ...(r && pa.type === 'range' ? r : {}), ...(e && pa.type === 'enum' ? { states: e } : {}), ...(s && pa.type === 'symbolic' ? s : {}), id: '', kind: 'variable', title: pa.name } as unknown as Variable
 }
 
 export const paramOf = (ca: ControlAction | undefined, name: string): Param | undefined => ca?.params.find((x) => x.name === name)
@@ -27,7 +28,7 @@ export function argText(p: Project, ca: ControlAction | undefined, a: ArgConditi
 /** "dose (0–10 mg)", "mode {auto, manual}". */
 export function paramSummary(p: Project, pa: Param): string {
   const v = paramVar(p, pa)
-  return v.type === 'enum' ? `${pa.name} {${v.states.join(', ')}}` : v.type === 'boolean' ? `${pa.name} (true/false)` : `${pa.name} (${v.min ?? '…'}–${v.max ?? '…'}${v.unit ? ' ' + v.unit : ''})`
+  return v.type === 'enum' ? `${pa.name} {${v.states.join(', ')}}` : v.type === 'symbolic' ? `${pa.name} (${describeStates(v)})` : v.type === 'boolean' ? `${pa.name} (true/false)` : `${pa.name} (${v.min ?? '…'}–${v.max ?? '…'}${v.unit ? ' ' + v.unit : ''})`
 }
 
 /** Arguments of the UCA that are filled in and valid, as text. */

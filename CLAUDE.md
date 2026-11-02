@@ -72,6 +72,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - No backward compatibility while the app is in development: no migrations for old files; change the model and regenerate the examples (`deserialize` only fills item defaults).
 - Match surrounding style: terse code, few comments, no new dependencies without need.
 
+- Symbolic (opaque) types: variable/param `type: 'symbolic'`, values are symbolic constants ("t1", "id7") typed freely in traces/conditions. Properties `equatable` (= ≠) and `ordered` (implies equatable; < ≤ > ≥ by natural order of the symbols), copied onto the variable and optionally following a named `symbolicTypes` entry (`symbolicType`; `define/rename/deleteSymbolicType`, `updateItem` keeps them in sync) like range/enum types. Variables compare with a symbol or another variable of the same symbolic type; no `in`/`between`. Edited in Domain model → Types. Not offered for struct fields.
 - Named reusable types (project-level, saved in the file): `rangeTypes` (bounds/unit; variable `rangeType`), `enumTypes` (state lists; variable `enumType`) — variables sharing one follow its edits (`updateItem`, `define/rename/delete*Type` in `ops.ts`); `structTypes` (fields, each with a type, possibly another struct type; cycles guarded) are applied with `applyStructType`: one world variable per field titled `<name>.<field>`, linked by `Variable.struct` and kept in line with the type by `syncStructs` (add/rename/remove fields, retype; deleting the type unlinks). Edited in Domain model → Types.
 
 ## AI review (Ollama decision model)

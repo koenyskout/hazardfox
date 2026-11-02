@@ -3,7 +3,7 @@ import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
-import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, StructType, Variable } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, SymbolicType, StructType, Variable } from './types'
 
 type Draft = Project
 
@@ -74,9 +74,44 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
       else if ('enumType' in patch) v.states = [...e]
       else if ('states' in patch) setEnumType(d, v.enumType, v.states)
     }
+    if (v.kind === 'variable') {
+      if (v.ordered) v.equatable = true
+      const s = d.symbolicTypes?.[v.symbolicType]
+      if (v.type !== 'symbolic' || !s) v.symbolicType = ''
+      else if ('symbolicType' in patch) { v.ordered = s.ordered; v.equatable = s.equatable }
+      else if ('ordered' in patch || 'equatable' in patch) setSymbolicType(d, v.symbolicType, { ordered: v.ordered, equatable: v.equatable })
+    }
     renormalize(d)
   })
 }
+
+/** Create or change a named symbolic type (ordered implies equatable); variables using it follow. Works on a draft. */
+function setSymbolicType(d: Draft, name: string, t: SymbolicType) {
+  const s = { ordered: t.ordered, equatable: t.equatable || t.ordered }
+  ;(d.symbolicTypes ??= {})[name] = s
+  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.symbolicType === name) Object.assign(it, s)
+}
+export const defineSymbolicType = (p: Project, name: string, t: SymbolicType): Project => produce(p, (d) => setSymbolicType(d, name, t))
+export const renameSymbolicType = (p: Project, from: string, to: string): Project => {
+  if (!to || to === from || !p.symbolicTypes?.[from] || p.symbolicTypes[to]) return p
+  return produce(p, (d) => {
+    d.symbolicTypes![to] = d.symbolicTypes![from]
+    delete d.symbolicTypes![from]
+    for (const it of Object.values(d.items)) {
+      if (it.kind === 'variable' && it.symbolicType === from) it.symbolicType = to
+      if (it.kind === 'ca' || it.kind === 'operation') for (const x of it.params) if ('symbolicType' in x && x.symbolicType === from) x.symbolicType = to
+    }
+  })
+}
+/** Remove a symbolic type; its variables keep their properties as their own. */
+export const deleteSymbolicType = (p: Project, name: string): Project =>
+  produce(p, (d) => {
+    delete d.symbolicTypes?.[name]
+    for (const it of Object.values(d.items)) {
+      if (it.kind === 'variable' && it.symbolicType === name) it.symbolicType = ''
+      if (it.kind === 'ca') for (const x of it.params) if (x.symbolicType === name) x.symbolicType = ''
+    }
+  })
 
 /** Create or change a named enum type; variables using it follow. Works on a draft. */
 function setEnumType(d: Draft, name: string, states: string[]) {

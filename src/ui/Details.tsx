@@ -11,7 +11,7 @@ import { type Effect, type Project, type ArgCondition, type OpParam, type Param,
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, SymbolicPicker, SymbolicProps, SymbolicTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -235,6 +235,11 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.type === 'range' && <RangeFields v={it} />}
+          {it.type === 'symbolic' && (
+            <Field label="Symbolic type" hint="Opaque values, written as symbols (t1, id7) in traces. Equatable: is / is not; ordered: also less / greater (natural order of the symbols). Compare with another variable of the same type, or a symbol.">
+              <SymbolicPicker x={it} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
+            </Field>
+          )}
         </>
       )
     }
@@ -577,10 +582,11 @@ const rangeSum = (t: { min: number | null; max: number | null; unit: string }) =
 /** One select for a parameter's datatype: number / true-false / own choice, the project's named range and enum types, or a new type. */
 function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
-  const [creating, setCreating] = useState<'range' | 'enum' | null>(null)
-  const value = x.type === 'boolean' ? 'boolean' : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
+  const [creating, setCreating] = useState<'range' | 'enum' | 'symbolic' | null>(null)
+  const value = x.type === 'boolean' ? 'boolean' : x.type === 'symbolic' ? (x.symbolicType ? 's:' + x.symbolicType : 'symbolic') : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
   const pick = (v: string) => {
-    if (v === 'new-range' || v === 'new-enum') return setCreating(v === 'new-range' ? 'range' : 'enum')
+    if (v === 'new-range' || v === 'new-enum' || v === 'new-symbolic') return setCreating(v.slice(4) as 'range' | 'enum' | 'symbolic')
+    if (v === 'symbolic' || v.startsWith('s:')) return onChange({ type: 'symbolic', rangeType: '', enumType: '', symbolicType: v.slice(2) })
     onChange(v === 'boolean' ? { type: 'boolean', rangeType: '', enumType: '' } : v === 'range' ? { type: 'range', rangeType: '', enumType: '' } : v === 'enum' ? { type: 'enum', rangeType: '', enumType: '' } : v.startsWith('r:') ? { type: 'range', rangeType: v.slice(2), enumType: '' } : { type: 'enum', enumType: v.slice(2), rangeType: '' })
   }
   return (
@@ -589,22 +595,27 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
         <option value="range">Number</option>
         <option value="boolean">True / false</option>
         <option value="enum">Choice of states</option>
+        <option value="symbolic">Symbol (opaque value)</option>
         {Object.keys(p.rangeTypes ?? {}).sort().map((n) => <option key={'r' + n} value={'r:' + n}>{n} ({rangeSum(p.rangeTypes![n])})</option>)}
         {Object.keys(p.enumTypes ?? {}).sort().map((n) => <option key={'e' + n} value={'e:' + n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
         <option value="new-range">New number type…</option>
+        {Object.keys(p.symbolicTypes ?? {}).sort().map((n) => <option key={'s' + n} value={'s:' + n}>{n} (symbolic)</option>)}
         <option value="new-enum">New choice type…</option>
+        <option value="new-symbolic">New symbolic type…</option>
       </Select>
       {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'range', rangeType: n, enumType: '' })} />}
+      {creating === 'symbolic' && <SymbolicTypeDialog init={{ ordered: !!x.ordered, equatable: x.equatable ?? true }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'symbolic', symbolicType: n, rangeType: '', enumType: '' })} />}
       {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'enum', enumType: n, rangeType: '' })} />}
     </>
   )
 }
 
-const ownType = (x: ParamData) => (x.type === 'enum' && !x.enumType) || (x.type === 'range' && !x.rangeType)
+const ownType = (x: ParamData) => (x.type === 'enum' && !x.enumType) || (x.type === 'range' && !x.rangeType) || (x.type === 'symbolic' && !x.symbolicType)
 
 /** Fields for a parameter with its own bounds or states (named types are edited in Domain model → Types). */
 function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   if (x.type === 'enum' && !x.enumType) return <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />
+  if (x.type === 'symbolic' && !x.symbolicType) return <SymbolicProps t={{ ordered: !!x.ordered, equatable: x.equatable ?? true }} onChange={onChange} />
   if (x.type === 'range' && !x.rangeType) return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
       <span className="muted">min</span><span style={{ width: 80 }}><NumberInput value={x.min} onChange={(min) => onChange({ min })} /></span>
@@ -659,7 +670,7 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
               ? <span className="setpick"><span className="brace">{'{'}</span>{(pv?.states ?? []).map((s) => <button type="button" key={s} className={'opt' + (a.set?.includes(s) ? ' on' : '')} onClick={() => upd(i, { set: toggled(a.set ?? [], s) })}>{a.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span></span>
               : values
                 ? <Select value={a.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
-                : <input className="time-amount" type="number" placeholder="value…" value={a.state} onChange={(e) => upd(i, { state: e.target.value })} />}
+                : <input className="time-amount" type={pv?.type === 'symbolic' ? 'text' : 'number'} placeholder={pv?.type === 'symbolic' ? 'symbol…' : 'value…'} value={a.state} onChange={(e) => upd(i, { state: e.target.value })} />}
             {isRangeOp(a.op) && <><span className="cond-word">and</span><input className="time-amount" type="number" placeholder="value…" value={a.to ?? ''} onChange={(e) => upd(i, { to: e.target.value })} /></>}
             {pv?.type === 'range' && pv.unit && <span className="muted">{pv.unit}</span>}
             <button className="x" onClick={() => onChange(args.filter((_, j) => j !== i))}>×</button>
@@ -838,6 +849,8 @@ function ConditionRow({ c, onChange: change, onRemove, vars, word, scope = [] }:
         {values.map((s) => <option key={s}>{s}</option>)}
         {key === 'state' && !isRangeOp(c.op) && <option value={VAR_OPTION}>another variable…</option>}
       </Select>
+    ) : vr?.type === 'symbolic' ? (
+      <TextInput value={c[key] ?? ''} onChange={(v) => upd({ [key]: v })} placeholder="symbol, e.g. t1" />
     ) : (
       <BoundedNumber value={c[key] ?? ''} onChange={(v) => upd({ [key]: v })} min={vr?.min ?? null} max={vr?.max ?? null} step={vr ? stepOf(vr) : 1} placeholder={placeholder} />
     )
@@ -1062,7 +1075,7 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
               <span className="cond-word">becomes</span>
               {it.params.some((q) => q.data) && <Select value={ef.from ?? ''} onChange={(e) => upd(i, { from: e.target.value || undefined, state: '' })}><option value="">a fixed value</option>{it.params.filter((q) => q.data).map((q) => <option key={q.name} value={q.name}>the value of {q.name}</option>)}</Select>}
               {ef.from ? null : values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
-                : <input className="time-amount" type="number" placeholder="value…" value={ef.state} onChange={(e) => upd(i, { state: e.target.value })} />}
+                : <input className="time-amount" type={v?.kind === 'variable' && v.type === 'symbolic' ? 'text' : 'number'} placeholder={v?.kind === 'variable' && v.type === 'symbolic' ? 'symbol…' : 'value…'} value={ef.state} onChange={(e) => upd(i, { state: e.target.value })} />}
               {!ef.from && v?.kind === 'variable' && v.type === 'range' && v.unit && <span className="muted">{v.unit}</span>}
               <button className="x" onClick={() => set({ effects: it.effects.filter((_, j) => j !== i) })}>×</button>
             </div>

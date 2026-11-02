@@ -23,7 +23,7 @@ Ask the user for missing system knowledge instead of inventing it; mark assumpti
 
 ## Step 2 - Control structure
 - domain model (optional but needed for context-aware UCAs): entity (its attributes are its world variables), operation (params [{name, entity}] typed by entity/relationship, or a value parameter [{name, entity: '', data: {type, states, min, max, unit, rangeType, enumType}}]; effects [{variable, state, on = param name, from = value param whose argument becomes the value}]; a control action realizes one via its operation field, and a trace applies the effects when it occurs, to the instance named in the event args), relationship (from/to entities; a time-varying predicate R(from, to): creating one also creates its untitled boolean world variable, usable in UCA contexts and traces), variable
-  (type enum with states[], boolean, or range with min/max/unit). Keep the layers apart (layer field):
+  (type enum with states[], boolean, range with min/max/unit, or symbolic = opaque values compared with = ≠ (equatable, default) and also < ≤ > ≥ (ordered): ordered, equatable). Keep the layers apart (layer field):
   domain = actual world state (parent = entity); signal = what a feedback carries (parent = feedback, about = the world variable it observes);
   belief = the controller's process model (parent = controller node, about = the world variable it stands for); internal = controller mode/timer (parent = node).
   definition (rich text) states the meaning: the abstraction for derived world variables (moving := |speed| > 0), the interface semantics of a signal, the

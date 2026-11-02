@@ -16,7 +16,7 @@ export function serialize(p: Project): string {
       (groupKey(a) < groupKey(b) ? -1 : groupKey(a) > groupKey(b) ? 1 : 0) ||
       a.rank - b.rank,
   )
-  return JSON.stringify({ app: 'hazardfox', schema: p.schema, meta: p.meta, items, ...(Object.keys(p.rangeTypes ?? {}).length ? { rangeTypes: p.rangeTypes } : {}), ...(Object.keys(p.enumTypes ?? {}).length ? { enumTypes: p.enumTypes } : {}), ...(Object.keys(p.structTypes ?? {}).length ? { structTypes: p.structTypes } : {}), ...(Object.keys(p.reviews ?? {}).length ? { reviews: p.reviews } : {}) }, sortKeys, 2) + '\n'
+  return JSON.stringify({ app: 'hazardfox', schema: p.schema, meta: p.meta, items, ...(Object.keys(p.rangeTypes ?? {}).length ? { rangeTypes: p.rangeTypes } : {}), ...(Object.keys(p.enumTypes ?? {}).length ? { enumTypes: p.enumTypes } : {}), ...(Object.keys(p.symbolicTypes ?? {}).length ? { symbolicTypes: p.symbolicTypes } : {}), ...(Object.keys(p.structTypes ?? {}).length ? { structTypes: p.structTypes } : {}), ...(Object.keys(p.reviews ?? {}).length ? { reviews: p.reviews } : {}) }, sortKeys, 2) + '\n'
 }
 
 export function deserialize(text: string): Project {
@@ -28,6 +28,7 @@ export function deserialize(text: string): Project {
   for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' || it.kind === 'variable' || it.kind === 'operation' ? ({ ...makeItem(it.kind), ...it } as Item) : it
   if (raw.rangeTypes) p.rangeTypes = raw.rangeTypes
   if (raw.enumTypes) p.enumTypes = raw.enumTypes
+  if (raw.symbolicTypes) p.symbolicTypes = raw.symbolicTypes
   if (raw.structTypes) p.structTypes = raw.structTypes
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
   return nameAllInstances(p)

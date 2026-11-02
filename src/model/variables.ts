@@ -9,16 +9,29 @@ export const isRangeOp = (op: ConditionOp) => op === 'between' || op === 'not be
 export const isSetOp = (op: ConditionOp) => op === 'in' || op === 'not in'
 
 /** Operators that make sense for the variable's type. */
-export const opsFor = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? RANGE_OPS : v?.type === 'boolean' ? ['=', '≠'] : ENUM_OPS)
+export const opsFor = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? RANGE_OPS : v?.type === 'boolean' ? ['=', '≠'] : v?.type === 'symbolic' ? symbolicOps(v) : ENUM_OPS)
+
+export const isSymbolic = (v: Variable | undefined) => v?.type === 'symbolic'
+/** Operators of a symbolic type: none when not equatable, = / ≠ when equatable, plus the order operators when ordered. */
+const symbolicOps = (v: Variable): readonly ConditionOp[] => (v.ordered ? ['=', '≠', '<', '≤', '>', '≥'] : v.equatable ? ['=', '≠'] : [])
+const NATURAL = new Intl.Collator(undefined, { numeric: true })
+/** Order of two symbolic constants: natural order of the symbols (t2 < t10). */
+export const compareSymbols = (a: string, b: string) => NATURAL.compare(a, b)
+const SYM = /^(.*?)(\d+)$/
+/** A symbol that sorts after `s` (t3 → t4). */
+export const symbolAfter = (s: string) => { const m = SYM.exec(s); return m ? m[1] + (Number(m[2]) + 1) : s + '1' }
+/** A symbol that sorts before `s` (t3 → t2; '' when there is none to name). */
+export const symbolBefore = (s: string) => { const m = SYM.exec(s); return m && Number(m[2]) > 0 ? m[1] + (Number(m[2]) - 1) : '' }
 
 /** Values a condition on this variable may compare with, or null when free numeric input. */
-export const valuesOf = (v: Variable | undefined): string[] | null => (v?.type === 'boolean' ? ['true', 'false'] : v?.type === 'range' ? null : v?.states ?? [])
+export const valuesOf = (v: Variable | undefined): string[] | null => (v?.type === 'boolean' ? ['true', 'false'] : v?.type === 'range' || v?.type === 'symbolic' ? null : v?.states ?? [])
 
 const num = (n: number) => String(n)
 
 /** "running | stopped", "true | false" or "0–100 %". */
 export function describeStates(v: Variable): string {
   if (v.type === 'boolean') return 'true | false'
+  if (v.type === 'symbolic') return `${v.symbolicType || 'symbolic'} (${v.ordered ? 'ordered' : v.equatable ? 'equatable' : 'opaque'})`
   if (v.type !== 'range') return v.states.join(' | ')
   const u = v.unit ? ' ' + v.unit : ''
   if (v.min !== null && v.max !== null) return `${num(v.min)}–${num(v.max)}${u}`
@@ -58,7 +71,7 @@ export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY
 /** A condition comparing the variable with another variable instead of a constant. */
 export const isVarCmp = (c: Condition) => !!c.other
 /** Operators for comparing two variables. */
-export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : ['=', '≠'])
+export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : v?.type === 'symbolic' ? symbolicOps(v) : ['=', '≠'])
 
 /** Whether the condition is complete enough to appear in a sentence. */
 export const conditionComplete = (c: Condition): boolean => (isEvent(c) ? !!c.event && timeOk(c.time) : (!c.time || timeOk(c.time)) && baseComplete(c))
@@ -187,13 +200,15 @@ export function conditionError(v: Variable, c: Condition, p?: Project): string |
   if (c.other) {
     const o = p?.items[c.other]
     if (p && o?.kind !== 'variable') return 'compared variable not found'
-    if (!opsForVar(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
+    if (!opsForVar(v).includes(c.op)) return v.type === 'symbolic' && !v.equatable ? `${v.title} values cannot be compared` : `operator ${c.op} does not apply to ${v.type} variables`
     if (o?.kind === 'variable' && o.type !== v.type) return `cannot compare ${v.type} ${v.title} with ${o.type} ${o.title}`
     if (o?.kind === 'variable' && v.type === 'range' && v.unit && o.unit && v.unit !== o.unit) return `units differ (${v.unit} vs ${o.unit})`
+    if (o?.kind === 'variable' && v.type === 'symbolic' && v.symbolicType !== o.symbolicType) return `${v.title} (${v.symbolicType || 'untyped'}) and ${o.title} (${o.symbolicType || 'untyped'}) are of different symbolic types`
     if (o?.kind === 'variable' && v.type === 'enum' && !v.states.some((s) => o.states.includes(s))) return `${v.title} and ${o.title} share no states`
     return null
   }
-  if (!opsFor(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
+  if (!opsFor(v).includes(c.op)) return v.type === 'symbolic' && !v.equatable ? `${v.title} values cannot be compared` : `operator ${c.op} does not apply to ${v.type} variables`
+  if (v.type === 'symbolic') return c.state.trim() === '' ? 'a symbol is required' : null
   const vals = valuesOf(v)
   if (isSetOp(c.op)) { const bad = (c.set ?? []).find((x) => !vals?.includes(x)); return bad === undefined ? null : `"${bad}" is not one of ${(vals ?? []).join(', ')}` }
   if (vals) return !vals.length || vals.includes(c.state) ? null : `"${c.state}" is not one of ${vals.join(', ')}`

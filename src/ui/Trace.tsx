@@ -190,6 +190,7 @@ function ValueInput({ v, value, carried, onChange }: { v: Variable; value: strin
       {vals.map((x) => <option key={x}>{x}</option>)}
     </Select>
   )
+  if (v.type === 'symbolic') return <input type="text" value={value} placeholder={carried !== undefined ? `↳ ${carried}` : 'symbol, e.g. t1'} onChange={(e) => onChange(e.target.value)} />
   return <input type="number" value={value} step={stepOf(v)} min={v.min ?? undefined} max={v.max ?? undefined} placeholder={carried !== undefined ? `↳ ${carried}` : '—'} onChange={(e) => onChange(e.target.value)} />
 }
 

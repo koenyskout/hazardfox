@@ -1,7 +1,7 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { condKey, instName, instName2, isGroup, laneText, quantOf, stepOf, valuesOf } from './variables'
+import { condKey, instName, instName2, isGroup, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
 import type { Condition, Id, Project, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
@@ -23,8 +23,8 @@ export function consistent(p: Project, cs: Condition[]): boolean {
     const v = p.items[id.split('\u0000').pop()!]
     if (v?.kind !== 'variable') continue
     const d = stepOf(v) / 10
-    const cand = valuesOf(v) ?? [v.min, v.max, ...group.flatMap((c) => [c.state, c.to ?? ''].filter(Boolean).map(Number).flatMap((x) => [x - d, x, x + d]))]
-      .filter((x): x is number => x !== null && Number.isFinite(x)).map(String)
+    const cand = valuesOf(v) ?? (v.type === 'symbolic' ? group.flatMap((c) => (c.state ? [symbolBefore(c.state), c.state, symbolAfter(c.state)] : [])).filter(Boolean) : [v.min, v.max, ...group.flatMap((c) => [c.state, c.to ?? ''].filter(Boolean).map(Number).flatMap((x) => [x - d, x, x + d]))]
+      .filter((x): x is number => x !== null && Number.isFinite(x)).map(String))
     if (!cand.some((x) => group.every((c) => holds(v, c, x) !== false))) return false
   }
   return true
