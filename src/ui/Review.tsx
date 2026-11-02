@@ -38,7 +38,7 @@ function Settings({ value, onChange }: { value: LlmSettings; onChange: (s: LlmSe
         ) : <input value={value.model} onChange={(e) => set({ model: e.target.value })} />}
       </label>
       <label>Writer model <input value={value.writer} onChange={(e) => set({ writer: e.target.value })} title="The model that drafts better wordings. The decision model then checks each draft." /></label>
-      <span className={'llm-status ' + (models ? 'ok' : 'bad')}>
+      <span className={'llm-status ' + (models ? 'ok' : err ? 'bad' : 'wait')}>
         <Icon name={models ? 'check' : 'warn'} /> {models ? `connected · ${models.length} model${models.length === 1 ? '' : 's'}` : err ? 'not reachable' : 'checking…'}
       </span>
       {err && <p className="hint">Could not reach Ollama. Start it with <code>ollama serve</code>. If the browser blocks the request, allow this page with <code>OLLAMA_ORIGINS={location.origin}</code>. Nothing leaves your computer.</p>}
@@ -269,10 +269,10 @@ export function AiStatus() {
     <div className="toolbar">
       <Icon name="sparkle" /> <b>AI review</b>
       <span className="hint">{done} of {total} items reviewed{busy ? ' (running…)' : ''}{error ? ` – ${error}` : ''}</span>
-      {done < total && !busy && <button onClick={run}>Review now</button>}
+      {(done < total || error) && !busy && <button onClick={run}>{error ? 'Retry' : 'Review now'}</button>}
       {busy && <button onClick={() => ac.current?.abort()}><Icon name="x" /> Stop</button>}
-      <AutoReviewToggle />
       <CriteriaButton />
+      <span className="hint">Automatic review: switch in the header.</span>
     </div>
   )
 }
