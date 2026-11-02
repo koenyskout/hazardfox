@@ -163,14 +163,14 @@ function Diagram() {
           for (const i of Object.values(q.items)) if ((i.kind === 'node' && i.nudge) || ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift))) n = updateItem(n, i.id, i.kind === 'node' ? { nudge: null } : { bend: null, labelShift: null })
           return n
         })}>Reset manual positions</button>
-        <button disabled={!hasBends} title="Discard manually dragged arrows and labels; re-route arrows automatically" onClick={() => commit((q) => {
+        <button disabled={!hasBends} title="Reset arrows and labels you moved by hand to their automatic positions" onClick={() => commit((q) => {
           let n = q
           for (const i of Object.values(q.items)) if ((i.kind === 'ca' || i.kind === 'feedback') && (i.bend || i.labelShift)) n = updateItem(n, i.id, { bend: null, labelShift: null })
           return n
         })}>Auto-arrange arrows</button>
         <button title="Show or hide the sensors and actuators drawn on the arrows" onClick={toggleDevices}>{devices ? 'Hide' : 'Show'} sensors/actuators</button>
         <button onClick={async () => { const s = await structureSvg(p); if (s) download('control-structure.svg', s.svg, 'image/svg+xml') }}>Export SVG</button>
-        <span className="hint">Select + Delete to remove · drag elements, arrows or labels to move them · wheel to zoom · drag background to pan</span>
+        <span className="hint">Select an element and press Delete to remove it · drag elements, arrows or labels to move them · scroll to zoom · drag the background to pan</span>
       </div>
       <div className="canvas" ref={box} onMouseDown={(e) => down(e, 'pan')} onMouseMove={move} onMouseUp={up} onMouseLeave={up} onWheel={wheel}>
         {err && <div className="empty">{err}</div>}

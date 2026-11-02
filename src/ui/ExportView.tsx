@@ -40,7 +40,7 @@ export function ExportView() {
           <button disabled={!!busy} onClick={() => run('json', () => saveProject(true))}>Project file (.json)</button>
         </div>
         {err && <p className="err">{err}</p>}
-        <p className="hint">Labels in exports are the current auto-numbered IDs, so a re-export always reflects the latest numbering.</p>
+        <p className="hint">Items are numbered as in the app (H-1, UCA-2, …), so a new export always shows the current numbers.</p>
       </div>
     </div>
   )

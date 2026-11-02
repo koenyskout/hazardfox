@@ -66,8 +66,8 @@ export function DomainDiagram() {
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig])
-  if (err) return <p className="empty">Layout failed: {err}</p>
-  if (!layout) return <p className="empty">Laying out…</p>
+  if (err) return <p className="empty">Could not draw the diagram: {err}</p>
+  if (!layout) return <p className="empty">Drawing the diagram…</p>
   if (!layout.boxes.length) return <p className="empty">Add entities to see the domain model diagram.</p>
   const { row, head, pad } = DOM
   const fit = Math.min(1, Math.max(0.1, (avail - 2) / layout.width))
@@ -81,7 +81,7 @@ export function DomainDiagram() {
         <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')}>Fit</button>
         <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>100%</button>
         <span className="muted">{Math.round(scale * 100)}%</span>
-        <span className="hint">Attributes are world variables; lines are relationships; dashed arrows lead to the parent entity. Click to select.</span>
+        <span className="hint">Attributes are the entity’s world variables; lines are relationships; dashed arrows point to the parent entity. Click an element to select it.</span>
       </div>
       <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width={layout.width * scale} height={layout.height * scale} viewBox={`0 0 ${layout.width} ${layout.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width * scale, height: layout.height * scale }} onMouseDown={() => select(null)}>

@@ -113,7 +113,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       const eff = effectiveLosses(p, it.id)
       return (
         <>
-          <Field label="Leads to losses" hint={inh.length ? 'Inherited from parent (greyed) can be switched off.' : undefined}>
+          <Field label="Leads to losses" hint={inh.length ? 'Losses inherited from the parent hazard are greyed; you can switch them off.' : undefined}>
             {inh.length > 0 && (
               <div className="reflist inherited">
                 {inh.map((l) => (
@@ -128,14 +128,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             )}
             <RefList value={it.lossLinks} options={of('loss').filter((l) => !eff.includes(l.id) || it.lossLinks.includes(l.id))} onChange={(v) => set({ lossLinks: v })} />
           </Field>
-          <Field label="System / environment state" hint="World variables whose values (together with worst-case environment) make this a hazard.">
+          <Field label="System / environment state" hint="World variables whose values, in the worst-case environment, make this a hazard.">
             <RefList value={it.variables} options={of('variable').filter((v) => v.layer === 'domain')} onChange={(v) => set({ variables: v })} />
           </Field>
-          <Field label="Hazardous condition" hint="Logical definition over world variables; the hazard is the state in which all of these hold.">
+          <Field label="Hazardous condition" hint="Conditions on world variables; the hazard is the state in which all of them hold.">
             <HazardCondition it={it} set={set} />
           </Field>
           <label className="check"><input type="checkbox" checked={it.security} onChange={(e) => set({ security: e.target.checked })} /> Security-related (STPA-Sec)</label>
-          {!isLeaf(p, it.id) && <p className="hint">Parent hazard: UCAs and constraints link to its sub-hazards.</p>}
+          {!isLeaf(p, it.id) && <p className="hint">This hazard has sub-hazards. Link UCAs and constraints to the sub-hazards instead.</p>}
         </>
       )
     }
@@ -161,14 +161,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
-          <Field single label="Instances" hint="Tick when the model has several of these (e.g. trains). Conditions on its attributes then read 'some / every / no instance'; with one instance nothing changes.">
+          <Field single label="Instances" hint="Tick if the system contains several of these (e.g. trains). Conditions on its attributes can then say ‘some’, ‘every’ or ‘no’ instance.">
             <label className="check"><input type="checkbox" checked={!!it.many} onChange={(e) => set({ many: e.target.checked || undefined })} /> several instances</label>
           </Field>
-          <Field single label="Attributes" hint="The entity's world variables: its state that can change over time.">
+          <Field single label="Attributes" hint="The properties of this entity that can change over time (its world variables).">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />
           </Field>
-          <Field single label="Operations" hint="What the entity can do or undergo. An operation may have effects on world variables; a control action can realize it (optional).">
+          <Field single label="Operations" hint="Things this entity can do, or that can happen to it. An operation can change world variables, and a control action can carry it out. Optional.">
             <div className="reflist">
               {operationsOf(p, it.id).map((o) => <Ref key={o.id} id={o.id} />)}
               <button className="link" onClick={() => addItemInDialog('operation', { params: [{ name: it.title.trim().split(/\s+/).pop()!.toLowerCase() || 'x', entity: it.id }] })}>+ new operation</button>
@@ -179,10 +179,10 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'operation':
       return (
         <>
-          <Field single label="Parameters" hint="What the operation acts on, e.g. gate: Gate. An event on the operation in a trace names an instance for each parameter.">
+          <Field single label="Parameters" hint="What the operation acts on, e.g. gate: Gate. When the operation occurs in a trace, you choose which instance each parameter refers to.">
             <OpParamsSummary p={p} it={it} set={set} />
           </Field>
-          <Field single label="Effects" hint="World variables that have a given value after the operation. In a trace they are applied when the operation (or a control action realizing it) occurs. Optional.">
+          <Field single label="Effects" hint="World variables that get a given value after the operation. In a trace they change when the operation (or a control action that carries it out) occurs. Optional.">
             <EffectsSummary p={p} it={it} set={set} />
           </Field>
           <Field label="Realized by"><div className="reflist">{of('ca').filter((c) => c.operation === it.id).map((c) => <Ref key={c.id} id={c.id} />)}{!of('ca').some((c) => c.operation === it.id) && <span className="muted">no control action</span>}</div></Field>
@@ -212,16 +212,16 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.layer === 'domain' && (
-            <Field label="Definition" hint="Optional: how this variable is defined, e.g. derived from other @variables (refinement).">
+            <Field label="Definition" hint="Optional: what this variable means, e.g. how it follows from other variables (type @ to refer to one).">
               <RichText value={it.definition} onChange={(v) => set({ definition: v }, 'definition')} rows={2} />
             </Field>
           )}
           {it.layer === 'domain' && (
-            <Field label="Computed from parts" hint="Refinement: the value follows from lower-level world variables. Rules are tried in order; the first that holds gives the value.">
+            <Field label="Computed from parts" hint="The value follows from more detailed world variables. Rules are checked in order; the first one that holds decides the value.">
               <RulesSummary it={it} set={set} />
             </Field>
           )}
-          {it.struct && <p className="hint">Field <b>{it.struct.path}</b> of struct type <b>{it.struct.type}</b> (instance {it.struct.name}): it follows the type, so change its type, states and title there (Domain model → Types).</p>}
+          {it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
           <VariableLinks v={it} />
           <Field single label="Type">
             <Select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
@@ -229,14 +229,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Select>
           </Field>
           {it.type === 'enum' && (
-            <Field label="States" hint="Named values. Enter adds a state. Pick a shared type to reuse a state list across variables.">
+            <Field label="States" hint="The values this variable can take. Press Enter to add one. Pick a shared type to reuse the same list for several variables.">
               <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
               <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
             </Field>
           )}
           {it.type === 'range' && <RangeFields v={it} />}
           {it.type === 'symbolic' && (
-            <Field label="Symbolic type" hint="Opaque values, written as symbols (t1, id7) in traces. Equatable: is / is not; ordered: also less / greater (natural order of the symbols). Compare with another variable of the same type, or a symbol.">
+            <Field label="Symbolic type" hint="Values without further meaning, written as symbols such as t1 or id7 in traces. They can always be compared with ‘is’ / ‘is not’; if ordered, also with ‘less than’ / ‘greater than’. Compare with a symbol or with another variable of the same type.">
               <SymbolicPicker x={it} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
             </Field>
           )}
@@ -257,7 +257,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
             <div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div>
           </div>
-          <Field single label="Variables" hint="These describe the link as a whole. If an end has several instances (entity ticked 'several instances', or cardinality *), conditions on these read 'some / every / no link'. Whether the relationship holds is implied (a boolean variable usable in contexts, beliefs and traces). Add further state of the link itself here, e.g. the distance between the two entities.">
+          <Field single label="Variables" hint="Properties of the link as a whole, e.g. the distance between the two entities. Whether the relationship holds at all is already available as a yes/no variable in contexts, beliefs and traces. If an end has several instances, conditions can say ‘some’, ‘every’ or ‘no’ link.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />
           </Field>
@@ -269,14 +269,14 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Role">
             <Select value={it.role} onChange={(e) => set({ role: e.target.value as NodeRole })}>{NODE_ROLES.map((r) => <option key={r}>{r}</option>)}</Select>
           </Field>
-          <Field label="Domain entities" hint="The domain entities this element represents; a physical process may comprise several."><RefList value={it.entities} options={of('entity')} onChange={(v) => set({ entities: v })} /></Field>
+          <Field label="Domain entities" hint="The domain entities this element stands for. A physical process may involve several."><RefList value={it.entities} options={of('entity')} onChange={(v) => set({ entities: v })} /></Field>
           {it.role === 'controller' && (
             <>
-              <Field label="Process model (beliefs)" hint="What this controller believes about the world. Fed by signals on its incoming feedback.">
+              <Field label="Process model (beliefs)" hint="What this controller believes about the world. Beliefs are updated by the signals on its incoming feedback.">
                 <OwnedVars vars={beliefsOf(p, it.id)} add="+ belief about…" options={of('variable').filter((v) => v.layer === 'domain' && !beliefsAbout(p, it.id, v.id).length)} onAdd={(w) => commit((q) => addBelief(q, it.id, w).project)} />
               </Field>
               <Field single label="Variable editor" hint="Edit beliefs, signals and internal state of this controller in one table."><ControllerEditorButton id={it.id} /></Field>
-              <Field label="Internal state" hint="Modes, timers and counters of the control algorithm itself.">
+              <Field label="Internal state" hint="The controller’s own state: modes, timers and counters.">
                 <OwnedVars vars={variablesIn(p, 'internal', it.id)} add="+ new internal variable" onNew={() => addItemInDialog('variable', { layer: 'internal', parent: it.id })} />
               </Field>
             </>
@@ -304,12 +304,12 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           {it.kind === 'feedback' && (
-            <Field label="Signals" hint="What this feedback reports, each about a world variable. Adding one also gives the receiving controller a belief.">
+            <Field label="Signals" hint="What this feedback reports, each about a world variable. The receiving controller automatically gets a matching belief.">
               <OwnedVars vars={signalsOf(p, it.id)} add="+ reports on…" options={of('variable').filter((v) => v.layer === 'domain' && !signalsOf(p, it.id).some((x) => x.about === v.id))} onAdd={(w) => commit((q) => addSignal(q, it.id, w).project)} />
             </Field>
           )}
           {it.kind === 'ca' && (
-            <Field label="Affects (controlled variables)" hint="Variables this action changes: world variables, or the internal state and beliefs of the receiving controller.">
+            <Field label="Affects (controlled variables)" hint="Variables this action changes: world variables, or the internal state and beliefs of the controller that receives the action.">
               <RefList value={it.affects} options={[...of('variable').filter((v) => v.layer === 'domain'), ...affectable(p, it.to)]} onChange={(v) => set({ affects: v })} />
             </Field>
           )}
@@ -327,7 +327,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <Select value={it.duration} onChange={(e) => set({ duration: e.target.value as Duration })}>{DURATIONS.map((d) => <option key={d} value={d}>{DURATION_LABELS[d]}</option>)}</Select>
             </Field>
           )}
-          {it.kind === 'ca' && <Field label="Parameters" hint="Typed values the action carries (e.g. a dose); UCAs can constrain them. Optional."><ParamsSummary params={it.params} onChange={(params) => set({ params })} /></Field>}
+          {it.kind === 'ca' && <Field label="Parameters" hint="Values the action carries (e.g. a dose); UCAs can refer to them. Optional."><ParamsSummary params={it.params} onChange={(params) => set({ params })} /></Field>}
           {it.kind === 'ca' && (
             <Field label="Guide words not applicable">
               {GUIDE_WORDS.filter((g) => guideApplies(it, g)).map((g) => {
@@ -357,7 +357,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <ContextSummary it={it} set={set} />
           </Field>
           {p.items[it.ca]?.kind === 'ca' && (p.items[it.ca] as ItemOf<'ca'>).params.length > 0 && <Field label="Parameters"><ArgsSummary ca={p.items[it.ca] as ItemOf<'ca'>} uca={it} onChange={(args) => set({ args })} /></Field>}
-          <Field single label="Statement" hint="Generated from the above; type to override, clear to regenerate.">
+          <Field single label="Statement" hint="Written automatically from the fields above. Type to replace it; clear the text to generate it again.">
             <textarea rows={3} value={it.override || generateUcaText(p, labels, it)} onChange={(e) => set({ override: e.target.value }, 'override')} />
           </Field>
           <Field label="Hazards (leaf)">
@@ -383,7 +383,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           ) : (
             <>
               <Field label="Control action"><SingleRef value={it.ca} options={of('ca')} onChange={(v) => set({ ca: v })} /></Field>
-              <Field label="Hazards (leaf)" hint="The control action is issued but not carried out properly; which hazards can this lead to?">
+              <Field label="Hazards (leaf)" hint="The control action is issued but not carried out properly. Which hazards can this lead to?">
                 <RefList value={it.hazards} options={leafHazards(it.hazards)} onChange={(v) => set({ hazards: v })} />
               </Field>
             </>
@@ -730,8 +730,8 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
           : <ConditionRow key={i} c={w} word={i ? join : ''} scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
         <div className="rule-add">
           <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}>+ condition</button>
-          <button title="A timing condition: at least / less than a duration after a control action or feedback occurred (needs step times such as 5 s in traces)" onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}>+ timing</button>
-          <button title="A condition in words, for something not modelled as a variable; traces treat it as true / false" onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
+          <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}>+ timing</button>
+          <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}>+ in words</button>
           {<button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}>+ {g.any ? 'and' : 'or'}-group</button>}
         </div>
       </div>
@@ -917,7 +917,7 @@ function RulesSummary({ it, set }: { it: Variable; set: Set }) {
       <button type="button" onClick={() => setOpen(true)}>Edit rules…</button>
       {open && (
         <Modal title={`Compute ${it.title || 'variable'} from its parts`} onClose={() => setOpen(false)} wide>
-          <p className="muted">Rules are tried in order; the first whose condition holds gives the value.</p>
+          <p className="muted">Rules are checked in order; the first one whose condition holds decides the value.</p>
           <RulesEditor it={it} set={set} />
           <div className="modal-actions"><button className="primary" onClick={() => setOpen(false)}>Done</button></div>
         </Modal>
@@ -938,7 +938,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
   const name = <b>{it.title || 'the variable'}</b>
   return (
     <div className="rules">
-      {!it.rules.length && <p className="muted">No rules: {name} is set directly in traces.</p>}
+      {!it.rules.length && <p className="muted">No rules: {name} gets its value directly in each trace.</p>}
       {it.rules.map((r, i) => (
         <div key={i} className="rule">
           <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars}
@@ -960,12 +960,12 @@ function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   return (
     <>
       {it.refines && (
-        <Field label="Refines" hint="The higher-level UCA whose context this one states over lower-level variables.">
+        <Field label="Refines" hint="The more general UCA that this one makes more detailed, using more detailed variables in its context.">
           <SingleRef value={it.refines} options={itemsOfKind(p, 'uca').filter((u) => u.id !== it.id)} onChange={(v) => set({ refines: v })} />
         </Field>
       )}
       {(refinable.length > 0 || kids.length > 0) && (
-        <Field label="Refined into" hint="Substitutes the rules of a refined variable: one lower-level UCA per way the condition can hold.">
+        <Field label="Refined into" hint="Replaces a computed variable in the context by its rules: one more detailed UCA for each way the condition can hold.">
           <div className="reflist">
             {kids.map((u) => <Ref key={u.id} id={u.id} />)}
             {refinable.map(([c, i]) => <button key={i} className="link" onClick={() => commit((q) => refineUca(q, it.id, i).project)}>Refine on {p.items[c.variable].title}</button>)}

@@ -155,7 +155,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, empty, def
         <button disabled={ids.length < 2} onClick={() => askMerge()}><Icon name="merge" /> Merge…</button>
         <span className="sep" />
         <button disabled={ids.length < 1} className="icon-btn danger" aria-label="Delete" onClick={() => setDialog({ type: 'delete', ids })} title="Delete (Ctrl+Backspace)"><Icon name="trash" size={16} /></button>
-        <span className="hint">Enter: new · Tab/⇧Tab: indent · Alt+↑↓: move · drag to reorder</span>
+        <span className="hint">Enter: new item · Tab / ⇧Tab: indent / outdent · Alt+↑↓: move up / down · or drag to reorder</span>
       </div>
       <div className="rows">
         <div className="row head">
@@ -250,7 +250,7 @@ function SplitDialog({ id, onClose }: { id: Id; onClose: () => void }) {
       {refs.length > 0 && (
         <>
           <h4>Reassign links</h4>
-          <p className="hint">Unassigned links stay on the parent and are flagged by the validation panel.</p>
+          <p className="hint">Links you don’t assign stay on the parent; Validation will point them out.</p>
           <table className="plain">
             <tbody>
               {refs.map((r) => (

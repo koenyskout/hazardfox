@@ -38,7 +38,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
       {users > 1 && <p className="muted">Used by {users} variables; they all follow this change.</p>}
       {bad && <p className="muted">{bad}</p>}
       <div className="modal-actions">
-        {name && <button className="icon-btn danger" aria-label="Delete type" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Delete type — variables keep their current bounds as custom ones"><Icon name="trash" size={15} /></button>}
+        {name && <button className="icon-btn danger" aria-label="Delete type" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Delete type (variables keep their current bounds)"><Icon name="trash" size={15} /></button>}
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="primary" disabled={!!bad} onClick={save}>Save</button>
       </div>
@@ -123,12 +123,12 @@ function RangeTypes() {
   const [edit, setEdit] = useState<string | null | undefined>(undefined)
   const names = Object.keys(p.rangeTypes ?? {}).sort()
   return (
-    <Section title="Range types" hint="Numeric bounds and a unit, shared by range variables (e.g. Percentage 0–100 %). Bounds are per project." onNew={() => setEdit(null)}>
+    <Section title="Range types" hint="A numeric range with a unit that several variables can share (e.g. Percentage 0–100 %)." onNew={() => setEdit(null)}>
       {!names.length && <p className="empty">No range types. Create one, or give a variable its own bounds.</p>}
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head"><strong>{n}</strong><span className="type-def">{show(p.rangeTypes![n])}</span>
-            <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}><Icon name="draft" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteRangeType(q, n))} title="Delete — Variables keep their bounds"><Icon name="trash" size={15} /></button></span></div>
+            <span className="type-actions"><button className="btn" onClick={() => setEdit(n)}><Icon name="draft" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteRangeType(q, n))} title="Delete type (variables keep their bounds)"><Icon name="trash" size={15} /></button></span></div>
           <Used vars={usersOf(p.items, 'rangeType', n)} />
         </div>
       ))}
@@ -179,7 +179,7 @@ function EnumTypes() {
         <div key={n} className="type-card">
           <div className="type-head">
             <RenameInput name={n} rename={(to) => commit((q) => renameEnumType(q, n, to))} />
-            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteEnumType(q, n))} title="Delete — Variables keep their states"><Icon name="trash" size={15} /></button></span>
+            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteEnumType(q, n))} title="Delete type (variables keep their states)"><Icon name="trash" size={15} /></button></span>
           </div>
           <StringList value={p.enumTypes![n]} onChange={(v) => commit((q) => defineEnumType(q, n, v))} placeholder="State" addLabel="Add state" />
           <Used vars={usersOf(p.items, 'enumType', n)} />
@@ -241,14 +241,14 @@ function StructTypes() {
   const [creating, setCreating] = useState(false)
   const names = Object.keys(p.structTypes ?? {}).sort()
   return (
-    <Section title="Struct types" hint="Groups of fields (e.g. Position: x, y). Applying one to an entity creates a world variable per field." onNew={() => setCreating(true)}>
+    <Section title="Struct types" hint="Groups of fields (e.g. Position: x, y). Applying one to an entity adds a world variable for each field." onNew={() => setCreating(true)}>
       {creating && <NewStructDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No struct types yet.</p>}
       {names.map((n) => (
         <div key={n} className="type-card">
           <div className="type-head">
             <RenameInput name={n} rename={(to) => commit((q) => renameStructType(q, n, to))} />
-            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" title="Delete" onClick={() => commit((q) => deleteStructType(q, n))}><Icon name="trash" size={15} /></button></span>
+            <span className="type-actions"><button className="icon-btn danger" aria-label="Delete type" title="Delete type (existing variables stay)" onClick={() => commit((q) => deleteStructType(q, n))}><Icon name="trash" size={15} /></button></span>
           </div>
           <table className="grid"><tbody><StructFields self={n} fields={p.structTypes![n].fields} onChange={(fields) => commit((q) => defineStructType(q, n, { fields }))} /></tbody></table>
         </div>
@@ -363,7 +363,7 @@ function SymbolicTypes() {
   const [editing, setEditing] = useState<string | null>(null)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
   return (
-    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: no properties). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
+    <Section title="Symbolic types" hint="Types whose values have no further meaning (e.g. Timestamp: ordered; ID: no properties). Values are symbols such as t1 or id7; the properties decide which comparisons are allowed." onNew={() => setCreating(true)}>
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
       {editing && <SymbolicTypeDialog edit={editing} onClose={() => setEditing(null)} />}
@@ -373,7 +373,7 @@ function SymbolicTypes() {
             <b className="type-name" style={{ border: 'none' }}>{n}</b>
             <span className="type-actions">
               <button className="btn" onClick={() => setEditing(n)}><Icon name="draft" size={12} /> Edit</button>
-              <button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Delete — Variables keep their properties"><Icon name="trash" size={15} /></button>
+              <button className="icon-btn danger" aria-label="Delete type" onClick={() => commit((q) => deleteSymbolicType(q, n))} title="Delete type (variables keep their properties)"><Icon name="trash" size={15} /></button>
             </span>
           </div>
           <SymbolicChips t={p.symbolicTypes![n]} />

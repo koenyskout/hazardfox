@@ -14,7 +14,7 @@ export function Welcome() {
       <p className="lead">
         HazardFox is a workspace for <b>STPA</b> (System-Theoretic Process Analysis) and <b>STPA-Sec</b>, a method for
         finding how a system can get into unsafe or insecure states, and for turning that into requirements. It
-        keeps all your artifacts linked, so renumbering, tracing and export take care of themselves.
+        keeps your losses, hazards, control actions and requirements linked, so numbering, traceability and export stay up to date automatically.
       </p>
       <div className="actions">
         {hasWork && <button className="primary" onClick={() => setView('overview')}>Continue “{p.meta.name}”{fileName ? ` (${fileName})` : ''}</button>}
@@ -33,9 +33,9 @@ export function Welcome() {
 
       <h3>What HazardFox does for you</h3>
       <div className="cols">
-        <div className="card"><b>Linked artifacts</b><p className="muted">Labels like H-2.1 or UCA-3 are derived, never typed. Move or regroup items and every reference follows. Mention items in text with <code>@</code>.</p></div>
-        <div className="card"><b>Checks &amp; traceability</b><p className="muted">Validation flags missing links and gaps; the trace view follows a loss down to requirements. Optional local AI review (Ollama) comments on wording.</p></div>
-        <div className="card"><b>Local &amp; portable</b><p className="muted">No server. Your project is a single JSON file, autosaved in the browser as a safety net. Export to Word or Excel, or let an agent edit it via MCP.</p></div>
+        <div className="card"><b>Linked artifacts</b><p className="muted">Numbers like H-2.1 or UCA-3 are assigned automatically. When you move or regroup items, every reference follows. Type <code>@</code> in any text to refer to an item.</p></div>
+        <div className="card"><b>Checks &amp; traceability</b><p className="muted">Validation points out missing links and gaps, and the traceability view follows a loss down to the requirements. An optional AI review, running on your own computer (Ollama), comments on wording.</p></div>
+        <div className="card"><b>Local &amp; portable</b><p className="muted">Everything stays on your computer. Your project is a single file that you open and save yourself, and a backup copy is kept in your browser. Export to Word or Excel, or let an AI agent edit the file through MCP.</p></div>
       </div>
 
       <h3>Getting started</h3>

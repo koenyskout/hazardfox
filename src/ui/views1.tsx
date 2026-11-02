@@ -72,7 +72,7 @@ export function Step1() {
           extra={(l) => chips(itemsOfKind(p, 'hazard').filter((h) => effectiveLosses(p, h.id).includes(l.id)).map((h) => h.id))} />
       )}
       {sub === 'hazard' && (
-        <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, with worst-case environment, leads to a loss."
+        <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, together with worst-case environmental conditions, can lead to a loss."
           extra={(h) => <>{chips(effectiveLosses(p, h.id))}{whenTexts(p, h.conditions).length > 0 && <div className="muted">{renderText(labels, whenTexts(p, h.conditions).join(' and '))}</div>}{h.variables.length > 0 && <span className="muted"> · state: </span>}{chips(h.variables)}</>} />
       )}
       {sub === 'constraint' && (
@@ -165,7 +165,7 @@ export function Ucas() {
                   const na = ca.kind === 'ca' ? ca.notApplicable.find((n) => n.guide === g) : undefined
                   const toggleNa = () => commit((q) => updateItem(q, ca.id, { notApplicable: ca.kind === 'ca' ? (na ? ca.notApplicable.filter((n) => n.guide !== g) : [...ca.notApplicable, { guide: g, reason: '' }]) : [] }))
                   if (ca.kind === 'ca' && !guideApplies(ca, g) && !cell.length) return (
-                    <td key={g} className="na" title="Instantaneous control action: no duration"><span className="muted">N/A – instantaneous</span></td>
+                    <td key={g} className="na" title="Instantaneous control actions cannot be stopped too soon or applied too long"><span className="muted">N/A – instantaneous</span></td>
                   )
                   if (na && !cell.length) return (
                     <td key={g} className="na" title={na.reason}>

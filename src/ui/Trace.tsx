@@ -107,13 +107,13 @@ export function TraceEditor({ s }: { s: Scenario }) {
         <button onClick={draft} title="Generate steps from the UCA context (or the control action) and the causal factor">Draft trace</button>
         <button onClick={addStep}>+ step</button>
         <Picker options={lanePick} onPick={(id) => id && save(s, { ...t, lanes: [...t.lanes, id] })}><span className="muted">+ variable lane…</span></Picker>
-        {(instPick.length > 0 || manyVars.length > 0) && <Select value="" title="A lane for one instance of a variable with several instances (e.g. one train): its values are read by conditions that name that instance" onChange={(e) => { const x = e.target.value; if (x === '*') return; x && save(s, { ...t, lanes: [...t.lanes, x] }) }}>
+        {(instPick.length > 0 || manyVars.length > 0) && <Select value="" title="Add a row for one instance of a variable that exists several times (e.g. one particular train)" onChange={(e) => { const x = e.target.value; if (x === '*') return; x && save(s, { ...t, lanes: [...t.lanes, x] }) }}>
           <option value="">+ instance lane…</option>
           {instPick.map(({ k, label }) => <option key={k} value={k}>{label}</option>)}
         </Select>}
         {manyVars.length > 0 && <Picker options={manyVars} onPick={addCustom}><span className="muted">+ other instance…</span></Picker>}
         {wordPick.length > 0 && <Select value="" onChange={(e) => e.target.value && save(s, { ...t, lanes: [...t.lanes, e.target.value] })}><option value="">+ condition in words…</option>{wordPick.map((k) => <option key={k} value={k}>{renderText(labels, laneText(k)!)}</option>)}</Select>}
-        <span className="hint">A trace is a sequence of states: values carry forward until changed. Mismatches between a signal or belief and the world are marked red.</span>
+        <span className="hint">A trace is a sequence of steps. A value stays the same until a later step changes it. Red marks where a signal or belief differs from the actual world.</span>
       </div>
       <TraceChecks s={s} />
       {t.steps.length === 0 ? <p className="empty">No trace yet. “Draft trace” builds one from the {s.scenarioType === 'uca' ? 'UCA context and causal factor' : 'control action'}.</p> : (

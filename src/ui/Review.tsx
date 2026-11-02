@@ -37,11 +37,11 @@ function Settings({ value, onChange }: { value: LlmSettings; onChange: (s: LlmSe
           </Select>
         ) : <input value={value.model} onChange={(e) => set({ model: e.target.value })} />}
       </label>
-      <label>Writer model <input value={value.writer} onChange={(e) => set({ writer: e.target.value })} title="Generative model that drafts improvements; the decision model verifies them" /></label>
+      <label>Writer model <input value={value.writer} onChange={(e) => set({ writer: e.target.value })} title="The model that drafts better wordings. The decision model then checks each draft." /></label>
       <span className={'llm-status ' + (models ? 'ok' : 'bad')}>
         <Icon name={models ? 'check' : 'warn'} /> {models ? `connected · ${models.length} model${models.length === 1 ? '' : 's'}` : err ? 'not reachable' : 'checking…'}
       </span>
-      {err && <p className="hint">Start Ollama (<code>ollama serve</code>). If the browser blocks the request, allow this origin with <code>OLLAMA_ORIGINS={location.origin}</code>. Nothing leaves your machine.</p>}
+      {err && <p className="hint">Could not reach Ollama. Start it with <code>ollama serve</code>. If the browser blocks the request, allow this page with <code>OLLAMA_ORIGINS={location.origin}</code>. Nothing leaves your computer.</p>}
     </div>
   )
 }
@@ -162,7 +162,7 @@ export function ReviewRunner({ kind, ids, settings }: { kind: Kind; ids: Id[]; s
       <div className="toolbar">
         <button className="primary" disabled={busy || ids.length === 0} onClick={run}><Icon name="sparkle" /> Review {ids.length} {KIND_NAMES[kind].toLowerCase()}{ids.length === 1 ? '' : 's'}</button>
         {busy && <button onClick={() => ac.current?.abort()}><Icon name="x" /> Stop</button>}
-        <span className="hint">{settings.model} · flagged at ≥{Math.round(FAIL * 100)}%, fine at ≤{Math.round(PASS * 100)}%</span>
+        <span className="hint">{settings.model} · possible problem from {Math.round(FAIL * 100)}%, fine up to {Math.round(PASS * 100)}%</span>
       </div>
       {err && <p className="note-warn"><Icon name="warn" /> {err}</p>}
       {ids.filter((id) => shown(id)).map((id) => (
@@ -200,8 +200,8 @@ export function ReviewView({ embedded }: { embedded?: boolean }) {
   const items = itemsOfKind(p, kind)
   return (
     <div className={embedded ? undefined : 'page'}>
-      {!embedded && <h2>AI review <span className="hint">decision model via Ollama</span></h2>}
-      <p className="hint">For each artifact a local decision model estimates how likely it is that a common mistake from the STPA Handbook is present (e.g. a component failure in a hazard). The percentages are the model's probabilities, not verdicts – always judge them yourself. <CriteriaButton kind={kind} /></p>
+      {!embedded && <h2>AI review <span className="hint">runs on your computer via Ollama</span></h2>}
+      <p className="hint">A small AI model running on your computer estimates, for each item, how likely it is that it contains a common mistake described in the STPA Handbook (for example, a hazard that describes a component failure). The percentages are rough estimates, not verdicts: always judge for yourself. <CriteriaButton kind={kind} /></p>
       <Settings value={settings} onChange={setSettings} />
       <div className="tabs">
         {REVIEW_KINDS.map((k) => (
