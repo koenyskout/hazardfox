@@ -564,3 +564,4 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .legend { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; } .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; } .sw.red { background: var(--danger); } .sw.amber { background: #e0a030; }
 .reflist .chip, .reflist button { white-space: nowrap; }
 .llm-status.wait { color: var(--muted); }
+.types-page { gap: 8px; } .types-page h2 { margin-top: 14px; } .types-page .toolbar { padding-top: 2px; }

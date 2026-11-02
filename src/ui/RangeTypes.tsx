@@ -89,7 +89,9 @@ export function RangeDialog({ title, value, onClose, onApply }: { title: string;
 function Section({ title, hint, onNew, children }: { title: string; hint: string; onNew: () => void; children: React.ReactNode }) {
   return (
     <section className="types-section">
-      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></div>
+      <h2>{title}</h2>
+      <p className="hint">{hint}</p>
+      <div className="toolbar"><button onClick={onNew}><Icon name="plus" /> Add {title.toLowerCase().replace(/s$/, '')}</button></div>
       <div className="types-list">{children}</div>
     </section>
   )
