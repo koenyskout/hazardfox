@@ -72,7 +72,7 @@ export default function App() {
     <div className="app">
       <header>
         <b className="brand">🦊 HazardFox</b>
-        <span className="title">{p.meta.name}{dirty ? ' •' : ''} <small className="muted">{fileName ?? 'unsaved'}</small></span>
+        <span className="title" title={p.meta.name}><span className="name">{p.meta.name}{dirty ? ' •' : ''}</span><small className="muted">{fileName ?? 'not saved yet'}</small></span>
         <span className="spacer" />
         <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(newProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>

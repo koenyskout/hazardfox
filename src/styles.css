@@ -55,9 +55,12 @@ h2 { font-size: 16px; margin: 18px 0 8px; } h3 { margin: 0 0 12px; font-size: 15
 
 .app { display: grid; grid-template-columns: 218px 1fr auto; grid-template-rows: 48px 1fr; height: 100%; }
 header { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding: 0 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
-header .brand { font-size: 16px; margin-right: 14px; color: var(--accent); }
-header .title { font-weight: 600; } header .spacer { flex: 1; }
-.sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; display: inline-block; }
+header .brand { font-size: 16px; margin-right: 6px; color: var(--accent); white-space: nowrap; flex: none; }
+header .title { display: flex; flex-direction: column; min-width: 0; max-width: 260px; flex: 0 1 auto; padding-left: 14px; border-left: 1px solid var(--line); line-height: 1.25; }
+header .title .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header .title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } header .spacer { flex: 1; }
+header button, header .select { white-space: nowrap; flex: none; }
+header .select { width: 150px; }.sep { width: 1px; height: 20px; background: var(--line); margin: 0 6px; display: inline-block; }
 nav { background: var(--panel); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 nav button { border: none; background: none; text-align: left; padding: 8px 10px; border-radius: 6px; display: flex; gap: 10px; align-items: center; }
 nav button.on { background: var(--sel); color: var(--accent); font-weight: 600; }
