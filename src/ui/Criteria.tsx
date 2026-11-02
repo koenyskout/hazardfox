@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { EXAMPLES } from '../llm/handbook'
 import { CHECKS, PRIMERS, REVIEW_KINDS, WRITE_GUIDE, type Check } from '../llm/review'
-import { KIND_NAMES, type Kind } from '../model/types'
+import { KIND_NAMES, KIND_PLURALS, type Kind } from '../model/types'
 import { Icon } from './Icon'
 import { Modal } from './Modal'
 
@@ -59,7 +59,7 @@ export function CriteriaButton({ kind, label = 'Criteria & best practices' }: { 
       {open && (
         <Modal title="Review criteria & best practices" wide onClose={() => setOpen(false)}>
           <div className="tabs">
-            {REVIEW_KINDS.map((x) => <button key={x} className={k === x ? 'on' : ''} onClick={() => setK(x)}>{KIND_NAMES[x]}s</button>)}
+            {REVIEW_KINDS.map((x) => <button key={x} className={k === x ? 'on' : ''} onClick={() => setK(x)}>{KIND_PLURALS[x]}</button>)}
           </div>
           <CriteriaPanel kind={k} />
         </Modal>

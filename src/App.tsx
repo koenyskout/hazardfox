@@ -98,7 +98,7 @@ export default function App() {
       <nav>
         {NAV.map(([v, l, ic]) => (
           <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
-            <span className="ic">{ic}</span>{l}{v === 'validation' && errs > 0 && <i className="badge">{errs}</i>}
+            <span className="ic">{ic}</span>{l}{v === 'validation' && errs > 0 && <i className="badge" title="Errors and warnings">{errs}</i>}
           </button>
         ))}
       </nav>

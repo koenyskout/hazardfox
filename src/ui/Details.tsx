@@ -28,12 +28,18 @@ import { createPortal } from 'react-dom'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { SubjectPicker, type SubjectChoice } from './Subject'
-import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar, VIEW_OF } from './Fields'
+import type { View } from '../model/store'
+
+/** Kinds that may be selected in a view although they belong to another one. */
+const SHOWN_ALSO: Partial<Record<View, Kind[]>> = { ucas: ['ca'], scenarios: ['uca', 'ca'], structure: ['variable'], domain: ['node'] }
 
 export function Details() {
   const p = useProject()
   const id = useStore((s) => s.selected)
-  const it = id ? p.items[id] : null
+  const view = useStore((s) => s.view)
+  const cur = id ? p.items[id] : null
+  const it = cur && (VIEW_OF[cur.kind] === view || (SHOWN_ALSO[view] ?? []).includes(cur.kind)) ? cur : null
   if (!it) return <aside className="details"><p className="hint">Select an item to edit its details.</p></aside>
   return <aside className="details"><DetailsForm it={it} /></aside>
 }

@@ -387,6 +387,12 @@ export const KIND_NAMES: Record<Kind, string> = {
   uca: 'Unsafe control action',
   scenario: 'Loss scenario',
 }
+/** Plural of a noun phrase ("Loss" → "Losses", "Entity" → "Entities", uncountable "Feedback" stays). */
+export const pluralOf = (noun: string): string =>
+  /^feedback$/i.test(noun) ? noun : /(s|x|ch|sh)$/i.test(noun) ? noun + 'es' : /[^aeiou]y$/i.test(noun) ? noun.slice(0, -1) + 'ies' : noun + 's'
+/** "1 loss", "3 losses". */
+export const count = (n: number, noun: string): string => `${n} ${n === 1 ? noun : pluralOf(noun)}`
+export const KIND_PLURALS = Object.fromEntries((Object.keys(KIND_NAMES) as Kind[]).map((k) => [k, pluralOf(KIND_NAMES[k])])) as Record<Kind, string>
 /** All kinds, in canonical order (Step 1 → Step 4). */
 export const KINDS = Object.keys(KIND_NAMES) as Kind[]
 

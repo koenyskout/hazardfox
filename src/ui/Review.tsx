@@ -2,7 +2,7 @@ import { Select } from './Select'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { computeLabels } from '../model/labels'
 import { itemsOfKind } from '../model/tree'
-import { KIND_NAMES, type Id, type Kind, type Item } from '../model/types'
+import { KIND_NAMES, KIND_PLURALS, count, type Id, type Kind, type Item } from '../model/types'
 import { chat, decide, defaultLlm, listDecisionModels, loadLlm, saveLlm, type LlmSettings } from '../llm/ollama'
 import { CHECKS, FAIL, PASS, REVIEW_KINDS, WRITER_SYSTEM, canSuggest, cleanSuggestion, decisionRequest, suggestionPrompt, summarise, withTitle, type CheckResult, type ItemReview, type Verdict } from '../llm/review'
 import { aiFindings, aiIssues, freshReview, reviewProgress, saveReview, getAuto, reviewStale, setAutoEnabled, subscribe } from '../llm/auto'
@@ -160,7 +160,7 @@ export function ReviewRunner({ kind, ids, settings }: { kind: Kind; ids: Id[]; s
   return (
     <div className="review-run">
       <div className="toolbar">
-        <button className="primary" disabled={busy || ids.length === 0} onClick={run}><Icon name="sparkle" /> Review {ids.length} {KIND_NAMES[kind].toLowerCase()}{ids.length === 1 ? '' : 's'}</button>
+        <button className="primary" disabled={busy || ids.length === 0} onClick={run}><Icon name="sparkle" /> Review {count(ids.length, KIND_NAMES[kind].toLowerCase())}</button>
         {busy && <button onClick={() => ac.current?.abort()}><Icon name="x" /> Stop</button>}
         <span className="hint">{settings.model} · possible problem from {Math.round(FAIL * 100)}%, fine up to {Math.round(PASS * 100)}%</span>
       </div>
@@ -185,7 +185,7 @@ export function ReviewItem({ it }: { it: Item }) {
         <>
           <Settings value={settings} onChange={setSettings} />
           <ReviewRunner kind={it.kind} ids={[it.id]} settings={settings} />
-          <CriteriaButton kind={it.kind} label={`Criteria for ${KIND_NAMES[it.kind].toLowerCase()}s`} />
+          <CriteriaButton kind={it.kind} label={`Criteria for ${KIND_PLURALS[it.kind].toLowerCase()}`} />
         </>
       )}
     </div>
@@ -205,7 +205,7 @@ export function ReviewView({ embedded }: { embedded?: boolean }) {
       <Settings value={settings} onChange={setSettings} />
       <div className="tabs">
         {REVIEW_KINDS.map((k) => (
-          <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_NAMES[k]}s <i>{itemsOfKind(p, k).length}</i></button>
+          <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{KIND_PLURALS[k]} <i>{itemsOfKind(p, k).length}</i></button>
         ))}
       </div>
       <ReviewRunner kind={kind} ids={items.map((i) => i.id)} settings={settings} />

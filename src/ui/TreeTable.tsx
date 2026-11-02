@@ -13,7 +13,7 @@ import {
 import { useStore } from '../model/store'
 import { cascadeSet, linkedTo } from '../model/refs'
 import { children, descendants, flatten, isLeaf } from '../model/tree'
-import { KIND_NAMES, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
+import { KIND_NAMES, count, type Id, type Item, type ItemOf, type Kind, type Patch } from '../model/types'
 import { addItem, commit, select, toggled, useIds, useLabels, useProject } from './hooks'
 import { Modal } from './Modal'
 import { askText, showNotice } from './dialogs'
@@ -138,7 +138,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
 
   const attempt = (run: () => void) => { try { run() } catch (e) { showNotice((e as Error).message, 'Cannot do that') } }
   const askGroup = async () => {
-    const title = await askText({ title: `Group ${ids.length} ${KIND_NAMES[kind].toLowerCase()}(s) under a new parent`, label: 'Parent title', confirm: 'Group' })
+    const title = await askText({ title: `Group ${count(ids.length, KIND_NAMES[kind].toLowerCase())} under a new parent`, label: 'Parent title', confirm: 'Group' })
     if (title !== null) attempt(() => commit((q) => group(q, ids, title).project))
   }
   const askMerge = async () => {

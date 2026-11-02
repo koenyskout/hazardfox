@@ -11,7 +11,7 @@ import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
-import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
+import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_PLURALS, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
@@ -43,7 +43,7 @@ export function Overview() {
       <h2>Contents</h2>
       <div className="stats">
         {KINDS.map((k) => (
-          <div key={k} className="stat"><b>{itemsOfKind(p, k).length}</b><span>{KIND_NAMES[k]}s</span></div>
+          <div key={k} className="stat"><b>{itemsOfKind(p, k).length}</b><span>{k === 'variable' ? 'Variables (all layers)' : KIND_PLURALS[k]}</span></div>
         ))}
       </div>
       <h2>Assumptions</h2>

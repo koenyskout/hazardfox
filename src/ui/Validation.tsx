@@ -3,7 +3,7 @@ import { CHECKS } from '../llm/review'
 import { useStore } from '../model/store'
 import { computeLabels, renderText } from '../model/labels'
 import { generateUcaText } from '../model/uca'
-import { KIND_NAMES, type Id, type Kind } from '../model/types'
+import { KIND_NAMES, count as plural, type Id, type Kind } from '../model/types'
 import { RULES, SEVERITIES, validate, type RuleId, type Severity } from '../model/validate'
 import { Ref, VIEW_OF } from './Fields'
 import { addItem, commit, useProject } from './hooks'
@@ -119,7 +119,7 @@ export function Validation({ details }: { details?: boolean }) {
 
   return (
     <div className="page">
-      <h2>Validation <small className="muted">{findings.length} finding(s)</small></h2>
+      <h2>Validation <small className="muted" title="The badge in the sidebar counts errors and warnings only">{plural(findings.length, 'finding')} · {count('error') + count('warning')} errors and warnings</small></h2>
       <AiStatus />
       <div className="tabs">
         <button className={!showDetails ? 'on' : ''} onClick={() => setShowDetails(false)}>Findings</button>

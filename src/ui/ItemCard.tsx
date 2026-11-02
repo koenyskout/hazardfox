@@ -12,7 +12,7 @@ import { freshReview } from '../llm/auto'
 import { refines } from '../model/formal'
 import { isComputed } from './hooks'
 import { HoverCard } from './HoverCard'
-import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
+import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, KIND_PLURALS, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
 import { paramSummary } from '../model/params'
 import { operationsOf } from '../model/operations'
 import { describeStates } from '../model/variables'
@@ -184,7 +184,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   const linkRows = (title: string, groups: [Kind, Id[]][]) => groups.length > 0 && (
     <Section title={title}>
       {groups.map(([k, ids]) => (
-        <Row key={k} k={KIND_NAMES[k] + (ids.length > 1 ? 's' : '')}><Chips ids={ids} c={c} /></Row>
+        <Row key={k} k={ids.length > 1 ? KIND_PLURALS[k] : KIND_NAMES[k]}><Chips ids={ids} c={c} /></Row>
       ))}
     </Section>
   )
