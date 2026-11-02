@@ -4,6 +4,11 @@ import { isComputed, useProject } from './hooks'
 import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
+  equatable: <path d="M3.5 6h9M3.5 10h9" />,
+  ordered: <path d="M3.5 13V10.5M7 13V7.5M10.5 13V4.5" />,
+  unique: <><circle cx="3.5" cy="8" r="1.7" /><circle cx="12.5" cy="8" r="1.7" /><circle cx="8" cy="8" r="2" fill="currentColor" /></>,
+  monotonic: <path d="M2.5 12.5h3.2V9h3V5.5h3V3M10 1.8l1.7 1.2L10.4 4.6" />,
+  sequential: <><circle cx="3" cy="8" r="1" /><circle cx="7.5" cy="8" r="1" /><path d="M10 8h4M12 6l2 2-2 2" /></>,
   plus: <path d="M8 3v10M3 8h10" />,
   trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4" />,
   /** delete the item only: the box stays, children are lifted out */

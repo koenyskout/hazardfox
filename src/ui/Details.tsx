@@ -587,7 +587,6 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
   const p = useProject()
   const [creating, setCreating] = useState<'range' | 'enum' | 'symbolic' | null>(null)
   const value = x.type === 'boolean' ? 'boolean' : x.type === 'symbolic' ? (x.symbolicType ? 's:' + x.symbolicType : 'symbolic') : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
-  const named = !!(Object.keys(p.rangeTypes ?? {}).length || Object.keys(p.enumTypes ?? {}).length || Object.keys(p.symbolicTypes ?? {}).length)
   const pick = (v: string) => {
     if (v === 'new-range' || v === 'new-enum' || v === 'new-symbolic') return setCreating(v.slice(4) as 'range' | 'enum' | 'symbolic')
     if (v === 'symbolic' || v.startsWith('s:')) return onChange({ type: 'symbolic', rangeType: '', enumType: '', symbolicType: v.slice(2) })
@@ -595,17 +594,21 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
   }
   return (
     <>
-      <Select value={value} onChange={(e) => pick(e.target.value)}>
+      <Select value={value} onChange={(e) => pick(e.target.value)} search always={['Own definition', 'Create']}>
         <optgroup label="Own definition">
           <option value="range"><TypeLabel t="range">Range</TypeLabel></option>
           <option value="enum"><TypeLabel t="enum">Enumeration</TypeLabel></option>
           <option value="boolean"><TypeLabel t="boolean">Boolean</TypeLabel></option>
           <option value="symbolic"><TypeLabel t="symbolic">Symbolic</TypeLabel></option>
         </optgroup>
-        {named && <optgroup label="Named types">
-          {Object.keys(p.rangeTypes ?? {}).sort().map((n) => <option key={'r' + n} value={'r:' + n}><TypeLabel t="range">{n} ({rangeSum(p.rangeTypes![n])})</TypeLabel></option>)}
-          {Object.keys(p.enumTypes ?? {}).sort().map((n) => <option key={'e' + n} value={'e:' + n}><TypeLabel t="enum">{n} ({p.enumTypes![n].join(' | ')})</TypeLabel></option>)}
-          {Object.keys(p.symbolicTypes ?? {}).sort().map((n) => <option key={'s' + n} value={'s:' + n}><TypeLabel t="symbolic">{n}</TypeLabel></option>)}
+        {Object.keys(p.rangeTypes ?? {}).length > 0 && <optgroup label="Named ranges">
+          {Object.keys(p.rangeTypes!).sort().map((n) => <option key={'r' + n} value={'r:' + n}><TypeLabel t="range">{n} ({rangeSum(p.rangeTypes![n])})</TypeLabel></option>)}
+        </optgroup>}
+        {Object.keys(p.enumTypes ?? {}).length > 0 && <optgroup label="Named enumerations">
+          {Object.keys(p.enumTypes!).sort().map((n) => <option key={'e' + n} value={'e:' + n}><TypeLabel t="enum">{n} ({p.enumTypes![n].join(' | ')})</TypeLabel></option>)}
+        </optgroup>}
+        {Object.keys(p.symbolicTypes ?? {}).length > 0 && <optgroup label="Named symbolic types">
+          {Object.keys(p.symbolicTypes!).sort().map((n) => <option key={'s' + n} value={'s:' + n}><TypeLabel t="symbolic">{n}</TypeLabel></option>)}
         </optgroup>}
         <optgroup label="Create">
           <option value="new-range"><TypeLabel t="range" plus>New range type…</TypeLabel></option>

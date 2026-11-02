@@ -1,5 +1,5 @@
 import { Select } from './Select'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { StringList } from './StringList'
 import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
@@ -286,14 +286,20 @@ const PROPS: { key: 'equatable' | 'ordered' | 'unique' | 'monotonic' | 'sequenti
   { key: 'monotonic', tip: 'The value never decreases over time (timestamps, counters); implies ordered', info: 'The value never decreases over time, like a timestamp or counter. A decrease in a trace is flagged as stale data. Implies ordered.' },
   { key: 'sequential', tip: 'Each change goes to the direct successor (sequence numbers: t3 → t4); a jump is a lost value; implies ordered', info: 'Each change goes to the direct successor, like a sequence number (t3 → t4). A jump in a trace is flagged as a lost value. Implies ordered.' },
 ]
-/** The properties of a symbolic type as checkboxes; ordered implies equatable, monotonic / sequential imply ordered. */
-export function SymbolicProps({ t, onChange }: { t: SymbolicType; onChange: (t: SymbolicType) => void }) {
+/** The properties of a symbolic type as checkboxes (`detailed`: one per row with an explanation); ordered implies equatable, monotonic / sequential imply ordered. */
+export function SymbolicProps({ t, onChange, detailed }: { t: SymbolicType; onChange: (t: SymbolicType) => void; detailed?: boolean }) {
   const n = normSym(t)
   const forced = (k: string) => (k === 'equatable' && (n.ordered || n.unique)) || (k === 'ordered' && (n.monotonic || n.sequential))
   return (
-    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-      {PROPS.map(({ key, tip }) => (
-        <label key={key} className="check" title={tip}><input type="checkbox" checked={!!n[key]} disabled={forced(key)} onChange={(e) => onChange(normSym({ ...t, [key]: e.target.checked }))} /> {key}</label>
+    <div style={detailed ? { display: 'flex', flexDirection: 'column', gap: 10 } : { display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {PROPS.map(({ key, tip, info }) => (
+        <div key={key} title={tip}>
+          <label className="check" style={{ gap: 6, alignItems: 'center' }}>
+            <input type="checkbox" checked={!!n[key]} disabled={forced(key)} onChange={(e) => onChange(normSym({ ...t, [key]: e.target.checked }))} />
+            <Icon name={key} size={14} /> <b>{key}</b>
+          </label>
+          {detailed && <div className="muted" style={{ fontSize: 12, margin: '1px 0 0 24px' }}>{info}</div>}
+        </div>
       ))}
     </div>
   )
@@ -309,10 +315,7 @@ export function SymbolicTypeDialog({ init, onClose, then }: { init?: SymbolicTyp
   return (
     <Modal title="New symbolic type" onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Timestamp, ID" /></Field>
-      <Field single label="Properties"><SymbolicProps t={t} onChange={setT} /></Field>
-      <dl className="muted" style={{ margin: '4px 0 10px', fontSize: 12, display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '2px 10px' }}>
-        {PROPS.map(({ key, info }) => <Fragment key={key}><dt><b>{key}</b></dt><dd style={{ margin: 0 }}>{info}</dd></Fragment>)}
-      </dl>
+      <Field single label="Properties"><SymbolicProps detailed t={t} onChange={setT} /></Field>
       <CreateActions name={n} bad={bad} onClose={onClose} onCreate={() => { commit((q) => defineSymbolicType(q, nm, t)); then?.(nm); onClose() }} />
     </Modal>
   )

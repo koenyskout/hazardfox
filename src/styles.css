@@ -44,6 +44,8 @@ select:disabled { opacity: .55; cursor: default; }
 .select-pop li.cur::before { content: '✓'; position: absolute; left: 7px; font-size: 11px; }
 .select-pop li.grp { padding: 8px 10px 3px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); cursor: default; }
 .select-pop li.grp:not(:first-child) { border-top: 1px solid var(--line); margin-top: 4px; }
+.select-pop li.srch { position: sticky; top: -4px; padding: 4px 0 6px; margin-top: -4px; background: var(--panel); cursor: default; z-index: 1 }
+.select-pop li.srch input { width: 100%; box-sizing: border-box }
 .select-pop li.off { opacity: .45; cursor: default; }
 textarea { resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent); border-color: var(--accent); }
