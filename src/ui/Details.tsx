@@ -230,9 +230,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Select>
           </Field>
           {it.type === 'enum' && (
-            <Field label="States" hint={it.enumType ? 'Shared type: edit its states under Domain model → Types.' : 'The values this variable can take. Press Enter to add one.'}>
+            <Field label="States" hint={it.enumType ? 'Shared type: edit its states under Domain model → Types.' : 'The values this variable can take.'}>
               <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))}>
-                {!it.enumType && <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />}
+                {!it.enumType && <EditPopup title={`States of ${it.title || 'variable'}`} lines={it.states} empty="No states" button="Edit states…"><StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" /></EditPopup>}
               </EnumTypePicker>
             </Field>
           )}
