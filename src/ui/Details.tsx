@@ -623,7 +623,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
           </ul>
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
             {vk === 'boolean' ? <li className="off">true / false</li> : <>
-              {names.length > 8 && <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>}
+              <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>
               {!q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>Own definition</li>}
               {shown.length > 0 && <li className="grp">Named types</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)}>{n}{detail(vk, n)}</li>)}
