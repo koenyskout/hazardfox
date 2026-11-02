@@ -3,10 +3,10 @@ import { clusterStructs, predicateOf, structPath, variablesIn } from './formal'
 import { variableName } from './labels'
 import type { Pt } from './structure'
 import { itemsOfKind } from './tree'
-import type { Id, Labels, Project } from './types'
+import type { Id, Labels, Project, Variable } from './types'
 import { describeStates } from './variables'
 
-export interface DomainBox { id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
+export interface DomainBox { assoc?: boolean; id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
 export interface DomainEdge { id: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
@@ -17,9 +17,9 @@ const elk = new ELK()
 export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLayout> {
   const entities = itemsOfKind(p, 'entity').sort((a, b) => a.rank - b.rank)
   const boxes: Record<Id, DomainBox> = {}
-  for (const e of entities) {
+  const build = (e: { id: Id; title: string }, vars: Variable[], assoc?: boolean) => {
     const attrs: DomainBox['attrs'] = []
-    clusterStructs(variablesIn(p, 'domain', e.id)).forEach((v, i, all) => {
+    clusterStructs(vars).forEach((v, i, all) => {
       const path = structPath(v), prev = i ? structPath(all[i - 1]) : []
       let k = 0
       while (k < path.length && path[k] === prev[k]) k++
@@ -34,8 +34,11 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     const title = e.title.trim() || '(untitled)'
     const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : ''))].map((s) => s.length * DOM.charW + 2 * DOM.pad))
     const rows = attrs.length
-    boxes[e.id] = { id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + 4, head, title, attrs }
+    boxes[e.id] = { assoc, id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (attrs.length ? 8 : 0) + 4, head, title, attrs }
   }
+  for (const e of entities) build(e, variablesIn(p, 'domain', e.id))
+  const assocs = itemsOfKind(p, 'relationship').filter((r) => boxes[r.from] && boxes[r.to]).map((r) => ({ r, vars: variablesIn(p, 'domain', r.id).filter((v) => v.id !== predicateOf(p, r.id)?.id) })).filter((a) => a.vars.length)
+  for (const { r, vars } of assocs) build({ id: r.id, title: r.title.trim() || (predicateOf(p, r.id) ? variableName(p, predicateOf(p, r.id)!) : '') }, vars, true)
   const edges: ElkExtendedEdge[] = []
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}
   for (const e of entities) {
@@ -49,12 +52,19 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     if (!boxes[r.from] || !boxes[r.to]) continue
     const pred = predicateOf(p, r.id)
     const label = r.title.trim() || (pred ? variableName(p, pred) : '')
+    if (boxes[r.id]) {
+      // relationship with attributes: drawn as an association class sitting on the line, which runs entity — box — entity
+      meta['a:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: r.fromCard, toCard: '', self: false }
+      meta['b:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: '', toCard: r.toCard, self: false }
+      edges.push({ id: 'a:' + r.id, sources: [r.from], targets: [r.id] } as ElkExtendedEdge, { id: 'b:' + r.id, sources: [r.id], targets: [r.to] } as ElkExtendedEdge)
+      continue
+    }
     meta[r.id] = { id: r.id, kind: 'rel', label, fromCard: r.fromCard, toCard: r.toCard, self: r.from === r.to }
     if (r.from !== r.to) edges.push({ id: r.id, sources: [r.from], targets: [r.to] } as ElkExtendedEdge)
   }
   const graph: ElkNode = {
     id: 'root',
-    children: entities.map((e) => ({ id: e.id, width: boxes[e.id].w, height: boxes[e.id].h })),
+    children: [...entities.map((e) => e.id), ...assocs.map((a) => a.r.id)].map((id) => ({ id, width: boxes[id].w, height: boxes[id].h })),
     edges,
     layoutOptions: {
       'elk.algorithm': 'layered', 'elk.direction': 'DOWN', 'elk.edgeRouting': 'ORTHOGONAL', 'elk.spacing.nodeNode': '40',
@@ -67,7 +77,7 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   const out: DomainEdge[] = []
   for (const e of res.edges ?? []) {
     const s = (e as ElkExtendedEdge).sections?.[0]
-    if (!s) continue
+    if (!s || !meta[e.id]) continue
     const pts = [s.startPoint, ...(s.bendPoints ?? []), s.endPoint]
     out.push({ ...meta[e.id], pts: meta[e.id].kind === 'part' ? pts.reverse() : pts })
   }
