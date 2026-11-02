@@ -1,3 +1,4 @@
+import { Icon } from './ui/Icon'
 import { Select } from './ui/Select'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { fsAccess, openProject, saveProject } from './model/persist'
@@ -77,7 +78,7 @@ export default function App() {
         <span className="spacer" />
         <button onClick={async () => { if (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' }))) load(newProject(), null) }}>New</button>
         <button onClick={() => openProject().catch(() => {})}>Open</button>
-        <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}>Save</button>
+        <button onClick={() => saveProject().catch(() => {})} title={fsAccess ? 'Save in place (Ctrl+S)' : 'Download (Ctrl+S)'}><Icon name="save" size={13} /> Save</button>
         <Select value="" title="Load an example project" onChange={async (e) => { const v = e.target.value; if (v && (!dirty || (await askConfirm('Your changes have not been saved.', { title: 'Discard unsaved changes?', confirm: 'Discard' })))) load(v === 'pump' ? exampleProject() : v === 'medication' ? medicationExampleProject() : v === 'crossing' ? crossingExampleProject() : v.startsWith('pub-') ? publishedExampleProject(v) : handbookExampleProject(v), null, null, true) }}>
           <option value="">Example…</option>
           <option value="pump">Infusion pump (example)</option>

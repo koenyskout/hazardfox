@@ -8,6 +8,7 @@ const PATHS: Record<string, ReactNode> = {
   unique: <><circle cx="8" cy="8" r="6" /><path d="M6.4 6.6L8.3 5.2V10.8" /></>,
   monotonic: <path d="M2.5 12.5h3.2V9h3V5.5h3V3M10 1.8l1.7 1.2L10.4 4.6" />,
   sequential: <><circle cx="3" cy="8" r="1" /><circle cx="7.5" cy="8" r="1" /><path d="M10 8h4M12 6l2 2-2 2" /></>,
+  save: <path d="M3 2.5h8.2L13.5 4.8V13a.5.5 0 01-.5.5H3a.5.5 0 01-.5-.5V3a.5.5 0 01.5-.5zM5 2.5v3.5h5V2.5M5 13.5V9.5h6v4" />,
   plus: <path d="M8 3v10M3 8h10" />,
   trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4" />,
   /** delete the item only: the box stays, children are lifted out */

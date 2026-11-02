@@ -1,3 +1,4 @@
+import { Icon } from './Icon'
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Modal } from './Modal'
 
@@ -33,7 +34,7 @@ function TextAsk({ a }: { a: Extract<Ask, { kind: 'text' }> }) {
       </label>
       <div className="modal-actions">
         <button className="btn" onClick={() => close(null)}>Cancel</button>
-        <button className="primary" disabled={!v.trim()} onClick={() => close(v)}>{a.confirm}</button>
+        <button className="primary" disabled={!v.trim()} onClick={() => close(v)}>{a.confirm === 'Save' && <Icon name="save" size={13} />} {a.confirm}</button>
       </div>
     </Modal>
   )

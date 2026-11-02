@@ -1049,7 +1049,7 @@ function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string
       </Select>}
       {children}
       {!x.enumType && (x.states.length > 0
-        ? <div><button className="btn" onClick={save} title="Share these states with other variables">Save list as shared type…</button></div>
+        ? <div><button className="btn" onClick={save} title="Share these states with other variables"><Icon name="save" size={12} /> Save as shared type</button></div>
         : names.length === 0 && <div><button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New shared type…</button></div>)}
       {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => onChange({ enumType: n })} />}
     </div>

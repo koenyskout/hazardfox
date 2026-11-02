@@ -40,7 +40,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
       <div className="modal-actions">
         {name && <button className="icon-btn danger" aria-label="Delete type" onClick={() => { commit((q) => deleteRangeType(q, name)); onClose() }} title="Delete type (variables keep their current bounds)"><Icon name="trash" size={15} /></button>}
         <button className="btn" onClick={onClose}>Cancel</button>
-        <button className="primary" disabled={!!bad} onClick={save}>Save</button>
+        <button className="primary" disabled={!!bad} onClick={save}><Icon name="save" size={13} /> Save</button>
       </div>
     </Modal>
   )
@@ -115,7 +115,7 @@ const CreateActions = ({ name, bad, onClose, onCreate, label = 'Create' }: { nam
     {bad && name !== '' && <p className="muted">{bad}</p>}
     <div className="modal-actions">
       <button className="btn" onClick={onClose}>Cancel</button>
-      <button className="primary" disabled={!!bad} onClick={onCreate}>{label}</button>
+      <button className="primary" disabled={!!bad} onClick={onCreate}>{label === 'Save' && <Icon name="save" size={13} />} {label}</button>
     </div>
   </>
 )
