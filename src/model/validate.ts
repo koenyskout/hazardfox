@@ -28,6 +28,8 @@ export interface Issue {
 export interface Rule { title: string; why: string; fix: string }
 
 /** Explanation of every finding type: what the problem is, why it matters (STPA Handbook) and how to improve. */
+const untyped = (x: { type: string; rangeType?: string; enumType?: string; symbolicType?: string }) => (x.type === 'range' && !x.rangeType) || (x.type === 'enum' && !x.enumType) || (x.type === 'symbolic' && !x.symbolicType)
+
 export const RULES = {
   'dangling-ref': { title: 'Link to a deleted item', why: 'A link field points at an item that no longer exists, so traceability is broken.', fix: 'Open the item and choose a new target, or clear the link.' },
   'dangling-mention': { title: 'Reference to a deleted item in the text', why: 'The text contains an @-reference to an item that no longer exists, so it cannot be shown as a label.', fix: 'Edit the description or notes and remove or replace the reference.' },
@@ -46,6 +48,7 @@ export const RULES = {
   'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable .', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
   'instance-name': { title: 'Instance name not introduced or ambiguous', why: 'A condition refers to a named instance (e.g. train t1) that no condition of the context introduces, or one name stands for two different entities.', fix: 'Name the instance with “some … as t1” in one condition, then refer to it in the others.' },
   'param-name': { title: 'Parameter without a unique name', why: 'UCAs refer to a control action parameter by its name.', fix: 'Give each parameter of the control action its own name.' },
+  'param-type': { title: 'Parameter without a named type', why: 'Range, enumeration and symbolic parameters take their bounds, states or properties from a named type of the project, so they are defined once and reused.', fix: 'Pick a named type for the parameter, or create one from the type picker (Boolean parameters need none).' },
   'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
   'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
   'instance-unnamed': { title: 'Instance without a name', why: 'A condition says "some" instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
@@ -171,6 +174,12 @@ export function validate(p: Project): Issue[] {
   for (const ca of itemsOfKind(p, 'ca')) {
     const names = ca.params.map((x) => x.name.trim())
     if (names.some((n, i) => !n || names.indexOf(n) !== i)) add('warning', ca, 'param-name', `${nm(ca)}: a parameter has no name or the same name as another`)
+    const bad = ca.params.find(untyped)
+    if (bad) add('warning', ca, 'param-type', `${nm(ca)}: parameter ${bad.name || '(unnamed)'} has no named type`)
+  }
+  for (const op of itemsOfKind(p, 'operation')) {
+    const bad = op.params.find((x) => x.data && untyped(x.data))
+    if (bad) add('warning', op, 'param-type', `${nm(op)}: parameter ${bad.name || '(unnamed)'} has no named type`)
   }
   for (const u of ucas) {
     const ca = p.items[u.ca]

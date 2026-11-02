@@ -11,7 +11,7 @@ import { type Effect, type Project, type ArgCondition, type OpParam, type Param,
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, SymbolicPicker, SymbolicProps, SymbolicTypeDialog, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, SymbolicPicker, SymbolicTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -28,7 +28,7 @@ import { createPortal } from 'react-dom'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { SubjectPicker, type SubjectChoice } from './Subject'
-import { Field, ItemHover, NumberInput, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar } from './Fields'
 
 export function Details() {
   const p = useProject()
@@ -614,7 +614,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
     return (
     <>
       <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: r.left, y: r.bottom + 4 }) }}>
-        <span className="select-val"><TypeLabel t={k}>{k !== 'boolean' && curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : KIND_NAME[k]}</TypeLabel></span>
+        <span className="select-val"><TypeLabel t={k}>{k !== 'boolean' && curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : k === 'boolean' ? KIND_NAME[k] : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
       </button>
       {at && createPortal(
         <div className="select-pop" style={{ left: at.x, top: at.y, display: 'flex', gap: 4, padding: 0, width: 420, maxHeight: Math.max(200, window.innerHeight - at.y - 12) }}>
@@ -624,8 +624,8 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
             {vk === 'boolean' ? <li className="off">true / false</li> : <>
               <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>
-              {!q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>Own definition</li>}
               {shown.length > 0 && <li className="grp">Named types</li>}
+              {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)}>{n}{detail(vk, n)}</li>)}
               {q && !shown.length && <li className="off">No matches</li>}
               <li className="grp">Create</li>
@@ -640,22 +640,6 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
       {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ ...none, type: 'enum', enumType: n })} />}
     </>
   )
-}
-
-const ownType = (x: ParamData) => (x.type === 'enum' && !x.enumType) || (x.type === 'range' && !x.rangeType) || (x.type === 'symbolic' && !x.symbolicType)
-
-/** Fields for a parameter with its own bounds or states (named types are edited in Domain model → Types). */
-function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
-  if (x.type === 'enum' && !x.enumType) return <StringList value={x.states} onChange={(states) => onChange({ states })} placeholder="State" addLabel="Add state" />
-  if (x.type === 'symbolic' && !x.symbolicType) return <SymbolicProps t={symProps(x)} onChange={onChange} />
-  if (x.type === 'range' && !x.rangeType) return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <span className="muted">min</span><span style={{ width: 80 }}><NumberInput value={x.min} onChange={(min) => onChange({ min })} /></span>
-      <span className="muted">max</span><span style={{ width: 80 }}><NumberInput value={x.max} onChange={(max) => onChange({ max })} /></span>
-      <span className="muted">unit</span><span style={{ width: 90 }}><TextInput value={x.unit} onChange={(unit) => onChange({ unit })} placeholder="e.g. s, mL/h" /></span>
-    </div>
-  )
-  return null
 }
 
 /** One parameter: cells in a grid (name, type, …), remove button, and the type details underneath. */
@@ -675,8 +659,7 @@ function ParamsEditor({ params, onChange }: { params: Param[]; onChange: (p: Par
     <div className="params">
       {params.map((x, i) => (
         <ParamRow key={i} onRemove={() => onChange(params.filter((_, j) => j !== i))}
-          cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <DataTypeSelect x={x} onChange={(patch) => upd(i, patch)} />]}
-          details={ownType(x) && <ParamTypeDetails x={x} onChange={(patch) => upd(i, patch)} />} />
+          cells={[<input placeholder="name" value={x.name} onChange={(e) => upd(i, { name: e.target.value })} />, <DataTypeSelect x={x} onChange={(patch) => upd(i, patch)} />]} />
       ))}
       <div className="rule-add"><button onClick={() => onChange([...params, BLANK_PARAM])}>+ parameter</button></div>
     </div>
@@ -1080,8 +1063,7 @@ function OpParamsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; 
                 <input placeholder="name" value={x.name} onChange={(e) => { const name = e.target.value; set({ params: it.params.map((y, j) => (j === i ? { ...y, name } : y)), effects: it.effects.map((ef) => ({ ...ef, ...(ef.on === x.name ? { on: name } : {}), ...(ef.from === x.name ? { from: name } : {}) })) }) }} />,
                 <Select value={x.data ? 'value' : 'of'} onChange={(e) => upd(i, e.target.value === 'value' ? { entity: '', data: { ...BLANK_PARAM } } : { data: undefined })}><option value="of">instance of</option><option value="value">value</option></Select>,
                 x.data ? <DataTypeSelect x={x.data} onChange={setData} /> : <SingleRef value={x.entity || null} options={types} onChange={(v) => upd(i, { entity: v ?? '' })} />,
-              ]}
-              details={x.data && ownType(x.data) && <ParamTypeDetails x={x.data} onChange={setData} />} />
+              ]} />
           )
         })}
         <div className="rule-add"><button onClick={() => set({ params: [...it.params, { name: '', entity: '' }] })}>+ parameter</button></div>

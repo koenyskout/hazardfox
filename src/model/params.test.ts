@@ -49,3 +49,13 @@ describe('control action parameters', () => {
     expect((q.items[u] as Uca).args).toHaveLength(1)
   })
 })
+
+describe('parameter types', () => {
+  it('flags range, enumeration and symbolic parameters without a named type', () => {
+    const { b, ca } = setup()
+    const p = b.project
+    expect(validate(p).some((i) => i.rule === 'param-type' && i.item === ca)).toBe(true)
+    const typed = updateItem(p, ca, { params: [{ ...dose, rangeType: 'Dose' }, { ...mode, type: 'boolean' }] })
+    expect(validate({ ...typed, rangeTypes: { Dose: { min: 0, max: 10, unit: 'mg' } } }).some((i) => i.rule === 'param-type')).toBe(false)
+  })
+})
