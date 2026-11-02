@@ -1,5 +1,5 @@
 import { NAMED } from './Picker'
-import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { ChipLabel } from './Icon'
 import { createPortal } from 'react-dom'
 import {
@@ -94,7 +94,11 @@ function MentionMenu({ options }: { options: Item[] }) {
   const text = (it: Item) => it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
   const hits = useMemo(() => {
     const t = (query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
-    return options.filter((o) => { const s = `${labels[o.id]} ${text(o)} ${KIND_NAMES[o.kind]}`.toLowerCase(); return t.every((w) => s.includes(w)) }).slice(0, 40).map((o) => new ItemOption(o))
+    const found = options.filter((o) => { const s = `${labels[o.id]} ${text(o)} ${KIND_NAMES[o.kind]}`.toLowerCase(); return t.every((w) => s.includes(w)) }).slice(0, 40)
+    // variables are listed together under their owner (entity, relationship, controller, feedback), placed where the owner's first variable occurs
+    const own = (o: Item) => (o.kind === 'variable' && o.parent && p.items[o.parent] ? o.parent : '')
+    const seen = new Set<string>()
+    return found.flatMap((o) => { const g = own(o); if (!g) return [o]; if (seen.has(g)) return []; seen.add(g); return found.filter((x) => own(x) === g) }).map((o) => new ItemOption(o))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, options, labels, p])
   const trigger = useBasicTypeaheadTriggerMatch('@', { minLength: 0, maxLength: 60, punctuation: '@\\[\\]' })
@@ -119,16 +123,17 @@ function MentionMenu({ options }: { options: Item[] }) {
         anchor.current && hits.length
           ? createPortal(
               <ul className="mention-menu">
-                {hits.map((o, n) => (
-                  <li key={o.key} className={n === selectedIndex ? 'on' : ''} ref={(el) => { if (el && n === selectedIndex) el.scrollIntoView({ block: 'nearest' }) }}
+                {hits.map((o, n) => { const g = o.item.kind === 'variable' ? o.item.parent ?? '' : '', po = p.items[g], head = !!po && (n === 0 || (hits[n - 1].item.kind === 'variable' ? hits[n - 1].item.parent ?? '' : '') !== g); return (
+                  <Fragment key={o.key}>{head && <li className={'pk-group k-' + po.kind}><ChipLabel it={po} label={labels[g]} /></li>}
+                  <li className={(n === selectedIndex ? 'on' : '') + (po ? ' pk-in' : '')} ref={(el) => { if (el && n === selectedIndex) el.scrollIntoView({ block: 'nearest' }) }}
                     onMouseEnter={() => setHighlightedIndex(n)} onMouseDown={(e) => { e.preventDefault(); selectOptionAndCleanUp(o) }}>
                     <span className={'chip k-' + o.item.kind}><ChipLabel it={o.item} label={labels[o.item.id]} /></span>
                     <span className="pk-main">
                       {!NAMED.has(o.item.kind) && <span className="pk-title">{text(o.item) || <i className="muted">{KIND_NAMES[o.item.kind]}</i>}</span>}
                       <span className="pk-sub">{[mixed && KIND_NAMES[o.item.kind], summary(p, labels, o.item)].filter(Boolean).join(' · ')}</span>
                     </span>
-                  </li>
-                ))}
+                  </li></Fragment>
+                ) })}
               </ul>,
               anchor.current,
             )

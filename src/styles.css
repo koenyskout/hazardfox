@@ -472,10 +472,15 @@ table.plain td { padding: 4px 10px 4px 0; }
 .subj-back:hover { background: var(--hover); }
 .pk-more { margin-left: auto; font-size: 11px; }
 .picker-list li.pk-group { --h: 220; cursor: default; user-select: none; font-size: 11px; font-weight: 600; background: hsl(var(--h) 60% 94%); color: hsl(var(--h) 60% 28%); padding: 1px 10px; pointer-events: none; }
+.mention-menu li.pk-group { --h: 220; cursor: default; user-select: none; font-size: 11px; font-weight: 600; background: hsl(var(--h) 60% 94%); color: hsl(var(--h) 60% 28%); padding: 1px 10px; pointer-events: none; }
 .picker-list li.pk-group.k-entity { --h: 255; } .picker-list li.pk-group.k-relationship { --h: 300; }
+.mention-menu li.pk-group.k-entity { --h: 255; } .mention-menu li.pk-group.k-relationship { --h: 300; }
 @media (prefers-color-scheme: dark) { .picker-list li.pk-group { background: hsl(var(--h) 30% 22%); color: hsl(var(--h) 60% 80%); } }
+@media (prefers-color-scheme: dark) { .mention-menu li.pk-group { background: hsl(var(--h) 30% 22%); color: hsl(var(--h) 60% 80%); } }
 .picker-list li.pk-in { position: relative; padding-left: 30px; }
+.mention-menu li.pk-in { position: relative; padding-left: 30px; }
 .picker-list li.pk-in::before { content: '↳'; position: absolute; left: 14px; color: var(--muted); }
+.mention-menu li.pk-in::before { content: '↳'; position: absolute; left: 14px; color: var(--muted); }
 
 .pk-ends { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 8px 10px; align-items: start; }
 .pk-ends > div { display: flex; flex-direction: column; gap: 2px; }
