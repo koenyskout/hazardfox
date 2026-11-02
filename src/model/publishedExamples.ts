@@ -1,6 +1,7 @@
 import { projectBuilder, type Add } from './build'
 import { mention } from './refs'
 import type { Cause, Id, Patch, Project } from './types'
+import { textToWhen } from './expr'
 import { anyOf } from './variables'
 
 /**
@@ -52,6 +53,10 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       sig[vPos] = add('variable', { layer: 'signal', parent: fbOther, about: vPos, title: 'Train position', states: states(vPos), definition: 'From the platform alignment sensors.' })
       sig[vEm] = add('variable', { layer: 'signal', parent: fbOther, about: vEm, title: 'Emergency indicator', states: states(vEm) })
       for (const v of [vDoor, vWay, vPos, vMotion, vEm]) bel[v] = add('variable', { layer: 'belief', parent: ctrl, about: v, title: (b.project.items[v] as { title: string }).title, states: [...states(v), 'unknown'] })
+      const num = (title: string, unit: string, max: number) => add('variable', { title, parent: train, type: 'range', min: 0, max, unit })
+      const vSpeed = num('Train speed', 'km/h', 200), vLimit = num('Speed limit', 'km/h', 200), vBrake = num('Braking distance', 'm', 1000), vRest = num('Distance to platform end', 'm', 1000)
+      for (const v of [vSpeed, vLimit, vBrake, vRest]) sig[v] = add('variable', { layer: 'signal', parent: fbOther, about: v, title: (b.project.items[v] as { title: string }).title, type: 'range', min: 0, max: 1000, unit: (b.project.items[v] as { unit: string }).unit })
+      for (const v of [vSpeed, vLimit, vBrake, vRest]) bel[v] = add('variable', { layer: 'belief', parent: ctrl, about: v, title: (b.project.items[v] as { title: string }).title, type: 'range', min: 0, max: 1000, unit: (b.project.items[v] as { unit: string }).unit })
       add('variable', { layer: 'belief', parent: ops, about: vDoor, title: 'Door position', states: [...states(vDoor), 'unknown'] })
 
       const c = (variable: Id, state: string, op: '=' | '≠' = '=') => ({ variable, op, state })
@@ -61,6 +66,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const u4 = add('uca', { ca: open, guide: 'not-provided', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], constraint: 'Controller must open the doors when the train is stopped and an evacuation is required' })
       add('uca', { ca: open, guide: 'too-early-late', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], override: 'Open door is provided too late (more than TBD seconds) after the train stops when an evacuation is required', constraint: 'Controller must open the doors within TBD seconds after the train stops when an evacuation is required' })
       add('uca', { ca: open, guide: 'stopped-too-soon', hazards: [H3], conditions: [c(vEm, 'evacuation required')], override: 'Open door is stopped before the door is fully open while an evacuation is required', constraint: 'Controller must open the doors fully when an evacuation is required' })
+      add('uca', { ca: open, guide: 'provided', hazards: [H2], conditions: textToWhen(b.project, 'all of:\n  & Train speed > 0\n  & Distance to platform end < Braking distance + 10\n  & any of:\n    | Door position ≠ \"fully closed\"\n    | Train speed ≥ Speed limit\n    | Train speed between 5 and 15\n  & Emergency ≠ \"evacuation required\"'), constraint: 'Controller must not open the doors while the train is still braking towards the platform end' })
       const u7 = add('uca', { ca: close, guide: 'provided', hazards: [H1], conditions: [c(vWay, 'person in doorway')], constraint: 'Controller must not close the door while a person is in the doorway' })
       add('uca', { ca: close, guide: 'provided', hazards: [H3], conditions: [c(vMotion, 'stopped'), c(vEm, 'evacuation required')], constraint: 'Controller must not close the doors when the train is stopped and an evacuation is required' })
       add('uca', { ca: close, guide: 'not-provided', hazards: [H2], conditions: [c(vMotion, 'moving'), c(vDoor, 'fully closed', '≠'), c(vEm, 'no emergency')], constraint: 'Controller must close the doors before the train starts moving' })
