@@ -215,7 +215,7 @@ table.plain td { padding: 4px 10px 4px 0; }
 .reflist .picker-btn { width: auto; max-width: 160px; }
 .picker-pop { position: fixed; z-index: 1001; display: flex; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.25); overflow: hidden; }
 .picker-list { position: relative; width: 380px; display: flex; flex-direction: column; min-height: 0; }
-.picker-list input { margin: 6px 34px 6px 6px; }
+.picker-list input { width: auto; margin: 6px 34px 6px 6px; }
 .pk-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 28px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; border-radius: var(--radius); }
 .pk-close:hover { background: var(--hover); color: inherit; }
 .picker-list ul { list-style: none; margin: 0; padding: 0 0 4px; overflow-y: auto; }
@@ -415,7 +415,8 @@ table.plain td { padding: 4px 10px 4px 0; }
 .rich.compact .rich-ph { top: 4px; }
 .subj-inst { color: var(--muted); font-size: 12px; margin: 0 4px; }
 .subject-btn .subj-inst:first-child { margin-left: 0; }
-.subject-pop { width: 460px; max-width: calc(100vw - 16px); }
+.subject-pop { max-width: calc(100vw - 16px); }
+.subject-pop .picker-list { width: 460px; flex: none; }
 .cond .picker-btn.subject-btn { max-width: none; white-space: normal; text-align: left; display: inline-flex; align-items: center; flex-wrap: wrap; gap: 2px; }
 
 /* Condition rows: one grid (word | subject | operator | value | remove), one control height and font size */

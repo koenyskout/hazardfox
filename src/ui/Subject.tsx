@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom'
 import type { Variable } from '../model/types'
 import { ChipLabel } from './Icon'
 import { useLabels, useProject } from './hooks'
+import { useStore } from '../model/store'
+import { ItemCard } from './ItemCard'
+import { VIEW_OF } from './Fields'
 
 /** One way to start a condition: a variable with its instances ("every Train", "the same Train t1", …). `text` is what typing is matched against. */
 export interface SubjectChoice { key: string; variable: Variable; before?: string; after?: string; text: string; pick: () => void }
@@ -29,7 +32,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
     window.addEventListener('mousedown', down)
     return () => window.removeEventListener('mousedown', down)
   }, [at])
-  const open = () => { const r = btn.current!.getBoundingClientRect(); setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - 480)), y: r.bottom + 4 }) }
+  const open = () => { const r = btn.current!.getBoundingClientRect(); setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - (window.innerWidth >= 900 ? 860 : 480))), y: r.bottom + 4 }) }
   const words = norm(q).split(/\s+/).filter((w) => w && !STOP.has(w))
   const all = at ? choices() : []
   // Without typing the list is one row per variable; one with several instance choices opens a second list of them. Typing searches all choices at once.
@@ -47,6 +50,8 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
     ? [...byVar.values()].map((cs) => ({ key: cs[0].variable.id, choice: cs[0], more: cs.length > 1 ? cs.length : 0 })).sort((a, b) => (owner(a.choice.variable) ? 0 : 1) - (owner(b.choice.variable) ? 0 : 1) || labels[owner(a.choice.variable)]?.localeCompare(labels[owner(b.choice.variable)] ?? '') || 0)
     : (stage !== null ? inVar : all).filter((c) => { const t = norm(c.text); return words.every((w) => t.includes(w)) }).slice(0, 60).map((c) => ({ key: c.key, choice: c, more: 0 }))
   const cur = rows[Math.min(sel, rows.length - 1)]
+  const goto = useStore((s) => s.goto)
+  const wide = window.innerWidth >= 900
   const pick = (r: { choice: SubjectChoice; more: number }) => { if (r.more) { setStage(r.choice.variable.id); setQ(''); setSel(0) } else { close(); r.choice.pick() } }
   return (
     <>
@@ -88,6 +93,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
               {rows.length === 0 && !two && <li className="muted">No matches</li>}
             </ul>
           </div>
+          {wide && cur && !two && <div className="picker-card"><ItemCard it={cur.choice.variable} p={p} labels={labels} go={(t) => { close(); goto(VIEW_OF[p.items[t].kind], t) }} /></div>}
         </div>,
         document.body,
       )}
