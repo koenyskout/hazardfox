@@ -114,7 +114,12 @@ const CreateActions = ({ name, bad, onClose, onCreate, label = 'Create' }: { nam
 
 /** Domain model Types tab: range, enum, symbolic and struct types as sections of cards. */
 export function TypesPage() {
-  return <div className="page types-page"><RangeTypes /><EnumTypes /><SymbolicTypes /><StructTypes /></div>
+  return (
+    <div className="page types-page">
+      <p className="hint">Named types are shared by variables and control-action parameters: change a type once and every variable using it follows. <b>Range</b>: numbers with bounds and a unit. <b>Enum</b>: a fixed list of states. <b>Symbolic</b>: opaque identifiers such as t1 or id7, optionally ordered. <b>Struct</b>: a group of fields, each with its own type.</p>
+      <RangeTypes /><EnumTypes /><SymbolicTypes /><StructTypes />
+    </div>
+  )
 }
 
 /** Named numeric bounds and units for range variables. */
