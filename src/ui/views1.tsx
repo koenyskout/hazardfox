@@ -11,14 +11,13 @@ import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
-import { VARIABLE_LAYER_LABELS, VARIABLE_LAYERS, type VariableLayer, GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
+import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_NAMES, type GuideWord } from '../model/types'
 import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
 import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
-import { LayerIcon, LayerTag } from './Icon'
 import { RangeCell, TypesPage } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
 
@@ -90,8 +89,7 @@ export function Domain() {
   const owner = sel?.kind === 'entity' ? sel.id : sel?.kind === 'variable' ? sel.parent : null
   const structMode = useStructView()
   const [tab, setTab] = useState<'diagram' | 'entity' | 'variable' | 'relationship' | 'operation' | 'types'>('diagram')
-  const [layer, setLayer] = useState<VariableLayer | ''>('')
-  const vars = itemsOfKind(p, 'variable')
+  const vars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain')
   return (
     <div className="page full">
       <div className="tabs">
@@ -110,23 +108,16 @@ export function Domain() {
       )}
       {tab === 'variable' && (
         <>
-          <div className="layer-filter">
-            {(['', ...VARIABLE_LAYERS] as const).map((l) => (
-              <button key={l} className={layer === l ? 'on' : ''} onClick={() => setLayer(l)}>{l ? <><LayerIcon layer={l} />{VARIABLE_LAYER_LABELS[l]}</> : 'All'} <i>{(l ? vars.filter((v) => v.layer === l) : vars).length}</i></button>
-            ))}
-          </div>
           {vars.some((v) => v.struct) && <div style={{ textAlign: 'right', marginBottom: 6 }}><StructViewToggle /></div>}
-          <FlatTable kind="variable" init={layer && layer !== 'domain' ? { layer, parent: (layer === 'signal' ? itemsOfKind(p, 'feedback')[0] : itemsOfKind(p, 'node').find((n) => n.role === 'controller'))?.id ?? null } : { parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
+          <FlatTable kind="variable" init={{ parent: owner ?? itemsOfKind(p, 'entity')[0]?.id ?? null }}
             groupBy={(v) => v.parent}
             nest={structMode === 'nested' ? structPath : undefined}
             titleView={structMode === 'nested' ? (v) => v.struct ? v.struct.path.split('.').pop() : null : undefined}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}
-            items={clusterByOwner(vars.filter((v) => (!layer || v.layer === layer) && !isPredicate(p, v)).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b)))}
-            columns={[
-              { head: 'Layer', cell: (v) => <LayerTag layer={v.layer} />, width: '84px' },
-            ]} />
+            items={clusterByOwner(vars.filter((v) => !isPredicate(p, v)).sort((a, b) => byLabel(labels)(a.parent ?? '', b.parent ?? '') || byLabel(labels)(a, b)))}
+            columns={[]} />
         </>
       )}
       {tab === 'types' && <TypesPage />}
