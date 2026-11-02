@@ -232,7 +232,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           {it.type === 'enum' && (
             <Field label="States" hint="The values this variable can take. Press Enter to add one. Pick a shared type to reuse the same list for several variables.">
               <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
-              <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />
+              {!it.enumType && <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />}
             </Field>
           )}
           {it.type === 'range' && <RangeFields v={it} />}
