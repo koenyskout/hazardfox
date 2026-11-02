@@ -138,7 +138,7 @@ function MentionMenu({ options }: { options: Item[] }) {
                   </li></Fragment>
                 ) })}
               </ul>
-              {window.innerWidth >= 780 && hits[selectedIndex] && <div className="picker-card"><ItemCard it={hits[selectedIndex].item} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} /></div>}
+              {window.innerWidth >= 780 && selectedIndex !== null && hits[selectedIndex] && <div className="picker-card"><ItemCard it={hits[selectedIndex].item} p={p} labels={labels} go={(t) => goto(VIEW_OF[p.items[t].kind], t)} /></div>}
               </div>,
               anchor.current,
             )
