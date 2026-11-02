@@ -209,8 +209,10 @@ table.plain td { padding: 4px 10px 4px 0; }
 .picker-btn { width: 100%; text-align: left; font: inherit; font-size: 12px; padding: 2px 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: inherit; }
 .reflist .picker-btn { width: auto; max-width: 160px; }
 .picker-pop { position: fixed; z-index: 1001; display: flex; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 28px rgba(0,0,0,.25); overflow: hidden; }
-.picker-list { width: 380px; display: flex; flex-direction: column; min-height: 0; }
-.picker-list input { margin: 6px; }
+.picker-list { position: relative; width: 380px; display: flex; flex-direction: column; min-height: 0; }
+.picker-list input { margin: 6px 34px 6px 6px; }
+.pk-close { position: absolute; top: 6px; right: 6px; width: 24px; height: 28px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; border-radius: var(--radius); }
+.pk-close:hover { background: var(--hover); color: inherit; }
 .picker-list ul { list-style: none; margin: 0; padding: 0 0 4px; overflow-y: auto; }
 .picker-list li { display: flex; gap: 8px; align-items: flex-start; padding: 5px 10px; cursor: pointer; }
 .picker-list li.on, .picker-list li.pk-create:hover { background: var(--hover); }

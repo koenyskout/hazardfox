@@ -54,6 +54,7 @@ export function SubjectPicker({ choices, create, children }: { choices: () => Su
       {at && createPortal(
         <div className="picker-pop subject-pop" style={{ left: at.x, top: at.y, maxHeight: Math.max(240, window.innerHeight - at.y - 12) }}>
           <div className="picker-list">
+            <button type="button" className="pk-close" title="Close" aria-label="Close" onClick={close}>×</button>
             <input autoFocus placeholder={stage !== null ? 'Filter the instances…' : 'Type the variable and instance, e.g. “t1 position x”, “every train speed”…'} value={q}
               onChange={(e) => { setQ(e.target.value); setSel(0) }}
               onKeyDown={(e) => {

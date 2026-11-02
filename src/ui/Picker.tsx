@@ -53,6 +53,7 @@ export function Picker({ options, onPick, children, className, create, autoOpen,
       {at && createPortal(
         <div className="picker-pop" style={{ left: at.x, top: at.y, maxHeight: Math.max(240, window.innerHeight - at.y - 12) }}>
           <div className="picker-list">
+            <button type="button" className="pk-close" title="Close" aria-label="Close" onClick={close}>×</button>
             <input autoFocus placeholder="Search label, title, kind…" value={q}
               onChange={(e) => { setQ(e.target.value); setSel(0) }}
               onKeyDown={(e) => {
@@ -110,6 +111,7 @@ export function ChoicePicker<T extends string>({ options, value, onPick, icon, l
       {at && createPortal(
         <div className="picker-pop choice-pop" style={{ left: at.x, top: at.y, width: at.w }}>
           <div className="picker-list">
+            <button type="button" className="pk-close" title="Close" aria-label="Close" onClick={close}>×</button>
             <input autoFocus placeholder="Search…" value={q}
               onChange={(e) => { setQ(e.target.value); setSel(0) }}
               onKeyDown={(e) => {
