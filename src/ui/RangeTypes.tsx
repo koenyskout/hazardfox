@@ -1,7 +1,7 @@
 import { Select } from './Select'
 import { Fragment, useState } from 'react'
 import { StringList } from './StringList'
-import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, addStandardSymbolicTypes, STANDARD_SYMBOLIC_TYPES, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
+import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
 import type { RangeType, StructField, SymbolicType, Variable, VariableType } from '../model/types'
 import { commit, useProject } from './hooks'
@@ -86,10 +86,10 @@ export function RangeDialog({ title, value, onClose, onApply }: { title: string;
 }
 
 /** A titled section of the Types page: heading, one-line explanation, "+ New" button, then the type cards. */
-function Section({ title, hint, onNew, extra, children }: { title: string; hint: string; onNew: () => void; extra?: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, hint, onNew, children }: { title: string; hint: string; onNew: () => void; children: React.ReactNode }) {
   return (
     <section className="types-section">
-      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><span style={{ display: 'flex', gap: 8 }}>{extra}<button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></span></div>
+      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></div>
       <div className="types-list">{children}</div>
     </section>
   )
@@ -343,7 +343,7 @@ function SymbolicTypes() {
   const [creating, setCreating] = useState(false)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
   return (
-    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)} extra={<button className="btn" onClick={() => commit(addStandardSymbolicTypes)} title={Object.keys(STANDARD_SYMBOLIC_TYPES).join(', ')}>Add standard types</button>}>
+    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
       {names.map((n) => (

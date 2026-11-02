@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { addStandardSymbolicTypes, createItem, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from './ops'
+import { createItem, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
@@ -83,14 +83,6 @@ describe('symbolic types', () => {
     expect(p.symbolicTypes!.Seq).toMatchObject({ ordered: true, equatable: true, sequential: true })
     p = defineSymbolicType(p, 'Id', { ordered: false, equatable: false, unique: true })
     expect(p.symbolicTypes!.Id).toMatchObject({ ordered: false, equatable: true, unique: true })
-  })
-
-  it('standard types are added once and keep edits', () => {
-    let p = addStandardSymbolicTypes(emptyProject())
-    expect(Object.keys(p.symbolicTypes!)).toContain('Timestamp')
-    expect(p.symbolicTypes!['Sequence number']).toMatchObject({ ordered: true, sequential: true })
-    p = defineSymbolicType(p, 'Timestamp', { ordered: false, equatable: true })
-    expect(addStandardSymbolicTypes(p).symbolicTypes!.Timestamp.ordered).toBe(false)
   })
 
   it('traces flag repeated, decreasing and skipped values', () => {

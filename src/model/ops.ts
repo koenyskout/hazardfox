@@ -105,17 +105,6 @@ export const renameSymbolicType = (p: Project, from: string, to: string): Projec
     }
   })
 }
-/** Symbolic types that occur in many analyses, offered as a one-click addition. */
-export const STANDARD_SYMBOLIC_TYPES: Record<string, Partial<SymbolicType>> = {
-  Timestamp: { ordered: true, monotonic: true },
-  Identifier: { unique: true },
-  'Sequence number': { sequential: true },
-  Version: { ordered: true },
-  'Token / Nonce': { unique: true },
-}
-/** Add the standard symbolic types that are not defined yet. */
-export const addStandardSymbolicTypes = (p: Project): Project =>
-  produce(p, (d) => { for (const [n, t] of Object.entries(STANDARD_SYMBOLIC_TYPES)) if (!d.symbolicTypes?.[n]) setSymbolicType(d, n, normSym(t)) })
 /** Remove a symbolic type; its variables keep their properties as their own. */
 export const deleteSymbolicType = (p: Project, name: string): Project =>
   produce(p, (d) => {
