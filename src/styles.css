@@ -507,4 +507,4 @@ table.plain td { padding: 4px 10px 4px 0; }
 /* icon-only action buttons (delete, remove) */
 button.icon-btn { border: none; background: none; padding: 4px; color: var(--muted); display: inline-flex; align-items: center; }
 button.icon-btn:hover:not(:disabled) { color: var(--accent); }
-button.icon-btn.danger { color: var(--muted); } button.icon-btn.danger:hover:not(:disabled) { color: var(--danger); }
+button.icon-btn.danger { color: var(--danger); } button.icon-btn.danger:hover:not(:disabled) { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
