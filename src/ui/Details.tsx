@@ -23,7 +23,8 @@ import { ChipLabel, Icon, LayerIcon, StatusIcon } from './Icon'
 import { DeleteDialog } from './TreeTable'
 import { Modal } from './Modal'
 import { StringList } from './StringList'
-import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
 import { SubjectPicker, type SubjectChoice } from './Subject'
@@ -582,43 +583,61 @@ const rangeSum = (t: { min: number | null; max: number | null; unit: string }) =
 const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic'; plus?: boolean; children: ReactNode }) =>
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative', ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <span style={{ position: 'absolute', left: -17, display: 'flex' }}><Icon name="plus" size={12} /></span>}<Icon name={`type-${t}`} size={13} />{children}</span>
 
-/** One select for a parameter's datatype: number / true-false / own choice, the project's named range and enum types, or a new type. */
+const KINDS = ['range', 'enum', 'boolean', 'symbolic'] as const
+const KIND_NAME = { range: 'Range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic' }
+
+/** One popup for a parameter's datatype: kinds on the left; for the chosen kind, a one-off definition, a named type or a new named type on the right. */
 function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
   const p = useProject()
-  const [creating, setCreating] = useState<'range' | 'enum' | 'symbolic' | null>(null)
-  const value = x.type === 'boolean' ? 'boolean' : x.type === 'symbolic' ? (x.symbolicType ? 's:' + x.symbolicType : 'symbolic') : x.type === 'range' ? (x.rangeType ? 'r:' + x.rangeType : 'range') : x.enumType ? 'e:' + x.enumType : 'enum'
-  const pick = (v: string) => {
-    if (v === 'new-range' || v === 'new-enum' || v === 'new-symbolic') return setCreating(v.slice(4) as 'range' | 'enum' | 'symbolic')
-    if (v === 'symbolic' || v.startsWith('s:')) return onChange({ type: 'symbolic', rangeType: '', enumType: '', symbolicType: v.slice(2) })
-    onChange(v === 'boolean' ? { type: 'boolean', rangeType: '', enumType: '' } : v === 'range' ? { type: 'range', rangeType: '', enumType: '' } : v === 'enum' ? { type: 'enum', rangeType: '', enumType: '' } : v.startsWith('r:') ? { type: 'range', rangeType: v.slice(2), enumType: '' } : { type: 'enum', enumType: v.slice(2), rangeType: '' })
-  }
-  return (
+  const btn = useRef<HTMLButtonElement>(null)
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  const [vk, setVk] = useState<(typeof KINDS)[number]>(x.type as (typeof KINDS)[number])
+  const [q, setQ] = useState('')
+  const [creating, setCreating] = useState<(typeof KINDS)[number] | null>(null)
+  const k = x.type as (typeof KINDS)[number]
+  const none = { rangeType: '', enumType: '', symbolicType: '' }
+  const close = () => { setAt(null); setQ('') }
+  useEffect(() => {
+    if (!at) return
+    const down = (e: MouseEvent) => { if (!(e.target as Element).closest('.select-pop') && !btn.current?.contains(e.target as Node)) close() }
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
+    window.addEventListener('mousedown', down); window.addEventListener('keydown', key, true); window.addEventListener('resize', close)
+    return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key, true); window.removeEventListener('resize', close) }
+  }, [at])
+  const namedOf = (t: typeof KINDS[number]) => t === 'range' ? p.rangeTypes : t === 'enum' ? p.enumTypes : t === 'symbolic' ? p.symbolicTypes : undefined
+  const fieldOf = (t: typeof KINDS[number]) => t === 'range' ? 'rangeType' : t === 'enum' ? 'enumType' : 'symbolicType'
+  const curName = (t: typeof KINDS[number]) => (k === t ? (x as unknown as Record<string, string>)[fieldOf(t)] : '') ?? ''
+  const detail = (t: typeof KINDS[number], n: string) => t === 'range' ? ` (${rangeSum(p.rangeTypes![n])})` : t === 'enum' ? ` (${p.enumTypes![n].join(' | ')})` : ''
+  const apply = (t: typeof KINDS[number], name: string) => { close(); onChange({ ...none, type: t as Param['type'], ...(name ? { [fieldOf(t)]: name } : {}) }) }
+  const names = Object.keys(namedOf(vk) ?? {}).sort()
+  const shown = names.filter((n) => (n + detail(vk, n)).toLowerCase().includes(q.toLowerCase()))
+    return (
     <>
-      <Select value={value} onChange={(e) => pick(e.target.value)} search always={['Create']}>
-        <optgroup label="Own definition">
-          <option value="range"><TypeLabel t="range">Range</TypeLabel></option>
-          <option value="enum"><TypeLabel t="enum">Enumeration</TypeLabel></option>
-          <option value="boolean"><TypeLabel t="boolean">Boolean</TypeLabel></option>
-          <option value="symbolic"><TypeLabel t="symbolic">Symbolic</TypeLabel></option>
-        </optgroup>
-        {Object.keys(p.rangeTypes ?? {}).length > 0 && <optgroup label="Named ranges">
-          {Object.keys(p.rangeTypes!).sort().map((n) => <option key={'r' + n} value={'r:' + n}><TypeLabel t="range">{n} ({rangeSum(p.rangeTypes![n])})</TypeLabel></option>)}
-        </optgroup>}
-        {Object.keys(p.enumTypes ?? {}).length > 0 && <optgroup label="Named enumerations">
-          {Object.keys(p.enumTypes!).sort().map((n) => <option key={'e' + n} value={'e:' + n}><TypeLabel t="enum">{n} ({p.enumTypes![n].join(' | ')})</TypeLabel></option>)}
-        </optgroup>}
-        {Object.keys(p.symbolicTypes ?? {}).length > 0 && <optgroup label="Named symbolic types">
-          {Object.keys(p.symbolicTypes!).sort().map((n) => <option key={'s' + n} value={'s:' + n}><TypeLabel t="symbolic">{n}</TypeLabel></option>)}
-        </optgroup>}
-        <optgroup label="Create">
-          <option value="new-range"><TypeLabel t="range" plus>New range type…</TypeLabel></option>
-          <option value="new-enum"><TypeLabel t="enum" plus>New enumeration type…</TypeLabel></option>
-          <option value="new-symbolic"><TypeLabel t="symbolic" plus>New symbolic type…</TypeLabel></option>
-        </optgroup>
-      </Select>
-      {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'range', rangeType: n, enumType: '' })} />}
-      {creating === 'symbolic' && <SymbolicTypeDialog init={symProps(x)} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'symbolic', symbolicType: n, rangeType: '', enumType: '' })} />}
-      {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ type: 'enum', enumType: n, rangeType: '' })} />}
+      <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: r.left, y: r.bottom + 4 }) }}>
+        <span className="select-val"><TypeLabel t={k}>{k !== 'boolean' && curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : KIND_NAME[k]}</TypeLabel></span>
+      </button>
+      {at && createPortal(
+        <div className="select-pop" style={{ left: at.x, top: at.y, display: 'flex', gap: 4, padding: 0, width: 420, maxHeight: Math.max(200, window.innerHeight - at.y - 12) }}>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 4, borderRight: '1px solid var(--line)', width: 140, flexShrink: 0 }}>
+            {KINDS.map((t) => <li key={t} className={(t === vk ? 'hi ' : '') + (t === k ? 'cur' : '')} onMouseEnter={() => setVk(t)} onClick={() => t === 'boolean' ? apply(t, '') : setVk(t)}><TypeLabel t={t}>{KIND_NAME[t]}</TypeLabel></li>)}
+          </ul>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
+            {vk === 'boolean' ? <li className="off">true / false</li> : <>
+              {names.length > 8 && <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>}
+              {!q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>Own definition</li>}
+              {shown.length > 0 && <li className="grp">Named types</li>}
+              {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)}>{n}{detail(vk, n)}</li>)}
+              {q && !shown.length && <li className="off">No matches</li>}
+              <li className="grp">Create</li>
+              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New {vk === 'enum' ? 'enumeration' : vk} type…</TypeLabel></li>
+            </>}
+          </ul>
+        </div>,
+        document.body,
+      )}
+      {creating === 'range' && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setCreating(null)} then={(n) => onChange({ ...none, type: 'range', rangeType: n })} />}
+      {creating === 'symbolic' && <SymbolicTypeDialog init={symProps(x)} onClose={() => setCreating(null)} then={(n) => onChange({ ...none, type: 'symbolic', symbolicType: n })} />}
+      {creating === 'enum' && <EnumTypeDialog init={x.states} onClose={() => setCreating(null)} then={(n) => onChange({ ...none, type: 'enum', enumType: n })} />}
     </>
   )
 }
@@ -640,9 +659,9 @@ function ParamTypeDetails({ x, onChange }: { x: ParamData; onChange: (patch: Par
 }
 
 /** One parameter: cells in a grid (name, type, …), remove button, and the type details underneath. */
-function ParamRow({ cells, details, onRemove }: { cells: ReactNode[]; details?: ReactNode; onRemove: () => void }) {
+function ParamRow({ cells, cols = cells.length, details, onRemove }: { cells: ReactNode[]; cols?: number; details?: ReactNode; onRemove: () => void }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, minmax(0, 1fr)) auto`, gap: '6px 8px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr)) auto`, gap: '6px 8px', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
       {cells.map((c, i) => <Fragment key={i}>{c}</Fragment>)}
       <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
       {details && <div style={{ gridColumn: '1 / -1', paddingLeft: 4 }}>{details}</div>}
