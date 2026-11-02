@@ -468,28 +468,24 @@ export const DEVICE_STYLE = { actuator: { fill: '#fef3c7', stroke: '#d97706' }, 
 
 /** Thin slanted leader from a label to its arrow (never axis-aligned, so it cannot be mistaken for an arrow), or null when the label touches the arrow. */
 export function labelLeader(label: { x: number; y: number; w: number; h: number }, pts: Pt[]): { from: Pt; to: Pt } | null {
-  let best: { from: Pt; to: Pt; d: number; a: Pt; b: Pt } | null = null
+  const cx = label.x + label.w / 2, cy = label.y + label.h / 2
+  let best: { q: Pt; d: number } | null = null
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i]
-    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4))
+    const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2))
     for (let k = 0; k <= n; k++) {
       const q = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n }
-      const c = { x: Math.max(label.x, Math.min(label.x + label.w, q.x)), y: Math.max(label.y, Math.min(label.y + label.h, q.y)) }
-      const d = Math.hypot(q.x - c.x, q.y - c.y)
-      if (!best || d < best.d) best = { from: c, to: q, d, a, b }
+      const d = Math.hypot(q.x - cx, q.y - cy)
+      if (!best || d < best.d) best = { q, d }
     }
   }
-  if (!best || best.d < 5) return null
-  // aim at a point a little further along the arrow, toward the label's centre
-  const { a, b, to } = best
-  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
-  const ux = (b.x - a.x) / len, uy = (b.y - a.y) / len
-  const toward = (label.x + label.w / 2 - to.x) * ux + (label.y + label.h / 2 - to.y) * uy >= 0 ? 1 : -1
-  for (const dir of [toward, -toward]) {
-    const t = (to.x - a.x) * ux + (to.y - a.y) * uy + dir * 9
-    if (t >= 0 && t <= len) return { from: best.from, to: { x: a.x + ux * t, y: a.y + uy * t } }
-  }
-  return { from: best.from, to }
+  if (!best) return null
+  const { q } = best
+  const dx = q.x - cx, dy = q.y - cy
+  // leave the label box where the straight line from its centre to the arrow crosses its edge (aimed at the text, not a corner)
+  const t = Math.min(dx ? label.w / 2 / Math.abs(dx) : Infinity, dy ? label.h / 2 / Math.abs(dy) : Infinity)
+  if (t >= 1 || Math.hypot(dx * (1 - t), dy * (1 - t)) < 5) return null
+  return { from: { x: cx + dx * t, y: cy + dy * t }, to: q }
 }
 
 /** Point at fraction t of the polyline's length. */
