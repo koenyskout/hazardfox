@@ -1084,7 +1084,9 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
           const v = p.items[ef.variable] as Variable | undefined, values = v?.kind === 'variable' ? valuesOf(v) : null
           return (
             <div key={i} className="cond cond-ev">
-              <SingleRef value={ef.variable || null} options={vars} onChange={(x) => { const par = it.params.filter((q) => q.entity && q.entity === (p.items[x ?? ''] as Variable | undefined)?.parent); upd(i, { variable: x ?? '', state: '', on: par.length === 1 ? par[0].name : undefined }) }} />
+              <SubjectPicker choices={() => vars.map((x) => ({ key: x.id, variable: x, text: `${variableName(p, x)} ${labels[x.id]}`, pick: () => { const par = it.params.filter((q) => q.entity && q.entity === x.parent); upd(i, { variable: x.id, state: '', on: par.length === 1 ? par[0].name : undefined }) } }))}>
+                {v ? <ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
+              </SubjectPicker>
               {it.params.some((q) => q.entity && q.entity === v?.parent) && <Select value={ef.on ?? ''} onChange={(e) => upd(i, { on: e.target.value || undefined })}><option value="">of any instance</option>{it.params.filter((q) => q.entity === v?.parent).map((q) => <option key={q.name} value={q.name}>of {q.name}</option>)}</Select>}
               <span className="cond-word">becomes</span>
               {it.params.some((q) => q.data) && <Select value={ef.from ?? ''} onChange={(e) => upd(i, { from: e.target.value || undefined, state: '' })}><option value="">a fixed value</option>{it.params.filter((q) => q.data).map((q) => <option key={q.name} value={q.name}>the value of {q.name}</option>)}</Select>}
