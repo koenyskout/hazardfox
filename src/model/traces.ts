@@ -165,6 +165,28 @@ export function ruleConflicts(p: Project, t: Trace, i: number): [Id, string, str
   return Object.entries(t.steps[i]?.values ?? {}).flatMap(([id, x]) => (st[id] !== undefined && st[id] !== x ? [[id, x, st[id]] as [Id, string, string]] : []))
 }
 
+/** Steps where a symbolic lane breaks its type's properties: a repeated value (unique), a decrease (monotonic) or a jump (sequential). */
+export function symbolViolations(p: Project, t: Trace): { step: number; id: Id; property: 'unique' | 'monotonic' | 'sequential'; value: string; previous: string }[] {
+  const out: ReturnType<typeof symbolViolations> = []
+  for (const id of t.lanes) {
+    const v = p.items[id]
+    if (v?.kind !== 'variable' || v.type !== 'symbolic' || !(v.unique || v.monotonic || v.sequential)) continue
+    const seen: string[] = []
+    t.steps.forEach((_, i) => {
+      const x = stateAt(t, i)[id]
+      const prev = seen[seen.length - 1]
+      if (x === undefined || x === prev) return
+      if (prev !== undefined) {
+        if (v.unique && seen.includes(x)) out.push({ step: i, id, property: 'unique', value: x, previous: prev })
+        if (v.monotonic && compareSymbols(x, prev) < 0) out.push({ step: i, id, property: 'monotonic', value: x, previous: prev })
+        if (v.sequential && x !== symbolAfter(prev)) out.push({ step: i, id, property: 'sequential', value: x, previous: prev })
+      }
+      seen.push(x)
+    })
+  }
+  return out
+}
+
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>, clock?: Clock): boolean | null {
   let all: boolean | null = true

@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Project, type Variable, type When } from './types'
+import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Project, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -12,6 +12,13 @@ export const isSetOp = (op: ConditionOp) => op === 'in' || op === 'not in'
 export const opsFor = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? RANGE_OPS : v?.type === 'boolean' ? ['=', '≠'] : v?.type === 'symbolic' ? symbolicOps(v) : ENUM_OPS)
 
 export const isSymbolic = (v: Variable | undefined) => v?.type === 'symbolic'
+/** Symbolic properties made consistent: monotonic / sequential imply ordered, ordered / unique imply equatable. */
+export const normSym = (t: Partial<SymbolicType>): SymbolicType => {
+  const monotonic = !!t.monotonic, sequential = !!t.sequential, ordered = !!t.ordered || monotonic || sequential, unique = !!t.unique
+  return { ordered, equatable: ordered || unique || !!t.equatable, unique, monotonic, sequential }
+}
+export const SYMBOLIC_DEFAULT: SymbolicType = { ordered: false, equatable: true, unique: false, monotonic: false, sequential: false }
+export const symProps = (v: Partial<SymbolicType>): SymbolicType => normSym({ ...SYMBOLIC_DEFAULT, ...v })
 /** Operators of a symbolic type: none when not equatable, = / ≠ when equatable, plus the order operators when ordered. */
 const symbolicOps = (v: Variable): readonly ConditionOp[] => (v.ordered ? ['=', '≠', '<', '≤', '>', '≥'] : v.equatable ? ['=', '≠'] : [])
 const NATURAL = new Intl.Collator(undefined, { numeric: true })
@@ -31,7 +38,7 @@ const num = (n: number) => String(n)
 /** "running | stopped", "true | false" or "0–100 %". */
 export function describeStates(v: Variable): string {
   if (v.type === 'boolean') return 'true | false'
-  if (v.type === 'symbolic') return `${v.symbolicType || 'symbolic'} (${v.ordered ? 'ordered' : v.equatable ? 'equatable' : 'opaque'})`
+  if (v.type === 'symbolic') return `${v.symbolicType || 'symbolic'} (${[v.ordered ? 'ordered' : v.equatable ? 'equatable' : 'opaque', v.unique && 'unique', v.monotonic && 'monotonic', v.sequential && 'sequential'].filter(Boolean).join(', ')})`
   if (v.type !== 'range') return v.states.join(' | ')
   const u = v.unit ? ' ' + v.unit : ''
   if (v.min !== null && v.max !== null) return `${num(v.min)}–${num(v.max)}${u}`

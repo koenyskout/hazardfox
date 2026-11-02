@@ -4,7 +4,7 @@ import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
 import { applyOverrides, layoutStructure, pointAt, type Drawn, type Pt } from '../model/structure'
 import { operationOf } from '../model/operations'
-import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, textConditions, traceState, valueAt, witness } from '../model/traces'
+import { contextHolds, diagnose, draftTrace, mismatches, ruleConflicts, symbolViolations, textConditions, traceState, valueAt, witness } from '../model/traces'
 import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
@@ -83,6 +83,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const mm = t.steps.map((_, i) => new Map(mismatches(p, t, i).map((m) => [m.id, m])))
   const computed = t.steps.map((_, i) => traceState(p, t, i))
   const conflicts = t.steps.map((_, i) => new Map(ruleConflicts(p, t, i).map(([id, , x]) => [id, x])))
+  const sym = new Map(symbolViolations(p, t).map((x) => [`${x.step}:${x.id}`, `Breaks "${x.property}": ${x.previous} → ${x.value}`]))
   const lane = ({ key, v }: Lane, head: ReactNode) => (
     <tr key={key}>
       <th>{head} <button className="x" title="Remove lane" onClick={() => delLane(key)}>×</button></th>
@@ -90,9 +91,10 @@ export function TraceEditor({ s }: { s: Scenario }) {
         const { value, set } = valueAt(t, i, key)
         const m = mm[i].get(key)
         const c = conflicts[i].get(key)
+        const sv = sym.get(`${i}:${key}`)
         const derived = !set && computed[i][key] !== undefined && computed[i][key] !== value
         return (
-          <td key={i} className={(set ? 'set' : 'carried') + (derived ? ' computed' : '') + (m ? ' mm' : '') + (c ? ' conflict' : '') + (i === actionAt ? ' act' : '')} title={c ? `Contradicts its parts, which give ${c}` : m ? `Differs from the world (${labels[m.world]} = ${m.actual})` : derived ? 'Computed from its parts' : undefined}>
+          <td key={i} className={(set ? 'set' : 'carried') + (derived ? ' computed' : '') + (m ? ' mm' : '') + (c || sv ? ' conflict' : '') + (i === actionAt ? ' act' : '')} title={sv ?? (c ? `Contradicts its parts, which give ${c}` : m ? `Differs from the world (${labels[m.world]} = ${m.actual})` : derived ? 'Computed from its parts' : undefined)}>
             <ValueInput v={v} value={set ? value ?? '' : ''} carried={set ? undefined : derived ? computed[i][key] : value} onChange={(x) => setValue(i, key, x)} />
           </td>
         )

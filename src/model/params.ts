@@ -5,7 +5,7 @@ import type { ArgCondition, ControlAction, Param, Project, Uca, Variable } from 
 export function paramVar(p: Project, pa: Param): Variable {
   const r = pa.rangeType ? p.rangeTypes?.[pa.rangeType] : undefined, e = pa.enumType ? p.enumTypes?.[pa.enumType] : undefined
   const s = pa.symbolicType ? p.symbolicTypes?.[pa.symbolicType] : undefined
-  return { symbolicType: '', ordered: false, equatable: true, ...pa, ...(r && pa.type === 'range' ? r : {}), ...(e && pa.type === 'enum' ? { states: e } : {}), ...(s && pa.type === 'symbolic' ? s : {}), id: '', kind: 'variable', title: pa.name } as unknown as Variable
+  return { symbolicType: '', ordered: false, equatable: true, unique: false, monotonic: false, sequential: false, ...pa, ...(r && pa.type === 'range' ? r : {}), ...(e && pa.type === 'enum' ? { states: e } : {}), ...(s && pa.type === 'symbolic' ? s : {}), id: '', kind: 'variable', title: pa.name } as unknown as Variable
 }
 
 export const paramOf = (ca: ControlAction | undefined, name: string): Param | undefined => ca?.params.find((x) => x.name === name)

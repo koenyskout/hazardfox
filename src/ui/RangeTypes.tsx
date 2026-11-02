@@ -1,8 +1,8 @@
 import { Select } from './Select'
 import { useState } from 'react'
 import { StringList } from './StringList'
-import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
-import { describeStates } from '../model/variables'
+import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, addStandardSymbolicTypes, STANDARD_SYMBOLIC_TYPES, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
+import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
 import type { RangeType, StructField, SymbolicType, Variable, VariableType } from '../model/types'
 import { commit, useProject } from './hooks'
 import { Field, NumberInput, Ref, TextInput } from './Fields'
@@ -86,10 +86,10 @@ export function RangeDialog({ title, value, onClose, onApply }: { title: string;
 }
 
 /** A titled section of the Types page: heading, one-line explanation, "+ New" button, then the type cards. */
-function Section({ title, hint, onNew, children }: { title: string; hint: string; onNew: () => void; children: React.ReactNode }) {
+function Section({ title, hint, onNew, extra, children }: { title: string; hint: string; onNew: () => void; extra?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="types-section">
-      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></div>
+      <div className="types-head"><div><h3>{title}</h3><p className="muted">{hint}</p></div><span style={{ display: 'flex', gap: 8 }}>{extra}<button className="btn" onClick={onNew}><Icon name="plus" size={12} /> New</button></span></div>
       <div className="types-list">{children}</div>
     </section>
   )
@@ -274,14 +274,27 @@ export function ApplyStruct({ parent }: { parent: string }) {
   )
 }
 
-const symbolicText = (t: SymbolicType) => (t.ordered ? 'ordered, equatable' : t.equatable ? 'equatable' : 'opaque (not equatable)')
+const symbolicText = (t: SymbolicType) => {
+  const n = normSym(t), l = [n.ordered ? 'ordered' : n.equatable ? 'equatable' : 'opaque (not equatable)', n.unique && 'unique', n.monotonic && 'monotonic', n.sequential && 'sequential'].filter(Boolean)
+  return l.join(', ')
+}
 
-/** The two properties of a symbolic type as checkboxes; ordered implies equatable. */
+const PROPS: { key: 'equatable' | 'ordered' | 'unique' | 'monotonic' | 'sequential'; tip: string }[] = [
+  { key: 'equatable', tip: 'Values can be compared for equality (is / is not)' },
+  { key: 'ordered', tip: 'Values have an order (is less than / at least …); natural order of the symbols, t2 before t10' },
+  { key: 'unique', tip: 'Every new value differs from all earlier ones (IDs, nonces); a repeat in a trace is a replay' },
+  { key: 'monotonic', tip: 'The value never decreases over time (timestamps, counters); implies ordered' },
+  { key: 'sequential', tip: 'Each change goes to the direct successor (sequence numbers: t3 → t4); a jump is a lost value; implies ordered' },
+]
+/** The properties of a symbolic type as checkboxes; ordered implies equatable, monotonic / sequential imply ordered. */
 export function SymbolicProps({ t, onChange }: { t: SymbolicType; onChange: (t: SymbolicType) => void }) {
+  const n = normSym(t)
+  const forced = (k: string) => (k === 'equatable' && (n.ordered || n.unique)) || (k === 'ordered' && (n.monotonic || n.sequential))
   return (
-    <div style={{ display: 'flex', gap: 14 }}>
-      <label className="check" title="Values can be compared for equality (is / is not)"><input type="checkbox" checked={t.equatable || t.ordered} disabled={t.ordered} onChange={(e) => onChange({ ...t, equatable: e.target.checked })} /> equatable</label>
-      <label className="check" title="Values have an order (is less than / at least …); natural order of the symbols, t2 before t10"><input type="checkbox" checked={t.ordered} onChange={(e) => onChange({ ordered: e.target.checked, equatable: t.equatable || e.target.checked })} /> ordered</label>
+    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {PROPS.map(({ key, tip }) => (
+        <label key={key} className="check" title={tip}><input type="checkbox" checked={!!n[key]} disabled={forced(key)} onChange={(e) => onChange(normSym({ ...t, [key]: e.target.checked }))} /> {key}</label>
+      ))}
     </div>
   )
 }
@@ -290,7 +303,7 @@ export function SymbolicProps({ t, onChange }: { t: SymbolicType; onChange: (t: 
 export function SymbolicTypeDialog({ init, onClose, then }: { init?: SymbolicType; onClose: () => void; then?: (name: string) => void }) {
   const p = useProject()
   const [n, setN] = useState('')
-  const [t, setT] = useState<SymbolicType>(init ?? { ordered: false, equatable: true })
+  const [t, setT] = useState<SymbolicType>(init ?? SYMBOLIC_DEFAULT)
   const nm = n.trim()
   const bad = !nm ? 'Name required' : p.symbolicTypes?.[nm] ? 'Name already used' : ''
   return (
@@ -303,11 +316,11 @@ export function SymbolicTypeDialog({ init, onClose, then }: { init?: SymbolicTyp
 }
 
 /** For a variable or parameter of symbolic type: pick a named type (or own properties) and create one. */
-export function SymbolicPicker({ x, onChange }: { x: { symbolicType?: string; ordered?: boolean; equatable?: boolean }; onChange: (patch: { symbolicType?: string; ordered?: boolean; equatable?: boolean }) => void }) {
+export function SymbolicPicker({ x, onChange }: { x: Partial<SymbolicType> & { symbolicType?: string }; onChange: (patch: Partial<SymbolicType> & { symbolicType?: string }) => void }) {
   const p = useProject()
   const [isNew, setNew] = useState(false)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
-  const t: SymbolicType = { ordered: !!x.ordered, equatable: x.equatable ?? true }
+  const t = symProps(x)
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
       {names.length > 0 && <Select value={x.symbolicType ?? ''} onChange={(e) => onChange({ symbolicType: e.target.value })}>
@@ -327,7 +340,7 @@ function SymbolicTypes() {
   const [creating, setCreating] = useState(false)
   const names = Object.keys(p.symbolicTypes ?? {}).sort()
   return (
-    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)}>
+    <Section title="Symbolic types" hint="Opaque types without further detail (e.g. Timestamp: ordered; ID: equatable only). Values are symbolic constants such as t1 or id7; the properties decide which conditions make sense." onNew={() => setCreating(true)} extra={<button className="btn" onClick={() => commit(addStandardSymbolicTypes)} title={Object.keys(STANDARD_SYMBOLIC_TYPES).join(', ')}>Add standard types</button>}>
       {creating && <SymbolicTypeDialog onClose={() => setCreating(false)} />}
       {!names.length && <p className="empty">No symbolic types yet.</p>}
       {names.map((n) => (

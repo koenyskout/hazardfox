@@ -162,6 +162,10 @@ export interface Variable extends Base {
   /** symbolic: values are opaque symbolic constants ("t1", "id7"); `equatable` allows = / ≠, `ordered` (implies equatable) also < ≤ > ≥ (natural order of the symbols) */
   ordered: boolean
   equatable: boolean
+  /** symbolic, more properties: every new value differs from all earlier ones / never decreases / each change is to the successor (implies ordered) */
+  unique: boolean
+  monotonic: boolean
+  sequential: boolean
   /** Name of the project's `symbolicTypes` entry that `ordered` / `equatable` follow ('' = own properties) */
   symbolicType: string
   /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
@@ -171,7 +175,7 @@ export interface Variable extends Base {
 /** A reusable numeric type: bounds and unit shared by every variable that uses it. */
 export interface RangeType { min: number | null; max: number | null; unit: string }
 /** A reusable opaque type (Timestamp: ordered, equatable; ID: equatable only): properties shared by every symbolic variable that uses it. */
-export interface SymbolicType { ordered: boolean; equatable: boolean }
+export interface SymbolicType { ordered: boolean; equatable: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
 /** A field of a struct type: a name and a variable type, optionally sharing a named range / enum type. */
 export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
@@ -197,7 +201,7 @@ export interface CsNode extends Base {
 }
 /** Control action edge. */
 /** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
-export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; symbolicType?: string; ordered?: boolean; equatable?: boolean }
+export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; symbolicType?: string; ordered?: boolean; equatable?: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
 export interface ArgCondition { param: string; op: ConditionOp; state: string; to?: string; set?: string[] }
 export interface ControlAction extends Base {

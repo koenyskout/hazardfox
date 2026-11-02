@@ -1,3 +1,4 @@
+import { normSym } from './variables'
 import { produce } from 'immer'
 import { makeItem } from './create'
 import { effectiveLosses } from './derived'
@@ -75,19 +76,20 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
       else if ('states' in patch) setEnumType(d, v.enumType, v.states)
     }
     if (v.kind === 'variable') {
-      if (v.ordered) v.equatable = true
+      Object.assign(v, normSym(v))
       const s = d.symbolicTypes?.[v.symbolicType]
       if (v.type !== 'symbolic' || !s) v.symbolicType = ''
-      else if ('symbolicType' in patch) { v.ordered = s.ordered; v.equatable = s.equatable }
-      else if ('ordered' in patch || 'equatable' in patch) setSymbolicType(d, v.symbolicType, { ordered: v.ordered, equatable: v.equatable })
+      else if ('symbolicType' in patch) Object.assign(v, s)
+      else if (SYM_KEYS.some((k) => k in patch)) setSymbolicType(d, v.symbolicType, v)
     }
     renormalize(d)
   })
 }
 
 /** Create or change a named symbolic type (ordered implies equatable); variables using it follow. Works on a draft. */
+const SYM_KEYS = ['ordered', 'equatable', 'unique', 'monotonic', 'sequential']
 function setSymbolicType(d: Draft, name: string, t: SymbolicType) {
-  const s = { ordered: t.ordered, equatable: t.equatable || t.ordered }
+  const s = normSym(t)
   ;(d.symbolicTypes ??= {})[name] = s
   for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.symbolicType === name) Object.assign(it, s)
 }
@@ -103,6 +105,17 @@ export const renameSymbolicType = (p: Project, from: string, to: string): Projec
     }
   })
 }
+/** Symbolic types that occur in many analyses, offered as a one-click addition. */
+export const STANDARD_SYMBOLIC_TYPES: Record<string, Partial<SymbolicType>> = {
+  Timestamp: { ordered: true, monotonic: true },
+  Identifier: { unique: true },
+  'Sequence number': { sequential: true },
+  Version: { ordered: true },
+  'Token / Nonce': { unique: true },
+}
+/** Add the standard symbolic types that are not defined yet. */
+export const addStandardSymbolicTypes = (p: Project): Project =>
+  produce(p, (d) => { for (const [n, t] of Object.entries(STANDARD_SYMBOLIC_TYPES)) if (!d.symbolicTypes?.[n]) setSymbolicType(d, n, normSym(t)) })
 /** Remove a symbolic type; its variables keep their properties as their own. */
 export const deleteSymbolicType = (p: Project, name: string): Project =>
   produce(p, (d) => {

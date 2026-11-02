@@ -3,7 +3,7 @@ import { effectiveLosses } from './derived'
 import { argError } from './params'
 import { mentions, refsOf, scenarioTarget } from './refs'
 import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
-import { diagnose, ruleConflicts, witness } from './traces'
+import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
@@ -57,6 +57,7 @@ export const RULES = {
   'ca-affects-invalid': { title: 'Control action affects an unrelated variable', why: 'A control action changes world variables, or the internal state and beliefs of the controller it is sent to; other variables are not under its control.', fix: 'Remove the variable, or point the action at the node that owns it.' },
   'refinement-invalid': { title: 'Invalid refinement rule', why: 'Each rule gives one value of the refined variable under conditions on actual (world) variables; a value it cannot take or a malformed condition makes the refinement meaningless.', fix: 'Pick one of the variable\'s values and fix the condition (world variables only).' },
   'trace-rule-conflict': { title: 'Trace value contradicts a refinement', why: 'A refined variable is a function of its parts: once the parts have values in a trace, its value follows from the rules.', fix: 'Clear the value (it is computed) or change the parts.' },
+  'trace-symbol-property': { title: 'Trace breaks a property of a symbolic type', why: 'Unique values must not repeat, monotonic ones must not decrease and sequential ones must advance one step at a time. A violation is either a mistake in the trace or exactly the scenario to analyse (replay, stale data, lost message).', fix: 'Correct the value in the trace, or keep it if the violation is what the scenario describes.' },
   'trace-no-witness': { title: 'Trace does not exhibit the UCA', why: 'A scenario trace should show the unsafe control action: the UCA context holds at the step where the action is sent (or not sent).', fix: 'Adjust the values at the action step, or add / fix the control action event.' },
   'trace-cause-mismatch': { title: 'Trace points at a different causal factor', why: 'Comparing world, signal and belief at the action step suggests another cause than the one chosen: signal ≠ world → feedback; signal = world but belief ≠ signal → process model; belief = world → control algorithm.', fix: 'Change the causal factor, or adjust the trace.' },
   'uca-no-hazard': { title: 'UCA not linked to a hazard', why: 'An unsafe control action is only unsafe because it can lead to a hazard. The link is the definition of "unsafe".', fix: 'Link the UCA to the hazard(s) it can cause. If there is none, the context is probably not unsafe.' },
@@ -197,6 +198,8 @@ export function validate(p: Project): Issue[] {
     if (s.trace.steps.length) {
       const c = s.trace.steps.map((_, i) => ruleConflicts(p, s.trace, i)).find((x) => x.length)?.[0]
       if (c) add('warning', s, 'trace-rule-conflict', `${L[s.id]}: ${p.items[c[0]]?.title || L[c[0]]} is set to ${c[1]}, but its rules give ${c[2]}`, [c[0]])
+      const sv = symbolViolations(p, s.trace)[0]
+      if (sv) add('warning', s, 'trace-symbol-property', `${L[s.id]}: ${p.items[sv.id]?.title || L[sv.id]} goes from ${sv.previous} to ${sv.value}, which breaks "${sv.property}" (step ${sv.step + 1})`, [sv.id])
       const w = witness(p, s)
       if (w && w.ok === false) add('warning', s, 'trace-no-witness', `${L[s.id]}: ${w.why}`)
       const d = w?.ok ? diagnose(p, s) : null

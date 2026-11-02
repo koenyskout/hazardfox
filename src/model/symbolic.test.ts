@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { createItem, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from './ops'
+import { addStandardSymbolicTypes, createItem, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
-import { holds, pickValue } from './traces'
+import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
 import { paramVar } from './params'
 import type { Condition, Project, Variable } from './types'
@@ -44,7 +44,7 @@ describe('symbolic types', () => {
   it('editing properties of a variable on a named type updates the type', () => {
     const s = setup()
     s.set((q) => updateItem(q, s.id, { ordered: true }))
-    expect(s.p().symbolicTypes!.ID).toEqual({ ordered: true, equatable: true })
+    expect(s.p().symbolicTypes!.ID).toMatchObject({ ordered: true, equatable: true })
   })
 
   it('conditions compare symbols; order is natural', () => {
@@ -76,5 +76,34 @@ describe('symbolic types', () => {
     const q = deserialize(serialize(s.p()))
     expect(q.symbolicTypes).toEqual(s.p().symbolicTypes)
     expect((q.items[s.t1] as Variable).symbolicType).toBe('Timestamp')
+  })
+
+  it('monotonic / sequential imply ordered, unique implies equatable', () => {
+    let p = defineSymbolicType(emptyProject(), 'Seq', { ordered: false, equatable: false, sequential: true })
+    expect(p.symbolicTypes!.Seq).toMatchObject({ ordered: true, equatable: true, sequential: true })
+    p = defineSymbolicType(p, 'Id', { ordered: false, equatable: false, unique: true })
+    expect(p.symbolicTypes!.Id).toMatchObject({ ordered: false, equatable: true, unique: true })
+  })
+
+  it('standard types are added once and keep edits', () => {
+    let p = addStandardSymbolicTypes(emptyProject())
+    expect(Object.keys(p.symbolicTypes!)).toContain('Timestamp')
+    expect(p.symbolicTypes!['Sequence number']).toMatchObject({ ordered: true, sequential: true })
+    p = defineSymbolicType(p, 'Timestamp', { ordered: false, equatable: true })
+    expect(addStandardSymbolicTypes(p).symbolicTypes!.Timestamp.ordered).toBe(false)
+  })
+
+  it('traces flag repeated, decreasing and skipped values', () => {
+    const s = setup()
+    s.set((q) => defineSymbolicType(q, 'Timestamp', { ordered: true, equatable: true, monotonic: true }))
+    s.set((q) => defineSymbolicType(q, 'ID', { ordered: false, equatable: true, unique: true }))
+    const seq = createItem(s.p(), 'variable', { title: 'Seq', parent: (s.v(s.t1)).parent!, type: 'symbolic' })
+    s.set(() => updateItem(seq.project, seq.id, { sequential: true }))
+    const step = (values: Record<string, string>) => ({ t: '', values, events: {}, note: '' })
+    const trace = { lanes: [s.t1, s.id, seq.id], steps: [
+      step({ [s.t1]: 't5', [s.id]: 'a1', [seq.id]: 'n1' }), step({ [s.t1]: 't7', [s.id]: 'a2', [seq.id]: 'n2' }),
+      step({ [s.t1]: 't6', [s.id]: 'a1', [seq.id]: 'n4' }),
+    ] }
+    expect(symbolViolations(s.p(), trace as never).map((x) => [x.step, x.property])).toEqual([[2, 'monotonic'], [2, 'unique'], [2, 'sequential']])
   })
 })
