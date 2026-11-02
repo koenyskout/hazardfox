@@ -31,6 +31,20 @@ export function Welcome() {
         <li><b>Loss scenarios.</b> Why could those unsafe actions occur, or control actions go wrong? In STPA-Sec, scenarios can also carry threats (STRIDE).</li>
       </ol>
 
+      <h3>Beyond plain STPA</h3>
+      <p className="muted">
+        Everything can be done with plain text, as in a regular STPA. When you want more rigour, you can add as much
+        formalism as you like, step by step; nothing is required, and the text always stays.
+      </p>
+      <div className="cols">
+        <div className="card"><b>Domain model</b><p className="muted">Describe the things in the system’s world (entities, their properties and relationships) and use them as the vocabulary of your analysis.</p></div>
+        <div className="card"><b>Precise conditions</b><p className="muted">State when a hazard or unsafe control action applies with conditions on variables (including “some / every train”, timing and alternatives), alongside the free-text context.</p></div>
+        <div className="card"><b>Process models</b><p className="muted">Give each controller beliefs about the world, and feedback signals that update them. See at a glance what a controller cannot know.</p></div>
+        <div className="card"><b>Scenario traces</b><p className="muted">Step through a loss scenario over time and watch the world, signals and beliefs drift apart. Play it on the control structure.</p></div>
+        <div className="card"><b>Extra checks</b><p className="muted">The more you formalize, the more Validation can check: contexts the controller cannot recognize, traces that don’t show the UCA, and the likely cause of each scenario.</p></div>
+        <div className="card"><b>Refinement</b><p className="muted">Compute a high-level variable from more detailed ones and derive more detailed UCAs from a general one.</p></div>
+      </div>
+
       <h3>What HazardFox does for you</h3>
       <div className="cols">
         <div className="card"><b>Linked artifacts</b><p className="muted">Numbers like H-2.1 or UCA-3 are assigned automatically. When you move or regroup items, every reference follows. Type <code>@</code> in any text to refer to an item.</p></div>
