@@ -230,9 +230,10 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Select>
           </Field>
           {it.type === 'enum' && (
-            <Field label="States" hint="The values this variable can take. Press Enter to add one. Pick a shared type to reuse the same list for several variables.">
-              <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
-              {!it.enumType && <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />}
+            <Field label="States" hint={it.enumType ? 'Shared type: edit its states under Domain model → Types.' : 'The values this variable can take. Press Enter to add one.'}>
+              <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))}>
+                {!it.enumType && <StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" />}
+              </EnumTypePicker>
             </Field>
           )}
           {it.type === 'range' && <RangeFields v={it} />}
@@ -1026,7 +1027,7 @@ function VariableLinks({ v }: { v: Variable }) {
 }
 
 /** Choose a named, reusable state list for an enum variable or parameter, or save its own states as one. */
-function EnumTypePicker({ x, name, onChange }: { x: { enumType: string; states: string[] }; name: string; onChange: (patch: { enumType: string }) => void }) {
+function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string; states: string[] }; name: string; onChange: (patch: { enumType: string }) => void; children?: ReactNode }) {
   const p = useProject()
   const [isNew, setNew] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
@@ -1035,13 +1036,15 @@ function EnumTypePicker({ x, name, onChange }: { x: { enumType: string; states: 
     if (n && !p.enumTypes?.[n]) { commit((q) => defineEnumType(q, n, x.states)); onChange({ enumType: n }) }
   }
   return (
-    <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {names.length > 0 && <Select value={x.enumType} onChange={(e) => onChange({ enumType: e.target.value })}>
-        <option value="">Own states</option>
+        <option value="">Own list, only for this variable</option>
         {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
       </Select>}
-      {!x.enumType && x.states.length > 0 && <button className="btn" onClick={save} title="Share these states with other variables">Save as type…</button>}
-      {!x.enumType && !x.states.length && <button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New type…</button>}
+      {children}
+      {!x.enumType && (x.states.length > 0
+        ? <div><button className="btn" onClick={save} title="Share these states with other variables">Save list as shared type…</button></div>
+        : names.length === 0 && <div><button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New shared type…</button></div>)}
       {isNew && <EnumTypeDialog onClose={() => setNew(false)} then={(n) => onChange({ enumType: n })} />}
     </div>
   )
