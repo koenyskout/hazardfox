@@ -11,7 +11,7 @@ import { type Effect, type Project, type ArgCondition, type OpParam, type Param,
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
-import { ApplyStruct, EnumTypeDialog, VariableRangeDialog } from './RangeTypes'
+import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
 import { itemsOfKind, isLeaf } from '../model/tree'
@@ -577,12 +577,15 @@ function ParamType({ x, onChange }: { x: Omit<Param, 'name'>; onChange: (patch: 
   const p = useProject()
   const num = (s: string) => (s.trim() === '' || !Number.isFinite(Number(s)) ? null : Number(s))
   const upd = onChange
+  const [newType, setNewType] = useState(false)
   return (
     <>
       <Select value={x.type} onChange={(e) => upd({ type: e.target.value as Param['type'], rangeType: '', enumType: '' })}>{PARAM_TYPES.map((t) => <option key={t}>{t}</option>)}</Select>
       {x.type === 'enum' && <>
         <Select value={x.enumType} onChange={(e) => upd({ enumType: e.target.value })}><option value="">own states</option>{Object.keys(p.enumTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
         {!x.enumType && <input placeholder="states, comma-separated" value={x.states.join(', ')} onChange={(e) => upd({ states: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />}
+        {!x.enumType && <button type="button" onClick={() => setNewType(true)} title="Define a shared state list">New type…</button>}
+        {newType && <EnumTypeDialog init={x.states} onClose={() => setNewType(false)} then={(n) => upd({ enumType: n })} />}
       </>}
       {x.type === 'range' && <>
         <Select value={x.rangeType} onChange={(e) => upd({ rangeType: e.target.value })}><option value="">own bounds</option>{Object.keys(p.rangeTypes ?? {}).map((n) => <option key={n}>{n}</option>)}</Select>
@@ -590,7 +593,9 @@ function ParamType({ x, onChange }: { x: Omit<Param, 'name'>; onChange: (patch: 
           <input className="time-amount" placeholder="min" value={x.min ?? ''} onChange={(e) => upd({ min: num(e.target.value) })} />
           <input className="time-amount" placeholder="max" value={x.max ?? ''} onChange={(e) => upd({ max: num(e.target.value) })} />
           <input className="time-amount" placeholder="unit" value={x.unit} onChange={(e) => upd({ unit: e.target.value })} />
+          <button type="button" onClick={() => setNewType(true)} title="Define a shared range type">New type…</button>
         </>}
+        {newType && <RangeTypeDialog name={null} init={{ min: x.min, max: x.max, unit: x.unit }} onClose={() => setNewType(false)} then={(n) => upd({ rangeType: n })} />}
       </>}
     </>
   )
