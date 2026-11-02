@@ -469,23 +469,28 @@ export const DEVICE_STYLE = { actuator: { fill: '#fef3c7', stroke: '#d97706' }, 
 /** Thin slanted leader from a label to its arrow (never axis-aligned, so it cannot be mistaken for an arrow), or null when the label touches the arrow. */
 export function labelLeader(label: { x: number; y: number; w: number; h: number }, pts: Pt[]): { from: Pt; to: Pt } | null {
   const cx = label.x + label.w / 2, cy = label.y + label.h / 2
-  let best: { q: Pt; d: number } | null = null
+  let best: { q: Pt; d: number; a: Pt; b: Pt } | null = null
   for (let i = 1; i < pts.length; i++) {
     const a = pts[i - 1], b = pts[i]
     const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2))
     for (let k = 0; k <= n; k++) {
       const q = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n }
       const d = Math.hypot(q.x - cx, q.y - cy)
-      if (!best || d < best.d) best = { q, d }
+      if (!best || d < best.d) best = { q, d, a, b }
     }
   }
   if (!best) return null
-  const { q } = best
+  // aim a little along the arrow so the line is always slanted (never parallel to or confusable with other arrows)
+  const { a, b } = best
+  const len = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / len, uy = (b.y - a.y) / len
+  const at = (dir: number) => { const u = (best.q.x - a.x) * ux + (best.q.y - a.y) * uy + dir * 12; return u >= 0 && u <= len ? { x: a.x + ux * u, y: a.y + uy * u } : null }
+  const q = at(1) ?? at(-1) ?? best.q
   const dx = q.x - cx, dy = q.y - cy
-  // leave the label box where the straight line from its centre to the arrow crosses its edge (aimed at the text, not a corner)
-  const t = Math.min(dx ? label.w / 2 / Math.abs(dx) : Infinity, dy ? label.h / 2 / Math.abs(dy) : Infinity)
-  if (t >= 1 || Math.hypot(dx * (1 - t), dy * (1 - t)) < 5) return null
-  return { from: { x: cx + dx * t, y: cy + dy * t }, to: q }
+  // leave the label box at the middle of the side facing the arrow
+  const side = Math.abs(dx) * label.h > Math.abs(dy) * label.w
+  const from = side ? { x: cx + Math.sign(dx) * label.w / 2, y: cy } : { x: cx, y: cy + Math.sign(dy) * label.h / 2 }
+  if (Math.hypot(q.x - from.x, q.y - from.y) < 5 || (side ? Math.abs(dx) <= label.w / 2 : Math.abs(dy) <= label.h / 2)) return null
+  return { from, to: q }
 }
 
 /** Point at fraction t of the polyline's length. */
