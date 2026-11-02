@@ -75,6 +75,10 @@ ul{margin:4px 0 0;padding-left:20px}li{margin:2px 0}
 .it .cn{position:relative;z-index:1;justify-self:start;margin-left:2px;background:var(--panel);padding:0 3px;line-height:20px;margin-top:5px;font-size:11px}
 .it>.bd{padding-left:6px}
 .sed .it .cn{background:var(--panel)}
+
+.it .cn:empty{background:none;padding:0}
+.it>.cn:before{content:"";position:absolute;left:-14px;top:2px;width:9px;height:9px;border-radius:50%;background:var(--gc);box-shadow:0 0 0 2px var(--panel)}
+.it:after{left:-8px;width:34px;opacity:.9}
 </style></head><body><main>
 
 <h1>Expression conditions</h1>
