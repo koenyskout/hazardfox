@@ -487,7 +487,7 @@ export function labelLeader(label: { x: number; y: number; w: number; h: number 
   const q = at(1) ?? at(-1) ?? best.q
   const dx = q.x - cx, dy = q.y - cy
   // leave the label box at the middle of the side facing the arrow
-  const side = Math.abs(dx) * label.h > Math.abs(dy) * label.w
+  const side = Math.abs(dx) > label.w / 2
   const from = side ? { x: cx + Math.sign(dx) * label.w / 2, y: cy } : { x: cx, y: cy + Math.sign(dy) * label.h / 2 }
   if (Math.hypot(q.x - from.x, q.y - from.y) < 5 || (side ? Math.abs(dx) <= label.w / 2 : Math.abs(dy) <= label.h / 2)) return null
   return { from, to: q }
