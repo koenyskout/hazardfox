@@ -5,7 +5,7 @@ single pretty-printed JSON file (File System Access API, with download/upload fa
 Read `PLAN.md` for goals, decisions and milestone status.
 
 ## Workflow
-- Commit after every finished change (git repo initialised in this session; no remote).
+- Commit after every finished change Remote: `origin` (github.com/koenyskout/hazardfox); push only when asked.
 
 ## Commands
 - `npm run dev` – Vite dev server (http://localhost:5173)
