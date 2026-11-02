@@ -137,7 +137,7 @@ a.chip:hover, button.chip:hover { border-color: currentColor; }
 table.grid { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); }
 .grid th, .grid td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; vertical-align: top; font-size: 13px; }
 .grid th { background: var(--bg); } .grid th:first-child, .grid.left td, .grid th.left { text-align: left; }
-.grid td.gap { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.grid td.gap { background: color-mix(in srgb, var(--muted) 8%, transparent); }
 .grid .add { border-style: dashed; color: var(--muted); padding: 0 8px; border-radius: 10px; }
 .scroll { overflow: auto; }
 table.plain td { padding: 4px 10px 4px 0; }
@@ -562,3 +562,4 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; } .tabs button { white-space: nowrap; flex: none; }
 .ends { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: baseline; } .ends .end { white-space: nowrap; }
 .legend { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; } .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; } .sw.red { background: var(--danger); } .sw.amber { background: #e0a030; }
+.reflist .chip, .reflist button { white-space: nowrap; }

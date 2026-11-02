@@ -142,6 +142,7 @@ export function Ucas() {
   return (
     <div className="page full">
       <h2>Control action × guide word</h2>
+      <p className="hint">For each control action, ask for each guide word whether it could be unsafe. Tinted cells have no UCA yet: add one with +, or mark the guide word n/a if it cannot apply.</p>
       {cas.length === 0 ? <p className="empty">Define control actions in the control structure first.</p> : (
         <table className="grid">
           <thead><tr><th>Control action</th>{GUIDE_WORDS.map((g) => <th key={g}>{GUIDE_WORD_LABELS[g]}</th>)}</tr></thead>
