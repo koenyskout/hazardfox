@@ -53,13 +53,21 @@ const segHits = (p: Pt, q: Pt, r: Rect) => hitsRect({ x: Math.min(p.x, q.x), y: 
  * Put every label beside one of its edge's segments (control actions left/above, feedback right/below, they run in pairs),
  * avoiding boxes, other labels and other edges: the candidate with the lowest penalty wins.
  */
+let measureCtx: CanvasRenderingContext2D | null | undefined
+/** Rendered width of an arrow-label line (11px Helvetica); estimated where there is no canvas. */
+const labelWidth = (l: string): number => {
+  if (measureCtx === undefined) {
+    try { measureCtx = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d'); if (measureCtx) measureCtx.font = 'italic 11px Helvetica, Arial, sans-serif' } catch { measureCtx = null }
+  }
+  return measureCtx ? measureCtx.measureText(l).width : l.length * 6.2
+}
 const placeLabels = (items: { id: Id; kind: 'ca' | 'feedback'; points: Pt[]; lines: string[] }[], nodes: NodeBox[], blocks: Rect[] = []): Record<Id, Rect & { lines: string[] }> => {
   const out: Record<Id, Rect & { lines: string[] }> = {}
   const byLines = [...items].sort((x, y) => y.lines.length - x.lines.length)
   for (const it of [...byLines, ...byLines]) {
     if (!it.lines.length) continue
     const placed: Rect[] = [...blocks, ...Object.entries(out).filter(([k]) => k !== it.id).map(([, v]) => v)]
-    const w = Math.max(...it.lines.map((l) => l.length)) * 6.2 + 10, h = it.lines.length * 13 + 4
+    const w = Math.max(...it.lines.map(labelWidth)) + 10, h = it.lines.length * 13 + 4
     const segs = it.points.slice(1).map((q, i) => ({ a: it.points[i], b: q })).map((sg) => ({ ...sg, len: Math.abs(sg.a.x - sg.b.x) + Math.abs(sg.a.y - sg.b.y) }))
     const order = [...segs].sort((x, y) => y.len - x.len)
     let best: (Rect & { score: number }) | null = null
