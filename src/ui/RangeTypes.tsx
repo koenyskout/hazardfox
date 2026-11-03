@@ -326,19 +326,10 @@ export function SymbolicTypeDialog({ init, edit, onClose, then }: { init?: Symbo
 
 /** For a variable or parameter of symbolic type: pick a named type (or own properties) and create one. */
 export function SymbolicPicker({ x, onChange }: { x: Partial<SymbolicType> & { symbolicType?: string }; onChange: (patch: Partial<SymbolicType> & { symbolicType?: string }) => void }) {
-  const p = useProject()
-  const [isNew, setNew] = useState(false)
-  const names = Object.keys(p.symbolicTypes ?? {}).sort()
   const t = symProps(x)
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-      {names.length > 0 && <Select value={x.symbolicType ?? ''} onChange={(e) => onChange({ symbolicType: e.target.value })}>
-        <option value="">Own properties</option>
-        {names.map((n) => <option key={n} value={n}>{n} ({symbolicText(p.symbolicTypes![n])})</option>)}
-      </Select>}
       {x.symbolicType ? <span className="muted">{symbolicText(t)} — edit the type in Domain model → Types.</span> : <SymbolicProps t={t} onChange={onChange} />}
-      {!x.symbolicType && <button className="btn" onClick={() => setNew(true)} title="Define a named type (e.g. Timestamp) to share with other variables"><Icon name="plus" size={12} /> New type…</button>}
-      {isNew && <SymbolicTypeDialog init={t} onClose={() => setNew(false)} then={(n) => onChange({ symbolicType: n })} />}
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { guideApplies } from '../model/uca'
 import { effectText, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, VARIABLE_TYPES, VARIABLE_TYPE_LABELS, type ConditionOp, type VariableType, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType } from '../model/ops'
@@ -233,9 +233,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           {it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
           <VariableLinks v={it} />
           <Field single label="Type">
-            <Select value={it.type} onChange={(e) => set({ type: e.target.value as VariableType })}>
-              {VARIABLE_TYPES.map((t) => <option key={t} value={t}><TypeLabel t={t}>{VARIABLE_TYPE_LABELS[t]}</TypeLabel></option>)}
-            </Select>
+            <DataTypeSelect x={it} own="Own definition, only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
           </Field>
           {it.type === 'enum' && (
             <Field label="States" hint={it.enumType ? 'Shared type: edit its states under Domain model → Types.' : 'The values this variable can take.'}>
@@ -639,7 +637,7 @@ const KINDS = ['range', 'enum', 'boolean', 'symbolic'] as const
 const KIND_NAME = { range: 'Range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic' }
 
 /** One popup for a parameter's datatype: kinds on the left; for the chosen kind, a one-off definition, a named type or a new named type on the right. */
-function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Partial<Param>) => void }) {
+function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: Partial<Param>) => void; own?: string }) {
   const p = useProject()
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
@@ -666,7 +664,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
     return (
     <>
       <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: r.left, y: r.bottom + 4 }) }}>
-        <span className="select-val"><TypeLabel t={k}>{k !== 'boolean' && curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : k === 'boolean' ? KIND_NAME[k] : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
+        <span className="select-val"><TypeLabel t={k}>{k === 'boolean' || (own && !curName(k)) ? KIND_NAME[k] : curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
       </button>
       {at && createPortal(
         <div className="select-pop" style={{ left: at.x, top: at.y, display: 'flex', gap: 4, padding: 0, width: 420, maxHeight: Math.max(200, window.innerHeight - at.y - 12) }}>
@@ -676,6 +674,7 @@ function DataTypeSelect({ x, onChange }: { x: ParamData; onChange: (patch: Parti
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
             {vk === 'boolean' ? <li className="off">true / false</li> : <>
               <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>
+              {own && !q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>{own}</li>}
               {shown.length > 0 && <li className="grp">Named types</li>}
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)}>{n}{detail(vk, n)}</li>)}
@@ -1114,10 +1113,6 @@ function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {names.length > 0 && <Select value={x.enumType} onChange={(e) => onChange({ enumType: e.target.value })}>
-        <option value="">Own list, only for this variable</option>
-        {names.map((n) => <option key={n} value={n}>{n} ({p.enumTypes![n].join(' | ')})</option>)}
-      </Select>}
       {children}
       {!x.enumType && (x.states.length > 0
         ? <div><button className="btn" onClick={save} title="Share these states with other variables"><Icon name="save" size={12} /> Save as shared type</button></div>
