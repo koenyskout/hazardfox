@@ -233,7 +233,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           {it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
           <VariableLinks v={it} />
           <Field single label="Type">
-            <DataTypeSelect x={it} own="Own definition, only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
+            <DataTypeSelect x={it} own="only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
           </Field>
           {it.type === 'enum' && (
             <Field label="States" hint={it.enumType ? undefined : 'The values this variable can take.'}>
@@ -674,7 +674,7 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
             {vk === 'boolean' ? <li className="off">true / false</li> : <>
               <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>
-              {own && !q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>{own}</li>}
+              {own && !q && <><li className="grp">Custom</li><li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}><b style={{ fontWeight: 600 }}>Own definition</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{own}</span></li></>}
               {shown.length > 0 && <li className="grp">Named types</li>}
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ fontWeight: 600 }}>{n}</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{detail(vk, n).trim()}</span></li>)}
