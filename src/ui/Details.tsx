@@ -630,21 +630,25 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
 type ParamData = Omit<Param, 'name'>
 const rangeSum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
-const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic'; plus?: boolean; children: ReactNode }) =>
+const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic' | 'struct'; plus?: boolean; children: ReactNode }) =>
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative', ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <span style={{ position: 'absolute', left: -17, display: 'flex' }}><Icon name="plus" size={12} /></span>}<Icon name={`type-${t}`} size={13} />{children}</span>
 
-const KINDS = ['boolean', 'enum', 'range', 'symbolic'] as const
-const KIND_NAME = { range: 'Numeric range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic' }
+const KINDS = ['boolean', 'enum', 'range', 'struct', 'symbolic'] as const
+type Kind5 = (typeof KINDS)[number]
+const KIND_NAME = { range: 'Numeric range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic', struct: 'Struct' }
 
 /** One popup for a parameter's datatype: kinds on the left; for the chosen kind, a one-off definition, a named type or a new named type on the right. */
-function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: Partial<Param>) => void; own?: string }) {
+/** `own`: offer a one-off definition (its description); `structs`: struct types to choose from (adds the Struct kind, field `structType`); `noSymbolic`: leave out the Symbolic kind. */
+export function DataTypeSelect({ x, onChange, own, structs, noSymbolic }: { x: ParamData & { structType?: string }; onChange: (patch: Partial<Param> & { structType?: string }) => void; own?: string; structs?: string[]; noSymbolic?: boolean }) {
   const p = useProject()
   const btn = useRef<HTMLButtonElement>(null)
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
-  const [vk, setVk] = useState<(typeof KINDS)[number]>(x.type as (typeof KINDS)[number])
+  const kind0: Kind5 = x.structType ? 'struct' : (x.type as Kind5)
+  const [vk, setVk] = useState<Kind5>(kind0)
   const [q, setQ] = useState('')
-  const [creating, setCreating] = useState<(typeof KINDS)[number] | null>(null)
-  const k = x.type as (typeof KINDS)[number]
+  const [creating, setCreating] = useState<Kind5 | null>(null)
+  const k = kind0
+  const kinds = KINDS.filter((t) => (t !== 'struct' || structs) && (t !== 'symbolic' || !noSymbolic))
   const none = { rangeType: '', enumType: '', symbolicType: '' }
   const close = () => { setAt(null); setQ('') }
   useEffect(() => {
@@ -654,32 +658,32 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
     window.addEventListener('mousedown', down); window.addEventListener('keydown', key, true); window.addEventListener('resize', close)
     return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key, true); window.removeEventListener('resize', close) }
   }, [at])
-  const namedOf = (t: typeof KINDS[number]) => t === 'range' ? p.rangeTypes : t === 'enum' ? p.enumTypes : t === 'symbolic' ? p.symbolicTypes : undefined
-  const fieldOf = (t: typeof KINDS[number]) => t === 'range' ? 'rangeType' : t === 'enum' ? 'enumType' : 'symbolicType'
-  const curName = (t: typeof KINDS[number]) => (k === t ? (x as unknown as Record<string, string>)[fieldOf(t)] : '') ?? ''
-  const detail = (t: typeof KINDS[number], n: string) => t === 'range' ? ` (${rangeSum(p.rangeTypes![n])})` : t === 'enum' ? ` (${p.enumTypes![n].join(' | ')})` : ''
-  const apply = (t: typeof KINDS[number], name: string) => { close(); onChange({ ...none, type: t as Param['type'], ...(name ? { [fieldOf(t)]: name } : {}) }) }
+  const namedOf = (t: Kind5): Record<string, unknown> | undefined => t === 'range' ? p.rangeTypes : t === 'enum' ? p.enumTypes : t === 'symbolic' ? p.symbolicTypes : t === 'struct' ? Object.fromEntries((structs ?? []).map((s) => [s, 1])) : undefined
+  const fieldOf = (t: Kind5) => t === 'range' ? 'rangeType' : t === 'enum' ? 'enumType' : t === 'struct' ? 'structType' : 'symbolicType'
+  const curName = (t: Kind5) => (k === t ? (x as unknown as Record<string, string>)[fieldOf(t)] : '') ?? ''
+  const detail = (t: Kind5, n: string) => t === 'struct' ? '' : t === 'range' ? ` (${rangeSum(p.rangeTypes![n])})` : t === 'enum' ? ` (${p.enumTypes![n].join(' | ')})` : ''
+  const apply = (t: Kind5, name: string) => { close(); onChange(t === 'struct' ? { ...none, structType: name } : { ...none, ...(structs ? { structType: '' } : {}), type: t as Param['type'], ...(name ? { [fieldOf(t)]: name } : {}) }) }
   const names = Object.keys(namedOf(vk) ?? {}).sort()
   const shown = names.filter((n) => (n + detail(vk, n)).toLowerCase().includes(q.toLowerCase()))
     return (
     <>
       <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - 420 - 8)), y: r.bottom + 4 }) }}>
-        <span className="select-val"><TypeLabel t={k}>{k === 'boolean' || (own && !curName(k)) ? KIND_NAME[k] : curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
+        <span className="select-val"><TypeLabel t={k}>{k === 'boolean' || (own && k !== 'struct' && !curName(k)) ? KIND_NAME[k] : curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
       </button>
       {at && createPortal(
         <div className="select-pop" style={{ left: at.x, top: at.y, display: 'flex', gap: 4, padding: 0, width: 420, maxHeight: Math.max(200, window.innerHeight - at.y - 12) }}>
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, borderRight: '1px solid var(--line)', width: 140, flexShrink: 0 }}>
-            {KINDS.map((t) => <li key={t} className={(t === vk ? 'hi ' : '') + (t === k ? 'cur' : '')} onMouseEnter={() => setVk(t)} onClick={() => t === 'boolean' ? apply(t, '') : setVk(t)}><TypeLabel t={t}>{KIND_NAME[t]}</TypeLabel></li>)}
+            {kinds.map((t) => <li key={t} className={(t === vk ? 'hi ' : '') + (t === k ? 'cur' : '')} onMouseEnter={() => setVk(t)} onClick={() => t === 'boolean' ? apply(t, '') : setVk(t)}><TypeLabel t={t}>{KIND_NAME[t]}</TypeLabel></li>)}
           </ul>
           <ul style={{ listStyle: 'none', margin: 0, padding: 4, flex: 1, minWidth: 0, overflowY: 'auto' }}>
             {vk === 'boolean' ? <li className="off">true / false</li> : <>
               <li className="srch"><input ref={(el) => el?.focus({ preventScroll: true })} placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} /></li>
-              {own && !q && <><li className="grp">Custom</li><li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}><b style={{ fontWeight: 600 }}>Own definition</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{own}</span></li></>}
-              {shown.length > 0 && <li className="grp">Named types</li>}
+              {own && vk !== 'struct' && !q && <><li className="grp">Custom</li><li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}><b style={{ fontWeight: 600 }}>Own definition</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{own}</span></li></>}
+              {shown.length > 0 && <li className="grp">{vk === 'struct' ? 'Struct types' : 'Named types'}</li>}
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ fontWeight: 600 }}>{n}</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{detail(vk, n).trim()}</span></li>)}
               {q && !shown.length && <li className="off">No matches</li>}
-              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named {vk === 'enum' ? 'enumeration' : vk === 'range' ? 'numeric range' : vk} type…</TypeLabel></li>
+              {vk !== 'struct' && <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named {vk === 'enum' ? 'enumeration' : vk === 'range' ? 'numeric range' : vk} type…</TypeLabel></li>}
             </>}
           </ul>
         </div>,

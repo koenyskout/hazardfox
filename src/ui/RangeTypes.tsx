@@ -1,9 +1,10 @@
 import { Select } from './Select'
+import { DataTypeSelect } from './Details'
 import { useState, type ReactNode } from 'react'
 import { StringList } from './StringList'
 import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
-import type { RangeType, StructField, SymbolicType, Variable, VariableType } from '../model/types'
+import type { RangeType, StructField, SymbolicType, Variable } from '../model/types'
 import { commit, useProject } from './hooks'
 import { Field, NumberInput, TextInput } from './Fields'
 import { Modal } from './Modal'
@@ -200,15 +201,11 @@ function StructFields({ self, fields, onChange }: { self: string; fields: Struct
         <tr key={i}>
           <td><input value={f.name} placeholder="Field" onChange={(e) => set(i, { name: e.target.value })} /></td>
           <td>
-            <Select value={f.structType ? 'struct:' + f.structType : f.type === 'range' && f.rangeType ? 'range:' + f.rangeType : f.type === 'enum' && f.enumType ? 'enum:' + f.enumType : f.type}
-              onChange={(e) => { const [t, nm = ''] = e.target.value.split(':'); if (t === 'struct') return set(i, { structType: nm }); const r = nm && t === 'range' ? p.rangeTypes?.[nm] : null; const en = nm && t === 'enum' ? p.enumTypes?.[nm] : null; set(i, { structType: '', type: t as VariableType, rangeType: t === 'range' ? nm : '', enumType: t === 'enum' ? nm : '', ...(r ?? {}), ...(en ? { states: [...en] } : {}) }) }}>
-              <option value="boolean">boolean</option>
-              <option value="enum">enum (own states)</option>
-              <option value="range">numeric range (own bounds)</option>
-              {Object.keys(p.enumTypes ?? {}).map((x) => <option key={'e' + x} value={'enum:' + x}>{x} (enum type)</option>)}
-              {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (numeric range type)</option>)}
-              {nestableStructs(p, self).map((x) => <option key={'s' + x} value={'struct:' + x}>{x} (struct type)</option>)}
-            </Select>
+            <DataTypeSelect x={f} own="only for this field" noSymbolic structs={nestableStructs(p, self)}
+              onChange={(patch) => {
+                const en = patch.enumType ? p.enumTypes?.[patch.enumType] : null, r = patch.rangeType ? p.rangeTypes?.[patch.rangeType] : null
+                set(i, { ...patch, ...(r ?? {}), ...(en ? { states: [...en] } : {}) } as Partial<StructField>)
+              }} />
             {!f.structType && f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
           </td>
           <td><button className="icon-btn danger" aria-label="Remove field" title="Remove field" onClick={() => onChange(fields.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button></td>
