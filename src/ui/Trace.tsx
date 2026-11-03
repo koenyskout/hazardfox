@@ -193,7 +193,7 @@ function ValueInput({ v, value, carried, onChange }: { v: Variable; value: strin
   const vals = valuesOf(v)
   if (vals) return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{carried !== undefined ? `↳ ${carried}` : '—'}</option>
+      <option value="">{carried !== undefined ? `use previous (${carried})` : 'use previous'}</option>
       {vals.map((x) => <option key={x}>{x}</option>)}
     </Select>
   )
