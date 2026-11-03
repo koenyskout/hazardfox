@@ -236,7 +236,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             <DataTypeSelect x={it} own="Own definition, only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
           </Field>
           {it.type === 'enum' && (
-            <Field label="States" hint={it.enumType ? 'Shared type: edit its states under Domain model → Types.' : 'The values this variable can take.'}>
+            <Field label="States" hint={it.enumType ? undefined : 'The values this variable can take.'}>
               <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))}>
                 {!it.enumType && <EditPopup title={`States of ${it.title || 'variable'}`} lines={it.states} empty="No states" button="Edit states…"><StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" /></EditPopup>}
               </EnumTypePicker>
@@ -1106,6 +1106,7 @@ function VariableLinks({ v }: { v: Variable }) {
 function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string; states: string[] }; name: string; onChange: (patch: { enumType: string }) => void; children?: ReactNode }) {
   const p = useProject()
   const [isNew, setNew] = useState(false)
+  const [edit, setEdit] = useState(false)
   const names = Object.keys(p.enumTypes ?? {}).sort()
   const save = async () => {
     const n = await askText({ title: 'Save states as a type', label: 'Name for this state list (e.g. On/Off, Severity)', initial: name, confirm: 'Save' })
@@ -1114,6 +1115,8 @@ function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {children}
+      {x.enumType && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span className="muted">{x.states.join(' | ')}</span><button className="btn" onClick={() => setEdit(true)}>Edit type…</button></div>}
+      {edit && <EnumTypeDialog edit={x.enumType} onClose={() => setEdit(false)} />}
       {!x.enumType && (x.states.length > 0
         ? <div><button className="btn" onClick={save} title="Share these states with other variables"><Icon name="save" size={12} /> Save as shared type</button></div>
         : names.length === 0 && <div><button className="btn" onClick={() => setNew(true)} title="Define a shared state list">New shared type…</button></div>)}

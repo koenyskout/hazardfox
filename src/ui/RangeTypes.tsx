@@ -326,10 +326,11 @@ export function SymbolicTypeDialog({ init, edit, onClose, then }: { init?: Symbo
 
 /** For a variable or parameter of symbolic type: pick a named type (or own properties) and create one. */
 export function SymbolicPicker({ x, onChange }: { x: Partial<SymbolicType> & { symbolicType?: string }; onChange: (patch: Partial<SymbolicType> & { symbolicType?: string }) => void }) {
+  const [edit, setEdit] = useState(false)
   const t = symProps(x)
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-      {x.symbolicType ? <span className="muted">{symbolicText(t)} — edit the type in Domain model → Types.</span> : <SymbolicProps t={t} onChange={onChange} />}
+      {x.symbolicType ? <><span className="muted">{symbolicText(t)}</span><button className="btn" onClick={() => setEdit(true)}>Edit type…</button>{edit && <SymbolicTypeDialog edit={x.symbolicType} onClose={() => setEdit(false)} />}</> : <SymbolicProps t={t} onChange={onChange} />}
     </div>
   )
 }
