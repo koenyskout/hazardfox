@@ -196,7 +196,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
         <span className="hc-badges">
           {badges}
           <span className={'hc-badge st-' + it.status}><Icon name={it.status} size={12} /> {it.status}</span>
-          <button className="hc-edit" title="Edit" onClick={() => openEditor(it.id)}><Icon name="draft" size={13} /></button>
+          <button className="hc-edit" title="Edit" onClick={() => openEditor(it.id)}><Icon name="pencil" size={13} /></button>
         </span>
       </div>
       <div className="hc-title">{title || <span className="muted">(untitled)</span>}</div>

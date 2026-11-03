@@ -105,7 +105,7 @@ function TypeRow({ name, def, vars, onEdit, onDelete, deleteTip }: { name: strin
       <strong className="type-name">{name}</strong>
       <span className="type-def">{def}</span>
       <span className="type-used muted" title={vars.map((v) => v.title || 'untitled').join(', ')}>{vars.length ? `${vars.length} ${vars.length === 1 ? 'variable' : 'variables'}` : 'not used'}</span>
-      <span className="type-actions"><button className="btn" onClick={onEdit}><Icon name="draft" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={onDelete} title={deleteTip}><Icon name="trash" size={15} /></button></span>
+      <span className="type-actions"><button className="btn" onClick={onEdit}><Icon name="pencil" size={12} /> Edit</button><button className="icon-btn danger" aria-label="Delete type" onClick={onDelete} title={deleteTip}><Icon name="trash" size={15} /></button></span>
     </div>
   )
 }
