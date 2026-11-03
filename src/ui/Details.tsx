@@ -633,8 +633,8 @@ const rangeSum = (t: { min: number | null; max: number | null; unit: string }) =
 const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic'; plus?: boolean; children: ReactNode }) =>
   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, position: 'relative', ...(plus ? { color: 'var(--accent)' } : {}) }}>{plus && <span style={{ position: 'absolute', left: -17, display: 'flex' }}><Icon name="plus" size={12} /></span>}<Icon name={`type-${t}`} size={13} />{children}</span>
 
-const KINDS = ['range', 'enum', 'boolean', 'symbolic'] as const
-const KIND_NAME = { range: 'Range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic' }
+const KINDS = ['boolean', 'enum', 'range', 'symbolic'] as const
+const KIND_NAME = { range: 'Numeric range', enum: 'Enumeration', boolean: 'Boolean', symbolic: 'Symbolic' }
 
 /** One popup for a parameter's datatype: kinds on the left; for the chosen kind, a one-off definition, a named type or a new named type on the right. */
 function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: Partial<Param>) => void; own?: string }) {
@@ -679,7 +679,7 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ fontWeight: 600 }}>{n}</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{detail(vk, n).trim()}</span></li>)}
               {q && !shown.length && <li className="off">No matches</li>}
-              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named {vk === 'enum' ? 'enumeration' : vk} type…</TypeLabel></li>
+              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named {vk === 'enum' ? 'enumeration' : vk === 'range' ? 'numeric range' : vk} type…</TypeLabel></li>
             </>}
           </ul>
         </div>,
@@ -1077,7 +1077,7 @@ function OwnedVars(props: { vars: Variable[]; add: string; options?: Item[]; onA
 function RangeFields({ v }: { v: Variable }) {
   const [open, setOpen] = useState(false)
   return (
-    <Field single label="Range">
+    <Field single label="Numeric range">
       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
         <span>{v.rangeType && <b>{v.rangeType} · </b>}{describeStates(v)}</span>
         <button className="btn" onClick={() => setOpen(true)}>Edit…</button>

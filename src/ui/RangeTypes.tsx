@@ -28,7 +28,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
     onClose()
   }
   return (
-    <Modal title={name ? `Range type ${name}` : 'New range type'} onClose={onClose}>
+    <Modal title={name ? `Numeric range type ${name}` : 'New numeric range type'} onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Percentage, Temperature" /></Field>
       <div className="two">
         <Field single label="Min"><NumberInput value={t.min} onChange={(min) => setT({ ...t, min })} /></Field>
@@ -47,7 +47,7 @@ export function RangeTypeDialog({ name, init, onClose, then }: { name: string | 
 }
 
 export const VariableRangeDialog = ({ v, onClose }: { v: Variable; onClose: () => void }) =>
-  <RangeDialog title={`Range of ${v.title || 'variable'}`} value={v} onClose={onClose} onApply={(patch) => commit((q) => updateItem(q, v.id, patch))} />
+  <RangeDialog title={`Numeric range of ${v.title || 'variable'}`} value={v} onClose={onClose} onApply={(patch) => commit((q) => updateItem(q, v.id, patch))} />
 
 /** Popup to choose a range type (existing or new) or give custom bounds, for a variable or parameter. */
 export function RangeDialog({ title, value, onClose, onApply }: { title: string; value: { rangeType: string; min: number | null; max: number | null; unit: string }; onClose: () => void; onApply: (patch: { rangeType: string; min?: number | null; max?: number | null; unit?: string }) => void }) {
@@ -124,7 +124,7 @@ const CreateActions = ({ name, bad, onClose, onCreate, label = 'Create' }: { nam
 export function TypesPage() {
   return (
     <div className="page types-page">
-      <p className="hint">Named types are shared by variables and control-action parameters: change a type once and every variable using it follows. <b>Range</b>: numbers with bounds and a unit. <b>Enum</b>: a fixed list of states. <b>Symbolic</b>: opaque identifiers such as t1 or id7, optionally ordered. <b>Struct</b>: a group of fields, each with its own type.</p>
+      <p className="hint">Named types are shared by variables and control-action parameters: change a type once and every variable using it follows. <b>Numeric range</b>: numbers with bounds and a unit. <b>Enum</b>: a fixed list of states. <b>Symbolic</b>: opaque identifiers such as t1 or id7, optionally ordered. <b>Struct</b>: a group of fields, each with its own type.</p>
       <RangeTypes /><EnumTypes /><SymbolicTypes /><StructTypes />
     </div>
   )
@@ -136,8 +136,8 @@ function RangeTypes() {
   const [edit, setEdit] = useState<string | null | undefined>(undefined)
   const names = Object.keys(p.rangeTypes ?? {}).sort()
   return (
-    <Section title="Range types" hint="A numeric range with a unit that several variables can share (e.g. Percentage 0–100 %)." onNew={() => setEdit(null)}>
-      {!names.length && <p className="empty">No range types. Create one, or give a variable its own bounds.</p>}
+    <Section title="Numeric range types" hint="A numeric range with a unit that several variables can share (e.g. Percentage 0–100 %)." onNew={() => setEdit(null)}>
+      {!names.length && <p className="empty">No numeric range types. Create one, or give a variable its own bounds.</p>}
       {names.map((n) => <TypeRow key={n} name={n} def={show(p.rangeTypes![n])} vars={usersOf(p.items, 'rangeType', n)} onEdit={() => setEdit(n)} onDelete={() => commit((q) => deleteRangeType(q, n))} deleteTip="Delete type (variables keep their bounds)" />)}
       {edit !== undefined && <RangeTypeDialog name={edit} onClose={() => setEdit(undefined)} />}
     </Section>
@@ -150,7 +150,7 @@ export function RangeCell({ v }: { v: Variable }) {
   if (v.type !== 'range') return null
   return (
     <>
-      <button className="btn" title={`Change range type (${v.rangeType || 'custom'})`} style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 11, padding: '1px 6px' }} onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType} </b> : null}{describeStates(v)}</button>
+      <button className="btn" title={`Change numeric range type (${v.rangeType || 'custom'})`} style={{ flex: 'none', whiteSpace: 'nowrap', fontSize: 11, padding: '1px 6px' }} onClick={(e) => { e.stopPropagation(); setOpen(true) }}>{v.rangeType ? <b>{v.rangeType} </b> : null}{describeStates(v)}</button>
       {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
     </>
   )
@@ -204,9 +204,9 @@ function StructFields({ self, fields, onChange }: { self: string; fields: Struct
               onChange={(e) => { const [t, nm = ''] = e.target.value.split(':'); if (t === 'struct') return set(i, { structType: nm }); const r = nm && t === 'range' ? p.rangeTypes?.[nm] : null; const en = nm && t === 'enum' ? p.enumTypes?.[nm] : null; set(i, { structType: '', type: t as VariableType, rangeType: t === 'range' ? nm : '', enumType: t === 'enum' ? nm : '', ...(r ?? {}), ...(en ? { states: [...en] } : {}) }) }}>
               <option value="boolean">boolean</option>
               <option value="enum">enum (own states)</option>
-              <option value="range">range (own bounds)</option>
+              <option value="range">numeric range (own bounds)</option>
               {Object.keys(p.enumTypes ?? {}).map((x) => <option key={'e' + x} value={'enum:' + x}>{x} (enum type)</option>)}
-              {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (range type)</option>)}
+              {Object.keys(p.rangeTypes ?? {}).map((x) => <option key={'r' + x} value={'range:' + x}>{x} (numeric range type)</option>)}
               {nestableStructs(p, self).map((x) => <option key={'s' + x} value={'struct:' + x}>{x} (struct type)</option>)}
             </Select>
             {!f.structType && f.type === 'enum' && !f.enumType && <StringList value={f.states} onChange={(v) => set(i, { states: v })} placeholder="State" addLabel="Add state" />}
