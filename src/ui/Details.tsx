@@ -679,7 +679,7 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
               {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ fontWeight: 600 }}>{n}</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{detail(vk, n).trim()}</span></li>)}
               {q && !shown.length && <li className="off">No matches</li>}
-              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named type…</TypeLabel></li>
+              <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New named {vk === 'enum' ? 'enumeration' : vk}…</TypeLabel></li>
             </>}
           </ul>
         </div>,
