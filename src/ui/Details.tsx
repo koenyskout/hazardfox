@@ -605,7 +605,7 @@ function EditPopup({ title, lines, empty, button, children }: { title: string; l
   return (
     <div className="ctx-summary">
       {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : <span className="muted">{empty}</span>}
-      <button type="button" onClick={() => setOpen(true)}>{button}</button>
+      <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> {button}</button>
       {open && (
         <Modal title={title} onClose={() => setOpen(false)} wide>
           {children}
