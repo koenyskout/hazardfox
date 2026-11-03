@@ -97,6 +97,7 @@ export function FlatTable<K extends Kind>(props: {
       <div className="rows">
         <div className="row head">
           <span className={'lbl' + (props.kind === 'variable' || props.kind === 'relationship' || props.kind === 'operation' ? (props.kind === 'relationship' ? ' wide rel' : ' wide') : '')}>ID</span>
+          <span className="stc" title="Status">Status</span>
           {props.titleEditable !== false && <span className="ttl">Title</span>}
           {props.columns.map((c) => (
             <span key={c.head} className="col" style={{ flex: c.width ? `0 0 ${c.width}` : 1 }}>{c.head}</span>
@@ -114,6 +115,7 @@ export function FlatTable<K extends Kind>(props: {
           return (
           <div key={it.id} className={'row' + (selected === it.id ? ' sel cur' : '')} style={(props.groups || props.nest) && r.depth ? { paddingLeft: 10 + r.depth * 18 } : undefined} onClick={() => select(it.id)}>
             <span className={'lbl' + (props.kind === 'variable' || props.kind === 'relationship' || props.kind === 'operation' ? (props.kind === 'relationship' ? ' wide rel' : ' wide') : '')}><span className={'chip k-' + it.kind}><ChipLabel it={it} label={idLabels[it.id]} /></span></span>
+            <span className="stc"><StatusIcon status={it.status} onCycle={(status) => commit((q) => updateItem(q, it.id, { status }))} /><ReviewDot id={it.id} /></span>
             {props.titleEditable !== false && (
               <span className={'ttl' + (props.sub ? ' wrap' : '')}>
                 <span className="tline">
@@ -125,8 +127,6 @@ export function FlatTable<K extends Kind>(props: {
                   onFocus={() => select(it.id)}
                   onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)}
                 />}
-                <StatusIcon status={it.status} onCycle={(status) => commit((q) => updateItem(q, it.id, { status }))} />
-                <ReviewDot id={it.id} />
                 {props.tail?.(it)}
                 </span>
                 {props.sub?.(it) != null && <div className="subline">{props.sub(it)}</div>}
