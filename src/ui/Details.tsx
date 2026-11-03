@@ -12,7 +12,7 @@ import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete
 import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
-import { defineEnumType } from '../model/ops'
+import { defineEnumType, defineRangeType } from '../model/ops'
 import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, SymbolicPicker, SymbolicTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
 import { refineUca } from '../model/refinement'
@@ -1079,12 +1079,20 @@ function OwnedVars(props: { vars: Variable[]; add: string; options?: Item[]; onA
 /** How a variable is connected through the layers: world → signals → beliefs, and what controls it. */
 /** Read-only summary of a range variable's type; editing happens in a popup. */
 function RangeFields({ v }: { v: Variable }) {
+  const p = useProject()
   const [open, setOpen] = useState(false)
+  const save = async () => {
+    const n = await askText({ title: 'Save range as a type', label: 'Name for this numeric range (e.g. Percentage)', initial: v.title, confirm: 'Save' })
+    if (n && !p.rangeTypes?.[n]) { commit((q) => defineRangeType(q, n, { min: v.min, max: v.max, unit: v.unit })); commit((q) => updateItem(q, v.id, { rangeType: n })) }
+  }
   return (
     <Field single label="Numeric range">
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
         <span>{v.rangeType && <b>{v.rangeType} · </b>}{describeStates(v)}</span>
-        <button className="btn" onClick={() => setOpen(true)}>Edit…</button>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => setOpen(true)}>Edit…</button>
+          {!v.rangeType && <button className="btn" style={{ whiteSpace: 'nowrap' }} onClick={save} title="Share this range with other variables"><Icon name="save" size={12} /> Save as shared type</button>}
+        </div>
       </div>
       {open && <VariableRangeDialog v={v} onClose={() => setOpen(false)} />}
     </Field>
