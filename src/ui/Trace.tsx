@@ -192,7 +192,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
 function ValueInput({ v, value, carried, onChange }: { v: Variable; value: string; carried?: string; onChange: (v: string) => void }) {
   const vals = valuesOf(v)
   if (vals) return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)}>
+    <Select value={value} display={value === '' ? (carried !== undefined ? `↳ ${carried}` : '—') : undefined} onChange={(e) => onChange(e.target.value)}>
       <option value="">{carried !== undefined ? `use previous (${carried})` : 'use previous'}</option>
       {vals.map((x) => <option key={x}>{x}</option>)}
     </Select>

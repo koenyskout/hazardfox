@@ -19,8 +19,8 @@ const SEARCH_FROM = 8
 
 /** Drop-in for `<select>` with `<option>` children (single choice), with a styled popup instead of the OS menu. `onChange` gets `{ target: { value } }`.
  *  With `search`, a filter box appears once there are more than a few options; groups named in `always` stay visible while filtering. */
-export function Select({ value, onChange, children, className, style, title, disabled, search, always }: {
-  value: string | number; onChange?: (e: ChangeEvent<HTMLSelectElement>) => void; children?: ReactNode; className?: string; style?: CSSProperties; title?: string; disabled?: boolean; search?: boolean; always?: string[]
+export function Select({ value, onChange, children, className, style, title, disabled, search, always, display }: {
+  value: string | number; onChange?: (e: ChangeEvent<HTMLSelectElement>) => void; children?: ReactNode; className?: string; style?: CSSProperties; title?: string; disabled?: boolean; search?: boolean; always?: string[]; display?: ReactNode
 }) {
   const all = options(children)
   const [q, setQ] = useState('')
@@ -74,7 +74,7 @@ export function Select({ value, onChange, children, className, style, title, dis
   return (
     <>
       <button ref={btn} type="button" className={'select ' + (className ?? '')} style={style} title={title} disabled={disabled} onClick={() => (at ? close() : open())} onKeyDown={key}>
-        <span className="select-val">{idx >= 0 ? all[idx].label : v}</span>
+        <span className="select-val">{display ?? (idx >= 0 ? all[idx].label : v)}</span>
       </button>
       {at && createPortal(
         <ul className="select-pop" style={{ left: at.x, minWidth: at.w, ...(at.up ? { bottom: window.innerHeight - at.y } : { top: at.y }), maxHeight: Math.max(160, at.up ? at.y - 12 : window.innerHeight - at.y - 12) }}>
