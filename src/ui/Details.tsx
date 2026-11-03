@@ -454,7 +454,7 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
           {it.context && <ul><li>{renderText(labels, it.context)}</li></ul>}
         </>
       ) : <span className="muted">No context yet</span>}
-      <button type="button" onClick={() => setOpen(true)}>Edit context…</button>
+      <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit context…</button>
       {open && (
         <Modal title="Edit context" onClose={() => setOpen(false)} wide>
           <ConditionsEditor it={it} set={set} />
@@ -476,7 +476,7 @@ function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
   return (
     <div className="ctx-summary">
       {lines.length ? <WhenView ws={it.conditions} /> : <span className="muted">No condition yet</span>}
-      <button type="button" onClick={() => setOpen(true)}>Edit condition…</button>
+      <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit condition…</button>
       {open && (
         <Modal title="Edit hazardous condition" onClose={() => setOpen(false)} wide>
           <ConditionsEditor it={it} set={set} vars={itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain')} />
@@ -996,7 +996,7 @@ function RulesSummary({ it, set }: { it: Variable; set: Set }) {
           <li>otherwise {it.otherwise || 'unknown'}</li>
         </ul>
       ) : <span className="muted">Not computed: set directly</span>}
-      <button type="button" onClick={() => setOpen(true)}>Edit rules…</button>
+      <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit rules…</button>
       {open && (
         <Modal title={`Compute ${it.title || 'variable'} from its parts`} onClose={() => setOpen(false)} wide>
           <p className="muted">Rules are checked in order; the first one whose condition holds decides the value.</p>
@@ -1090,7 +1090,7 @@ function RangeFields({ v }: { v: Variable }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
         <span>{v.rangeType && <b>{v.rangeType} · </b>}{describeStates(v)}</span>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className="btn" onClick={() => setOpen(true)}>Edit…</button>
+          <button className="btn" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit…</button>
           {!v.rangeType && <button className="btn" style={{ whiteSpace: 'nowrap' }} onClick={save} title="Share this range with other variables"><Icon name="save" size={12} /> Save as shared type</button>}
         </div>
       </div>

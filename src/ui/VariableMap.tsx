@@ -102,7 +102,7 @@ export function ControllerEditorButton({ id }: { id: string }) {
   const p = useProject()
   return (
     <>
-      <button className="btn" onClick={() => setOpen(true)}>Open editor…</button>
+      <button className="btn" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Open editor…</button>
       {open && <Modal title={`Variables of ${p.items[id]?.title ?? ''}`} onClose={() => setOpen(false)} wide><VariableMap only={id} /></Modal>}
     </>
   )
