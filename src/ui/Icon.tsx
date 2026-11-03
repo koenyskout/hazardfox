@@ -24,7 +24,7 @@ const PATHS: Record<string, ReactNode> = {
   x: <path d="M4 4l8 8M12 4l-8 8" />,
   check: <path d="M3.5 8.5l3 3 6-7" />,
   warn: <path d="M8 2.5l6 10.5H2zM8 7v3M8 11.5v.2" />,
-  draft: <path d="M3 13l.6-3L10.5 3.1a1.2 1.2 0 011.7 0l.7.7a1.2 1.2 0 010 1.7L6 12.4zM9.5 4.2l2.3 2.3" />,
+  draft: <circle cx="8" cy="8" r="6" strokeDasharray="2.2 2.2" />,
   review: <><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="1.8" /></>,
   approved: <><circle cx="8" cy="8" r="6" /><path d="M5.2 8.3l2 2 3.6-4" /></>,
   error: <><circle cx="8" cy="8" r="6" /><path d="M5.8 5.8l4.4 4.4M10.2 5.8l-4.4 4.4" /></>,
