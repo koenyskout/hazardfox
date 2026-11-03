@@ -228,7 +228,7 @@ function StructTypeDialog({ edit, onClose }: { edit?: string; onClose: () => voi
   const bad = !nm ? 'Name required' : nm !== edit && p.structTypes?.[nm] ? 'Name already used' : ''
   const save = () => { commit((q) => defineStructType(edit && nm !== edit ? renameStructType(q, edit, nm) : q, nm, { fields: fields.filter((f) => f.name.trim()) })); onClose() }
   return (
-    <Modal title={edit ? `Edit ${edit}` : 'New struct type'} onClose={onClose} wide>
+    <Modal title={edit ? `Edit struct type “${edit}”` : 'New struct type'} onClose={onClose} wide>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Position" /></Field>
       <table className="grid"><thead><tr><th>Field</th><th>Type</th><th /></tr></thead><tbody><StructFields self={edit ?? nm} fields={fields} onChange={setFields} /></tbody></table>
       <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={save} />
@@ -317,7 +317,7 @@ export function SymbolicTypeDialog({ init, edit, onClose, then }: { init?: Symbo
   const nm = n.trim()
   const bad = !nm ? 'Name required' : nm !== edit && p.symbolicTypes?.[nm] ? 'Name already used' : ''
   return (
-    <Modal title={edit ? `Edit ${edit}` : 'New symbolic type'} onClose={onClose}>
+    <Modal title={edit ? `Edit symbolic type “${edit}”` : 'New symbolic type'} onClose={onClose}>
       <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. Timestamp, ID" /></Field>
       <Field label="Properties"><SymbolicProps detailed t={t} onChange={setT} /></Field>
       <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={() => { commit((q) => defineSymbolicType(edit && nm !== edit ? renameSymbolicType(q, edit, nm) : q, nm, t)); then?.(nm); onClose() }} />
