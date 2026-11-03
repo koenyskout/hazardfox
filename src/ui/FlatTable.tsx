@@ -125,7 +125,7 @@ export function FlatTable<K extends Kind>(props: {
                   onFocus={() => select(it.id)}
                   onChange={(e) => commit((q) => updateItem(q, it.id, { title: e.target.value }), 'title:' + it.id)}
                 />}
-                <StatusIcon status={it.status} />
+                <StatusIcon status={it.status} onCycle={(status) => commit((q) => updateItem(q, it.id, { status }))} />
                 <ReviewDot id={it.id} />
                 {props.tail?.(it)}
                 </span>

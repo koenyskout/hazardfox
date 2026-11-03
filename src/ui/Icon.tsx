@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { shortName, variableName } from '../model/labels'
 import { isComputed, useProject } from './hooks'
-import { LAYER_SHORT, type Item, type Status, type VariableLayer } from '../model/types'
+import { LAYER_SHORT, STATUSES, type Item, type Status, type VariableLayer } from '../model/types'
 
 const PATHS: Record<string, ReactNode> = {
   ordered: <path d="M3.5 13V10.5M7 13V7.5M10.5 13V4.5" />,
@@ -59,9 +59,12 @@ export function Icon({ name, size = 15 }: { name: IconName; size?: number }) {
   )
 }
 
-export const StatusIcon = ({ status, size = 14 }: { status: Status; size?: number }) => (
-  <span className={'status-ico st-' + status} title={status[0].toUpperCase() + status.slice(1)}><Icon name={status} size={size} /></span>
-)
+export const StatusIcon = ({ status, size = 14, onCycle }: { status: Status; size?: number; onCycle?: (next: Status) => void }) => {
+  const name = status[0].toUpperCase() + status.slice(1)
+  if (!onCycle) return <span className={'status-ico st-' + status} title={name}><Icon name={status} size={size} /></span>
+  const next = STATUSES[(STATUSES.indexOf(status) + 1) % STATUSES.length]
+  return <span className={'status-ico st-' + status} style={{ cursor: 'pointer' }} title={`Status: ${name} (click to set ${next})`} onClick={(e) => { e.stopPropagation(); onCycle(next) }}><Icon name={status} size={size} /></span>
+}
 
 export const LayerIcon = ({ layer, size = 13, computed }: { layer: VariableLayer; size?: number; computed?: boolean }) => (
   <span className={'layer-ico l-' + layer} title={computed ? 'Computed world variable' : LAYER_SHORT[layer] + ' variable'}><Icon name={computed ? 'layer-computed' : `layer-${layer}`} size={size} /></span>

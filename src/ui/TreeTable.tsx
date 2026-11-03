@@ -211,7 +211,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
                   onChange={(e) => commit((q) => updateItem(q, item.id, { title: e.target.value }), 'title:' + item.id)}
                   onKeyDown={(e) => onKey(e, item, i)}
                 />
-                <StatusIcon status={item.status} />
+                <StatusIcon status={item.status} onCycle={(status) => commit((q) => updateItem(q, item.id, { status }))} />
                 <ReviewDot id={item.id} />
               </span>
               {extra && <span className="ext">{extra(item)}</span>}
