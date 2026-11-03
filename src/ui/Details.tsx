@@ -1115,7 +1115,7 @@ function EnumTypePicker({ x, name, onChange, children }: { x: { enumType: string
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {children}
-      {x.enumType && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span className="muted">{x.states.join(' | ')}</span><button className="btn" onClick={() => setEdit(true)}>Edit type…</button></div>}
+      {x.enumType && <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><span className="muted">{x.states.join(' | ')}</span><button className="icon-btn" aria-label="Edit type" title="Edit this type" onClick={() => setEdit(true)}><Icon name="pencil" size={13} /></button></div>}
       {edit && <EnumTypeDialog edit={x.enumType} onClose={() => setEdit(false)} />}
       {!x.enumType && (x.states.length > 0
         ? <div><button className="btn" onClick={save} title="Share these states with other variables"><Icon name="save" size={12} /> Save as shared type</button></div>

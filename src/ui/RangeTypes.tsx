@@ -165,9 +165,10 @@ export function EnumTypeDialog({ init, edit, onClose, then }: { init?: string[];
   const bad = !nm ? 'Name required' : nm !== edit && p.enumTypes?.[nm] ? 'Name already used' : ''
   const save = () => { commit((q) => defineEnumType(edit && nm !== edit ? renameEnumType(q, edit, nm) : q, nm, states.map((x) => x.trim()).filter(Boolean))); then?.(nm); onClose() }
   return (
-    <Modal title={edit ? `Edit ${edit}` : 'New enum type'} onClose={onClose}>
-      <Field single label="Name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
-      <Field single label="States"><StringList value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
+    <Modal title={edit ? `Edit enumeration type “${edit}”` : 'New enumeration type'} onClose={onClose}>
+      {edit && <p className="hint">A shared type: changes apply to all {usersOf(p.items, 'enumType', edit).length} variable(s) that use it.</p>}
+      <Field single label="Type name"><TextInput autoFocus value={n} onChange={setN} placeholder="e.g. On/Off, Severity" /></Field>
+      <Field single label="States"><StringList bullet value={states} onChange={setStates} placeholder="State" addLabel="Add state" /></Field>
       <CreateActions name={n} bad={bad} label={edit ? 'Save' : 'Create'} onClose={onClose} onCreate={save} />
     </Modal>
   )
@@ -330,7 +331,7 @@ export function SymbolicPicker({ x, onChange }: { x: Partial<SymbolicType> & { s
   const t = symProps(x)
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-      {x.symbolicType ? <><span className="muted">{symbolicText(t)}</span><button className="btn" onClick={() => setEdit(true)}>Edit type…</button>{edit && <SymbolicTypeDialog edit={x.symbolicType} onClose={() => setEdit(false)} />}</> : <SymbolicProps t={t} onChange={onChange} />}
+      {x.symbolicType ? <><span className="muted">{symbolicText(t)}</span><button className="icon-btn" aria-label="Edit type" title="Edit this type" onClick={() => setEdit(true)}><Icon name="pencil" size={13} /></button>{edit && <SymbolicTypeDialog edit={x.symbolicType} onClose={() => setEdit(false)} />}</> : <SymbolicProps t={t} onChange={onChange} />}
     </div>
   )
 }

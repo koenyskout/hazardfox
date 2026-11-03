@@ -4,7 +4,7 @@ import { Icon } from './Icon'
 const clean = (rows: string[]) => rows.map((s) => s.trim()).filter(Boolean)
 
 /** One input per entry: Enter adds a row below, Backspace on an empty row removes it, ↑/↓ move between rows, pasted lines split into rows. Empty rows live only here; `onChange` gets the trimmed non-empty entries. */
-export function StringList(props: { value: string[]; onChange: (v: string[]) => void; placeholder?: string; addLabel?: string }) {
+export function StringList(props: { value: string[]; onChange: (v: string[]) => void; placeholder?: string; addLabel?: string; bullet?: boolean }) {
   const { value, onChange } = props
   const [rows, setRows] = useState(value)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
@@ -36,6 +36,7 @@ export function StringList(props: { value: string[]; onChange: (v: string[]) => 
     <div className="strlist">
       {rows.map((r, i) => (
         <div key={i} className="strrow">
+          {props.bullet && <span className="muted" aria-hidden style={{ width: 14, textAlign: 'center', flex: 'none' }}>•</span>}
           <input
             ref={(el) => { inputs.current[i] = el }}
             value={r}
