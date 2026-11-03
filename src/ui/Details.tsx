@@ -663,7 +663,7 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
   const shown = names.filter((n) => (n + detail(vk, n)).toLowerCase().includes(q.toLowerCase()))
     return (
     <>
-      <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: r.left, y: r.bottom + 4 }) }}>
+      <button ref={btn} type="button" className="select" onClick={() => { if (at) return close(); const r = btn.current!.getBoundingClientRect(); setVk(k); setAt({ x: Math.max(8, Math.min(r.left, window.innerWidth - 420 - 8)), y: r.bottom + 4 }) }}>
         <span className="select-val"><TypeLabel t={k}>{k === 'boolean' || (own && !curName(k)) ? KIND_NAME[k] : curName(k) ? `${KIND_NAME[k]} · ${curName(k)}` : `${KIND_NAME[k]} · choose type…`}</TypeLabel></span>
       </button>
       {at && createPortal(
