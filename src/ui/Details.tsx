@@ -677,7 +677,7 @@ function DataTypeSelect({ x, onChange, own }: { x: ParamData; onChange: (patch: 
               {own && !q && <li className={k === vk && !curName(vk) ? 'cur' : ''} onClick={() => apply(vk, '')}>{own}</li>}
               {shown.length > 0 && <li className="grp">Named types</li>}
               {!names.length && <li className="off">No {KIND_NAME[vk].toLowerCase()} types yet</li>}
-              {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)}>{n}{detail(vk, n)}</li>)}
+              {shown.map((n) => <li key={n} className={curName(vk) === n ? 'cur' : ''} onClick={() => apply(vk, n)} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ fontWeight: 600 }}>{n}</b><span style={{ color: 'var(--muted)', fontSize: '0.9em', marginLeft: 6 }}>{detail(vk, n).trim()}</span></li>)}
               {q && !shown.length && <li className="off">No matches</li>}
               <li className="grp">Create</li>
               <li style={{ color: 'var(--accent)' }} onClick={() => { close(); setCreating(vk) }}><TypeLabel t={vk} plus>New {vk === 'enum' ? 'enumeration' : vk} type…</TypeLabel></li>
