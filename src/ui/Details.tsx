@@ -232,22 +232,22 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
           {it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
           <VariableLinks v={it} />
-          <Field single label="Type">
+          <Field label="Type">
             <DataTypeSelect x={it} own="only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
+            {it.type === 'enum' && (
+              <Field label="States" hint={it.enumType ? undefined : 'The values this variable can take.'}>
+                <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))}>
+                  {!it.enumType && <EditPopup title={`States of ${it.title || 'variable'}`} lines={it.states} empty="No states" button="Edit states…"><StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" /></EditPopup>}
+                </EnumTypePicker>
+              </Field>
+            )}
+            {it.type === 'range' && <RangeFields v={it} />}
+            {it.type === 'symbolic' && (
+              <Field label="Symbolic type" hint="Values without further meaning, written as symbols such as t1 or id7 in traces. They can always be compared with ‘is’ / ‘is not’; if ordered, also with ‘less than’ / ‘greater than’. Compare with a symbol or with another variable of the same type.">
+                <SymbolicPicker x={it} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
+              </Field>
+            )}
           </Field>
-          {it.type === 'enum' && (
-            <Field label="States" hint={it.enumType ? undefined : 'The values this variable can take.'}>
-              <EnumTypePicker x={it} name={it.title} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))}>
-                {!it.enumType && <EditPopup title={`States of ${it.title || 'variable'}`} lines={it.states} empty="No states" button="Edit states…"><StringList value={it.states} onChange={(v) => set({ states: v }, 'states')} placeholder="State" addLabel="Add state" /></EditPopup>}
-              </EnumTypePicker>
-            </Field>
-          )}
-          {it.type === 'range' && <RangeFields v={it} />}
-          {it.type === 'symbolic' && (
-            <Field label="Symbolic type" hint="Values without further meaning, written as symbols such as t1 or id7 in traces. They can always be compared with ‘is’ / ‘is not’; if ordered, also with ‘less than’ / ‘greater than’. Compare with a symbol or with another variable of the same type.">
-              <SymbolicPicker x={it} onChange={(patch) => commit((q) => updateItem(q, it.id, patch))} />
-            </Field>
-          )}
         </>
       )
     }
@@ -1086,7 +1086,7 @@ function RangeFields({ v }: { v: Variable }) {
     if (n && !p.rangeTypes?.[n]) { commit((q) => defineRangeType(q, n, { min: v.min, max: v.max, unit: v.unit })); commit((q) => updateItem(q, v.id, { rangeType: n })) }
   }
   return (
-    <Field single label="Numeric range">
+    <Field label="Numeric range">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
         <span>{v.rangeType && <b>{v.rangeType} · </b>}{describeStates(v)}</span>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
