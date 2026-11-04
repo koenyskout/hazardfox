@@ -13,7 +13,7 @@ export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: 
 export const DOM = { charW: 7, row: 18, head: 28, pad: 10 }
 const elk = new ELK()
 
-/** Class-diagram style layout of the domain model: entities with attributes (world variables) and operations, relationships and grouping / part / specialisation links. */
+/** Class-diagram style layout of the domain model: entities with attributes (world variables) and operations, relationships and part / specialisation links. */
 export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLayout> {
   const entities = itemsOfKind(p, 'entity').sort((a, b) => a.rank - b.rank)
   const boxes: Record<Id, DomainBox> = {}

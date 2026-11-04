@@ -113,15 +113,15 @@ export interface Assumption extends Base {
 /** Predefined multiplicities of a relationship end (`*` = zero or more); other text from older files is kept as is. */
 export const CARDINALITIES = ['1', '0..1', '*', '1..*'] as const
 
-/** What a child entity is to its parent: a `specialisation` (is-a: it inherits the parent's attributes and operations) or a `part` (part-of: composition). Absent = plain grouping, no semantics. */
+/** What a child entity is to its parent: a `specialisation` (is-a: it inherits the parent's attributes and operations) or a `part` (part-of: composition). Meaningful only for a nested entity; default `specialisation`. */
 export const ENTITY_RELATIONS = ['specialisation', 'part'] as const
 export type EntityRelation = (typeof ENTITY_RELATIONS)[number]
 
 /** Domain model entity (tree: a child may be a specialisation or part of its parent, or just grouped under it). Its attributes are its world variables V(e). */
 export interface Entity extends Base {
   kind: 'entity'
-  /** How this entity relates to its parent (see `EntityRelation`); absent = grouping only. */
-  relation?: EntityRelation
+  /** How this entity relates to its parent (see `EntityRelation`); ignored for a root entity. */
+  relation: EntityRelation
   /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
   many?: boolean
   /** Manual layout nudge in the domain diagram, relative offset applied on top of the auto layout */

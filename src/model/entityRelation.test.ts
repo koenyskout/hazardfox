@@ -11,7 +11,7 @@ function setup() {
   const nurse = b.add('entity', { title: 'Nurse', parent: person, relation: 'specialisation' })
   const night = b.add('entity', { title: 'Night nurse', parent: nurse, relation: 'specialisation' })
   const badge = b.add('entity', { title: 'Badge', parent: person, relation: 'part' })
-  const group = b.add('entity', { title: 'Group', parent: person })
+  const group = b.add('entity', { title: 'Group', parent: person, relation: 'part' })
   const age = b.add('variable', { layer: 'domain', parent: person, title: 'age', type: 'range', min: 0, max: 120 })
   const shift = b.add('variable', { layer: 'domain', parent: nurse, title: 'shift', type: 'enum', states: ['day', 'night'] })
   const op = b.add('operation', { title: 'Greet', params: [{ name: 'p', entity: person }], effects: [] })

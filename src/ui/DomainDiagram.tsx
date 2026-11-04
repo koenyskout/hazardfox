@@ -34,7 +34,7 @@ function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
   return (
     <g onMouseDown={(ev) => { ev.stopPropagation(); select(e.id) }} style={{ cursor: 'pointer' }}>
       <path d={path(e.pts)} fill="none" stroke="transparent" strokeWidth={12} />
-      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part && !e.rel ? '5 3' : undefined} markerEnd={e.rel === 'specialisation' ? 'url(#dom-tri)' : e.rel === 'part' ? 'url(#dom-dia)' : undefined} />
+      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} markerEnd={e.rel === 'specialisation' ? 'url(#dom-tri)' : e.rel === 'part' ? 'url(#dom-dia)' : undefined} />
       {!part && e.label && (
         <text x={m.x} y={m.y - 4} textAnchor="middle" fontSize={11} fontStyle="italic" fill={c} stroke="#fff" strokeWidth={3} paintOrder="stroke">{e.label}</text>
       )}
@@ -44,7 +44,7 @@ function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
   )
 }
 
-/** Domain model as a class diagram: entities with attributes (world variables) and operations, labelled relationships; a hollow triangle points to the general entity (specialisation), a filled diamond to the whole (part), a plain dashed line shows grouping only. */
+/** Domain model as a class diagram: entities with attributes (world variables) and operations, labelled relationships; a hollow triangle points to the general entity (specialisation), a filled diamond to the whole (part). */
 export function DomainDiagram() {
   const p = useProject()
   const labels = useLabels()
@@ -104,7 +104,7 @@ export function DomainDiagram() {
         <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>Actual size</button>
         <span className="muted">{Math.round(scale * 100)}%</span>
         <button disabled={!nudged.length} title={nudged.length ? 'Put the boxes you moved by hand back at their automatic positions' : 'Nothing has been moved by hand'} onClick={() => commit((q) => nudged.reduce((n, i) => updateItem(n, i.id, { nudge: null }), q))}>Auto layout</button>
-        <span className="hint">Attributes are the entity’s world variables; lines are relationships; a hollow triangle marks a specialisation, a diamond a part, a dashed line plain grouping. Click an element to select it; add entities, relationships and variables in their tabs.</span>
+        <span className="hint">Attributes are the entity’s world variables; lines are relationships; a hollow triangle marks a specialisation, a diamond a part. Click an element to select it; add entities, relationships and variables in their tabs.</span>
       </div>
       <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width={layout.width * scale} height={layout.height * scale} viewBox={`0 0 ${layout.width} ${layout.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width * scale, height: layout.height * scale }} onMouseDown={() => select(null)}>

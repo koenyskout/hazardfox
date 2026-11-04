@@ -171,9 +171,9 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
       return (
         <>
           {it.parent && (
-            <Field single label="Relation to parent" hint="Specialisation (is-a): this entity is a kind of its parent and inherits its attributes and operations. Part (part-of): it is a component of its parent. Grouping: just organised under it, no meaning attached.">
-              <Select value={it.relation ?? ''} onChange={(e) => set({ relation: (e.target.value || undefined) as typeof it.relation })}>
-                <option value="">grouping only</option><option value="specialisation">specialisation (is a kind of {p.items[it.parent]?.title.trim() || 'parent'})</option><option value="part">part (is part of {p.items[it.parent]?.title.trim() || 'parent'})</option>
+            <Field single label="Relation to parent" hint="Specialisation (is-a): this entity is a kind of its parent and inherits its attributes and operations. Part (part-of): it is a component of its parent.">
+              <Select value={it.relation} onChange={(e) => set({ relation: e.target.value as typeof it.relation })}>
+                <option value="specialisation">specialisation (is a kind of {p.items[it.parent]?.title.trim() || 'parent'})</option><option value="part">part (is part of {p.items[it.parent]?.title.trim() || 'parent'})</option>
               </Select>
             </Field>
           )}
