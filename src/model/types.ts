@@ -118,6 +118,8 @@ export interface Entity extends Base {
   kind: 'entity'
   /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
   many?: boolean
+  /** Manual layout nudge in the domain diagram, relative offset applied on top of the auto layout */
+  nudge: Offset | null
 }
 /** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing, with typed parameters and effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
 export interface Operation extends Base {
@@ -138,6 +140,8 @@ export interface Relationship extends Base {
   /** `title` is the relationship name */
   fromCard: string
   toCard: string
+  /** Manual layout nudge of its box in the domain diagram */
+  nudge: Offset | null
 }
 /** A variable; its owner (`parent`) depends on the layer: domain → entity, signal → feedback, belief / internal → controller node. */
 export interface Variable extends Base {

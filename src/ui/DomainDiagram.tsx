@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DOM, layoutDomain, type DomainEdge, type DomainLayout } from '../model/domainLayout'
+import { DOM, layoutDomain, nudgeDomain, type DomainEdge, type DomainLayout } from '../model/domainLayout'
+import { updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import type { Pt } from '../model/structure'
-import { select, useLabels, useProject } from './hooks'
+import { commit, select, useLabels, useProject } from './hooks'
 
 const path = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(' ')
 const mid = (pts: Pt[]): Pt => {
@@ -46,7 +47,10 @@ export function DomainDiagram() {
   const p = useProject()
   const labels = useLabels()
   const selected = useStore((s) => s.selected)
-  const [layout, setLayout] = useState<DomainLayout | null>(null)
+  const [auto, setAuto] = useState<DomainLayout | null>(null)
+  const layout = useMemo(() => (auto ? nudgeDomain(auto, p) : null), [auto, p])
+  const drag = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null)
+  const scaleRef = useRef(1)
   const [err, setErr] = useState('')
   const [zoom, setZoom] = useState<'fit' | number>('fit')
   const box = useRef<HTMLDivElement>(null)
@@ -62,16 +66,32 @@ export function DomainDiagram() {
   const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'operation' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { entity?: string }).entity, (i as { effects?: unknown }).effects, (i as { to?: string }).to, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
   useEffect(() => {
     let live = true
-    layoutDomain(p, labels).then((l) => live && (setLayout(l), setErr('')), (e) => live && setErr(String(e)))
+    layoutDomain(p, labels).then((l) => live && (setAuto(l), setErr('')), (e) => live && setErr(String(e)))
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig])
+  useEffect(() => {
+    const move = (e: MouseEvent) => {
+      const d = drag.current
+      if (!d) return
+      const dx = (e.clientX - d.sx) / scaleRef.current, dy = (e.clientY - d.sy) / scaleRef.current
+      if (!d.moved && Math.abs(dx) + Math.abs(dy) < 4) return
+      d.moved = true
+      commit((q) => updateItem(q, d.id, { nudge: { dx: Math.round(d.ox + dx), dy: Math.round(d.oy + dy) } }), 'drag:' + d.id)
+    }
+    const up = () => { drag.current = null }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [])
   if (err) return <p className="empty">Could not draw the diagram: {err}</p>
   if (!layout) return <p className="empty">Drawing the diagram…</p>
   if (!layout.boxes.length) return <p className="empty">Add entities to see the domain model diagram.</p>
   const { row, head, pad } = DOM
   const fit = Math.min(1, Math.max(0.1, (avail - 2) / layout.width))
   const scale = zoom === 'fit' ? fit : zoom
+  scaleRef.current = scale
+  const nudged = Object.values(p.items).filter((i) => (i.kind === 'entity' || i.kind === 'relationship') && i.nudge)
   const step = (f: number) => setZoom(Math.min(3, Math.max(0.1, +(scale * f).toFixed(2))))
   return (
     <div className="domain-diagram">
@@ -81,6 +101,7 @@ export function DomainDiagram() {
         <button className={zoom === 'fit' ? 'on' : ''} onClick={() => setZoom('fit')}>Fit</button>
         <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>Actual size</button>
         <span className="muted">{Math.round(scale * 100)}%</span>
+        <button disabled={!nudged.length} title={nudged.length ? 'Put the boxes you moved by hand back at their automatic positions' : 'Nothing has been moved by hand'} onClick={() => commit((q) => nudged.reduce((n, i) => updateItem(n, i.id, { nudge: null }), q))}>Auto layout</button>
         <span className="hint">Attributes are the entity’s world variables; lines are relationships; dashed arrows point to the parent entity. Click an element to select it; add entities, relationships and variables in their tabs.</span>
       </div>
       <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
@@ -94,9 +115,9 @@ export function DomainDiagram() {
             const stroke = on ? '#2563eb' : '#374151'
             const attrY = head + 14
             return (
-              <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id) }} style={{ cursor: 'pointer' }}>
+              <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id); const it = p.items[b.id]; const n = it && (it.kind === 'entity' || it.kind === 'relationship') ? it.nudge : null; drag.current = { id: b.id, sx: ev.clientX, sy: ev.clientY, ox: n?.dx ?? 0, oy: n?.dy ?? 0, moved: false } }} style={{ cursor: 'grab' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
-                <rect width={b.w} height={head} rx={3} fill={b.assoc ? '#fef3c7' : '#dbeafe'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
+                <rect width={b.w} height={head} rx={3} fill={b.assoc ? 'hsl(300 85% 92%)' : 'hsl(255 85% 92%)'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
                 <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}

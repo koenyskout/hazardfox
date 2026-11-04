@@ -7,7 +7,7 @@ import type { Id, Labels, Project, Variable } from './types'
 import { describeStates } from './variables'
 
 export interface DomainBox { assoc?: boolean; id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
-export interface DomainEdge { id: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
+export interface DomainEdge { id: Id; a: Id; b: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
 export const DOM = { charW: 7, row: 18, head: 40, pad: 10 }
@@ -43,15 +43,15 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}
   for (const e of entities) {
     if (e.parent && boxes[e.parent]) {
-      meta['part:' + e.id] = { id: e.id, kind: 'part', label: '', fromCard: '', toCard: '', self: false }
+      meta['part:' + e.id] = { id: e.id, a: e.id, b: e.parent, kind: 'part', label: '', fromCard: '', toCard: '', self: false }
       // laid out parent → child so that parents sit above their parts; drawn (reversed) with the arrow at the parent
       edges.push({ id: 'part:' + e.id, sources: [e.parent], targets: [e.id] } as ElkExtendedEdge)
     }
   }
   // every relationship is a box on its line (entity — box — entity); without attributes it is a compact name box
   for (const { r } of assocs) {
-    meta['a:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: r.fromCard, toCard: '', self: false }
-    meta['b:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: '', toCard: r.toCard, self: false }
+    meta['a:' + r.id] = { id: r.id, a: r.from, b: r.id, kind: 'rel', label: '', fromCard: r.fromCard, toCard: '', self: false }
+    meta['b:' + r.id] = { id: r.id, a: r.id, b: r.to, kind: 'rel', label: '', fromCard: '', toCard: r.toCard, self: false }
     edges.push({ id: 'a:' + r.id, sources: [r.from], targets: [r.id] } as ElkExtendedEdge, { id: 'b:' + r.id, sources: [r.id], targets: [r.to] } as ElkExtendedEdge)
   }
   const graph: ElkNode = {
@@ -74,4 +74,25 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     out.push({ ...meta[e.id], pts: meta[e.id].kind === 'part' ? pts.reverse() : pts })
   }
   return { boxes: Object.values(boxes), edges: out, width: (res.width ?? 0) + 40, height: res.height ?? 0 }
+}
+
+/** Orthogonal route between two boxes: straight when they overlap in x or y, otherwise one Z-shaped elbow. */
+function route(a: DomainBox, b: DomainBox): Pt[] {
+  const ox0 = Math.max(a.x, b.x), ox1 = Math.min(a.x + a.w, b.x + b.w)
+  const oy0 = Math.max(a.y, b.y), oy1 = Math.min(a.y + a.h, b.y + b.h)
+  if (ox1 - ox0 >= 12) { const x = (ox0 + ox1) / 2, up = b.y < a.y; return [{ x, y: up ? a.y : a.y + a.h }, { x, y: up ? b.y + b.h : b.y }] }
+  if (oy1 - oy0 >= 12) { const y = (oy0 + oy1) / 2, left = b.x < a.x; return [{ x: left ? a.x : a.x + a.w, y }, { x: left ? b.x + b.w : b.x, y }] }
+  const up = b.y < a.y, ax = a.x + a.w / 2, bx = b.x + b.w / 2
+  const y0 = up ? a.y : a.y + a.h, y1 = up ? b.y + b.h : b.y, my = (y0 + y1) / 2
+  return [{ x: ax, y: y0 }, { x: ax, y: my }, { x: bx, y: my }, { x: bx, y: y1 }]
+}
+
+/** The auto layout with the manual nudges of entities / relationships applied; edges at a moved box are re-routed. */
+export function nudgeDomain(l: DomainLayout, p: Project): DomainLayout {
+  const nudge = (id: Id) => { const it = p.items[id]; return it && (it.kind === 'entity' || it.kind === 'relationship') ? it.nudge : null }
+  if (!l.boxes.some((b) => nudge(b.id))) return l
+  const boxes = l.boxes.map((b) => { const n = nudge(b.id); return n ? { ...b, x: Math.max(10, b.x + n.dx), y: Math.max(10, b.y + n.dy) } : b })
+  const by = Object.fromEntries(boxes.map((b) => [b.id, b]))
+  const edges = l.edges.map((e) => (nudge(e.a) || nudge(e.b) ? { ...e, pts: route(by[e.a], by[e.b]) } : e))
+  return { boxes, edges, width: Math.max(l.width, ...boxes.map((b) => b.x + b.w + 40)), height: Math.max(l.height, ...boxes.map((b) => b.y + b.h + 20)) }
 }
