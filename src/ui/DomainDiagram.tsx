@@ -24,19 +24,19 @@ const near = (a: Pt, b: Pt): Pt => {
 }
 
 function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
-  const part = e.kind === 'part'
+  const part = e.kind === 'part', link = e.kind === 'assoc'
   const first = e.pts[0], last = e.pts[e.pts.length - 1]
   const m = mid(e.pts)
-  const c = selected ? '#2563eb' : '#374151'
+  const c = selected ? '#2563eb' : link ? '#6b7280' : '#374151'
   return (
     <g onMouseDown={(ev) => { ev.stopPropagation(); select(e.id) }} style={{ cursor: 'pointer' }}>
       <path d={path(e.pts)} fill="none" stroke="transparent" strokeWidth={12} />
-      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part ? '5 3' : undefined} markerEnd={part ? 'url(#dom-tri)' : undefined} />
-      {!part && e.label && (
+      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part ? '5 3' : link ? '4 3' : undefined} markerEnd={part ? 'url(#dom-tri)' : undefined} />
+      {!part && !link && e.label && (
         <text x={m.x} y={m.y - 4} textAnchor="middle" fontSize={11} fontStyle="italic" fill={c} stroke="#fff" strokeWidth={3} paintOrder="stroke">{e.label}</text>
       )}
-      {!part && e.fromCard && <text {...near(first, e.pts[1])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.fromCard}</text>}
-      {!part && e.toCard && <text {...near(last, e.pts[e.pts.length - 2])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.toCard}</text>}
+      {!part && !link && e.fromCard && <text {...near(first, e.pts[1])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.fromCard}</text>}
+      {!part && !link && e.toCard && <text {...near(last, e.pts[e.pts.length - 2])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.toCard}</text>}
     </g>
   )
 }

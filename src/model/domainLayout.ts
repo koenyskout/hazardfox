@@ -7,7 +7,7 @@ import type { Id, Labels, Project, Variable } from './types'
 import { describeStates } from './variables'
 
 export interface DomainBox { assoc?: boolean; id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
-export interface DomainEdge { id: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
+export interface DomainEdge { id: Id; kind: 'rel' | 'part' | 'assoc'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
 export const DOM = { charW: 7, row: 18, head: 40, pad: 10 }
@@ -52,13 +52,8 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     if (!boxes[r.from] || !boxes[r.to]) continue
     const pred = predicateOf(p, r.id)
     const label = r.title.trim() || (pred ? variableName(p, pred) : '')
-    if (boxes[r.id]) {
-      // relationship with attributes: drawn as an association class sitting on the line, which runs entity — box — entity
-      meta['a:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: r.fromCard, toCard: '', self: false }
-      meta['b:' + r.id] = { id: r.id, kind: 'rel', label: '', fromCard: '', toCard: r.toCard, self: false }
-      edges.push({ id: 'a:' + r.id, sources: [r.from], targets: [r.id] } as ElkExtendedEdge, { id: 'b:' + r.id, sources: [r.id], targets: [r.to] } as ElkExtendedEdge)
-      continue
-    }
+    // relationship with attributes: an association class box, tied to the line by a dashed link (the hidden edge only keeps it near the first entity)
+    if (boxes[r.id]) edges.push({ id: 'h:' + r.id, sources: [r.from], targets: [r.id] } as ElkExtendedEdge)
     meta[r.id] = { id: r.id, kind: 'rel', label, fromCard: r.fromCard, toCard: r.toCard, self: r.from === r.to }
     if (r.from !== r.to) edges.push({ id: r.id, sources: [r.from], targets: [r.to] } as ElkExtendedEdge)
   }
@@ -85,6 +80,25 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     if (!m.self) continue
     const b = boxes[(p.items[id] as { from: Id }).from]
     out.push({ ...m, pts: [{ x: b.x + b.w, y: b.y + 16 }, { x: b.x + b.w + 34, y: b.y + 16 }, { x: b.x + b.w + 34, y: b.y + 50 }, { x: b.x + b.w, y: b.y + 50 }] })
+  }
+  const mid = (pts: Pt[]): Pt => {
+    const len = (i: number) => Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y)
+    let total = 0
+    for (let i = 1; i < pts.length; i++) total += len(i)
+    let acc = 0
+    for (let i = 1; i < pts.length; i++) {
+      const d = len(i)
+      if (acc + d >= total / 2) { const t = d ? (total / 2 - acc) / d : 0; return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t } }
+      acc += d
+    }
+    return pts[0]
+  }
+  for (const { r } of assocs) {
+    const rel = out.find((e) => e.id === r.id && e.kind === 'rel')
+    if (!rel) continue
+    const m = mid(rel.pts), b = boxes[r.id]
+    const q = { x: Math.min(Math.max(m.x, b.x), b.x + b.w), y: Math.min(Math.max(m.y, b.y), b.y + b.h) }
+    out.push({ id: r.id, kind: 'assoc', pts: [m, q], label: '', fromCard: '', toCard: '', self: false })
   }
   return { boxes: Object.values(boxes), edges: out, width: (res.width ?? 0) + 40, height: res.height ?? 0 }
 }
