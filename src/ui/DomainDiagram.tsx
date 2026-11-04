@@ -96,9 +96,9 @@ export function DomainDiagram() {
             return (
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id) }} style={{ cursor: 'pointer' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
-                {b.assoc && !b.attrs.length ? <text x={b.w / 2} y={17} textAnchor="middle" fontSize={12} fontStyle="italic" fill="#111827">{b.title}</text> : <><rect width={b.w} height={head} rx={3} fill={b.assoc ? '#fef3c7' : '#dbeafe'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
+                <rect width={b.w} height={head} rx={3} fill={b.assoc ? '#fef3c7' : '#dbeafe'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
-                <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text></>}
+                <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}
               </g>
             )
