@@ -34,7 +34,7 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     const title = e.title.trim() || '(untitled)'
     const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : ''))].map((s) => s.length * DOM.charW + 2 * DOM.pad))
     const rows = attrs.length
-    boxes[e.id] = { assoc, id: e.id, x: 0, y: 0, w, h: DOM.head + rows * DOM.row + (rows ? 8 : 0) + 4, head, title, attrs }
+    boxes[e.id] = { assoc, id: e.id, x: 0, y: 0, w, h: DOM.head + (assoc && !rows ? 0 : rows * DOM.row + (rows ? 8 : 0) + 4), head, title, attrs }
   }
   for (const e of entities) build(e, variablesIn(p, 'domain', e.id))
   const assocs = itemsOfKind(p, 'relationship').filter((r) => boxes[r.from] && boxes[r.to]).map((r) => ({ r, vars: variablesIn(p, 'domain', r.id).filter((v) => v.id !== predicateOf(p, r.id)?.id) }))
