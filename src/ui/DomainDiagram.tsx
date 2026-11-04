@@ -3,6 +3,7 @@ import { DOM, layoutDomain, nudgeDomain, type DomainEdge, type DomainLayout } fr
 import { updateItem } from '../model/ops'
 import { useStore } from '../model/store'
 import type { Pt } from '../model/structure'
+import { Icon } from './Icon'
 import { commit, select, useLabels, useProject } from './hooks'
 
 const path = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(' ')
@@ -118,8 +119,8 @@ export function DomainDiagram() {
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id); const it = p.items[b.id]; const n = it && (it.kind === 'entity' || it.kind === 'relationship') ? it.nudge : null; drag.current = { id: b.id, sx: ev.clientX, sy: ev.clientY, ox: n?.dx ?? 0, oy: n?.dy ?? 0, moved: false } }} style={{ cursor: 'grab' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
                 <rect width={b.w} height={head} rx={3} fill={b.assoc ? 'hsl(300 85% 92%)' : 'hsl(214 85% 92%)'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
-                <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
-                <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
+                <g transform={`translate(${Math.max(pad, (b.w - 22 - b.title.length * 7.2) / 2)} 6)`} color="#374151"><Icon name={b.assoc ? 'relationship' : 'entity'} size={16} /></g>
+                <text x={Math.max(pad, (b.w - 22 - b.title.length * 7.2) / 2) + 22} y={19} fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}
               </g>
             )

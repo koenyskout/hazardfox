@@ -10,7 +10,7 @@ export interface DomainBox { assoc?: boolean; id: Id; x: number; y: number; w: n
 export interface DomainEdge { id: Id; a: Id; b: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
-export const DOM = { charW: 7, row: 18, head: 40, pad: 10 }
+export const DOM = { charW: 7, row: 18, head: 28, pad: 10 }
 const elk = new ELK()
 
 /** Class-diagram style layout of the domain model: entities with attributes (world variables) and operations, relationships and part/specialisation links. */
@@ -32,7 +32,7 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     })
     const head = labels[e.id] ?? ''
     const title = e.title.trim() || '(untitled)'
-    const w = Math.max(120, ...[title, head, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : ''))].map((s) => s.length * DOM.charW + 2 * DOM.pad))
+    const w = Math.max(120, ...['    ' + title, ...attrs.map((a) => ' '.repeat(a.indent * 2) + a.text + (a.detail.length * 0.8 | 0 ? ' ' + a.detail.slice(0, Math.ceil(a.detail.length * 0.85)) : ''))].map((s) => s.length * DOM.charW + 2 * DOM.pad))
     const rows = attrs.length
     boxes[e.id] = { assoc, id: e.id, x: 0, y: 0, w, h: DOM.head + (assoc && !rows ? 0 : rows * DOM.row + (rows ? 8 : 0) + 4), head, title, attrs }
   }
