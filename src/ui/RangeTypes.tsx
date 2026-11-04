@@ -62,12 +62,12 @@ export function RangeDialog({ title, value, onClose, onApply }: { title: string;
   return (
     <Modal title={title} onClose={onClose}>
       <Field single label="Type">
-        <div style={{ display: 'flex', gap: 6 }}>
-          {types.length > 0 && <Select value={type} onChange={(e) => setType(e.target.value)}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {types.length > 0 && <Select style={{ flex: 1, minWidth: 0 }} value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">Custom</option>
             {types.map((x) => <option key={x} value={x}>{x} ({show(p.rangeTypes![x])})</option>)}
           </Select>}
-          <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" size={12} /> New type…</button>
+          <button className="btn" style={{ whiteSpace: 'nowrap', flex: 'none' }} onClick={() => setCreating(true)}><Icon name="plus" size={12} /> New type…</button>
         </div>
       </Field>
       {type ? <p className="muted">{show(cur)} — edit the type in Domain model → Types.</p> : (
