@@ -546,7 +546,7 @@ button.icon-btn.danger { color: var(--danger); } button.icon-btn.danger:hover:no
 .toolbar .picker-btn { width: auto; font-size: inherit; padding: 4px 10px; border-color: var(--line); border-radius: 6px; overflow: visible; display: inline-flex; align-items: center; gap: 5px; }
 .toolbar .picker-btn:hover { border-color: var(--accent); }
 .row .lbl.wide { flex-basis: 190px; }
-.row .lbl.wide .chip { white-space: nowrap; } .row .lbl.wide.rel { flex-basis: 215px; }
+.row .lbl.wide .chip { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; } .row .lbl.wide.rel { flex-basis: 215px; }
 
 .icon-plus { color: var(--accent); }
 button:disabled .icon-plus { opacity: .5; }

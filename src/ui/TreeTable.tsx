@@ -53,6 +53,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
   const dragId = useRef<Id | null>(null)
   const refs = useRef<Record<Id, HTMLInputElement | null>>({})
 
+  const wide = kind === 'entity' || kind === 'node' // their label is the title, so it needs room
   const rows = useMemo(() => {
     const all = flatten(p, kind)
     const hidden = new Set<Id>()
@@ -161,7 +162,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
       </div>
       <div className="rows">
         <div className="row head">
-          <span className="lbl">ID</span>
+          <span className={'lbl' + (wide ? ' wide' : '')}>ID</span>
           <span className="ttl">Title</span>
           {extraHeader && <span className="ext">{extraHeader}</span>}
           {extra2Header && <span className="ext ext2">{extra2Header}</span>}
@@ -187,7 +188,7 @@ export function TreeTable<K extends Kind>({ kind, extra, extraHeader, extra2, ex
               }}
               onClick={(e) => click(e, item.id)}
             >
-              <span className="lbl"><span className={'chip k-' + item.kind}><ChipLabel it={item} label={idLabels[item.id]} /></span></span>
+              <span className={'lbl' + (wide ? ' wide' : '')}><span className={'chip k-' + item.kind}><ChipLabel it={item} label={idLabels[item.id]} /></span></span>
               <span className="ttl">
                 <button
                   style={{ marginLeft: depth * 20 }}
