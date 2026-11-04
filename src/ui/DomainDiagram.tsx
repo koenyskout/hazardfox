@@ -24,19 +24,19 @@ const near = (a: Pt, b: Pt): Pt => {
 }
 
 function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
-  const part = e.kind === 'part', link = e.kind === 'assoc'
+  const part = e.kind === 'part'
   const first = e.pts[0], last = e.pts[e.pts.length - 1]
   const m = mid(e.pts)
-  const c = selected ? '#2563eb' : link ? '#6b7280' : '#374151'
+  const c = selected ? '#2563eb' : '#374151'
   return (
     <g onMouseDown={(ev) => { ev.stopPropagation(); select(e.id) }} style={{ cursor: 'pointer' }}>
       <path d={path(e.pts)} fill="none" stroke="transparent" strokeWidth={12} />
-      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part ? '5 3' : link ? '4 3' : undefined} markerEnd={part ? 'url(#dom-tri)' : undefined} />
-      {!part && !link && e.label && (
+      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part ? '5 3' : undefined} markerEnd={part ? 'url(#dom-tri)' : undefined} />
+      {!part && e.label && (
         <text x={m.x} y={m.y - 4} textAnchor="middle" fontSize={11} fontStyle="italic" fill={c} stroke="#fff" strokeWidth={3} paintOrder="stroke">{e.label}</text>
       )}
-      {!part && !link && e.fromCard && <text {...near(first, e.pts[1])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.fromCard}</text>}
-      {!part && !link && e.toCard && <text {...near(last, e.pts[e.pts.length - 2])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.toCard}</text>}
+      {!part && e.fromCard && <text {...near(first, e.pts[1])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.fromCard}</text>}
+      {!part && e.toCard && <text {...near(last, e.pts[e.pts.length - 2])} fontSize={10} fill="#6b7280" textAnchor="middle">{e.toCard}</text>}
     </g>
   )
 }
@@ -96,9 +96,9 @@ export function DomainDiagram() {
             return (
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id) }} style={{ cursor: 'pointer' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
-                <rect width={b.w} height={head} rx={3} fill={b.assoc ? '#fef3c7' : '#dbeafe'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
+                {b.assoc && !b.attrs.length ? <text x={b.w / 2} y={17} textAnchor="middle" fontSize={12} fontStyle="italic" fill="#111827">{b.title}</text> : <><rect width={b.w} height={head} rx={3} fill={b.assoc ? '#fef3c7' : '#dbeafe'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
-                <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
+                <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text></>}
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}
               </g>
             )
