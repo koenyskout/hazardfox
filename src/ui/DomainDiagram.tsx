@@ -6,6 +6,7 @@ import type { Pt } from '../model/structure'
 import { Icon } from './Icon'
 import { commit, select, useLabels, useProject } from './hooks'
 
+const REL_SEL = 'hsl(300 75% 38%)'
 const path = (pts: Pt[]) => pts.map((q, i) => `${i ? 'L' : 'M'}${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(' ')
 const mid = (pts: Pt[]): Pt => {
   let total = 0
@@ -29,7 +30,7 @@ function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
   const part = e.kind === 'part'
   const first = e.pts[0], last = e.pts[e.pts.length - 1]
   const m = mid(e.pts)
-  const c = selected ? '#2563eb' : '#374151'
+  const c = selected ? (part ? '#2563eb' : REL_SEL) : '#374151'
   return (
     <g onMouseDown={(ev) => { ev.stopPropagation(); select(e.id) }} style={{ cursor: 'pointer' }}>
       <path d={path(e.pts)} fill="none" stroke="transparent" strokeWidth={12} />
@@ -113,7 +114,7 @@ export function DomainDiagram() {
           {layout.edges.map((e, i) => <Edge key={e.id + i} e={e} selected={selected === e.id} />)}
           {layout.boxes.map((b) => {
             const on = selected === b.id
-            const stroke = on ? '#2563eb' : '#374151'
+            const stroke = on ? (b.assoc ? REL_SEL : '#2563eb') : '#374151'
             const attrY = head + 14
             return (
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id); const it = p.items[b.id]; const n = it && (it.kind === 'entity' || it.kind === 'relationship') ? it.nudge : null; drag.current = { id: b.id, sx: ev.clientX, sy: ev.clientY, ox: n?.dx ?? 0, oy: n?.dy ?? 0, moved: false } }} style={{ cursor: 'grab' }}>
