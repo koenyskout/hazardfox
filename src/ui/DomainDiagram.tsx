@@ -34,7 +34,7 @@ function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
   return (
     <g onMouseDown={(ev) => { ev.stopPropagation(); select(e.id) }} style={{ cursor: 'pointer' }}>
       <path d={path(e.pts)} fill="none" stroke="transparent" strokeWidth={12} />
-      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part ? '5 3' : undefined} markerEnd={part ? 'url(#dom-tri)' : undefined} />
+      <path d={path(e.pts)} fill="none" stroke={c} strokeWidth={selected ? 2 : 1.3} strokeDasharray={part && !e.rel ? '5 3' : undefined} markerEnd={e.rel === 'specialisation' ? 'url(#dom-tri)' : e.rel === 'part' ? 'url(#dom-dia)' : undefined} />
       {!part && e.label && (
         <text x={m.x} y={m.y - 4} textAnchor="middle" fontSize={11} fontStyle="italic" fill={c} stroke="#fff" strokeWidth={3} paintOrder="stroke">{e.label}</text>
       )}
@@ -44,7 +44,7 @@ function Edge({ e, selected }: { e: DomainEdge; selected: boolean }) {
   )
 }
 
-/** Domain model as a class diagram: entities with attributes (world variables) and operations, labelled relationships; dashed arrows point to the parent entity (part / specialisation). */
+/** Domain model as a class diagram: entities with attributes (world variables) and operations, labelled relationships; a hollow triangle points to the general entity (specialisation), a filled diamond to the whole (part), a plain dashed line shows grouping only. */
 export function DomainDiagram() {
   const p = useProject()
   const labels = useLabels()
@@ -65,7 +65,7 @@ export function DomainDiagram() {
     setAvail(el.clientWidth)
     return () => ro.disconnect()
   }, [layout])
-  const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'operation' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { entity?: string }).entity, (i as { effects?: unknown }).effects, (i as { to?: string }).to, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
+  const sig = useMemo(() => JSON.stringify(Object.values(p.items).filter((i) => i.kind === 'entity' || i.kind === 'operation' || i.kind === 'relationship' || (i.kind === 'variable' && i.layer === 'domain')).map((i) => [i.id, i.title, i.rank, i.parent, (i as { from?: string }).from, (i as { entity?: string }).entity, (i as { effects?: unknown }).effects, (i as { to?: string }).to, (i as { type?: string }).type, (i as { states?: string[] }).states, (i as { relation?: string }).relation, (i as { fromCard?: string }).fromCard, (i as { toCard?: string }).toCard, (i as { min?: number }).min, (i as { max?: number }).max, (i as { unit?: string }).unit])), [p])
   useEffect(() => {
     let live = true
     layoutDomain(p, labels).then((l) => live && (setAuto(l), setErr('')), (e) => live && setErr(String(e)))
@@ -104,11 +104,12 @@ export function DomainDiagram() {
         <button className={zoom === 1 ? 'on' : ''} onClick={() => setZoom(1)}>Actual size</button>
         <span className="muted">{Math.round(scale * 100)}%</span>
         <button disabled={!nudged.length} title={nudged.length ? 'Put the boxes you moved by hand back at their automatic positions' : 'Nothing has been moved by hand'} onClick={() => commit((q) => nudged.reduce((n, i) => updateItem(n, i.id, { nudge: null }), q))}>Auto layout</button>
-        <span className="hint">Attributes are the entity’s world variables; lines are relationships; dashed arrows point to the parent entity. Click an element to select it; add entities, relationships and variables in their tabs.</span>
+        <span className="hint">Attributes are the entity’s world variables; lines are relationships; a hollow triangle marks a specialisation, a diamond a part, a dashed line plain grouping. Click an element to select it; add entities, relationships and variables in their tabs.</span>
       </div>
       <div className="stage" ref={box} style={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width={layout.width * scale} height={layout.height * scale} viewBox={`0 0 ${layout.width} ${layout.height}`} fontFamily="Helvetica, Arial, sans-serif" fontSize={12} style={{ width: layout.width * scale, height: layout.height * scale }} onMouseDown={() => select(null)}>
           <defs>
+            <marker id="dom-dia" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="12" markerHeight="9" orient="auto"><path d="M1 5L7 1L13 5L7 9z" fill="#374151" stroke="#374151" /></marker>
             <marker id="dom-tri" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto"><path d="M1 1L11 6L1 11z" fill="#fff" stroke="#374151" /></marker>
           </defs>
           {layout.edges.map((e, i) => <Edge key={e.id + i} e={e} selected={selected === e.id} />)}

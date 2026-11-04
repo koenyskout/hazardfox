@@ -4,7 +4,7 @@ import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleR
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { allOf, normSym, isGroup, conditionError, isRangeOp, isText as inWords, laneText, mapLeaves } from '../model/variables'
-import { CAUSES, CONDITION_OPS, DURATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -28,6 +28,7 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
 
 const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   requirement: { type: REQUIREMENT_TYPES },
+  entity: { relation: ENTITY_RELATIONS },
   node: { role: NODE_ROLES },
   ca: { duration: DURATIONS },
   variable: { type: VARIABLE_TYPES, layer: VARIABLE_LAYERS },

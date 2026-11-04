@@ -3,10 +3,10 @@ import { Select } from './Select'
 import { WhenView } from './WhenView'
 import { conditionLine, isExpr, lineCondition, namesOf, textable, textToWhen, whenToText } from '../model/expr'
 import { renderText, variableName } from '../model/labels'
-import { affectable, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
+import { affectable, attributesOf, generalisations, isA, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
-import { effectText, opSignature, operationsOf, paramText } from '../model/operations'
+import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, QUANT_LABELS, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
@@ -170,16 +170,25 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
     case 'entity':
       return (
         <>
+          {it.parent && (
+            <Field single label="Relation to parent" hint="Specialisation (is-a): this entity is a kind of its parent and inherits its attributes and operations. Part (part-of): it is a component of its parent. Grouping: just organised under it, no meaning attached.">
+              <Select value={it.relation ?? ''} onChange={(e) => set({ relation: (e.target.value || undefined) as typeof it.relation })}>
+                <option value="">grouping only</option><option value="specialisation">specialisation (is a kind of {p.items[it.parent]?.title.trim() || 'parent'})</option><option value="part">part (is part of {p.items[it.parent]?.title.trim() || 'parent'})</option>
+              </Select>
+            </Field>
+          )}
           <Field single label="Instances" hint="Tick if the system contains several of these (e.g. trains). Conditions on its attributes can then say ‘some’, ‘every’ or ‘no’ instance.">
             <label className="check"><input type="checkbox" checked={!!it.many} onChange={(e) => set({ many: e.target.checked || undefined })} /> several instances</label>
           </Field>
           <Field single label="Attributes" hint="The properties of this entity that can change over time (its world variables).">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
+            {generalisations(p, it.id).length > 0 && <div className="reflist"><span className="muted">inherited:</span>{attributesOf(p, it.id).filter((a) => a.inherited).map((a) => <span key={a.v.id} title={`from ${p.items[a.from]?.title}`}><Ref id={a.v.id} /></span>)}{!attributesOf(p, it.id).some((a) => a.inherited) && <span className="muted">none yet</span>}</div>}
             <ApplyStruct parent={it.id} />
           </Field>
           <Field single label="Operations" hint="Things this entity can do, or that can happen to it. An operation can change world variables, and a control action can carry it out. Optional.">
             <div className="reflist">
               {operationsOf(p, it.id).map((o) => <Ref key={o.id} id={o.id} />)}
+              {inheritedOperations(p, it.id).length > 0 && <><span className="muted">inherited:</span>{inheritedOperations(p, it.id).map(({ o, from }) => <span key={o.id} title={`from ${p.items[from]?.title}`}><Ref id={o.id} /></span>)}</>}
               <button className="link" onClick={() => addItemInDialog('operation', { params: [{ name: it.title.trim().split(/\s+/).pop()!.toLowerCase() || 'x', entity: it.id }] })}><Icon name="plus" size={12} /> new operation</button>
             </div>
           </Field>
@@ -1173,10 +1182,10 @@ function EffectsSummary({ p, it, set }: { p: Project; it: ItemOf<'operation'>; s
           const v = p.items[ef.variable] as Variable | undefined, values = v?.kind === 'variable' ? valuesOf(v) : null
           return (
             <div key={i} className="cond cond-ev">
-              <SubjectPicker choices={() => vars.map((x) => ({ key: x.id, variable: x, text: `${variableName(p, x)} ${labels[x.id]}`, pick: () => { const par = it.params.filter((q) => q.entity && q.entity === x.parent); upd(i, { variable: x.id, state: '', on: par.length === 1 ? par[0].name : undefined }) } }))}>
+              <SubjectPicker choices={() => vars.map((x) => ({ key: x.id, variable: x, text: `${variableName(p, x)} ${labels[x.id]}`, pick: () => { const par = it.params.filter((q) => q.entity && x.parent && isA(p, q.entity, x.parent)); upd(i, { variable: x.id, state: '', on: par.length === 1 ? par[0].name : undefined }) } }))}>
                 {v ? <ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover> : <span className="muted">variable…</span>}
               </SubjectPicker>
-              {it.params.some((q) => q.entity && q.entity === v?.parent) && <Select value={ef.on ?? ''} onChange={(e) => upd(i, { on: e.target.value || undefined })}><option value="">of any instance</option>{it.params.filter((q) => q.entity === v?.parent).map((q) => <option key={q.name} value={q.name}>of {q.name}</option>)}</Select>}
+              {it.params.some((q) => q.entity && v?.parent && isA(p, q.entity, v.parent)) && <Select value={ef.on ?? ''} onChange={(e) => upd(i, { on: e.target.value || undefined })}><option value="">of any instance</option>{it.params.filter((q) => q.entity && v?.parent && isA(p, q.entity, v.parent)).map((q) => <option key={q.name} value={q.name}>of {q.name}</option>)}</Select>}
               <span className="cond-word">becomes</span>
               {it.params.some((q) => q.data) && <Select value={ef.from ?? ''} onChange={(e) => upd(i, { from: e.target.value || undefined, state: '' })}><option value="">a fixed value</option>{it.params.filter((q) => q.data).map((q) => <option key={q.name} value={q.name}>the value of {q.name}</option>)}</Select>}
               {ef.from ? null : values ? <Select value={ef.state} onChange={(e) => upd(i, { state: e.target.value })}><option value="" disabled hidden>value…</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>

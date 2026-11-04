@@ -1,9 +1,12 @@
 import { itemsOfKind } from './tree'
+import { generalisations } from './formal'
 import { paramSummary } from './params'
 import type { Effect, Id, OpParam, ItemOf, Project, TraceEvent } from './types'
 
 /** Operations with a parameter of this entity or relationship, in order. */
 export const operationsOf = (p: Project, entity: Id): ItemOf<'operation'>[] => itemsOfKind(p, 'operation').filter((o) => o.params.some((x) => x.entity === entity)).sort((a, b) => a.rank - b.rank)
+/** Operations an entity inherits from the entities it specialises, with the entity that declares them. */
+export const inheritedOperations = (p: Project, entity: Id) => generalisations(p, entity).flatMap((g) => operationsOf(p, g).map((o) => ({ o, from: g })))
 
 /** "gate: Gate" or "level: 0–10 mm". */
 export const paramText = (p: Project, x: OpParam) => (x.data ? paramSummary(p, { ...x.data, name: x.name || '?' }) : `${x.name || '?'}: ${p.items[x.entity]?.title || '?'}`)

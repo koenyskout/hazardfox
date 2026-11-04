@@ -2,7 +2,7 @@ import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { argError } from './params'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
+import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, sameInstance, updatedBy, updates } from './formal'
 import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
@@ -156,10 +156,10 @@ export function validate(p: Project): Issue[] {
   for (const u of ucas) {
     const named = new Map<string, Id | null>()
     const all = u.conditions.flatMap(leaves).map((c) => condInstances(p, c))
-    for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && named.get(x.name) !== x.entity) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
+    for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && !sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
     for (const x of all.flat().filter((x) => !x.intro)) {
       if (!named.has(x.name)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} is not introduced by any condition`)
-      else if (named.get(x.name) !== x.entity) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} stands for a different entity here`)
+      else if (!sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} stands for a different entity here`)
     }
   }
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported

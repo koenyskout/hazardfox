@@ -18,11 +18,11 @@ export function medicationExampleProject(): Project {
 
   // --- domain model -------------------------------------------------------------------------
   const person = add('entity', { title: 'Person' })
-  const patient = add('entity', { title: 'Patient', parent: person })
-  const staff = add('entity', { title: 'Clinical staff', parent: person })
-  const nurse = add('entity', { title: 'Nurse', parent: staff, operations: ['Scan wristband', 'Program pump', 'Administer drug'] })
-  const physician = add('entity', { title: 'Physician', parent: staff, operations: ['Prescribe', 'Cancel order'] })
-  const pharmacist = add('entity', { title: 'Pharmacist', parent: staff, operations: ['Verify order', 'Prepare container'] })
+  const patient = add('entity', { title: 'Patient', parent: person, relation: 'specialisation' })
+  const staff = add('entity', { title: 'Clinical staff', parent: person, relation: 'specialisation' })
+  const nurse = add('entity', { title: 'Nurse', parent: staff, relation: 'specialisation', operations: ['Scan wristband', 'Program pump', 'Administer drug'] })
+  const physician = add('entity', { title: 'Physician', parent: staff, relation: 'specialisation', operations: ['Prescribe', 'Cancel order'] })
+  const pharmacist = add('entity', { title: 'Pharmacist', parent: staff, relation: 'specialisation', operations: ['Verify order', 'Prepare container'] })
 
   const order = add('entity', { title: 'Medication order' })
   const drug = add('entity', { title: 'Drug' })
@@ -31,11 +31,11 @@ export function medicationExampleProject(): Project {
   const library = add('entity', { title: 'Drug library' })
 
   const equip = add('entity', { title: 'Ward equipment' })
-  const pump = add('entity', { title: 'Infusion pump', parent: equip, operations: ['Start infusion', 'Stop infusion', 'Set rate', 'Raise alarm'] })
-  const monitor = add('entity', { title: 'Vital signs monitor', parent: equip, operations: ['Measure', 'Raise alarm'] })
-  const line = add('entity', { title: 'Infusion line', parent: equip })
+  const pump = add('entity', { title: 'Infusion pump', parent: equip, relation: 'specialisation', operations: ['Start infusion', 'Stop infusion', 'Set rate', 'Raise alarm'] })
+  const monitor = add('entity', { title: 'Vital signs monitor', parent: equip, relation: 'specialisation', operations: ['Measure', 'Raise alarm'] })
+  const line = add('entity', { title: 'Infusion line', parent: equip, relation: 'part' })
   const place = add('entity', { title: 'Ward' })
-  const bed = add('entity', { title: 'Bed', parent: place })
+  const bed = add('entity', { title: 'Bed', parent: place, relation: 'part' })
 
   // attributes (world variables)
   add('variable', { title: 'Condition', parent: patient, states: ['stable', 'deteriorating', 'critical'] })

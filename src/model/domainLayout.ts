@@ -3,17 +3,17 @@ import { clusterStructs, predicateOf, structPath, variablesIn } from './formal'
 import { variableName } from './labels'
 import type { Pt } from './structure'
 import { itemsOfKind } from './tree'
-import type { Id, Labels, Project, Variable } from './types'
+import type { EntityRelation, Id, Labels, Project, Variable } from './types'
 import { describeStates } from './variables'
 
 export interface DomainBox { assoc?: boolean; id: Id; x: number; y: number; w: number; h: number; head: string; title: string; attrs: { id: Id; text: string; detail: string; indent: number; head?: boolean }[] }
-export interface DomainEdge { id: Id; a: Id; b: Id; kind: 'rel' | 'part'; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
+export interface DomainEdge { id: Id; a: Id; b: Id; kind: 'rel' | 'part'; rel?: EntityRelation; pts: Pt[]; label: string; fromCard: string; toCard: string; self: boolean }
 export interface DomainLayout { boxes: DomainBox[]; edges: DomainEdge[]; width: number; height: number }
 
 export const DOM = { charW: 7, row: 18, head: 28, pad: 10 }
 const elk = new ELK()
 
-/** Class-diagram style layout of the domain model: entities with attributes (world variables) and operations, relationships and part/specialisation links. */
+/** Class-diagram style layout of the domain model: entities with attributes (world variables) and operations, relationships and grouping / part / specialisation links. */
 export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLayout> {
   const entities = itemsOfKind(p, 'entity').sort((a, b) => a.rank - b.rank)
   const boxes: Record<Id, DomainBox> = {}
@@ -43,7 +43,7 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}
   for (const e of entities) {
     if (e.parent && boxes[e.parent]) {
-      meta['part:' + e.id] = { id: e.id, a: e.id, b: e.parent, kind: 'part', label: '', fromCard: '', toCard: '', self: false }
+      meta['part:' + e.id] = { id: e.id, a: e.id, b: e.parent, kind: 'part', rel: e.relation, label: '', fromCard: '', toCard: '', self: false }
       // laid out parent → child so that parents sit above their parts; drawn (reversed) with the arrow at the parent
       edges.push({ id: 'part:' + e.id, sources: [e.parent], targets: [e.id] } as ElkExtendedEdge)
     }

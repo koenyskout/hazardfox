@@ -20,7 +20,7 @@ export function crossingExampleProject(): Project {
 
   const train = add('entity', { title: 'Train', many: true })
   const crossing = add('entity', { title: 'Crossing' })
-  const gate = add('entity', { title: 'Gate', parent: crossing })
+  const gate = add('entity', { title: 'Gate', parent: crossing, relation: 'part' })
   const vPos = add('variable', { title: 'Position', parent: train, states: ['far', 'approaching', 'on crossing'], definition: 'Where the train is relative to the crossing.' })
   const rel = add('relationship', { title: 'approaches', from: train, to: crossing, fromCard: '*', toCard: '1' })
   const vNear = predicateOf(b.project, rel)!.id

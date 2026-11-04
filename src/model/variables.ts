@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Project, type SymbolicType, type Variable, type When } from './types'
+import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -84,13 +84,20 @@ export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v
 export const conditionComplete = (c: Condition): boolean => (isEvent(c) ? !!c.event && timeOk(c.time) : (!c.time || timeOk(c.time)) && baseComplete(c))
 const baseComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
+/** Whether an entity has several instances; a specialisation of a many-instance entity does too. */
+export function manyEntity(p: Project, id: Id): boolean {
+  const seen = new Set<Id>()
+  let x: Item | undefined = p.items[id]
+  while (x?.kind === 'entity' && !seen.has(x.id)) { if (x.many) return true; seen.add(x.id); x = x.relation === 'specialisation' && x.parent ? p.items[x.parent] : undefined }
+  return false
+}
 /** Whether a world variable describes several instances: it belongs to a `many` entity, or to a relationship with a `many` end (entity or cardinality). */
 export function isMany(p: Project, v: Variable): boolean {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
   const manyCard = (c: string) => c === '*' || c === '1..*'
-  if (o?.kind === 'entity') return !!o.many
+  if (o?.kind === 'entity') return manyEntity(p, o.id)
   if (o?.kind !== 'relationship') return false
-  const e = (id: string) => { const x = p.items[id]; return x?.kind === 'entity' && !!x.many }
+  const e = (id: string) => manyEntity(p, id)
   return e(o.from) || e(o.to) || manyCard(o.fromCard) || manyCard(o.toCard)
 }
 
@@ -105,7 +112,7 @@ export function boundEntity(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
   if (o?.kind === 'entity') return o.id
   if (o?.kind !== 'relationship') return null
-  const many = (id: string, card: string) => { const x = p.items[id]; return (x?.kind === 'entity' && !!x.many) || card === '*' || card === '1..*' }
+  const many = (id: string, card: string) => manyEntity(p, id) || card === '*' || card === '1..*'
   return many(o.from, o.fromCard) ? o.from : many(o.to, o.toCard) ? o.to : null
 }
 /** The instance name a condition introduces or refers to. */
@@ -116,8 +123,8 @@ export const instName2 = (c: Condition) => (c.as2 ?? c.same2 ?? '').trim()
 export function otherEnd(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
   if (o?.kind !== 'relationship') return null
-  const many = (id: string, card: string) => { const x = p.items[id]; return x?.kind === 'entity' && (!!x.many || card === '*' || card === '1..*') }
-  return many(o.from, o.fromCard) && many(o.to, o.toCard) ? o.to : null
+  const many = (id: string, card: string) => p.items[id]?.kind === 'entity' && (manyEntity(p, id) || card === '*' || card === '1..*')
+  return many(o.from, o.fromCard) &&many(o.to, o.toCard) ? o.to : null
 }
 /** The instances a condition introduces or refers to: [entity, name, introduces]. */
 export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] {

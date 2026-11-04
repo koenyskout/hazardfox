@@ -26,7 +26,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       add('constraint', { title: 'Doors must allow passengers and personnel to exit during an emergency', hazards: [H3] })
 
       const train = add('entity', { title: 'Train' })
-      const door = add('entity', { title: 'Door', parent: train, operations: ['Open', 'Close'] })
+      const door = add('entity', { title: 'Door', parent: train, relation: 'part', operations: ['Open', 'Close'] })
       const vMotion = add('variable', { title: 'Train motion', parent: train, states: ['stopped', 'moving'], definition: 'The train is moving when its speed exceeds a small threshold.' })
       const vPos = add('variable', { title: 'Train position', parent: train, states: ['aligned with platform', 'not aligned with platform'], definition: 'All doors on the platform side are within the platform edges.' })
       const hazardsOnBoard = ['Fire', 'Smoke', 'Toxic gas'].map((title) => add('variable', { title, parent: train, type: 'boolean' }))

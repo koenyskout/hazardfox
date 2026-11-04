@@ -12,6 +12,21 @@ import type { Feedback, Id, Project, Variable, VariableLayer } from './types'
 export const variablesIn = (p: Project, layer: VariableLayer, owner?: Id | null) =>
   itemsOfKind(p, 'variable').filter((v) => v.layer === layer && (owner === undefined || v.parent === owner)).sort((a, b) => a.rank - b.rank)
 
+/** The entities `e` specialises, nearest first: the chain of parents while each link is a specialisation (is-a). */
+export function generalisations(p: Project, e: Id): Id[] {
+  const out: Id[] = []
+  let c = p.items[e]
+  while (c?.kind === 'entity' && c.relation === 'specialisation' && c.parent && !out.includes(c.parent) && c.parent !== e) { out.push(c.parent); c = p.items[c.parent] }
+  return out
+}
+/** Whether an instance of `e` is also an instance of `g` (same entity, or `g` is a generalisation of `e`). */
+export const isA = (p: Project, e: Id, g: Id) => e === g || generalisations(p, e).includes(g)
+/** Whether two entities can stand for the same instance (one is a specialisation of the other). */
+export const sameInstance = (p: Project, a: Id | null, b: Id | null) => a === b || (!!a && !!b && (isA(p, a, b) || isA(p, b, a)))
+/** The world variables of an entity: own, then inherited ones (nearest generalisation first) with the entity that declares them. */
+export const attributesOf = (p: Project, e: Id): { v: Variable; from: Id; inherited: boolean }[] =>
+  [e, ...generalisations(p, e)].flatMap((g) => variablesIn(p, 'domain', g).map((v) => ({ v, from: g, inherited: g !== e })))
+
 /** Process model of a controller. */
 export const beliefsOf = (p: Project, node: Id) => variablesIn(p, 'belief', node)
 /** Observations carried by a feedback. */
