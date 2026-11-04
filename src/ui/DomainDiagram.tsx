@@ -117,7 +117,7 @@ export function DomainDiagram() {
             return (
               <g key={b.id} transform={`translate(${b.x} ${b.y})`} onMouseDown={(ev) => { ev.stopPropagation(); select(b.id); const it = p.items[b.id]; const n = it && (it.kind === 'entity' || it.kind === 'relationship') ? it.nudge : null; drag.current = { id: b.id, sx: ev.clientX, sy: ev.clientY, ox: n?.dx ?? 0, oy: n?.dy ?? 0, moved: false } }} style={{ cursor: 'grab' }}>
                 <rect width={b.w} height={b.h} rx={3} fill="#fff" stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
-                <rect width={b.w} height={head} rx={3} fill={b.assoc ? 'hsl(300 85% 92%)' : 'hsl(255 85% 92%)'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
+                <rect width={b.w} height={head} rx={3} fill={b.assoc ? 'hsl(300 85% 92%)' : 'hsl(214 85% 92%)'} stroke={stroke} strokeWidth={on ? 2.5 : 1.5} strokeDasharray={b.assoc ? '5 3' : undefined} />
                 <text x={b.w / 2} y={15} textAnchor="middle" fontSize={10} fill="#6b7280">{b.head}</text>
                 <text x={b.w / 2} y={31} textAnchor="middle" fontSize={13} fontWeight={700} fill="#111827">{b.title}</text>
                 {b.attrs.map((a, i) => <text key={a.id} x={pad + a.indent * 10} y={attrY + i * row} fill="#111827" fontSize={12}>{a.text}<tspan fill="#9ca3af" fontSize={10} dx={4}>{a.detail}</tspan></text>)}

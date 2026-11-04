@@ -120,7 +120,7 @@ a.chip:hover, button.chip:hover { border-color: currentColor; }
 .chip[class*=" k-"] { background: hsl(var(--h) var(--cs, 85%) 92%); color: hsl(var(--h) var(--cs, 85%) 26%); }
 .chip.k-loss { --h: 0; } .chip.k-hazard { --h: 27; } .chip.k-variable { --h: 70; } .chip.k-feedback { --h: 140; }
 .chip.k-constraint { --h: 172; } .chip.k-requirement { --h: 195; } .chip.k-node { --h: 212; --cs: 30%; }
-.chip.k-entity { --h: 255; } .chip.k-uca { --h: 275; } .chip.k-relationship { --h: 300; } .chip.k-scenario { --h: 330; }
+.chip.k-entity { --h: 214; } .chip.k-uca { --h: 275; } .chip.k-relationship { --h: 300; } .chip.k-scenario { --h: 330; }
 .chip.k-assumption { --h: 220; --cs: 10%; }
 @media (prefers-color-scheme: dark) { .chip[class*=" k-"] { background: hsl(var(--h) calc(var(--cs, 85%) * .45) 22%); color: hsl(var(--h) var(--cs, 85%) 80%); } }
 .chip.k-ca { background: #1f2937; color: #fff; }
@@ -487,8 +487,8 @@ table.plain td { padding: 4px 10px 4px 0; }
 .pk-more { margin-left: auto; font-size: 11px; }
 .picker-list li.pk-group { --h: 220; cursor: default; user-select: none; font-size: 11px; font-weight: 600; background: hsl(var(--h) 60% 94%); color: hsl(var(--h) 60% 28%); padding: 1px 10px; pointer-events: none; }
 .mention-menu li.pk-group { --h: 220; cursor: default; user-select: none; font-size: 11px; font-weight: 600; background: hsl(var(--h) 60% 94%); color: hsl(var(--h) 60% 28%); padding: 1px 10px; pointer-events: none; }
-.picker-list li.pk-group.k-entity { --h: 255; } .picker-list li.pk-group.k-relationship { --h: 300; }
-.mention-menu li.pk-group.k-entity { --h: 255; } .mention-menu li.pk-group.k-relationship { --h: 300; }
+.picker-list li.pk-group.k-entity { --h: 214; } .picker-list li.pk-group.k-relationship { --h: 300; }
+.mention-menu li.pk-group.k-entity { --h: 214; } .mention-menu li.pk-group.k-relationship { --h: 300; }
 @media (prefers-color-scheme: dark) { .picker-list li.pk-group { background: hsl(var(--h) 30% 22%); color: hsl(var(--h) 60% 80%); } }
 @media (prefers-color-scheme: dark) { .mention-menu li.pk-group { background: hsl(var(--h) 30% 22%); color: hsl(var(--h) 60% 80%); } }
 .picker-list li.pk-in { position: relative; padding-left: 30px; }
