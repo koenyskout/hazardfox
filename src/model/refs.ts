@@ -63,6 +63,9 @@ export const replaceMentions = (text: string, f: (id: Id, whole: string) => stri
 /** The UCA (type 'uca') or control action (type 'ca') a scenario explains. */
 export const scenarioTarget = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : s.ca)
 
+/** Ids a condition refers to: its variable, compared variable, event, and @-mentions in a condition in words / expression. */
+const condRefs = (c: Condition): Id[] => [c.variable, c.other, c.event, ...(isText(c) ? mentions(c.text ?? '') : [])].filter((x): x is Id => !!x)
+
 /** All ids an item refers to (excluding its tree parent). */
 export function refsOf(it: Item): Id[] {
   const out: Id[] = []
@@ -71,9 +74,9 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') for (const c of it.conditions.flatMap(leaves)) { if (c.variable) out.push(c.variable); if (c.event) out.push(c.event); if (c.other) out.push(c.other); if (isText(c)) out.push(...mentions(c.text ?? '')) }
+  if (it.kind === 'uca' || it.kind === 'hazard') out.push(...it.conditions.flatMap(leaves).flatMap(condRefs))
   if (it.kind === 'operation') out.push(...it.params.map((x) => x.entity).filter(Boolean), ...it.effects.map((e) => e.variable).filter(Boolean))
-  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap((c) => [c.variable, c.other ?? '', ...(isText(c) ? mentions(c.text ?? '') : [])]).filter(Boolean))
+  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap(condRefs))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
