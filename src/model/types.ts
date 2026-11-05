@@ -340,10 +340,12 @@ export type TraceEventKind = (typeof TRACE_EVENTS)[number]
 export const TRACE_EVENT_LABELS: Record<TraceEventKind, string> = { occurs: 'sent', absent: 'not sent', lost: 'sent but lost / not executed' }
 /** `args`: the instance (or, for a value parameter, the value) of each parameter of the operation (by parameter name), e.g. `{ train: 't1' }`; a relationship's two ends are "t1|c1". */
 export interface TraceEvent { on: Id; what: TraceEventKind; args?: Record<string, string> }
-/** `values` sets variables at this step (unset ones keep their previous value). */
-export interface TraceStep { t: string; note: string; values: Record<Id, string>; events: TraceEvent[] }
+/** A column of a trace: a variable id, `<variable>@<instances>` for one instance of a many-instance variable, or `text:<condition>` for a condition in words (build with `laneOf`/`instLane`/`condKey`, take apart with `laneParts`/`laneText`). */
+export type Lane = string & { readonly __lane: true }
+/** `values` sets lanes at this step (unset ones keep their previous value). */
+export interface TraceStep { t: string; note: string; values: Record<Lane, string>; events: TraceEvent[] }
 /** A finite run σ of the system (world, signals, beliefs, internal state) that exhibits the scenario. */
-export interface Trace { lanes: Id[]; steps: TraceStep[] }
+export interface Trace { lanes: Lane[]; steps: TraceStep[] }
 
 interface ScenarioBase extends Base {
   kind: 'scenario'

@@ -1,6 +1,7 @@
 import { projectBuilder } from './build'
 import { relEnds } from './create'
 import { mention } from './refs'
+import { laneOf, laneParts } from './variables'
 import { draftTrace } from './traces'
 import type { Project, Scenario, Variable } from './types'
 
@@ -72,12 +73,12 @@ export function exampleProject(): Project {
   // The occlusion belief is stale because the controller is still priming, where it ignores the occlusion flag.
   b.set(s3, (p) => {
     const t = structuredClone((p.items[s3] as Scenario).trace)
-    t.lanes.unshift(vMode)
-    t.steps[0].values[vMode] = 'priming'
+    t.lanes.unshift(laneOf(vMode))
+    t.steps[0].values[laneOf(vMode)] = 'priming'
     t.steps[0].note = 'The pump is still in priming mode; the line is clear.'
     t.steps[1].note = `The line becomes occluded. The flow sensor reports it, but in ${mention(vMode)} "priming" the controller ignores the occlusion flag.`
-    t.steps[2].values[vMode] = 'infusing'
-    t.steps[2].note = `Priming ends and the controller starts infusing with a stale ${mention(t.lanes.find((id) => (p.items[id] as Variable).layer === 'belief')!)}: it sends ${mention(ca2)}.`
+    t.steps[2].values[laneOf(vMode)] = 'infusing'
+    t.steps[2].note = `Priming ends and the controller starts infusing with a stale ${mention(t.lanes.find((id) => (p.items[laneParts(id).id] as Variable).layer === 'belief')!)}: it sends ${mention(ca2)}.`
     return { trace: t }
   })
   void u2

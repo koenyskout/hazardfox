@@ -11,6 +11,7 @@ import { validate } from './validate'
 import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf, endsOf, manyEndsOf, nameKey } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario, ValueCondition, VarCondition } from './types'
+import { laneAt } from './variables'
 
 const valueOf = (c: Condition): ValueCondition => { if (!isValueCmp(c)) throw new Error('not a value comparison'); return c }
 
@@ -181,7 +182,7 @@ describe('level crossing example', () => {
     const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't2' }, { use: 'c1' }] }
     expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing c1', 'another Train t2 approaches c1'])
     expect(instLane(a)).toBe(`${pred}@t1|c1`)
-    expect(laneParts(`${pred}@t1|c1`)).toEqual({ id: pred, names: ['t1', 'c1'] })
+    expect(laneParts(laneAt(pred, 't1|c1'))).toEqual({ id: pred, names: ['t1', 'c1'] })
     // named reads its lane, falling back to the bare lane; unnamed is quantified over all instance lanes
     const named: Condition = cond(s.speed, { names: [{ declare: 't1' }], op: '>', state: '10' })
     expect(condHolds(s.p, named, getter({ [`${s.speed}@t1`]: '50' }))).toBe(true)

@@ -6,6 +6,7 @@ import { deleteItems } from './ops'
 import { refsOf } from './refs'
 import { boundSeconds, conditionComplete, parseTime, whenTexts } from './variables'
 import type { Condition, Id, Scenario, Trace, Uca } from './types'
+import { laneOf } from './variables'
 
 function setup(conditions: (a: Id, ca: Id, ev: Id) => Condition[]) {
   const b = projectBuilder()
@@ -21,8 +22,8 @@ function setup(conditions: (a: Id, ca: Id, ev: Id) => Condition[]) {
 }
 const time = (op: '≥' | '<', amount: string, unit: 's' | 'ms' | 'min' | 'h' = 's') => ({ op, amount, unit })
 const trace = (a: Id, ca: Id, ts: string[]): Trace => ({
-  lanes: [a],
-  steps: ts.map((t, i) => ({ t, note: '', values: i === 1 ? { [a]: 'on' } : {}, events: i === ts.length - 1 ? [{ on: ca, what: 'absent' as const }] : [] })),
+  lanes: [laneOf(a)],
+  steps: ts.map((t, i) => ({ t, note: '', values: i === 1 ? { [laneOf(a)]: 'on' } : {}, events: i === ts.length - 1 ? [{ on: ca, what: 'absent' as const }] : [] })),
 })
 
 describe('timing conditions', () => {
@@ -55,7 +56,7 @@ describe('timing conditions', () => {
   it('checks the time since an event', () => {
     const { b, a, ca, ev, s } = setup((_, __, e) => [{ kind: 'value', variable: '', op: '=', state: '', event: e, time: time('≥', '2') }])
     const sc = b.project.items[s] as Scenario
-    const t: Trace = { lanes: [a], steps: [
+    const t: Trace = { lanes: [laneOf(a)], steps: [
       { t: '0', note: '', values: {}, events: [{ on: ev, what: 'occurs' }] },
       { t: '1', note: '', values: {}, events: [] },
       { t: '4', note: '', values: {}, events: [{ on: ca, what: 'absent' }] },

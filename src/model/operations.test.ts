@@ -5,6 +5,7 @@ import { clockAt, traceState } from './traces'
 import { deleteItems } from './ops'
 import { operationOfCa, operationsOf } from './operations'
 import type { Trace } from './types'
+import { laneOf } from './variables'
 
 function setup() {
   const b = projectBuilder()
@@ -22,10 +23,10 @@ function setup() {
 describe('operations', () => {
   it('apply their effects when the control action occurs', () => {
     const { b, v, ca } = setup()
-    const t: Trace = { lanes: [v], steps: [
-      { t: '0', note: '', values: { [v]: 'on' }, events: [] },
+    const t: Trace = { lanes: [laneOf(v)], steps: [
+      { t: '0', note: '', values: { [laneOf(v)]: 'on' }, events: [] },
       { t: '1', note: '', values: {}, events: [{ on: ca, what: 'occurs' }] },
-      { t: '2', note: '', values: { [v]: 'on' }, events: [] },
+      { t: '2', note: '', values: { [laneOf(v)]: 'on' }, events: [] },
     ] }
     expect(traceState(b.project, t, 0)[v]).toBe('on')
     expect(traceState(b.project, t, 1)[v]).toBe('off')

@@ -1,4 +1,5 @@
-import { isEvent, isGroup, hasText, isExpr, isVarCmp, laneParts, laneText, leaves, mapLeaves } from './variables'
+import type { Lane } from './types'
+import { isEvent, isGroup, hasText, isExpr, isVarCmp, laneEntries, laneKeys, laneLike, laneOf, laneParts, laneText, leaves, mapLeaves, textLane } from './variables'
 import { rulesOf } from './types'
 import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
@@ -86,7 +87,7 @@ export function refsOf(it: Item): Id[] {
 }
 
 /** Variables, control actions and feedback a trace mentions. */
-export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...Object.keys(s.values), ...s.events.map((e) => e.on)])])].flatMap((k) => { const w = laneText(k); return w !== null ? mentions(w) : [laneParts(k).id] })
+export const traceRefs = (t: Trace): Id[] => [...new Set([...t.lanes, ...t.steps.flatMap((s) => [...laneKeys(s.values), ...s.events.map((e) => laneOf(e.on))])])].flatMap((k) => { const w = laneText(k); return w !== null ? mentions(w) : [laneParts(k).id] })
 
 /** Items that refer to `id` (via parent, refs or mentions). */
 export function incoming(p: Project, id: Id): Item[] {
@@ -135,10 +136,10 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
     // lanes of single instances ("<variable>@t1") follow their variable
-    const move = (k: string): string | null => { const w = laneText(k); if (w !== null) return to ? k.slice(0, k.length - w.length) + w.split(mention(from)).join(mention(to)) : k; const { id } = laneParts(k); return id !== from ? k : to ? to + k.slice(from.length) : null }
+    const move = (k: Lane): Lane | null => { const w = laneText(k); if (w !== null) return to ? textLane(w.split(mention(from)).join(mention(to))) : k; const { id } = laneParts(k); return id !== from ? k : to ? laneLike(to, k) : null }
     t.lanes = [...new Set(t.lanes.flatMap((x) => move(x) ?? []))]
     for (const st of t.steps) {
-      st.values = Object.fromEntries(Object.entries(st.values).flatMap(([k, v]) => { const m = move(k); return m ? [[m, v]] : [] }))
+      st.values = Object.fromEntries(laneEntries(st.values).flatMap(([k, v]) => { const m = move(k); return m ? [[m, v]] : [] }))
       st.events = st.events.flatMap((e) => (e.on !== from ? [e] : to ? [{ ...e, on: to }] : []))
     }
   }

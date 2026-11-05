@@ -1,5 +1,5 @@
 import { endName, shortName } from './labels'
-import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ExprCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ExprCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Lane, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -131,7 +131,7 @@ export function parseTime(s: string): number | null {
 export const timeText = (t: TimeBound) => `${t.op === '≥' ? 'at least' : 'less than'} ${t.amount} ${t.unit}`
 const TEXT_KEY = 'text:'
 /** Trace lane / state key of a condition: its variable, or for a condition in words its text. */
-export const condKey = (c: Exclude<Condition, EventCondition>): string => (hasText(c) ? TEXT_KEY + c.text.trim() : c.variable)
+export const condKey = (c: Exclude<Condition, EventCondition>): Lane => (hasText(c) ? TEXT_KEY + c.text.trim() : c.variable) as Lane
 /** The text of a lane key of a condition in words, else null. */
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
@@ -193,11 +193,23 @@ export const nameKey = (n: EndNames | undefined): string => {
   while (names.length && !names[names.length - 1]) names.pop()
   return names.join('|')
 }
-const laneOf = (id: Id, n: EndNames | undefined): string => (nameKey(n) ? `${id}@${nameKey(n)}` : id)
-export const instLane = (c: Exclude<Condition, EventCondition>): string => (hasText(c) ? condKey(c) : laneOf(c.variable, c.names))
-export const otherLane = (c: VarCondition): string => laneOf(c.other, c.otherNames)
+/** The lane of a variable, for the instances `n` names (all instances alike when none). */
+export const laneOf = (id: Id, n?: EndNames): Lane => laneAt(id, nameKey(n))
+/** The lane of variable `id` for the instances written `names` ("t1", "t1|c1"; empty: all alike). */
+export const laneAt = (id: Id, names: string): Lane => (names ? `${id}@${names}` : id) as Lane
+/** A lane key read from outside the model (file, MCP input). */
+export const asLane = (s: string): Lane => s as Lane
+export const instLane = (c: Exclude<Condition, EventCondition>): Lane => (hasText(c) ? condKey(c) : laneOf(c.variable, c.names))
+export const otherLane = (c: VarCondition): Lane => laneOf(c.other, c.otherNames)
+/** Lanes set in a trace step or state. */
+export const laneKeys = (r: Record<Lane, string>): Lane[] => Object.keys(r) as Lane[]
+export const laneEntries = (r: Record<Lane, string>): [Lane, string][] => Object.entries(r) as [Lane, string][]
+/** Lane of a condition in words. */
+export const textLane = (text: string): Lane => (TEXT_KEY + text.trim()) as Lane
+/** The lane of variable `id` for the same instances as lane `like`. */
+export const laneLike = (id: Id, like: Lane): Lane => (id + like.slice(laneParts(like).id.length)) as Lane
 /** Variable and instance names of a lane key. */
-export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
+export const laneParts = (key: Lane): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
 
 /** `earlier`: the conditions before this one; a named some-instance of an entity already named differently there reads "another …" (different names stand for different instances). */
 export function conditionText(p: Project, c: Condition, earlier: Condition[] = []): string {

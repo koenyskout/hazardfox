@@ -8,6 +8,7 @@ import { refsOf } from './refs'
 import { deleteItems } from './ops'
 import { anyOf, isOnVariable, leaves, whenTexts } from './variables'
 import type { ConditionOp, Id, Scenario, Uca, ValueCondition } from './types'
+import { laneOf } from './variables'
 
 function setup() {
   const b = projectBuilder()
@@ -56,6 +57,6 @@ describe('any-of conditions', () => {
     const s = { scenarioType: 'uca', uca: u, cause: 'control-algorithm', trace: { lanes: [], steps: [] } } as unknown as Scenario
     const t = draftTrace(b.project, s)
     expect(t.lanes).toContain(a)
-    expect(t.steps[1].values[a]).toBe('on')
+    expect(t.steps[1].values[laneOf(a)]).toBe('on')
   })
 })

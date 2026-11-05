@@ -2,7 +2,8 @@ import { projectBuilder, type Add } from './build'
 import { mention } from './refs'
 import type { Cause, Id, Patch, Project } from './types'
 import { textToWhen } from './expr'
-import { anyOf } from './variables'
+import { anyOf, laneOf } from './variables'
+import type { Lane } from './types'
 
 /**
  * End-to-end STPA analyses taken from openly published sources (losses, hazards, constraints, control structure,
@@ -83,10 +84,10 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       add('requirement', { title: 'Provide a manual emergency door release independent of the door actuator power', sources: [s4], type: 'mitigation' })
       add('assumption', { title: 'Train speed and platform alignment sensors are independent of the door controller', about: [trainNode] })
       // Hand-written traces. A lane triple is world variable, the controller's signal and belief about it; `w(v, x)` sets all three, `world`/`belief` one.
-      const lanes = (vs: Id[]) => vs.flatMap((v) => [v, sig[v], bel[v]])
-      const w = (v: Id, x: string) => ({ [v]: x, [sig[v]]: x, [bel[v]]: x })
+      const lanes = (vs: Id[]) => vs.flatMap((v) => [v, sig[v], bel[v]].map((x) => laneOf(x)))
+      const w = (v: Id, x: string) => ({ [laneOf(v)]: x, [laneOf(sig[v])]: x, [laneOf(bel[v])]: x })
       type Ev = [Id, 'occurs' | 'absent' | 'lost']
-      const st = (t: string, note: string, values: Record<Id, string>, events: Ev[] = []) => ({ t, note, values, events: events.map(([on, what]) => ({ on, what })) })
+      const st = (t: string, note: string, values: Record<Lane, string>, events: Ev[] = []) => ({ t, note, values, events: events.map(([on, what]) => ({ on, what })) })
       const set = (s: Id, vs: Id[], steps: ReturnType<typeof st>[]) => b.set(s, { trace: { lanes: lanes(vs), steps } })
       set(s1, [vWay, vDoor], [
         st('t0', 'The door is open at the platform and the doorway is clear.', { ...w(vWay, 'person not in doorway'), ...w(vDoor, 'fully open') }),

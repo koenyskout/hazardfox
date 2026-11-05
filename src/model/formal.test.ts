@@ -14,6 +14,7 @@ import { allOf, anyOf, isOnVariable, whenText } from './variables'
 import { validate } from './validate'
 import { rulesOf, aboutOf } from './types'
 import type { Comparison, Condition, Id, Project, Scenario, Trace, ValueCondition, Variable } from './types'
+import { laneOf } from './variables'
 
 function base() {
   let p: Project = emptyProject()
@@ -74,8 +75,8 @@ describe('traces', () => {
   })
 
   it('carries values forward', () => {
-    const t: Trace = { lanes: ['a'], steps: [{ t: '0', note: '', values: { a: '1' }, events: [] }, { t: '1', note: '', values: {}, events: [] }] }
-    expect(valueAt(t, 1, 'a')).toEqual({ value: '1', set: false })
+    const t: Trace = { lanes: [laneOf('a')], steps: [{ t: '0', note: '', values: { [laneOf('a')]: '1' }, events: [] }, { t: '1', note: '', values: {}, events: [] }] }
+    expect(valueAt(t, 1, laneOf('a'))).toEqual({ value: '1', set: false })
   })
 
   it.each([['pump', exampleProject], ['train door', () => publishedExampleProject('pub-train-door')]])('drafted %s traces witness their UCA and match their cause', (_, make) => {
@@ -186,7 +187,7 @@ describe('refinement', () => {
     p = addBelief(p, ctrl, speed).project
     p = addBelief(p, ctrl, moving).project
     const [bs, bm] = [beliefsAbout(p, ctrl, speed)[0].id, beliefsAbout(p, ctrl, moving)[0].id]
-    const t: Trace = { lanes: [speed, moving, bs, bm], steps: [{ t: '0', note: '', values: { [speed]: '0', [bs]: '0' }, events: [] }, { t: '1', note: '', values: { [speed]: '40', [moving]: 'stopped' }, events: [] }] }
+    const t: Trace = { lanes: [speed, moving, bs, bm].map((x) => laneOf(x)), steps: [{ t: '0', note: '', values: { [laneOf(speed)]: '0', [laneOf(bs)]: '0' }, events: [] }, { t: '1', note: '', values: { [laneOf(speed)]: '40', [laneOf(moving)]: 'stopped' }, events: [] }] }
     expect(traceState(p, t, 0)).toMatchObject({ [moving]: 'stopped', [bm]: 'stopped' })
     expect(traceState(p, t, 1)).toMatchObject({ [moving]: 'moving', [bm]: 'stopped' })
     expect(ruleConflicts(p, t, 1)).toEqual([[moving, 'stopped', 'moving']])

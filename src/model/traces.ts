@@ -4,19 +4,19 @@ import { exprHolds } from './expr'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention, ucaOf } from './refs'
 import { itemsOfKind } from './tree'
-import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
+import { laneLike, laneOf, laneEntries, boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
 import { aboutOf, otherwiseOf, rulesOf } from './types'
-import type { Cause, Comparison, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
+import type { Cause, Comparison, Condition, ConditionOp, Id, Lane, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
-export function valueAt(t: Trace, i: number, id: Id): { value: string | undefined; set: boolean } {
+export function valueAt(t: Trace, i: number, id: Lane): { value: string | undefined; set: boolean } {
   for (let k = Math.min(i, t.steps.length - 1); k >= 0; k--) if (id in t.steps[k].values) return { value: t.steps[k].values[id], set: k === i }
   return { value: undefined, set: false }
 }
 
 /** All variable values at step i. */
-export function stateAt(t: Trace, i: number): Record<Id, string> {
-  const out: Record<Id, string> = {}
+export function stateAt(t: Trace, i: number): Record<Lane, string> {
+  const out: Record<Lane, string> = {}
   for (const s of t.steps.slice(0, i + 1)) Object.assign(out, s.values)
   return out
 }
@@ -110,7 +110,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
 }
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
-export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
+export const textConditions = (p: Project): Lane[] => [...new Set(Object.values(p.items).flatMap((it) =>
   (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? rulesOf(it).flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
@@ -265,13 +265,13 @@ export interface Mismatch { id: Id; world: Id; value: string; actual: string }
 export function mismatches(p: Project, t: Trace, i: number): Mismatch[] {
   const st = traceState(p, t, i)
   const out: Mismatch[] = []
-  for (const [id, value] of Object.entries(st)) {
+  for (const [id, value] of laneEntries(st)) {
     const { id: vid, names } = laneParts(id)
     const v = p.items[vid]
     if (v?.kind !== 'variable' || v.layer === 'domain' || v.layer === 'internal') continue
     const w = worldOf(p, v)
     // a per-instance signal or belief is compared with the same instance of the world variable (or the lane for all instances)
-    const actual = w ? st[w.id + id.slice(vid.length)] ?? (names.length ? st[w.id] : undefined) : undefined
+    const actual = w ? st[laneLike(w.id, id)] ?? (names.length ? st[laneOf(w.id)] : undefined) : undefined
     if (!w || w.type !== v.type || actual === undefined) continue
     if (value !== actual) out.push({ id, world: w.id, value, actual })
   }
@@ -293,8 +293,8 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
     const w = p.items[c.variable]
     if (w?.kind !== 'variable' || w.layer !== 'domain') continue
     // per-instance lanes of a named instance ("<variable>@t1"), else the lanes for all instances
-    const suf = instLane(c).slice(w.id.length)
-    const rd = (id: Id) => st[id + suf] ?? st[id]
+    const il = instLane(c)
+    const rd = (id: Id) => st[laneLike(id, il)] ?? st[laneOf(id)]
     if (rd(w.id) === undefined) continue
     // Signals about the variable or one of its parts, each compared with the world variable it is about.
     const about = [w.id, ...partsOf(p, w.id)]
@@ -322,7 +322,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     if (u?.kind !== 'uca' || ca?.kind !== 'ca') return { lanes: [], steps: [] }
     const ctrl = ca.from
     const fbs = feedbackInto(p, ctrl)
-    const lanes: Id[] = []
+    const lanes: Lane[] = []
     const [init, ctx, act] = [step('t0', 'Initially the context does not hold.'), step('t1', ''), step('t2', '')]
     const lost = new Set<Id>(), sent = new Set<Id>()
     // Only the first condition is false initially; it becoming true makes the context hold.
@@ -356,17 +356,16 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       ctx.values[lane] = after
       if (w.layer !== 'domain') continue
       // signals and beliefs about a named instance get that instance's lane too
-      const suf = lane.slice(w.id.length)
       for (const f of fbs) for (const sig of signalsOf(p, f.id).filter((x) => aboutOf(x) === w.id)) {
-        lanes.push(sig.id + suf)
-        init.values[sig.id + suf] = before
+        lanes.push(laneLike(sig.id, lane))
+        init.values[laneLike(sig.id, lane)] = before
         if (s.cause === 'feedback') lost.add(f.id)
-        else { ctx.values[sig.id + suf] = after; sent.add(f.id) }
+        else { ctx.values[laneLike(sig.id, lane)] = after; sent.add(f.id) }
       }
       for (const b of beliefsAbout(p, ctrl, w.id)) {
-        lanes.push(b.id + suf)
-        init.values[b.id + suf] = before
-        if (s.cause !== 'feedback' && s.cause !== 'process-model') ctx.values[b.id + suf] = after
+        lanes.push(laneLike(b.id, lane))
+        init.values[laneLike(b.id, lane)] = before
+        if (s.cause !== 'feedback' && s.cause !== 'process-model') ctx.values[laneLike(b.id, lane)] = after
       }
     }
     // timing conditions: numeric times, the action sent late enough; an event condition's event occurs as the context starts
@@ -386,7 +385,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
   }
   const ca = s.ca ? p.items[s.ca] : null
   if (ca?.kind !== 'ca') return { lanes: [], steps: [] }
-  const lanes: Id[] = []
+  const lanes: Lane[] = []
   const [init, send, result] = [step('t0', 'Initial state.'), step('t1', `${mention(ca.from)} sends ${mention(ca.id)}.`), step('t2', '')]
   const delivered = s.cause !== 'delivery'
   send.events = [{ on: ca.id, what: delivered ? 'occurs' : 'lost' }]
@@ -400,14 +399,14 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const ranked = vals && [...vals].sort((x, y) => score(y) - score(x))
     const intended = ranked ? ranked[0] ?? '' : w.type === 'symbolic' ? symbolAfter(initialValue(w)) : String(Number(initialValue(w)) + stepOf(w) * 10)
     const a = ranked ? (ranked.find((x) => !score(x) && x !== intended) ?? ranked.find((x) => x !== intended) ?? intended) : initialValue(w)
-    lanes.push(w.id)
-    init.values[w.id] = a
+    lanes.push(laneOf(w.id))
+    init.values[laneOf(w.id)] = a
     const wrong = s.cause === 'controlled-process' || s.cause === 'environment'
-    result.values[w.id] = wrong && vals ? vals.find((x) => x !== a && x !== intended) ?? a : a
+    result.values[laneOf(w.id)] = wrong && vals ? vals.find((x) => x !== a && x !== intended) ?? a : a
     for (const b of beliefsAbout(p, ca.from, w.id)) {
-      lanes.push(b.id)
-      init.values[b.id] = a
-      result.values[b.id] = intended
+      lanes.push(laneOf(b.id))
+      init.values[laneOf(b.id)] = a
+      result.values[laneOf(b.id)] = intended
     }
   }
   result.note = s.cause === 'delivery' ? 'The action is lost on the way; the process does not change, yet the controller assumes it did.'

@@ -4,8 +4,8 @@ import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleR
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { exprError } from '../model/expr'
-import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText } from '../model/variables'
-import { QUANTIFIERS, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText, laneOf, laneEntries, asLane } from '../model/variables'
+import { QUANTIFIERS, type Lane, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -252,7 +252,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
         const t = v as Rec
         const isVar = (id: Id) => { if (r.p.items[id]?.kind !== 'variable') throw new Error(`${r.labels[id]} is not a variable`) }
         // A lane "text:<condition in words>" is a boolean for that condition, not a variable.
-        const lane = (x: unknown) => { if (isStr(x) && laneText(x) !== null) return x; const id = r.resolve(x); isVar(id); return id }
+        const lane = (x: unknown) => { if (isStr(x) && laneText(x) !== null) return asLane(x); const id = r.resolve(x); isVar(id); return laneOf(id) }
         if (!t || !Array.isArray(t.steps)) throw new Error('expected {lanes, steps}')
         const lanes = Array.isArray(t.lanes) ? t.lanes.map(lane) : []
         out[f] = {
@@ -358,7 +358,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
   const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : isExpr(c) ? { text: r.externalText(c.text), op: '=', expr: true, ...(c.time ? { time: c.time } : {}) } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.time ? { time: c.time } : {}) } : { ...omitKind(c), variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
   const whenView = (w: When): Rec => (isGroup(w) ? { any: w.any, ...(w.not ? { not: true } : {}), of: w.of.map(whenView) } : cond(w))
-  const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
+  const lane = (k: Lane) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]
     if (f !== 'title' && empty(v)) continue
@@ -373,7 +373,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     else if (f === 'trace') {
       const t = v as Trace
       if (!t.steps.length) continue
-      out[f] = { lanes: t.lanes.map(lane), steps: t.steps.map((st) => ({ ...st, note: r.externalText(st.note), values: Object.fromEntries(Object.entries(st.values).map(([k, x]) => [lane(k), x])), events: st.events.map((e) => ({ ...e, on: r.label(e.on) })) })) }
+      out[f] = { lanes: t.lanes.map(lane), steps: t.steps.map((st) => ({ ...st, note: r.externalText(st.note), values: Object.fromEntries(laneEntries(st.values).map(([k, x]) => [lane(k), x])), events: st.events.map((e) => ({ ...e, on: r.label(e.on) })) })) }
     }
     else out[f] = isStr(v) && isText(it.kind, f) ? r.externalText(v) : v
   }
