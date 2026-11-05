@@ -3,7 +3,7 @@ import type { Comparison, ConditionOp, Id, Lane, TimeBound } from './types'
 import { laneAt } from './variables'
 
 /** The shapes of simple conditions (what traces, drafts, diagnosis and refinement understand); anything else is opaque. */
-export type Lit =
+type Lit =
   | { kind: 'text'; text: string; neg: boolean }
   | { kind: 'value'; id: Id<'variable'>; at: string[]; c: Comparison }
   | { kind: 'var'; id: Id<'variable'>; at: string[]; other: Id<'variable'>; otherAt: string[]; op: ConditionOp }
@@ -89,7 +89,7 @@ export function requiredAtoms(e: Expr | null, binders: Record<string, Binder> = 
   }
 }
 /** Every leaf condition (words, comparisons, …) anywhere in an expression. */
-export function leafExprs(e: Expr | null): Expr[] {
+function leafExprs(e: Expr | null): Expr[] {
   if (!e) return []
   if (e.k === 'and' || e.k === 'or' || e.k === 'not' || e.k === 'quant') return children(e).flatMap(leafExprs)
   return e.k === 'hole' ? [] : [e]

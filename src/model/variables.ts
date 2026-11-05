@@ -76,9 +76,9 @@ export function manyEntity(p: Project, id: Id): boolean {
   return false
 }
 /** Whether an end of a relationship ranges over several instances: its entity is `many` or its cardinality says so. */
-export const manyEnd = (p: Project, e: RelEnd): boolean => manyEntity(p, e.entity) || e.card === '*' || e.card === '1..*'
+const manyEnd = (p: Project, e: RelEnd): boolean => manyEntity(p, e.entity) || e.card === '*' || e.card === '1..*'
 /** One end of what a world variable is about: an entity variable has one, a relationship variable one per relationship end (same index). `many`: it ranges over several instances. */
-export interface VarEnd { entity: Id; many: boolean }
+interface VarEnd { entity: Id; many: boolean }
 export function endsOf(p: Project, v: Variable): VarEnd[] {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
   if (o?.kind === 'entity') return [{ entity: o.id, many: manyEntity(p, o.id) }]

@@ -61,7 +61,7 @@ export function partsOf(p: Project, v: Id<'variable'>): Id<'variable'>[] {
   return [...out]
 }
 /** Higher-level variables refined (transitively) into v. */
-export const wholesOf = (p: Project, v: Id<'variable'>): Id<'variable'>[] => itemsOfKind(p, 'variable').filter((w) => w.id !== v && partsOf(p, w.id).includes(v)).map((w) => w.id)
+const wholesOf = (p: Project, v: Id<'variable'>): Id<'variable'>[] => itemsOfKind(p, 'variable').filter((w) => w.id !== v && partsOf(p, w.id).includes(v)).map((w) => w.id)
 /** Variables refined directly into v. */
 export const refinedBy = (p: Project, v: Id<'variable'>) => itemsOfKind(p, 'variable').filter((w) => refines(p, w).includes(v))
 
