@@ -643,3 +643,10 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .rangebar input.rb-val { position: static; transform: none; width: 64px; flex: none; text-align: center; }
 .rb-lbl { margin: 0; min-width: 0; }
 .cond input.rb-val { height: 28px; min-height: 28px; font-size: 13px; padding: 2px 4px; }
+
+/* Expr editor rows: free-flowing (subject | operator | value | remove) instead of the fixed legacy grid */
+.cond.xr { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.cond.xr > .select, .cond.xr > .cond-set, .cond.xr > .cond-text { flex: 1 1 150px; width: auto; }
+.cond.xr > .select.cond-op { flex: 0 0 110px; }
+.cond.xr > .cond-in, .cond.xr > .decl, .cond.xr > .cond-err { flex: 1 1 100%; }
+.cond.xr > .x { margin-left: auto; }

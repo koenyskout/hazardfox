@@ -127,7 +127,7 @@ function Row({ env, x, path, onRemove }: { env: Env; x: Expr; path: number[]; on
   switch (x.k) {
     case 'and': case 'or': return <Group env={env} x={x} path={path} onRemove={onRemove} />
     case 'not': return (
-      <div className="cond">
+      <div className="cond xr">
         <span className="wv-tag wv-not">not</span>
         <div className="cond-in"><Row env={env} x={x.e} path={[...path, 0]} onRemove={() => edit(path, x.e)} /></div>
         {remove}
@@ -135,13 +135,13 @@ function Row({ env, x, path, onRemove }: { env: Env; x: Expr; path: number[]; on
     )
     case 'quant': return <QuantRow env={env} x={x} path={path} remove={remove} />
     case 'text': return (
-      <div className="cond">
+      <div className="cond xr">
         <span className="cond-text"><RichText compact value={x.text} onChange={(text) => edit(path, { k: 'text', text })} only={(it) => it.kind === 'variable' || it.kind === 'entity' || it.kind === 'relationship'} placeholder="condition in words… (type @ to refer to a variable)" /></span>
         <span className="cond-word">holds</span>
         {remove}
       </div>
     )
-    case 'hole': return <div className="cond"><Starter env={env} path={path} />{remove}</div>
+    case 'hole': return <div className="cond xr"><Starter env={env} path={path} />{remove}</div>
     default: return <Leaf env={env} x={x} path={path} remove={remove} />
   }
 }
@@ -151,7 +151,7 @@ function QuantRow({ env, x, path, remove }: { env: Env; x: Q; path: number[]; re
   const entities = itemsOfKind(p, 'entity').filter((e) => manyEntity(p, e.id))
   const body = x.body
   return (
-    <div className="cond cond-q">
+    <div className="cond xr cond-q">
       <div className="decl">
         <Select value={x.q} onChange={(ev) => edit(path, { ...x, q: ev.target.value as Quantifier })}>{QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}</Select>
         <Select value={x.entity} onChange={(ev) => edit(path, { ...x, entity: ev.target.value as Id<'entity'>, name: x.name || freshName(p, env.root, ev.target.value as Id) })}>
@@ -209,7 +209,7 @@ function ensureNames(env: Env, path: number[], v: V, done: (e: Expr) => void): v
 function Leaf({ env, x, path, remove }: { env: Env; x: Expr; path: number[]; remove: ReactNode }) {
   const { edit } = env
   if (x.k === 'cmp' && x.l.k === 'app' && x.l.fn === 'heldFor') return (
-    <div className="cond">
+    <div className="cond xr">
       <div className="cond-in"><Row env={env} x={x.l.args[0]} path={[...path, 0, 0]} onRemove={() => edit(path, HOLE)} /></div>
       <span className="cond-word">held for</span>
       <TimeEdit x={x} onChange={(n) => edit(path, n)} />
@@ -229,7 +229,7 @@ function Leaf({ env, x, path, remove }: { env: Env; x: Expr; path: number[]; rem
     edit(path, { k: 'cmp', op: o as CmpOp, l, r: x.k === 'cmp' ? x.r : HOLE })
   }
   return (
-    <div className="cond">
+    <div className="cond xr">
       {x.k === 'var' ? <Operand env={env} x={x} path={path} ty={BOOL} /> : <>
         <Operand env={env} x={l} path={lpath} ty={ANY} />
         {op !== null && (ops.length
