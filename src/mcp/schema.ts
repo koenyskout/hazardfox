@@ -4,8 +4,8 @@ import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleR
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { exprError } from '../model/expr'
-import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText, laneOf, laneEntries, asLane } from '../model/variables'
-import { QUANTIFIERS, type Lane, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText, laneOf, laneEntries, asLane, declare } from '../model/variables'
+import { QUANTIFIERS, type Lane, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type InstanceNames, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -36,7 +36,7 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const COND = '{variable: ref, quant?: some | all | none, names?: [{declare: string} | {use: string} | null, …] naming the instances of a many-instance entity (one entry per many end: declare introduces a name, use refers back to one declared by another condition; null skips an end), text?: string (condition in words instead of variable; with expr: true an expression over @[ref] variables), op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥; otherNames?: same format as names, for the instances of the compared variable), set?: string[] (states, only for in / not in)}'
+const COND = '{variable: ref, names?: [{declare: string, quant?: some | all | none} | {use: string} | null, …] naming the instances of a many-instance entity (one entry per many end: declare introduces a name that ranges over some (default) / all / no instances, nested in the order the names appear in the context, different names being different instances; use refers back to one declared by another condition; null skips an end), text?: string (condition in words instead of variable; with expr: true an expression over @[ref] variables), op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥; otherNames?: same format as names, for the instances of the compared variable), set?: string[] (states, only for in / not in)}'
 
 const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
@@ -131,22 +131,23 @@ export class Resolver {
 /** Bindings of the ends of a variable (`[{declare}|{use}|null, …]`), copied when valid. */
 function endNames(v: unknown, field: string): EndNames | undefined {
   if (v === undefined || v === null) return undefined
-  if (!Array.isArray(v)) throw new Error(`${field} must be an array of {declare: name} | {use: name} | null`)
+  if (!Array.isArray(v)) throw new Error(`${field} must be an array of {declare: name, quant?} | {use: name} | null`)
   const out = v.map((x: Rec | null): Binding | null => {
     if (x === null) return null
-    if (x && typeof x === 'object' && isStr(x.declare) && x.declare.trim() && x.use === undefined) return { declare: x.declare.trim() }
+    if (x && typeof x === 'object' && isStr(x.declare) && x.declare.trim() && x.use === undefined) {
+      if (x.quant !== undefined && !(QUANTIFIERS as readonly unknown[]).includes(x.quant)) throw new Error(`quant must be one of ${QUANTIFIERS.join(', ')}`)
+      return declare(x.declare.trim(), x.quant as Quantifier | undefined)
+    }
     if (x && typeof x === 'object' && isStr(x.use) && x.use.trim() && x.declare === undefined) return { use: x.use.trim() }
-    throw new Error(`${field}: each entry is {declare: name}, {use: name} or null`)
+    throw new Error(`${field}: each entry is {declare: name, quant?}, {use: name} or null`)
   })
   while (out.length && out[out.length - 1] === null) out.pop()
   return out.length ? out : undefined
 }
-/** Quantifier and instance names of a condition (many-instance entities), copied when valid. */
-function instanceFields(c: Rec): Instances {
+/** Instance names of a condition (many-instance entities), copied when valid. */
+function instanceFields(c: Rec): InstanceNames {
   const names = endNames(c.names, 'names')
-  const out: Instances = names ? { names } : {}
-  if (c.quant !== undefined) { if (!(QUANTIFIERS as readonly unknown[]).includes(c.quant)) throw new Error(`quant must be one of ${QUANTIFIERS.join(', ')}`); out.quant = c.quant as Quantifier }
-  return out
+  return names ? { names } : {}
 }
 /** Instance names of the compared variable in a variable-to-variable comparison (`otherNames`). */
 function otherInstanceFields(c: Rec): { otherNames?: EndNames } {

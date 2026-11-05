@@ -71,13 +71,13 @@ export const isOnVariable = (c: Condition): c is ValueCondition | VarCondition =
 export const isValueCmp = (c: Condition): c is ValueCondition => c.kind === 'value'
 /** The same condition on another variable, compared with a constant; instance names and timing stay. */
 export const toValue = (c: ValueCondition | VarCondition, to: Partial<ValueCondition> = {}): ValueCondition => {
-  const { variable, quant, names, time, op } = c
-  return { kind: 'value', variable, op: op, state: '', quant, names, time, ...to }
+  const { variable, names, time, op } = c
+  return { kind: 'value', variable, op: op, state: '', names, time, ...to }
 }
 /** The same condition compared with the variable `other`; instance names and timing stay (the compared variable's own instance names start empty). */
 export const toVarCmp = (c: ValueCondition | VarCondition, other: Id, to: Partial<VarCondition> = {}): VarCondition => {
-  const { variable, quant, names, time, op } = c
-  return { kind: 'var', variable, op, other, quant, names, time, ...to }
+  const { variable, names, time, op } = c
+  return { kind: 'var', variable, op, other, names, time, ...to }
 }
 /** What the condition does with the name of an end (0-based). */
 export const bindingAt = (n: EndNames | undefined, end: number): Binding | null => n?.[end] ?? null
@@ -108,9 +108,10 @@ export const allNames = (c: ValueCondition | VarCondition): string[] => sidesOf(
 /** Whether some end refers to an instance named by another condition. */
 export const usesAny = (n: EndNames | undefined): boolean => (n ?? []).some((_, i) => uses(n, i))
 /** The condition with the name declared at one end set (`cmp`: at the compared variable's end) or cleared. */
-export const withInstanceName = (c: Condition, end: number, name: string | undefined, cmp = false): Condition => {
+export const withInstanceName = (c: Condition, end: number, name: string | undefined, cmp = false, quant?: Quantifier): Condition => {
   if (!isOnVariable(c)) return c
-  const b = name === undefined ? null : { declare: name }
+  const old = bindingAt(cmp ? (isVarCmp(c) ? c.otherNames : undefined) : c.names, end)
+  const b: Binding | null = name === undefined ? null : declare(name, quant ?? (old && 'declare' in old ? old.quant : undefined))
   if (!cmp) return { ...c, names: withBinding(c.names, end, b) }
   return isVarCmp(c) ? { ...c, otherNames: withBinding(c.otherNames, end, b) } : c
 }
@@ -163,23 +164,19 @@ export const manyEndsOf = (p: Project, v: Variable): (VarEnd & { end: number })[
 /** Whether a world variable describes several instances: some of its ends is `many`. */
 export const isMany = (p: Project, v: Variable): boolean => endsOf(p, v).some((e) => e.many)
 
-/** The quantifier a condition effectively carries: null when it is about a single instance (also for text / variable comparisons); else its own (default `some`) over the ends it leaves unnamed, `some` when every many end is named. */
-export function quantOf(p: Project, c: Condition): Quantifier | null {
-  if (!isOnVariable(c)) return null
-  const v = p.items[c.variable]
-  if (v?.kind !== 'variable') return null
-  const ends = manyEndsOf(p, v)
-  return !ends.length ? null : ends.some((e) => !nameAt(c.names, e.end)) ? c.quant ?? 'some' : 'some'
-}
+/** The quantifier of a declared name (`some` unless it says otherwise); an end that is not declared is `some`. */
+export const quantAt = (n: EndNames | undefined, end: number): Quantifier => { const b = bindingAt(n, end); return b && 'declare' in b ? b.quant ?? 'some' : 'some' }
+/** The binding of a name, declared with quantifier `q` (`some` is the default and left out). */
+export const declare = (name: string, q: Quantifier = 'some'): Binding => (q === 'some' ? { declare: name } : { declare: name, quant: q })
 /** The instances a condition introduces or refers to: [entity, name, introduces]. */
-export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: number; cmp?: boolean }[] {
+export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: number; quant: Quantifier; cmp?: boolean }[] {
   const v = isOnVariable(c) ? p.items[c.variable] : undefined
   if (!isOnVariable(c) || v?.kind !== 'variable') return []
-  const out: { entity: Id; name: string; intro: boolean; end: number; cmp?: boolean }[] = []
+  const out: { entity: Id; name: string; intro: boolean; end: number; quant: Quantifier; cmp?: boolean }[] = []
   const side = (n: EndNames | undefined, x: Variable, cmp: boolean) => {
     for (const { entity, end } of manyEndsOf(p, x)) {
       const name = nameAt(n, end)
-      if (name) out.push({ entity, name, intro: declares(n, end), end, ...(cmp ? { cmp } : {}) })
+      if (name) out.push({ entity, name, intro: declares(n, end), end, quant: quantAt(n, end), ...(cmp ? { cmp } : {}) })
     }
   }
   side(c.names, v, false)
@@ -218,12 +215,11 @@ export function conditionText(p: Project, c: Condition, earlier: Condition[] = [
   return c.time && s ? `${s} for ${timeText(c.time)}` : s
 }
 function baseText(p: Project, c: Exclude<Condition, EventCondition>, earlier: Condition[]): string {
-  const q = quantOf(p, c)
   const intro = condInstances(p, c).filter((x) => x.intro && !x.cmp)
   const prior = earlier.flatMap((o) => condInstances(p, o))
   // another: it introduces a name for an entity whose instance an earlier condition already named differently
   const another = (end: number) => { const x = intro.find((i) => i.end === end); return !!x && prior.some((o) => o.entity === x.entity && o.name !== x.name) }
-  if (q && isOnVariable(c)) return quantText(p, c, q, another)
+  if (isOnVariable(c) && manyEndsOf(p, p.items[c.variable] as Variable).length) return quantText(p, c, another)
   return plainText(p, c)
 }
 /** The sentences of a list of conditions, each knowing the ones before it. */
@@ -232,21 +228,21 @@ export const conditionTexts = (p: Project, cs: Condition[]) => cs.map((c, i) => 
 export const whenTexts = (p: Project, ws: When[]): string[] => ws.map((w, i) => whenText(p, w, false, ws.slice(0, i).flatMap(leaves))).filter(Boolean)
 
 /** "speed of every Train is 0", "speed of some Train t1 is 0", "speed of t1 is 0", "some Train t1 at Station", "no Train at Station", "some Train t1 approaches Crossing c1". */
-function quantText(p: Project, c: ValueCondition | VarCondition, q: Quantifier, another: (end: number) => boolean): string {
+function quantText(p: Project, c: ValueCondition | VarCondition, another: (end: number) => boolean): string {
   const v = p.items[c.variable] as Variable
   const o = p.items[v.parent!]
   const name = shortName(p, v)
   const title = (id: Id | null) => p.items[id ?? '']?.title.trim()
-  let firstFree = true, seen = 0
-  /** How one many end reads: its name, "some Train t1", "another Train t2", "every Train"; the quantifier belongs to the first unnamed end, later unnamed ends are "any" / "every". */
+  let said = false
+  /** How one many end reads: its name, "some Train t1", "another Train t2", "every Train t3", "no Train"; "some" is said once per condition. */
   const who = ({ entity, end }: VarEnd & { end: number }) => {
     const n = nameAt(c.names, end)
     if (uses(c.names, end)) return n
     const ent = title(entity) || (o.kind === 'entity' ? 'instance' : 'link')
-    if (n) return `${another(end) ? 'another ' : seen++ ? '' : 'some '}${ent} ${n}`
-    const label = firstFree ? QUANT_LABELS[q] : q === 'none' ? 'any' : QUANT_LABELS[q]
-    firstFree = false
-    return `${label} ${ent}`
+    const q = quantAt(c.names, end)
+    const label = q === 'some' ? (n && another(end) ? 'another ' : said ? '' : 'some ') : QUANT_LABELS[q] + ' '
+    if (q === 'some') said = true
+    return `${label}${ent}${n ? ' ' + n : ''}`
   }
   const whos = manyEndsOf(p, v).map((e) => ({ ...e, text: who(e) }))
   if (o.kind === 'entity') return `${name} of ${whos[0].text} ${plainText(p, c).slice(name.length).trim()}`
@@ -336,7 +332,7 @@ export function nameInstances(p: Project, ws: When[]): When[] {
     if (!isOnVariable(c)) continue
     const v = p.items[c.variable]
     if (v?.kind !== 'variable') continue
-    if (quantOf(p, c) === 'some') for (const e of manyEndsOf(p, v)) if (!nameAt(c.names, e.end)) c.names = withBinding(c.names, e.end, { declare: autoName(p, e.entity, all) })
+    for (const e of manyEndsOf(p, v)) if (!nameAt(c.names, e.end)) c.names = withBinding(c.names, e.end, { declare: autoName(p, e.entity, all) })
   }
   return out
 }

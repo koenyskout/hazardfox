@@ -49,7 +49,7 @@ function TraceChecks({ s }: { s: Scenario }) {
   return (
     <div className="trace-checks">
       {w && <span className={w.ok ? 'ok' : w.ok === false ? 'bad' : 'unk'}>{w.ok ? '✓' : w.ok === false ? '✗' : '?'} Witness: {w.why}</span>}
-      {w && uca && uca.conditions.length > 0 && <WhenView ws={uca.conditions} verdict={(x) => whenHolds(p, x, getter(traceState(p, s.trace, w.step), clockAt(p, s.trace, w.step)))} />}
+      {w && uca && uca.conditions.length > 0 && <WhenView ws={uca.conditions} verdict={(x) => whenHolds(p, x, getter(traceState(p, s.trace, w.step), clockAt(p, s.trace, w.step)), uca.conditions)} />}
       {d && <span className={!s.cause || d.cause === s.cause ? 'ok' : 'bad'}>{!s.cause || d.cause === s.cause ? '✓' : '✗'} Trace points at <b>{CAUSE_LABELS[d.cause]}</b> ({d.why}){s.cause && d.cause !== s.cause && <> but the causal factor is {CAUSE_LABELS[s.cause]}</>}</span>}
     </div>
   )

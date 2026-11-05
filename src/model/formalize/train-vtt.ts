@@ -1,7 +1,7 @@
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
-import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, quantOf } from '../variables'
+import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, declare } from '../variables'
 import { condVars } from '../expr'
 import { rulesOf } from '../types'
 import type { Condition, Id, ValueCondition, Item, ItemOf, Project, Variable } from '../types'
@@ -33,10 +33,10 @@ const isEmpty = (cs: unknown[]) => cs.length === 0
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 
 /** Gives the first condition on a variable of `many` entity `e` the name, later ones refer to it (`same`): all describe one instance. */
-function oneInstance(b: Box, cs: Condition[], vars: Id[], name: string): Condition[] {
+function oneInstance(cs: Condition[], vars: Id[], name: string): Condition[] {
   let first = true
   return cs.map((c) => {
-    if (!isOnVariable(c) || !vars.includes(c.variable) || c.names || quantOf(b.p, c) !== 'some') return c
+    if (!isOnVariable(c) || !vars.includes(c.variable) || c.names) return c
     const out: Condition = { ...c, ...(first ? { names: [{ declare: name }] } : { names: [{ use: name }] }) }
     first = false
     return out
@@ -73,16 +73,16 @@ function train(p0: Project): Project {
 
   // The existing UCA conditions on door variables are about the door the controller drives: one named instance.
   for (const u of itemsOfKind(b.p, 'uca')) {
-    const cs = oneInstance(b, u.conditions.flatMap(leaves), doorVars, d1)
+    const cs = oneInstance(u.conditions.flatMap(leaves), doorVars, d1)
     if (cs.some((c, i) => c !== u.conditions.flatMap(leaves)[i])) set(b, u.id, { conditions: cs })
   }
 
   const [h1, h2, h3] = ['Doors close on a person in the doorway', 'Doors open when the train is moving or not aligned with a platform', 'Passengers or personnel are unable to exit the train during an emergency']
     .map((t) => named(itemsOfKind(b.p, 'hazard'), t)!)
   const hz: [typeof h1, Condition[]][] = [
-    [h1, [cond(way, 'person in doorway', { quant: 'some', names: [{ declare: d1 }] }), cond(doorPos, 'fully open', { op: '≠', names: [{ use: d1 }] })]],
-    [h2, [cond(sit, 'unsafe for opening'), cond(doorPos, 'fully closed', { op: '≠', quant: 'some', names: [{ declare: d1 }] })]],
-    [h3, [cond(em, 'evacuation required'), cond(doorPos, 'fully open', { quant: 'none' })]],
+    [h1, [cond(way, 'person in doorway', { names: [{ declare: d1 }] }), cond(doorPos, 'fully open', { op: '≠', names: [{ use: d1 }] })]],
+    [h2, [cond(sit, 'unsafe for opening'), cond(doorPos, 'fully closed', { op: '≠', names: [{ declare: d1 }] })]],
+    [h3, [cond(em, 'evacuation required'), cond(doorPos, 'fully open', { names: [declare('do1', 'none')] })]],
   ]
   for (const [h, cs] of hz) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
   return b.p
@@ -105,7 +105,7 @@ function vtt(p0: Project): Project {
   // Hierarchical: "operational context" the drive command has to be adjusted to (people near, objects in the way, extraordinary environment).
   const ctx = V('Operational context', am, ['normal', 'adjusted driving required'], 'The situation the drive command must be adjusted to: people nearby, vehicles or objects in the way or extraordinary environmental conditions.')
   if (!rulesOf((b.p.items[ctx] as Variable)).length)
-    set(b, ctx, { rules: [{ state: 'adjusted driving required', when: anyOf(cond(near, 'true', { quant: 'some', names: [{ declare: 'pe1' }] }), cond(inWay, 'true', { quant: 'some', names: [{ declare: 've1' }] }), cond(cnd, 'extraordinary')) }], otherwise: 'normal' })
+    set(b, ctx, { rules: [{ state: 'adjusted driving required', when: anyOf(cond(near, 'true', { names: [{ declare: 'pe1' }] }), cond(inWay, 'true', { names: [{ declare: 've1' }] }), cond(cnd, 'extraordinary')) }], otherwise: 'normal' })
 
   // Elements know their entities; the movement control action changes the AM's world state.
   const node = (t: string) => named(itemsOfKind(b.p, 'node'), t)
@@ -124,8 +124,8 @@ function vtt(p0: Project): Project {
 
   const hz = (re: RegExp) => itemsOfKind(b.p, 'hazard').find((h) => re.test(h.title))!
   const hzs: [ReturnType<typeof hz>, Condition[]][] = [
-    [hz(/people nearby/), [cond(motion, 'moving'), cond(near, 'true', { quant: 'some', names: [{ declare: 'pe1' }] })]],
-    [hz(/vehicles or other objects/), [cond(motion, 'moving'), cond(inWay, 'true', { quant: 'some', names: [{ declare: 've1' }] })]],
+    [hz(/people nearby/), [cond(motion, 'moving'), cond(near, 'true', { names: [{ declare: 'pe1' }] })]],
+    [hz(/vehicles or other objects/), [cond(motion, 'moving'), cond(inWay, 'true', { names: [{ declare: 've1' }] })]],
     [hz(/leaves the area/), [cond(loc, 'outside operating area')]],
   ]
   for (const [h, cs] of hzs) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })

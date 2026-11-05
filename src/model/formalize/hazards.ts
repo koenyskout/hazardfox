@@ -51,7 +51,7 @@ function nuclear(c: Ctx) {
   const needed = c.bool(reactor, 'shutdown required', 'A condition of the plant (safety demand) requires the reactor to be shut down.')
   const where = c.states(material, 'location', ['inside containment', 'outside containment'])
   const util = c.range(equipment, 'utilization', 0, 300, '%', 'Load as a percentage of the rated limit (temperature, pressure, flow, speed, ...).')
-  c.conditions('Release', is(where, 'outside containment', { quant: 'some' }))
+  c.conditions('Release', is(where, 'outside containment', {}))
   c.conditions('Reactor temperature', cmp(temp, '>', tmax))
   c.conditions('Equipment operated', above(util, 100))
   c.conditions('Reactor shut down', is(state, 'shut down'), is(needed, 'false'))
@@ -89,24 +89,24 @@ function aircraft(c: Ctx) {
   const dist = c.range(tooClose, 'distance', 0, null, 'm')
   const minDist = c.range(tooClose, 'minimum safe distance', 0, null, 'm', 'Depends on aircraft size and the object (wingspan, speed, ...).')
   c.conditions('Aircraft violate',
-    is(c.pred(near), 'true', { quant: 'some', names: [{ declare: 'ac1' }, { declare: 'ac2' }] }),
+    is(c.pred(near), 'true', { names: [{ declare: 'ac1' }, { declare: 'ac2' }] }),
     cmp(hsep, '<', hreq, { names: [{ use: 'ac1' }, { use: 'ac2' }], otherNames: [{ use: 'ac1' }, { use: 'ac2' }]  }),
     cmp(vsep, '<', vreq, { names: [{ use: 'ac1' }, { use: 'ac2' }], otherNames: [{ use: 'ac1' }, { use: 'ac2' }]  }))
   c.conditions('Controlled flight',
-    is(c.pred(over), 'true', { quant: 'some', names: [{ declare: 'ac3' }, { declare: 'te1' }] }),
+    is(c.pred(over), 'true', { names: [{ declare: 'ac3' }, { declare: 'te1' }] }),
     cmp(clearance, '<', minClear, { names: [{ use: 'ac3' }, { use: 'te1' }], otherNames: [{ use: 'ac3' }, { use: 'te1' }]  }),
     is(control, 'controlled', { names: [{ use: 'ac3' }] }),
     notIn(phase, ['ground', 'landing'], { names: [{ use: 'ac3' }] }))
-  c.conditions('Loss of aircraft control', isNot(phase, 'ground', { quant: 'some', names: [{ declare: 'ac4' }] }), is(control, 'lost', { names: [{ use: 'ac4' }] }))
+  c.conditions('Loss of aircraft control', isNot(phase, 'ground', { names: [{ declare: 'ac4' }] }), is(control, 'lost', { names: [{ use: 'ac4' }] }))
   c.conditions('Aircraft airframe', is(integrity, 'lost'))
   c.conditions('Aircraft environment',
-    is(c.pred(aboard), 'true', { quant: 'some', names: [{ declare: 'pe1' }, { declare: 'ac5' }] }),
+    is(c.pred(aboard), 'true', { names: [{ declare: 'pe1' }, { declare: 'ac5' }] }),
     is(cabin, 'harmful', { names: [{ use: 'ac5' }] }))
   c.conditions('Aircraft departs',
-    is(phase, 'ground', { quant: 'some', names: [{ declare: 'ac6' }] }),
-    is(c.pred(onArea), 'true', { quant: 'none', names: [null, { use: 'ac6' }] }))
+    is(phase, 'ground', { names: [{ declare: 'ac6' }] }),
+    is(c.pred(onArea), 'true', { names: [{ declare: 'ar1', quant: 'none' }, { use: 'ac6' }] }))
   c.conditions('Aircraft comes too close',
-    is(phase, 'ground', { quant: 'some', names: [{ declare: 'ac7' }] }),
+    is(phase, 'ground', { names: [{ declare: 'ac7' }] }),
     is(c.pred(tooClose), 'true', { names: [{ use: 'ac7' }, { declare: 'ob1' }] }),
     cmp(dist, '<', minDist, { names: [{ use: 'ac7' }, { use: 'ob1' }], otherNames: [{ use: 'ac7' }, { use: 'ob1' }]  }))
 }
@@ -133,15 +133,15 @@ function radiation(c: Ctx) {
   const pa = (extra: Partial<ValueCondition> & Partial<VarCondition> = {}) => ({ names: [{ use: 'pa1' }], ...extra })
   const sameDose = (op: '=' | '≠') => cmp(dose, op, rx, pa({ otherNames: [{ use: 'pa1' }]  }))
   const sameSite = (op: '=' | '≠') => cmp(site, op, target, pa({ otherNames: [{ use: 'pa1' }]  }))
-  const irradiated = is(c.pred(irradiates), 'true', { quant: 'some', names: [{ declare: 'pa1' }] })
+  const irradiated = is(c.pred(irradiates), 'true', { names: [{ declare: 'pa1' }] })
   c.conditions('Right patient, right dose', irradiated, is(scheduled, 'true', pa()), sameDose('='), sameSite('≠'))
   c.conditions('Right patient, wrong dose, right', irradiated, is(scheduled, 'true', pa()), sameDose('≠'), sameSite('='))
   c.conditions('Right patient, wrong dose, wrong', irradiated, is(scheduled, 'true', pa()), sameDose('≠'), sameSite('≠'))
   c.conditions('Wrong patient', irradiated, is(scheduled, 'false', pa()))
-  c.conditions('A nonpatient', is(c.pred(exposes), 'true', { quant: 'some', names: [{ declare: 'np1' }] }))
+  c.conditions('A nonpatient', is(c.pred(exposes), 'true', { names: [{ declare: 'np1' }] }))
   c.conditions('Equipment is subject', above(stress, 100))
   c.conditions('Persons are subjected',
-    is(motion, 'moving', { quant: 'some', names: [{ declare: 'mp1' }] }),
+    is(motion, 'moving', { names: [{ declare: 'mp1' }] }),
     is(c.pred(approach), 'true', { names: [{ use: 'mp1' }, { declare: 'pr1' }] }),
     cmp(gap, '<', minGap, { names: [{ use: 'mp1' }, { use: 'pr1' }], otherNames: [{ use: 'mp1' }, { use: 'pr1' }]  }))
 }
@@ -166,16 +166,16 @@ function military(c: Ctx) {
   const launch = c.states(ord, 'launch state', ['on aircraft', 'launched'])
   const status = c.states(asset, 'status', ['friendly forces', 'civilians', 'civilian property', 'legitimate target'])
   const lethal = c.rel(ord, 'detonates within lethal radius of', asset)
-  c.conditions('Violation of minimum', is(c.pred(near), 'true', { quant: 'some', names: [{ declare: 'ob1' }] }), cmp(sep, '<', minSep, { names: [{ use: 'ob1' }], otherNames: [{ use: 'ob1' }]  }))
+  c.conditions('Violation of minimum', is(c.pred(near), 'true', { names: [{ declare: 'ob1' }] }), cmp(sep, '<', minSep, { names: [{ use: 'ob1' }], otherNames: [{ use: 'ob1' }]  }))
   c.conditions('Inability to control', is(control, 'lost'))
   c.conditions('Loss of airframe', is(integrity, 'lost'))
-  c.conditions('Uncommanded detonation', is(det, 'detonated', { quant: 'some', names: [{ declare: 'or1' }] }), is(detCmd, 'not commanded', { names: [{ use: 'or1' }] }))
-  c.conditions('Uncommanded launch', is(launch, 'launched', { quant: 'some', names: [{ declare: 'or2' }] }), is(launchCmd, 'not commanded', { names: [{ use: 'or2' }] }))
+  c.conditions('Uncommanded detonation', is(det, 'detonated', { names: [{ declare: 'or1' }] }), is(detCmd, 'not commanded', { names: [{ use: 'or1' }] }))
+  c.conditions('Uncommanded launch', is(launch, 'launched', { names: [{ declare: 'or2' }] }), is(launchCmd, 'not commanded', { names: [{ use: 'or2' }] }))
   c.conditions('Collateral damage',
-    is(c.pred(lethal), 'true', { quant: 'some', names: [{ declare: 'or3' }, { declare: 'pa1' }] }),
+    is(c.pred(lethal), 'true', { names: [{ declare: 'or3' }, { declare: 'pa1' }] }),
     isNot(status, 'legitimate target', { names: [{ use: 'pa1' }] }),
     is(det, 'detonated', { names: [{ use: 'or3' }] }))
-  c.conditions('Non-deployment', is(launchCmd, 'commanded', { quant: 'some', names: [{ declare: 'or4' }] }), is(launch, 'on aircraft', { names: [{ use: 'or4' }] }))
+  c.conditions('Non-deployment', is(launchCmd, 'commanded', { names: [{ declare: 'or4' }] }), is(launch, 'on aircraft', { names: [{ use: 'or4' }] }))
 }
 
 function automotive(c: Ctx) {
@@ -203,10 +203,10 @@ function automotive(c: Ctx) {
   const closing = c.rel(door, 'closes on', occupant)
   const exposure = c.states(occupant, 'exposure', ['harmless', 'harmful'])
   c.refined(exposure, [['harmful', anyOf(is(fire, 'true'), outside(temp, 5, 40), is(exit, 'false'), is(c.pred(closing), 'true'))]], 'harmless')
-  c.conditions('Vehicle does not maintain', is(c.pred(near), 'true', { quant: 'some', names: [{ declare: 'no1' }] }), cmp(dist, '<', safe, { names: [{ use: 'no1' }], otherNames: [{ use: 'no1' }]  }))
-  c.conditions('Vehicle enters', is(c.pred(inside), 'true', { quant: 'some', names: [{ declare: 're1' }] }), is(danger, 'dangerous', { names: [{ use: 're1' }] }))
+  c.conditions('Vehicle does not maintain', is(c.pred(near), 'true', { names: [{ declare: 'no1' }] }), cmp(dist, '<', safe, { names: [{ use: 'no1' }], otherNames: [{ use: 'no1' }]  }))
+  c.conditions('Vehicle enters', is(c.pred(inside), 'true', { names: [{ declare: 're1' }] }), is(danger, 'dangerous', { names: [{ use: 're1' }] }))
   c.conditions('Vehicle exceeds', is(envelope, 'exceeded'))
-  c.conditions('Vehicle occupants', is(exposure, 'harmful', { quant: 'some', names: [{ declare: 'oc1' }] }))
+  c.conditions('Vehicle occupants', is(exposure, 'harmful', { names: [{ declare: 'oc1' }] }))
 }
 
 const FORMALIZERS: Record<string, (c: Ctx) => void> = { 'hb-nuclear': nuclear, 'hb-aircraft': aircraft, 'hb-radiation': radiation, 'hb-military': military, 'hb-automotive': automotive }

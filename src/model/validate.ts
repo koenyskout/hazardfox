@@ -9,7 +9,7 @@ import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project, rulesOf, o
 import { guideApplies } from './uca'
 import { endName, shortName } from './labels'
 import { condVars, conditionLine, exprError } from './expr'
-import { condInstances, conditionError, isExpr, endsOf, nameAt, nameKey, isVarCmp, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
+import { condInstances, conditionError, isExpr, endsOf, nameAt, isVarCmp, isEvent, isOnVariable, leaves, manyEndsOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -53,8 +53,7 @@ export const RULES = {
   'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
   'expr-invalid': { title: 'Comparison does not make sense', why: 'An arithmetic comparison needs variables that exist, numbers where it calculates, the same type (and unit) on both sides, and an order only for numbers or ordered symbolic types.', fix: 'Edit the comparison so both sides have the same type, or drop the order operator.' },
   'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
-  'instance-unnamed': { title: 'Instance without a name', why: 'A condition says "some" instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
-  'quantifier-single': { title: 'Quantifier on a single-instance variable', why: 'The condition says "some / every / no", but its variable belongs to an entity (or relationship) with one instance, so the quantifier has no effect.', fix: 'Mark the entity as having several instances, or remove the quantifier.' },
+  'instance-unnamed': { title: 'Instance without a name', why: 'A condition is about an instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'belief-no-about': { title: 'Belief not linked to a world variable', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
@@ -171,11 +170,10 @@ export function validate(p: Project): Issue[] {
       else if (!sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} stands for a different entity here`)
     }
   }
-  // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
+  // conditions on many-instance variables: every instance needs a name
   for (const u of ucas) for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
     const v = p.items[c.variable]
-    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !nameKey(c.names)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
-    if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
+    if (v?.kind === 'variable' && manyEndsOf(p, v).some((e) => !nameAt(c.names, e.end))) add('warning', u, 'instance-unnamed', `${L[u.id]}: an instance of ${v.title || shortName(p, v)} has no name`, [v.id])
   }
 
   for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isExpr)) {

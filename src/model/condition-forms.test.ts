@@ -5,7 +5,7 @@ import { endName, relName } from './labels'
 import { projectBuilder } from './build'
 import { deleteItems } from './ops'
 
-const val: ValueCondition = { kind: 'value', variable: 'v', op: '<', state: '5', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }], time: { op: '≥', amount: '2', unit: 's' } }
+const val: ValueCondition = { kind: 'value', variable: 'v', op: '<', state: '5', names: [{ declare: 't1', quant: 'all' }, { use: 'c1' }], time: { op: '≥', amount: '2', unit: 's' } }
 
 describe('condition forms', () => {
   it('tells the forms apart', () => {
@@ -17,10 +17,10 @@ describe('condition forms', () => {
   it('converts between value and variable comparison keeping instances and timing', () => {
     const v = toVarCmp(val, '')
     expect(isVarCmp(v)).toBe(true)
-    expect(v).toMatchObject({ kind: 'var', variable: 'v', other: '', op: '<', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }], time: val.time })
+    expect(v).toMatchObject({ kind: 'var', variable: 'v', other: '', op: '<', names: [{ declare: 't1', quant: 'all' }, { use: 'c1' }], time: val.time })
     expect('state' in v).toBe(false)
     const back = toValue(v, { state: '' })
-    expect(back).toMatchObject({ kind: 'value', variable: 'v', state: '', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }] })
+    expect(back).toMatchObject({ kind: 'value', variable: 'v', state: '', names: [{ declare: 't1', quant: 'all' }, { use: 'c1' }] })
     expect('other' in back).toBe(false)
   })
   it('names and renames instances', () => {

@@ -64,13 +64,13 @@ function aeb(c: Ctx) {
   const within = k.world(av, 'Object within CIBd', {
     type: 'boolean',
     definition: 'Some forward mobile object or some prohibited area is closer to the AV than the collision imminent braking distance.',
-    rules: [{ state: 'true', when: anyOf(cmp(dF, '<', cibd, { quant: 'some' }), cmp(dP, '<', cibd, { quant: 'some' })) }],
+    rules: [{ state: 'true', when: anyOf(cmp(dF, '<', cibd, {}), cmp(dP, '<', cibd, {})) }],
     otherwise: 'false',
   })
 
   // hazards: distance below the minimum safe distance (FMO / PA) and too high g-force
-  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), [cmp(dF, '<', msd, { quant: 'some', names: [{ declare: 'fmo1' }] })])
-  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), [cmp(dP, '<', msd, { quant: 'some', names: [{ declare: 'pa1' }] })])
+  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), [cmp(dF, '<', msd, { names: [{ declare: 'fmo1' }] })])
+  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), [cmp(dP, '<', msd, { names: [{ declare: 'pa1' }] })])
   k.hazardConditions(k.hazard('AV occupants are exposed to unhealthy g-forces exceeding the safety threshold of the AV'), [cmp(g, '>', gMax)])
 
   // UCAs: no BFC / too weak BFC while an object is inside the collision imminent braking distance
@@ -125,7 +125,7 @@ function msiv(c: Ctx) {
 
   k.hazardConditions(k.hazard('Release of radioactive materials'), [eq(rad, 'released outside primary system')])
   k.hazardConditions(k.hazard('Reactor temperature too high'), [eq(temp, 'too high')])
-  k.hazardConditions(k.hazard('Equipment operated beyond limits'), [eq(eqOp, 'beyond limits', { quant: 'some', names: [{ declare: 'eq1' }] })])
+  k.hazardConditions(k.hazard('Equipment operated beyond limits'), [eq(eqOp, 'beyond limits', { names: [{ declare: 'eq1' }] })])
   k.hazardConditions(k.hazard('Reactor shut down'), [eq(op, 'unplanned shutdown')])
 
   // UCAs (matched by the "(SC n)" in their constraint)

@@ -8,7 +8,7 @@ import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantAt, declare, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { typeSpec } from '../model/create'
 import { type TypeSpec, type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
@@ -573,9 +573,9 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
   const decls = conditions.flatMap((c, i) => {
     const v = isOnVariable(c) ? p.items[c.variable] : undefined
     if (v?.kind !== 'variable' || !isOnVariable(c)) return []
-    const out: { i: number; end: number; name: string; entity: Id | null; quant: Quantifier | null; first?: boolean; cmp?: boolean }[] = []
-    manyEndsOf(p, v).filter((e) => !uses(c.names, e.end)).forEach((e, k) => out.push({ i, end: e.end, name: declaredAt(c.names, e.end) ?? '', entity: e.entity, quant: k ? 'some' : quantOf(p, c), first: !k }))
-    for (const x of condInstances(p, c)) if (x.cmp && x.intro) out.push({ i, end: x.end, name: x.name, entity: x.entity, quant: 'some', cmp: true })
+    const out: { i: number; end: number; name: string; entity: Id | null; quant: Quantifier; cmp?: boolean }[] = []
+    manyEndsOf(p, v).filter((e) => !uses(c.names, e.end)).forEach((e) => out.push({ i, end: e.end, name: declaredAt(c.names, e.end) ?? '', entity: e.entity, quant: quantAt(c.names, e.end) }))
+    for (const x of condInstances(p, c)) if (x.cmp && x.intro) out.push({ i, end: x.end, name: x.name, entity: x.entity, quant: x.quant, cmp: true })
     return out
   })
   if (!decls.length) return null
@@ -586,19 +586,20 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
       return old ? renameSame(x, old, to || undefined) : x
     }))
   }
+  const setQuant = (d: (typeof decls)[number], q: Quantifier) => {
+    const name = d.name || autoName(p, d.entity, conditions)
+    onChange(mapAt(tree, (c, i) => (i === d.i ? withInstanceName(c, d.end, name, d.cmp, q) : c)))
+  }
   return (
     <div className="decls">
       {decls.map((d, n) => (
         <div key={d.i + ':' + d.end + (d.cmp ? 'c' : '')} className="decl">
           <span className="cond-word">{d.quant === 'all' ? (n ? 'and for' : 'For') : n ? 'and' : 'There is'}</span>
-          {d.first && (
-            <Select value={d.quant ?? 'some'} onChange={(e) => onChange(mapAt(tree, (c, i) => (i === d.i && isOnVariable(c) ? { ...c, quant: e.target.value === 'some' ? undefined : e.target.value as Quantifier } : c)))}>
-              {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
-            </Select>
-          )}
-          {!d.first && <span className="cond-word">some</span>}
+          <Select value={d.quant} onChange={(e) => setQuant(d, e.target.value as Quantifier)}>
+            {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
+          </Select>
           <span className="chip k-entity">{p.items[d.entity ?? '']?.title.trim() || 'instance'}</span>
-          {d.quant !== 'all' && d.quant !== 'none' && <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />}
+          <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />
         </div>
       ))}
     </div>
@@ -886,12 +887,11 @@ function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps
   const vr = v?.kind === 'variable' ? v : undefined
   const idx = scope.indexOf(c)
   const entityTitle = (e: Id | null) => p.items[e ?? '']?.title.trim() || 'instance'
-  /** The ways to pick the instance at one end of condition `c0` (variable `v`): a quantifier (first end), the same instance as an earlier condition, or another one. */
+  /** The ways to pick the instance at one end of condition `c0` (variable `v`): a quantifier, the same instance as an earlier condition, or another one. */
   const instOptions = (c0: ValueCondition | VarCondition, v: Variable, end: number) => {
     const ends = manyEndsOf(p, v)
     const ent = ends.find((e) => e.end === end)?.entity
     if (!ent) return null
-    const first = ends[0].end === end
     const pool = scope.flatMap((o, i) => {
       const ov = isOnVariable(o) && o !== c ? p.items[o.variable] : undefined
       if (!isOnVariable(o) || ov?.kind !== 'variable') return []
@@ -901,25 +901,25 @@ function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps
     const mine = declaredAt(c0.names, end)
     const other = mine ? pool.find((x) => x.name !== mine && x.i < idx) : undefined
     const same = usedAt(c0.names, end)
-    const value = same ? 'same:' + same : other ? `other:${other.i}:${other.e}` : first ? quantOf(p, c0)! : 'some'
+    const value = same ? 'same:' + same : other ? `other:${other.i}:${other.e}` : quantAt(c0.names, end)
     const apply = (x: string) => <C extends ValueCondition | VarCondition>(c1: C): { c: C; binds: Bind[] } => {
       // leaving a reference may orphan the name it used
       const ref = usedAt(c1.names, end)
       const used = (o: Condition) => o !== c && isOnVariable(o) && (o.names ?? []).some((_, e) => usedAt(o.names, e) === ref)
       const intro = ref && !scope.some(used) ? scope.flatMap((o): Bind[] => (!isOnVariable(o) ? [] : (o.names ?? []).flatMap((_, e) => (declaredAt(o.names, e) === ref ? [e] : [])).slice(0, 1).map((e) => ({ target: o, end: e }))))[0] : undefined
       const cleared = bindAt(c1, end, null)
-      const base: C = first ? { ...cleared, quant: undefined } : cleared
+      const base: C = cleared
       const drop: Bind[] = intro ? [intro] : []
       if (x.startsWith('same:')) return { c: bindAt(base, end, { use: x.slice(5) }), binds: drop.filter((d) => declaredAt(d.target.names, d.end) !== x.slice(5)) }
       if (x.startsWith('other:')) {
         const [, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (isOnVariable(t) ? declaredAt(t.names, Number(e)) : undefined) ?? ''
         return { c: bindAt(base, end, { declare: autoName(p, ent, scope, [tn]) }), binds: drop }
       }
-      return { c: first && x !== 'some' ? { ...base, quant: x as Quantifier } : base, binds: drop }
+      return { c: x === 'some' ? base : bindAt(base, end, declare(autoName(p, ent, scope), x as Quantifier)), binds: drop }
     }
     const t = entityTitle(ent)
     const opts = [
-      ...(first ? QUANTIFIERS.map((q) => ({ value: q as string, short: QUANT_LABELS[q], long: `${QUANT_LABELS[q]} ${t}` })) : [{ value: 'some', short: `some ${t}`, long: `some ${t}` }]),
+      ...QUANTIFIERS.map((q) => ({ value: q as string, short: QUANT_LABELS[q], long: `${QUANT_LABELS[q]} ${t}` })),
       ...pool.map(({ name }) => ({ value: 'same:' + name, short: name, long: name })),
       ...pool.filter(({ i }) => i < idx).map(({ i, e, name }) => ({ value: `other:${i}:${e}`, short: `another ${t} than ${name}`, long: `another ${t} than ${name}` })),
     ].map((o) => ({ ...o, apply: apply(o.value) }))
@@ -930,7 +930,7 @@ function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps
   const instText = (k: number) => { const end = vr && slotEnd(vr, k); const io = vr && end !== undefined ? instOptions(c, vr, end) : null; const o = io?.opts.find((x) => x.value === io.value); return o && end !== undefined ? (declaredAt(c.names, end) ?? o.long) : '' }
   /** Every subject (variable with its instance choices) the condition could be started with. */
   const subjectChoices = (): SubjectChoice[] => vars.flatMap((v) => {
-    const c0 = toValue(c, { variable: v.id, op: opsFor(v).includes(c.op) ? c.op : '=', quant: undefined, names: undefined })
+    const c0 = toValue(c, { variable: v.id, op: opsFor(v).includes(c.op) ? c.op : '=', names: undefined })
     const [s1, s2] = [slotEnd(v, 0), slotEnd(v, 1)]
     const o1 = (s1 !== undefined && instOptions(c0, v, s1)?.opts) || [null], o2 = (s2 !== undefined && instOptions(c0, v, s2)?.opts) || [null]
     return o1.flatMap((a) => o2.map((b) => {

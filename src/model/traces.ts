@@ -1,12 +1,12 @@
-import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
+import { sameInstance, beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
 import { exprHolds } from './expr'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention, ucaOf } from './refs'
 import { itemsOfKind } from './tree'
-import { laneLike, laneOf, laneEntries, boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
+import { laneKeys, laneAt, nameOf, manyEndsOf, laneLike, laneOf, laneEntries, boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
 import { aboutOf, otherwiseOf, rulesOf } from './types'
-import type { Cause, Comparison, Condition, ConditionOp, Id, Lane, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
+import type { Cause, Comparison, EndNames, Quantifier, Condition, ConditionOp, Id, Lane, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
 export function valueAt(t: Trace, i: number, id: Lane): { value: string | undefined; set: boolean } {
@@ -45,10 +45,12 @@ export function holds(v: Variable, c: Comparison, value: string | undefined): bo
   return null
 }
 
-/** Reads trace values; `instances` gives the values of a variable's per-instance lanes ("<variable>@t1"). */
+/** Reads trace values; `lanes` lists the lanes with a value (variable lanes "<variable>@t1" per instance). */
 /** Timing at one trace step: seconds a condition has held continuously, and since an event last occurred (null when step times are not numeric or it never did). */
-export interface Clock { held(c: Condition, strict: boolean): number | null; since(on: Id): number | null; /** value at the previous step */ prev(id: Id): string | undefined }
-export type Getter = ((id: Id) => string | undefined) & { instances?: (id: Id) => string[]; clock?: Clock }
+export interface Clock { held(c: Condition, env: Env): number | null; since(on: Id): number | null; /** value at the previous step */ prev(id: Id): string | undefined }
+/** The instance each declared name stands for. */
+export type Env = Record<string, string>
+export type Getter = ((id: Id) => string | undefined) & { lanes?: () => Lane[]; clock?: Clock }
 
 /** The clock at step i: needs numeric step times ("5", "200 ms"; `parseTime`) from step 0 to i. */
 export function clockAt(p: Project, t: Trace, i: number): Clock {
@@ -63,22 +65,32 @@ export function clockAt(p: Project, t: Trace, i: number): Clock {
       for (let k = i; k >= 0; k--) if (t.steps[k].events.some((e) => isOccurrence(p, e, on))) return times[i]! - times[k]!
       return null
     },
-    held(c, strict) {
+    held(c, env) {
       if (!ok) return null
       const base = { ...c, time: undefined }
       let k = i
-      while (k >= 0 && condHolds(p, base, getter(st(k)), strict) === true) k--
+      while (k >= 0 && leafHolds(p, base, getter(st(k)), env) === true) k--
       return k === i ? null : times[i]! - times[k + 1]!
     },
   }
 }
-export const getter = (state: Record<Id, string>, clock?: Clock): Getter => Object.assign((id: Id) => state[id], { clock, instances: (id: Id) => Object.keys(state).filter((k) => k.startsWith(id + '@') && state[k] !== '').map((k) => state[k]) })
+export const getter = (state: Record<Id, string>, clock?: Clock): Getter => Object.assign((id: Id) => state[id], { clock, lanes: () => laneKeys(state).filter((k) => state[k] !== '') })
 
-/** Whether a condition holds for the values `get` gives (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text.
- *  A variable of a many-instance entity has either one lane for all instances alike, or lanes per instance; a condition naming an instance reads its lane
- *  (else the common one, unless `strict`: instances named differently are different instances, each needing a lane of its own), an unnamed one is
- *  quantified over all lanes: some / all / no instance. */
-export function condHolds(p: Project, c: Condition, get: Getter, strict = false): boolean | null | undefined {
+const set = (x: string | undefined): x is string => x !== undefined && x !== ''
+/** The values of a variable for the instances `inst` (one per end; null = any): its lanes for those instances, else the lane for all instances alike. */
+function valuesFor(get: Getter, id: Id, inst: (string | null)[]): string[] {
+  const bound = inst.some(Boolean)
+  const lanes = get.lanes?.().map((l) => ({ l, ...laneParts(l) })).filter((x) => x.id === id && x.names.length) ?? []
+  if (!bound) return [get(id), ...lanes.map((x) => get(x.l))].filter(set)
+  const hit = lanes.filter((x) => inst.every((n, i) => !n || x.names[i] === n)).map((x) => get(x.l)).filter(set)
+  if (hit.length || get.lanes) return hit.length ? hit : [get(id)].filter(set)
+  return [get(laneAt(id, inst.map((n) => n ?? '').join('|').replace(/\|+$/, ''))) ?? get(id)].filter(set)
+}
+const instOf = (n: EndNames | undefined, env: Env): (string | null)[] => (n ?? []).map((b) => (b ? env[nameOf(b)] || null : null))
+
+/** Whether a single condition holds for the instances `env` gives its names (null when unknown, undefined for an empty one); a condition in words is a boolean keyed by its text.
+ *  A variable of a many-instance entity has either one lane for all instances alike, or lanes per instance; unnamed ends range over all lanes (some). */
+function leafHolds(p: Project, c: Condition, get: Getter, env: Env): boolean | null | undefined {
   if (isEvent(c)) {
     if (!conditionComplete(c)) return undefined
     const d = get.clock?.since(c.event!)
@@ -86,9 +98,9 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
   }
   if (c.time) {
     if (!conditionComplete(c)) return undefined
-    const base = condHolds(p, { ...c, time: undefined }, get, strict)
+    const base = leafHolds(p, { ...c, time: undefined }, get, env)
     if (base !== true) return base
-    const d = get.clock?.held(c, strict)
+    const d = get.clock?.held(c, env)
     return d == null ? null : c.time.op === '≥' ? d >= boundSeconds(c.time) : d < boundSeconds(c.time)
   }
   if (isExpr(c)) { if (!conditionComplete(c)) return undefined; return exprHolds(p, c, get, get.clock?.prev) }
@@ -96,29 +108,65 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
   if (isVarCmp(c) && p.items[c.other]?.kind !== 'variable') return undefined
-  const key = instLane(c)
-  const set = (x: string | undefined) => x !== undefined && x !== ''
-  const vals = key !== c.variable ? [strict ? get(key) : get(key) ?? get(c.variable)].filter(set) : [get(c.variable), ...(get.instances?.(c.variable) ?? [])].filter(set)
-  const ol = isVarCmp(c) ? otherLane(c) : '', b = isVarCmp(c) ? (ol !== c.other ? (strict ? get(ol) : get(ol) ?? get(c.other)) : get(c.other)) : undefined
-  const test = (x: string) => (isVarCmp(c) ? (set(b) ? holds(v, toValue(c, { state: b! }), x) : null) : holds(v, c, x))
-  const hs = vals.map((x) => test(x!))
-  const q = quantOf(p, c)
+  const vals = valuesFor(get, c.variable, instOf(c.names, env))
+  const b = isVarCmp(c) ? valuesFor(get, c.other, instOf(c.otherNames, env))[0] : undefined
+  const test = (x: string) => (isVarCmp(c) ? (set(b) ? holds(v, toValue(c, { state: b }), x) : null) : holds(v, c, x))
+  const hs = vals.map(test)
   if (!hs.length) return null
-  if (q === 'all') return hs.every((h) => h === true) ? true : hs.includes(false) ? false : null
-  const some = hs.includes(true) ? true : hs.every((h) => h === false) ? false : null
-  return some !== null && q === 'none' ? !some : some
+  return hs.includes(true) ? true : hs.every((h) => h === false) ? false : null
 }
+
+type Tri = boolean | null | undefined
+interface Decl { name: string; entity: Id; quant: Quantifier }
+/** The names declared by the leaves of `ws`, in order of appearance (the first declaration of a name counts). */
+function declsOf(p: Project, ws: When[]): Decl[] {
+  const out: Decl[] = []
+  for (const c of ws.flatMap(leaves)) for (const i of condInstances(p, c)) if (i.intro && !out.some((d) => d.name === i.name)) out.push({ name: i.name, entity: i.entity, quant: i.quant })
+  return out
+}
+/** The instances of an entity a trace talks about: those named in its domain lanes, or the one undistinguished instance ('') when there are none. */
+function universe(p: Project, get: Getter, entity: Id): string[] {
+  const out = new Set<string>()
+  for (const l of get.lanes?.() ?? []) {
+    const { id, names } = laneParts(l)
+    const v = p.items[id]
+    if (v?.kind === 'variable' && v.layer === 'domain') for (const e of manyEndsOf(p, v)) if (names[e.end] && sameInstance(p, e.entity, entity)) out.add(names[e.end])
+  }
+  return out.size ? [...out] : ['']
+}
+/** `body` under the declarations `ds` (nested ∃ / ∀ / ¬∃ over the instances; different names of one entity stand for different instances). */
+function quantify(p: Project, get: Getter, ds: Decl[], body: (env: Env) => Tri, env: Env = {}, done: Decl[] = []): Tri {
+  if (!ds.length) return body(env)
+  const [d, ...rest] = ds
+  const uni = universe(p, get, d.entity)
+  const taken = done.filter((x) => sameInstance(p, x.entity, d.entity)).map((x) => env[x.name])
+  const cands = uni.filter((x) => !taken.includes(x))
+  if (uni.length === 1 && uni[0] === '' && !cands.length) return null
+  const hs = cands.map((x) => quantify(p, get, rest, body, { ...env, [d.name]: x }, [...done, d])).filter((h) => h !== undefined)
+  if (cands.length && !hs.length) return undefined
+  if (d.quant === 'all') return hs.every((h) => h === true) ? true : hs.includes(false) ? false : null
+  const some = hs.includes(true) ? true : hs.every((h) => h === false) ? false : null
+  return some !== null && d.quant === 'none' ? !some : some
+}
+
+/** Whether a condition holds (null when unknown). */
+export const condHolds = (p: Project, c: Condition, get: Getter): Tri => whenHolds(p, c, get)
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): Lane[] => [...new Set(Object.values(p.items).flatMap((it) =>
   (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? rulesOf(it).flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
 
-/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
-export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Condition) => boolean): boolean | null | undefined {
-  if (!isGroup(w)) return condHolds(p, w, get, strict?.(w))
-  const hs = w.of.map((x) => whenHolds(p, x, get, strict)).filter((h) => h !== undefined)
-  if (w.not) { if (!hs.length) return undefined; return hs.includes(false) ? true : hs.includes(null) ? null : false }
-  return hs.includes(w.any) ? w.any : hs.includes(null) ? null : !w.any
+/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored.
+ *  The names its conditions declare are quantified over the trace's instances in order of appearance, outermost first; `scope`: the conditions that declare names (default: the tree itself). */
+export function whenHolds(p: Project, w: When, get: Getter, scope: When[] = [w]): Tri {
+  const mine = new Set(leaves(w).flatMap((c) => condInstances(p, c).map((i) => i.name)))
+  const tree = (x: When, env: Env): Tri => {
+    if (!isGroup(x)) return leafHolds(p, x, get, env)
+    const hs = x.of.map((y) => tree(y, env)).filter((h) => h !== undefined)
+    if (x.not) { if (!hs.length) return undefined; return hs.includes(false) ? true : hs.includes(null) ? null : false }
+    return hs.includes(x.any) ? x.any : hs.includes(null) ? null : !x.any
+  }
+  return quantify(p, get, declsOf(p, scope).filter((d) => mine.has(d.name)), (env) => tree(w, env))
 }
 
 /** Value of a refined variable from its rules (first rule whose condition holds, else `otherwise`); undefined while a needed part is unknown. */
@@ -193,16 +241,8 @@ export function symbolViolations(p: Project, t: Trace): { step: number; id: Id; 
 
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>, clock?: Clock): boolean | null {
-  let all: boolean | null = true
-  const names = new Map<string, Set<string>>()
-  for (const c of u.conditions.flatMap(leaves)) for (const i of condInstances(p, c)) names.set(i.entity, (names.get(i.entity) ?? new Set()).add(i.name))
-  const strict = (c: Condition) => condInstances(p, c).some((i) => (names.get(i.entity)?.size ?? 0) > 1)
-  for (const c of u.conditions) {
-    const h = whenHolds(p, c, getter(state, clock), strict)
-    if (h === false) return false
-    if (h === null) all = null
-  }
-  return all
+  const h = whenHolds(p, { kind: 'group', any: false, of: u.conditions }, getter(state, clock))
+  return h === undefined ? true : h
 }
 
 export const NEGATE: Record<ConditionOp, ConditionOp> = { '=': '≠', '≠': '=', in: 'not in', 'not in': 'in', '<': '≥', '≥': '<', '≤': '>', '>': '≤', between: 'not between', 'not between': 'between' }
@@ -348,7 +388,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
         cc = toValue(c, { state: ref })
       }
       // "no instance" holds when the value fails the condition; a named instance gets a lane of its own
-      const none = quantOf(p, c) === 'none'
+      const none = condInstances(p, c).some((i) => i.intro && i.quant === 'none')
       const after = pickValue(w, cc, none), before = k ? after : pickValue(w, cc, !none)
       const lane = instLane(c)
       lanes.push(lane)

@@ -252,7 +252,7 @@ export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : !isOn
 
 // ---- plain-text form of a condition tree
 
-const SIMPLE = (c: ValueCondition | VarCondition) => !c.quant && !c.names && !c.time && (!isVarCmp(c) || !c.otherNames)
+const SIMPLE = (c: ValueCondition | VarCondition) => !c.names && !c.time && (!isVarCmp(c) || !c.otherNames)
 /** One line for a condition, or null when it needs the rows editor (quantifiers, instance names, timing, events, words). */
 export function conditionLine(p: Project, c: Condition): string | null {
   if (isEvent(c) || (isOnVariable(c) && !SIMPLE(c)) || (isText(c) && c.time)) return null
@@ -311,7 +311,7 @@ export function negate(w: When): When {
   if (isGroup(w)) return w.not ? { kind: 'group', any: false, of: w.of } : { kind: 'group', any: !w.any, of: w.of.map(negate) }
   const m = isExpr(w) ? cmpOf(w) : null
   if (m) return exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })
-  if (isEvent(w) || isExpr(w) || w.time || (isOnVariable(w) && (w.quant || w.names))) return { kind: 'group', any: false, not: true, of: [w] }
+  if (isEvent(w) || isExpr(w) || w.time || (isOnVariable(w) && w.names)) return { kind: 'group', any: false, not: true, of: [w] }
   return isText(w) ? { ...w, op: w.op === '=' ? '≠' : '=' } : { ...w, op: NEGATE[w.op] }
 }
 

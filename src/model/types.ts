@@ -250,7 +250,7 @@ export interface Feedback extends Base {
   labelShift: Offset | null
 }
 
-/** How many of the instances of a `many` entity (or links of a many-valued relationship) a condition is about: some of them (default), every one, none. */
+/** How a declared instance name ranges over the instances of a `many` entity (or links of a many-valued relationship): some of them (default), every one, none. Declarations nest in the order they occur in the context. */
 export const QUANTIFIERS = ['some', 'all', 'none'] as const
 export type Quantifier = (typeof QUANTIFIERS)[number]
 /** How each quantifier reads in a sentence. */
@@ -263,18 +263,16 @@ export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
 /** Shared by every form of condition: how long it must have held (needs numeric step times in traces). With an event condition, the time since that event instead. */
 interface CondBase { time?: TimeBound }
-/** What a condition does with the name of one instance: `declare` introduces a name for (some) instance, `use` refers to an instance declared by another condition of the same context (the same instance, not just some). */
-export type Binding = { declare: string } | { use: string }
+/** What a condition does with the name of one instance: `declare` introduces the name, ranging over the instances as `quant` says (default `some`); `use` refers to an instance declared by another condition of the same context (the same instance, not just some). Different names of one entity are different instances. */
+export type Binding = { declare: string; quant?: Quantifier } | { use: string }
 /** Bindings of the many ends of a variable, in order (an entity variable has one; a relationship variable one per many end); `null` leaves an end unnamed. */
 export type EndNames = (Binding | null)[]
 /** The names a condition gives to / takes from the instances of its variable. */
 export interface InstanceNames { names?: EndNames }
-/** The instances a variable is about: how many (absent = `some`) and their names. */
-export interface Instances extends InstanceNames { quant?: Quantifier }
 /** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
-export interface ValueCondition extends CondBase, Comparison, Instances { kind: 'value'; variable: Id }
+export interface ValueCondition extends CondBase, Comparison, InstanceNames { kind: 'value'; variable: Id }
 /** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
-export interface VarCondition extends CondBase, Instances {
+export interface VarCondition extends CondBase, InstanceNames {
   kind: 'var'
   variable: Id
   op: ConditionOp

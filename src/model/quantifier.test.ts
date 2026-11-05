@@ -3,12 +3,12 @@ import { emptyProject, relEnds } from './create'
 import { createItem, deleteItems, updateItem } from './ops'
 import { addSignal, beliefsAbout, signalsOf } from './formal'
 import { deserialize, serialize } from './serialize'
-import { condHolds, contextHolds, diagnose, draftTrace, getter, mismatches } from './traces'
+import { condHolds, contextHolds, whenHolds, diagnose, draftTrace, getter, mismatches } from './traces'
 import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf, endsOf, manyEndsOf, nameKey } from './variables'
+import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantAt, declare, endsOf, manyEndsOf, nameKey } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario, ValueCondition, VarCondition } from './types'
 import { laneAt } from './variables'
@@ -30,7 +30,6 @@ describe('instance quantification', () => {
   it('defaults to a single instance: nothing changes', () => {
     const s = setup()
     expect(isMany(s.p, s.p.items[s.speed] as never)).toBe(false)
-    expect(quantOf(s.p, cond(s.speed))).toBeNull()
     expect(conditionText(s.p, cond(s.speed))).toBe('speed is 0')
   })
   it('names "some" instances when a file or tool leaves them out, but not "every" or "no"', () => {
@@ -38,75 +37,91 @@ describe('instance quantification', () => {
     s.p = updateItem(s.p, s.train, { many: true })
     const made = createItem(s.p, 'uca')
     const u = made.id
-    let p = updateItem(made.project, u, { conditions: [cond(s.speed), cond(s.speed, { quant: 'all' }), cond(s.speed, { quant: 'none' })] } as never)
+    let p = updateItem(made.project, u, { conditions: [cond(s.speed), cond(s.speed, { names: [declare('t1', 'all')] }), cond(s.speed, { names: [declare('t1', 'none')] })] } as never)
     p = deserialize(serialize(p))
     const cs = (p.items[u] as { conditions: Condition[] }).conditions.filter(isValueCmp)
     expect(cs[0].names).toEqual([{ declare: 'tr1' }])
-    expect(cs[1].names).toBeUndefined()
-    expect(cs[2].names).toBeUndefined()
+    expect(cs[1].names).toEqual([{ declare: 't1', quant: 'all' }])
+    expect(cs[2].names).toEqual([{ declare: 't1', quant: 'none' }])
     expect(nameAllInstances(p)).toBe(p)
   })
   it('reads quantified conditions as sentences', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     expect(conditionText(s.p, cond(s.speed))).toBe('speed of some Train is 0')
-    expect(conditionText(s.p, cond(s.speed, { quant: 'all' }))).toBe('speed of every Train is 0')
-    expect(conditionText(s.p, cond(s.speed, { quant: 'none' }))).toBe('speed of no Train is 0')
+    expect(conditionText(s.p, cond(s.speed, { names: [declare('t1', 'all')] }))).toBe('speed of every Train t1 is 0')
+    expect(conditionText(s.p, cond(s.speed, { names: [declare('t1', 'none')] }))).toBe('speed of no Train t1 is 0')
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
     expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
-    expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true', quant: 'none' })).toBe('no Train at Station')
-    const uca = s.add('uca', { conditions: [cond(s.speed, { quant: 'all' })] })
-    expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('when speed of every Train is 0')
+    expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'none')] })).toBe('no Train t1 at Station')
+    const uca = s.add('uca', { conditions: [cond(s.speed, { names: [declare('t1', 'all')] })] })
+    expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('when speed of every Train t1 is 0')
   })
   it('a many-cardinality relationship quantifies its variables', () => {
     const s = setup()
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
-    expect(quantOf(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some')
+    expect(quantAt(undefined, 0)).toBe('some')
+    expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
   })
   it('none flips a trace value', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const get = (id: Id) => (id === s.speed ? '0' : undefined)
     expect(condHolds(s.p, cond(s.speed), get)).toBe(true)
-    expect(condHolds(s.p, cond(s.speed, { quant: 'none' }), get)).toBe(false)
-    expect(condHolds(s.p, cond(s.speed, { quant: 'none' }), () => undefined)).toBeNull()
+    expect(condHolds(s.p, cond(s.speed, { names: [declare('t1', 'none')] }), get)).toBe(false)
+    expect(condHolds(s.p, cond(s.speed, { names: [declare('t1', 'none')] }), () => undefined)).toBeNull()
   })
   it('some conditions have independent witnesses, none is every-not', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     expect(consistent(s.p, [cond(s.speed), cond(s.speed, { op: '≠' })])).toBe(true)
-    expect(consistent(s.p, [cond(s.speed, { quant: 'all' }), cond(s.speed, { op: '≠', quant: 'all' })])).toBe(false)
-    expect(consistent(s.p, [cond(s.speed, { quant: 'all' }), cond(s.speed, { quant: 'none' })])).toBe(false)
+    expect(consistent(s.p, [cond(s.speed, { names: [declare('t1', 'all')] }), cond(s.speed, { op: '≠', names: [declare('t1', 'all')] })])).toBe(false)
+    expect(consistent(s.p, [cond(s.speed, { names: [declare('t1', 'all')] }), cond(s.speed, { names: [declare('t1', 'none')] })])).toBe(false)
   })
   it('does not expand refinement rules through a quantifier', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const v = createItem(s.p, 'variable', { layer: 'domain', parent: s.train, title: 'moving', type: 'boolean', rules: [{ state: 'true', when: { any: false, of: [cond(s.speed, { op: '>', state: '0' })] } }], otherwise: 'false' } as never)
-    expect(expand(v.project, v.project.items[v.id] as never, { kind: 'value', variable: v.id, op: '=', state: 'true', quant: 'none' })).toBeNull()
+    expect(expand(v.project, v.project.items[v.id] as never, { kind: 'value', variable: v.id, op: '=', state: 'true', names: [declare('t1', 'none')] })).toBeNull()
   })
   it('round-trips and old files load', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    s.add('uca', { conditions: [cond(s.speed, { quant: 'all' })] })
+    s.add('uca', { conditions: [cond(s.speed, { names: [declare('t1', 'all')] })] })
     const q = deserialize(serialize(s.p))
     expect((q.items[s.train] as { many?: boolean }).many).toBe(true)
     const u = Object.values(q.items).find((i) => i.kind === 'uca') as { conditions: Condition[] }
-    expect(valueOf(u.conditions[0]).quant).toBe('all')
+    expect(valueOf(u.conditions[0]).names).toEqual([{ declare: 't1', quant: 'all' }])
     const plain = setup()
     expect(serialize(plain.p)).not.toContain('"many": true')
     expect(serialize(plain.p)).not.toContain('quant')
   })
-  it('flags a quantifier on a single-instance variable only', () => {
+  it('evaluates every-train / some-crossing by nesting the quantifiers', () => {
     const s = setup()
-    s.add('uca', { conditions: [cond(s.speed, { quant: 'all' })] })
-    expect(validate(s.p).some((i) => i.rule === 'quantifier-single')).toBe(true)
     s.p = updateItem(s.p, s.train, { many: true })
-    expect(validate(s.p).some((i) => i.rule === 'quantifier-single')).toBe(false)
+    const crossing = s.add('entity', { title: 'Crossing', many: true })
+    const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '*') })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const open = s.add('variable', { layer: 'domain', parent: crossing, title: 'open', type: 'boolean' })
+    const w = { kind: 'group', any: false, of: [
+      { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'all'), declare('c1')] },
+      { kind: 'value', variable: open, op: '=', state: 'true', names: [{ use: 'c1' }] },
+    ] } as never
+    const lane = (t: string, c: string) => `${pred}@${t}|${c}`
+    const holds = (v: Record<string, string>) => whenHolds(s.p, w, getter(v))
+    // every train approaches a crossing that is open
+    expect(holds({ [lane('t1', 'c1')]: 'true', [lane('t2', 'c1')]: 'true', [`${open}@c1`]: 'true' })).toBe(true)
+    expect(holds({ [lane('t1', 'c1')]: 'true', [lane('t1', 'c2')]: 'false', [lane('t2', 'c1')]: 'false', [lane('t2', 'c2')]: 'true', [`${open}@c1`]: 'true', [`${open}@c2`]: 'false' })).toBe(false)
+    // the witness crossing may differ per train
+    expect(holds({ [lane('t1', 'c1')]: 'true', [lane('t1', 'c2')]: 'false', [lane('t2', 'c2')]: 'true', [`${open}@c1`]: 'true', [`${open}@c2`]: 'true' })).toBe(true)
   })
-  it('never nags text-only or unquantified projects', () => {
+  it('distinct names are distinct instances; the aggregate lane cannot supply two', () => {
     const s = setup()
-    s.add('uca', { conditions: [cond(s.speed)] })
-    expect(validate(s.p).some((i) => i.rule === 'quantifier-single')).toBe(false)
+    s.p = updateItem(s.p, s.train, { many: true })
+    const w = { kind: 'group', any: false, of: [cond(s.speed, { names: [declare('t1')] }), cond(s.speed, { names: [declare('t2')] })] } as never
+    expect(whenHolds(s.p, w, getter({ [s.speed]: '0' }))).toBeNull()
+    expect(whenHolds(s.p, w, getter({ [`${s.speed}@a`]: '0' }))).toBe(false)
+    expect(whenHolds(s.p, w, getter({ [`${s.speed}@a`]: '0', [`${s.speed}@b`]: '0' }))).toBe(true)
   })
 })
 
@@ -117,11 +132,11 @@ describe('level crossing example', () => {
     expect(validate(p).filter((i) => i.severity === 'error')).toEqual([])
     const texts = Object.values(p.items).flatMap((i) => (i.kind === 'uca' ? i.conditions.flatMap(leaves).map((c) => conditionText(p, c)) : []))
     expect(texts).toContain('Position of some Train tr1 is approaching')
-    expect(texts).toContain('Position of every Train is far')
-    expect(texts).toContain('no Train approaches Crossing')
+    expect(texts).toContain('Position of every Train t1 is far')
+    expect(texts).toContain('no Train t1 approaches Crossing')
     const hz = Object.values(p.items).flatMap((i) => (i.kind === 'hazard' ? [i.conditions.flatMap(leaves).map((c) => conditionText(p, c)).join(' and ')] : []))
     expect(hz).toContain('Gate position is open and some Train tr1 approaches Crossing')
-    expect(hz).toContain('Gate position is closed and no Train approaches Crossing')
+    expect(hz).toContain('Gate position is closed and no Train t1 approaches Crossing')
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
   })
   it('names an instance and refers to it again', () => {
@@ -166,7 +181,7 @@ describe('level crossing example', () => {
     expect(conditionText(s.p, a)).toBe('some Train t1 approaches Crossing')
     expect(conditionText(s.p, b)).toBe('speed of t1 is greater than minimum speed')
     const uca = s.add('uca', { conditions: [a, b] })
-    expect(validate(s.p).some((i) => i.rule === 'instance-name' || i.rule === 'quantifier-single')).toBe(false)
+    expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(false)
     const get = (id: Id) => ({ [pred]: 'true', [s.speed]: '60', [min]: '40' } as Record<Id, string>)[id]
     expect(condHolds(s.p, a, get)).toBe(true)
     expect(condHolds(s.p, b, get)).toBe(true)
@@ -186,12 +201,13 @@ describe('level crossing example', () => {
     // named reads its lane, falling back to the bare lane; unnamed is quantified over all instance lanes
     const named: Condition = cond(s.speed, { names: [{ declare: 't1' }], op: '>', state: '10' })
     expect(condHolds(s.p, named, getter({ [`${s.speed}@t1`]: '50' }))).toBe(true)
-    expect(condHolds(s.p, named, getter({ [`${s.speed}@t2`]: '50', [`${s.speed}@t1`]: '5' }))).toBe(false)
+    expect(condHolds(s.p, named, getter({ [`${s.speed}@a`]: '50', [`${s.speed}@b`]: '5' }))).toBe(true)
+    expect(condHolds(s.p, named, getter({ [`${s.speed}@a`]: '5', [`${s.speed}@b`]: '5' }))).toBe(false)
     expect(condHolds(s.p, named, getter({ [s.speed]: '50' }))).toBe(true)
     const some = cond(s.speed, { op: '>', state: '10' })
     expect(condHolds(s.p, some, getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(true)
-    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', quant: 'all' }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
-    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', quant: 'none' }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
+    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', names: [declare('t1', 'all')] }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
+    expect(condHolds(s.p, cond(s.speed, { op: '>', state: '10', names: [declare('t1', 'none')] }), getter({ [`${s.speed}@t1`]: '5', [`${s.speed}@t2`]: '50' }))).toBe(false)
     // lanes survive a round trip
     const sc = s.add('uca', { conditions: [a, b] })
     expect(validate(s.p).some((i) => i.rule === 'instance-name')).toBe(false)
@@ -257,7 +273,7 @@ describe('another instance is a separate instance in traces', () => {
     const uca = () => s.p.items[u] as never
     // one common lane would satisfy both names; strict reading leaves t2 unknown
     expect(contextHolds(s.p, uca(), { [s.speed]: '0' })).toBeNull()
-    expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0' })).toBeNull()
+    expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0' })).toBe(false)
     expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0', [`${s.speed}@t2`]: '0' })).toBe(true)
     expect(contextHolds(s.p, uca(), { [`${s.speed}@t1`]: '0', [`${s.speed}@t2`]: '5' })).toBe(false)
     // a single named instance still falls back to the common lane
@@ -272,9 +288,8 @@ describe('another instance is a separate instance in traces', () => {
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than limit of t2')
     expect(instLane({ ...c })).toBe(`${s.speed}@t1`)
     const get = getter({ [`${s.speed}@t1`]: '50', [`${limit}@t2`]: '40', [`${limit}@t1`]: '90' })
-    expect(condHolds(s.p, c, get, true)).toBe(true)
-    expect(condHolds(s.p, { ...c, otherNames: [{ use: 't1' }]  }, get, true)).toBe(false)
-    expect(condHolds(s.p, { ...c, otherNames: [{ use: 't3' }]  }, get, true)).toBeNull()
+    expect(condHolds(s.p, c, get)).toBe(true)
+    expect(condHolds(s.p, { ...c, otherNames: [{ use: 't1' }]  }, get)).toBeNull()
     const back = deserialize(serialize({ ...s.p, items: { ...s.p.items } }))
     expect(back.items[s.speed]).toBeTruthy()
   })
@@ -287,8 +302,8 @@ describe('another instance is a separate instance in traces', () => {
     expect(condInstances(s.p, c).map((x) => [x.name, x.intro, !!x.cmp])).toEqual([['t1', true, false], ['t2', true, true]])
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than speed of t2')
     const get = getter({ [`${s.speed}@t1`]: '50', [`${s.speed}@t2`]: '40' })
-    expect(condHolds(s.p, c, get, true)).toBe(true)
-    expect(condHolds(s.p, { ...c, otherNames: [{ declare: 't3' }]  }, get, true)).toBeNull()
+    expect(condHolds(s.p, c, get)).toBe(true)
+    expect(condHolds(s.p, { ...c, otherNames: [{ declare: 't3' }]  }, get)).toBe(true)
   })
 })
 
@@ -311,7 +326,7 @@ describe('instance names are keyed by relationship end', () => {
     expect(manyEndsOf(w.p, w.serves as never).map((e) => e.end)).toEqual([1])
     const c = val(w.serves.id, { names: [null, { declare: 'c1' }] })
     expect(condInstances(w.p, c).map((x) => [x.name, x.end])).toEqual([['c1', 1]])
-    expect(quantOf(w.p, c)).toBe('some')
+    expect(quantAt(c.names, 1)).toBe('some')
     expect(conditionText(w.p, c)).toBe('Plant serves some Crossing c1')
   })
   it('naming a single-instance end is reported', () => {
@@ -330,11 +345,10 @@ describe('instance names are keyed by relationship end', () => {
     expect(nameKey(c.names)).toMatch(/^\w+\|\w+\|\w+$/)
     expect(instLane(c)).toBe(`${w.meets.id}@${nameKey(c.names)}`)
   })
-  it('the quantifier ranges over the ends left unnamed; named ends are existential', () => {
+  it('each end has its own quantifier', () => {
     const w = world()
-    expect(quantOf(w.p, val(w.meets.id, { quant: 'all' }))).toBe('all')
-    expect(quantOf(w.p, val(w.meets.id, { quant: 'all', names: [{ declare: 't1' }] }))).toBe('all')
-    expect(quantOf(w.p, val(w.meets.id, { quant: 'all', names: [{ declare: 't1' }, { declare: 'c1' }, { use: 'r1' }] }))).toBe('some')
-    expect(conditionText(w.p, val(w.meets.id, { quant: 'none' }))).toBe('no Train meets any Crossing any Route')
+    const names = [declare('t1', 'all'), declare('c1'), null]
+    expect([0, 1].map((e) => quantAt(names, e))).toEqual(['all', 'some'])
+    expect(conditionText(w.p, val(w.meets.id, { names: [declare('t1', 'all'), declare('c1'), declare('r1', 'none')] }))).toBe('every Train t1 meets some Crossing c1 no Route r1')
   })
 })

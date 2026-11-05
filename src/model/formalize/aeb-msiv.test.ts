@@ -20,7 +20,7 @@ describe.each(IDS)('formalized %s', (id) => {
   it('has no validation errors and no new warnings about the formal layers', () => {
     const errors = validate(p).filter((i) => i.severity === 'error')
     expect(errors).toEqual([])
-    const bad = validate(p).filter((i) => ['context-unrepresented', 'context-not-world', 'instance-unnamed', 'instance-name', 'refinement-invalid', 'refinement-cycle', 'quantifier-single'].includes(i.rule ?? ''))
+    const bad = validate(p).filter((i) => ['context-unrepresented', 'context-not-world', 'instance-unnamed', 'instance-name', 'refinement-invalid', 'refinement-cycle'].includes(i.rule ?? ''))
     expect(bad.map((i) => i.message)).toEqual([])
   })
 
