@@ -248,15 +248,8 @@ export type TimeUnit = (typeof TIME_UNITS)[number]
 export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
 /** A duration bound: "at least" (`≥`) or "less than" (`<`) `amount` of `unit`. */
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
-/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
- *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
-export interface Condition extends Comparison {
-  variable: Id
-  text?: string
-  /** With `text`: the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts` */
-  expr?: boolean
-  /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
-  other?: Id
+/** The instance-naming part of a condition on a many-instance entity / relationship. */
+export interface Instances {
   /** Only meaningful for variables of a many-instance entity / relationship; absent = `some` */
   quant?: Quantifier
   /** Names the (some) instance this condition is about, for later conditions to refer to (`same`) */
@@ -272,6 +265,16 @@ export interface Condition extends Comparison {
   /** With `other`: introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
   oAs?: string
   oAs2?: string
+}
+/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
+ *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
+export interface Condition extends Comparison, Instances {
+  variable: Id
+  text?: string
+  /** With `text`: the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts` */
+  expr?: boolean
+  /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
+  other?: Id
   /** Timing: the condition has held continuously for at least / less than this long (needs numeric step times in traces). With `event`, the time since that event instead. */
   time?: TimeBound
   /** A timing condition on an event: time since this control action / feedback last occurred (`time` says how long). It has no variable. */
