@@ -93,6 +93,7 @@ main { overflow: auto; min-width: 0; }
 .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 0 8px; flex-wrap: wrap; } .toolbar .hint { margin-left: auto; }
 
 .tree { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.page.full > .tree { overflow: auto; min-height: 200px; }
 .rows { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; flex: 1 0 auto; min-height: 260px; margin-bottom: 18px; }
 .row { display: flex; align-items: center; gap: 8px; padding: 2px 10px; border-bottom: 1px solid var(--line); min-height: 34px; position: relative; }
 .row:last-child { border-bottom: none; }
