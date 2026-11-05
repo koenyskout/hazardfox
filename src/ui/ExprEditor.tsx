@@ -79,7 +79,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
   const commit = () => { setFocus(false); if (!draft.trim()) onChange(HOLE); else if (parsed && !error) onChange(parsed) }
   return (
     <div>
-      <div className="tx" style={{ height: Math.max(1, draft.split('\n').length) * 22 + 18 }}>
+      <div className="tx">
         <pre aria-hidden>{draft.split('\n').map((l, i) => <div key={i}>{l}{'​'}</div>)}</pre>
         <textarea spellCheck={false} value={draft} onFocus={() => setFocus(true)} onChange={(x) => setDraft(x.target.value)} onBlur={commit} />
       </div>
