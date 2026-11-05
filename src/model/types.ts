@@ -246,12 +246,16 @@ export interface Feedback extends Base {
 /** How many of the instances of a `many` entity (or links of a many-valued relationship) a condition is about: some of them (default), every one, none. */
 export const QUANTIFIERS = ['some', 'all', 'none'] as const
 export type Quantifier = (typeof QUANTIFIERS)[number]
-/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
- *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
+/** How each quantifier reads in a sentence. */
+export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
 export const TIME_UNITS = ['ms', 's', 'min', 'h'] as const
 export type TimeUnit = (typeof TIME_UNITS)[number]
+/** Seconds per time unit. */
+export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
 /** A duration bound: "at least" (`≥`) or "less than" (`<`) `amount` of `unit`. */
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
+/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
+ *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
 export interface Condition {
   variable: Id
   op: ConditionOp

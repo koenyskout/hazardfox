@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -59,7 +59,6 @@ export function stepOf(v: Variable): number {
 export const isText = (c: Condition) => c.text !== undefined
 /** A condition on the time since an event (control action or feedback) occurred. */
 export const isEvent = (c: Condition) => c.event !== undefined
-const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
 const timeOk = (t: TimeBound | undefined) => !!t && t.amount.trim() !== '' && Number.isFinite(Number(t.amount)) && Number(t.amount) >= 0
 /** Seconds of a time bound. */
 export const boundSeconds = (t: TimeBound) => Number(t.amount) * UNIT_S[t.unit]
@@ -150,7 +149,6 @@ export const oName = (c: Condition, end: 1 | 2) => ((end === 1 ? c.oAs ?? c.oSam
 export const otherLane = (c: Condition): string => { const a = oName(c, 1), b = oName(c, 2); return c.other && (a || b) ? `${c.other}@${a ?? ''}${b ? '|' + b : ''}` : c.other ?? '' }
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
-export const QUANT_LABELS: Record<Quantifier, string> = { some: 'some', all: 'every', none: 'no' }
 
 /** `earlier`: the conditions before this one; a named some-instance of an entity already named differently there reads "another …" (different names stand for different instances). */
 export function conditionText(p: Project, c: Condition, earlier: Condition[] = []): string {
