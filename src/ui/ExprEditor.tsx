@@ -139,7 +139,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
           </ul>
         )}
       </div>
-      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; aligned <code>/\</code> (and) and <code>\/</code> (or) lists like TLA+ (or <code>and</code> / <code>or</code> inline), <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
+      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code> / <code>or</code> (shown as ∧ ∨; <code>/\</code> <code>\/</code> also work), as aligned lists like TLA+, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
     </div>
   )
 }

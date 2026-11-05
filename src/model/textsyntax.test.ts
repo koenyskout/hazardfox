@@ -44,8 +44,8 @@ describe('TLA+ block format', () => {
     const b = (v: (typeof vs)[number], x: string) => cmp('=', v, num(x))
     const e = and(b(vs[0], 'true'), or(b(vs[1], 'true'), and(b(vs[2], 'true'), b(vs[3], 'true'))), { k: 'quant', q: 'some', name: 'tr2', entity: ent, body: or(b(vs[0], 'false'), b(vs[1], 'false')) }, b(vs[3], 'false'))
     const t = formatExpr(e, (id) => '@[' + id + ']')
-    expect(t).toContain('/\\ ')
-    expect(t).toContain('\\/ ')
+    expect(t).toContain('∧ ')
+    expect(t).toContain('∨ ')
     expect(parseExpr(p, t)).toEqual(e)
   })
 })
@@ -61,5 +61,15 @@ describe('not as a block', () => {
     const t = formatExpr(e, (id) => '@[' + id + ']')
     expect(t).not.toContain('(')
     expect(parseExpr(p, t)).toEqual(e)
+  })
+})
+
+describe('unicode and ASCII connectives', () => {
+  it('parse alike', () => {
+    const p = crossingExampleProject()
+    const a = parseExpr(p, 'text("a") and text("b") or text("c")')
+    expect(parseExpr(p, 'text("a") ∧ text("b") ∨ text("c")')).toEqual(a)
+    expect(parseExpr(p, '/\\ text("a")\n/\\ text("b")')).toEqual(parseExpr(p, '∧ text("a")\n∧ text("b")'))
+    expect(formatExpr(a)).toContain('∨')
   })
 })

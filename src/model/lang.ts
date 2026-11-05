@@ -557,7 +557,7 @@ function tokens(src: string, names: NameEntry[]): Tok[] {
     if ((m = /^\d+(\.\d+)?/.exec(rest))) { out.push({ ...pos(), t: 'num', v: m[0] }); i += m[0].length; continue }
     if ((m = /^"([^"]*)"/.exec(rest))) { out.push({ ...pos(), t: 'str', v: m[1] }); i += m[0].length; continue }
     if ((m = WORD.exec(rest))) { out.push({ ...pos(), t: 'word', v: m[0] }); i += m[0].length; continue }
-    if ((m = /^(\/\\|\\\/|<=|>=|!=|≠|≤|≥|[=<>+\-−×*(),{}:?@|$])/.exec(rest))) { out.push({ ...pos(), t: 'op', v: ({ '<=': '≤', '>=': '≥', '!=': '≠', '-': '−', '*': '×' } as Record<string, string>)[m[1]] ?? m[1] }); i += m[0].length; continue }
+    if ((m = /^(\/\\|\\\/|∧|∨|<=|>=|!=|≠|≤|≥|[=<>+\-−×*(),{}:?@|$])/.exec(rest))) { out.push({ ...pos(), t: 'op', v: ({ '<=': '≤', '>=': '≥', '!=': '≠', '-': '−', '*': '×', '/\\': '∧', '\\/': '∨' } as Record<string, string>)[m[1]] ?? m[1] }); i += m[0].length; continue }
     throw new Error(`unexpected "${rest[0]}"`)
   }
   return out
@@ -574,15 +574,15 @@ class Parser {
   eat = (v: string) => { if (!this.isOp(v)) throw new Error(`expected "${v}"${this.peek() ? `, found "${this.peek().v}"` : ''}`); this.i++ }
   or(): Expr {
     const of = [this.and()]
-    while (this.isWord('or')) { this.i++; of.push(this.and()) }
+    while (this.isWord('or') || this.isOp('∨')) { this.i++; of.push(this.and()) }
     return of.length === 1 ? of[0] : { k: 'or', of }
   }
   and(): Expr {
     const of = [this.not()]
-    while (this.isWord('and')) { this.i++; of.push(this.not()) }
+    while (this.isWord('and') || this.isOp('∧')) { this.i++; of.push(this.not()) }
     return of.length === 1 ? of[0] : { k: 'and', of }
   }
-  /** TLA+ style list: items start with the same /\\ (and) or \\/ (or) in one column; an item runs until a line that starts at or left of that column. */
+  /** TLA+ style list: items start with the same ∧ (/\\) or ∨ (\\/) in one column; an item runs until a line that starts at or left of that column. */
   list(): Expr {
     const c = this.ts[this.i].col, op = this.ts[this.i].v, outer = this.bound, of: Expr[] = []
     for (;;) {
@@ -592,10 +592,10 @@ class Parser {
       of.push(this.or())
       this.bound = outer
     }
-    return of.length === 1 ? of[0] : { k: op === '/\\' ? 'and' : 'or', of }
+    return of.length === 1 ? of[0] : { k: op === '∧' ? 'and' : 'or', of }
   }
   not(): Expr {
-    if (this.isOp('/\\') || this.isOp('\\/')) return this.list()
+    if (this.isOp('∧') || this.isOp('∨')) return this.list()
     if (this.isWord('not')) { this.i++; return { k: 'not', e: this.not() } }
     const t = this.peek()
     if (t?.t === 'word' && (t.v === 'some' || t.v === 'all' || t.v === 'no') && this.ts[this.i + 1]?.t === 'word' && this.ts[this.i + 2]?.v === 'in') return this.quant()
@@ -712,7 +712,7 @@ export function parseExpr(p: Project, src: string, names: NameEntry[] = namesOf(
 export function formatExpr(e: Expr, name: (id: Id) => string = mention): string {
   const fmt = (x: Expr): string[] => {
     if ((x.k === 'and' || x.k === 'or') && x.of.length >= 2) {
-      const b = x.k === 'and' ? '/\\' : '\\/'
+      const b = x.k === 'and' ? '∧' : '∨'
       return x.of.flatMap((m) => { const l = fmt(m); return [b + ' ' + l[0], ...l.slice(1).map((r) => '   ' + r)] })
     }
     if (x.k === 'quant') {
@@ -723,7 +723,7 @@ export function formatExpr(e: Expr, name: (id: Id) => string = mention): string 
       const l = fmt(x.e)
       return x.e.k === 'quant' ? ['not ' + l[0], ...l.slice(1).map((r) => '    ' + r)] : ['not', ...l.map((r) => '  ' + r)]
     }
-    return [printExpr(x, name)]
+    return [printExpr(x, name, 0, true, true)]
   }
   return fmt(e).join('\n')
 }
@@ -732,8 +732,8 @@ const PREC: Record<string, number> = { quant: 0, or: 1, and: 2, not: 3, cmp: 4, 
 const precOf = (e: Expr) => (e.k === 'app' ? PREC[e.fn] ?? 7 : PREC[e.k] ?? 7)
 const constText = (e: Extract<Expr, { k: 'const' }>) => (e.unit && e.v === '' ? `? ${e.unit}` : e.unit ? `${e.v} ${e.unit}` : /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(e.v) || /^-?\d+(\.\d+)?$/.test(e.v) ? e.v : `"${e.v}"`)
 /** Text of an expression; `name` writes the item an id refers to (as a reference `@[id]` by default, as a label in the UI). */
-export function printExpr(e: Expr, name: (id: Id) => string = mention, parent = 0, last = true): string {
-  const sub = (x: Expr, prec: number, l = true) => printExpr(x, name, prec, l)
+export function printExpr(e: Expr, name: (id: Id) => string = mention, parent = 0, last = true, uni = false): string {
+  const sub = (x: Expr, prec: number, l = true) => printExpr(x, name, prec, l, uni)
   let s: string
   switch (e.k) {
     case 'const': return constText(e)
@@ -754,8 +754,8 @@ export function printExpr(e: Expr, name: (id: Id) => string = mention, parent = 
     case 'between': s = `${sub(e.e, 5)} between ${sub(e.lo, 5)} and ${sub(e.hi, 5)}`; break
     case 'in': s = `${sub(e.e, 5)} in {${e.set.map((x) => sub(x, 5)).join(', ')}}`; break
     case 'not': s = `not ${sub(e.e, 4)}`; break
-    case 'and': s = e.of.length ? e.of.map((x, i) => sub(x, 3, i === e.of.length - 1)).join(' and ') : 'true'; break
-    case 'or': s = e.of.length ? e.of.map((x, i) => sub(x, 2, i === e.of.length - 1)).join(' or ') : 'false'; break
+    case 'and': s = e.of.length ? e.of.map((x, i) => sub(x, 3, i === e.of.length - 1)).join(uni ? ' ∧ ' : ' and ') : 'true'; break
+    case 'or': s = e.of.length ? e.of.map((x, i) => sub(x, 2, i === e.of.length - 1)).join(uni ? ' ∨ ' : ' or ') : 'false'; break
     case 'quant': s = `${e.q === 'some' ? 'some' : e.q === 'all' ? 'all' : 'no'} ${e.name} in ${name(e.entity)}: ${sub(e.body, 0)}`; break
   }
   const pr = precOf(e)
