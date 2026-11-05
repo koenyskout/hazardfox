@@ -7,7 +7,7 @@ import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project, rulesOf, otherwiseOf } from './types'
 import { guideApplies } from './uca'
-import { endName, shortName } from './labels'
+import { endName, shortName, readingValid } from './labels'
 import { condVars, conditionLine, exprError } from './expr'
 import { condInstances, conditionError, isExpr, endsOf, nameAt, isVarCmp, isEvent, isOnVariable, leaves, manyEndsOf, valuesOf } from './variables'
 
@@ -57,6 +57,7 @@ export const RULES = {
   'belief-no-about': { title: 'Belief not linked to a world variable', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
+  'relationship-reading': { title: 'Relationship reading misses an end', why: 'The reading is the sentence that conditions use for this relationship; it must mention every end, as {1}, {2}, ….', fix: 'Add the missing placeholders, or clear the reading to use the default.' },
   'relationship-ends': { title: 'Relationship ends are not distinct', why: 'Instances of a relationship are told apart by the name of the end they play (its role, by default the entity title). Two ends with the same name cannot be distinguished.', fix: 'Give the ends different roles.' },
   'refinement-cycle': { title: 'Variable refined into itself', why: 'A variable can be computed from more detailed ones. If one of those is in turn computed from the first, the value can never be determined.', fix: 'Remove the variable from the rules of the variables that are computed from it.' },
   'ca-affects-invalid': { title: 'Control action affects an unrelated variable', why: 'A control action changes world variables, or the internal state and beliefs of the controller it is sent to; other variables are not under its control.', fix: 'Remove the variable, or point the action at the node that owns it.' },
@@ -137,6 +138,7 @@ export function validate(p: Project): Issue[] {
     const names = r.ends.map((e) => endName(p, e))
     if (new Set(names).size < names.length) add('warning', r, 'relationship-ends', `${nm(r)}: two ends are both called “${names.find((n, i) => names.indexOf(n) !== i)}”`)
   }
+  for (const r of itemsOfKind(p, 'relationship')) if (r.reading.trim() && !readingValid(r)) add('warning', r, 'relationship-reading', `${nm(r)}: the reading does not place every end ({1} … {${r.ends.length}})`)
   for (const v of itemsOfKind(p, 'variable')) {
     const owner = v.parent ? p.items[v.parent] : null
     if (owner && !VARIABLE_OWNER[v.layer].includes(owner.kind)) add('error', v, 'variable-owner', `${nm(v)}: a ${LAYER_SHORT[v.layer].toLowerCase()} variable cannot belong to a ${owner.kind}`)

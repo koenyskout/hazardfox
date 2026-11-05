@@ -1,4 +1,4 @@
-import { endName, shortName } from './labels'
+import { endName, shortName, readRel } from './labels'
 import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ExprCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Lane, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
@@ -250,8 +250,7 @@ function quantText(p: Project, c: ValueCondition | VarCondition, another: (end: 
     const bare = c.op === '=' && c.state === 'true'
     const parts = o.ends.map((e) => endName(p, e))
     for (const w of whos) parts[w.end] = w.text
-    parts.splice(1, 0, o.title.trim() || '?')
-    const text = parts.join(' ')
+    const text = readRel(o, parts)
     return bare ? text : `${text} ${OP_LABELS[c.op]} ${c.state}`
   }
   return `${whos.filter((w, i) => !i || nameAt(c.names, w.end)).map((w) => w.text).join(' and ')} where ${plainText(p, c)}`

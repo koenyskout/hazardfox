@@ -36,7 +36,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   assumption: () => ({ about: [] }),
   entity: () => ({ nudge: null, relation: 'specialisation', many: false }),
   operation: () => ({ params: [], effects: [] }),
-  relationship: () => ({ ends: relEnds('', '', '1', '*'), nudge: null }),
+  relationship: () => ({ ends: relEnds('', '', '1', '*'), reading: '', nudge: null }),
   variable: () => ({ ...typeSpec(), layer: 'domain', definition: '', rules: [], otherwise: '' }),
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], params: [], operation: null, actuator: '', notApplicable: [], bend: null, labelShift: null }),

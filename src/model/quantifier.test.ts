@@ -215,6 +215,21 @@ describe('level crossing example', () => {
   })
 })
 
+describe('relationship reading', () => {
+  it('phrases conditions by the template, falls back when an end is missing', () => {
+    const s = setup()
+    s.p = updateItem(s.p, s.train, { many: true })
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const c: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1')] }
+    expect(conditionText(s.p, c)).toBe('some Train t1 at Station')
+    s.p = updateItem(s.p, s.rel, { reading: '{2} is where {1} stops' })
+    expect(conditionText(s.p, c)).toBe('Station is where some Train t1 stops')
+    s.p = updateItem(s.p, s.rel, { reading: '{1} stops' })
+    expect(conditionText(s.p, c)).toBe('some Train t1 at Station')
+    expect(validate(s.p).some((i) => i.rule === 'relationship-reading')).toBe(true)
+  })
+})
+
 describe('per-instance signals and beliefs', () => {
   function world() {
     const s = setup()

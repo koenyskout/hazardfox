@@ -145,6 +145,8 @@ export interface Relationship extends Base {
   kind: 'relationship'
   /** `title` is the relationship name; the ends in order (at least two; the editor offers two) */
   ends: RelEnd[]
+  /** How it reads, a sentence with the ends as {1}, {2}, … (empty: "{1} title {2} …"); see `readRel` */
+  reading: string
   /** Manual layout nudge of its box in the domain diagram */
   nudge: Offset | null
 }

@@ -2,7 +2,7 @@ import { ControllerEditorButton } from './VariableMap'
 import { Select } from './Select'
 import { WhenView } from './WhenView'
 import { conditionLine, lineCondition, namesOf, textable, textToWhen, whenToText } from '../model/expr'
-import { renderText, variableName } from '../model/labels'
+import { renderText, variableName, defaultReading, readingValid, readRel, endName } from '../model/labels'
 import { affectable, attributesOf, generalisations, isA, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
@@ -277,6 +277,13 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               </Fragment>
             ))}
           </div>
+          <Field single label="Reads as" hint="How conditions phrase this relationship; the ends are {1}, {2}, …. Use a verb phrase, e.g. ‘{1} is approaching {2}’. Empty: ‘{1} title {2}’.">
+            <input value={it.reading} placeholder={defaultReading(it)} onChange={(ev) => set({ reading: ev.target.value })} />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+              {it.ends.map((e, i) => <button key={i} type="button" className="chip" onClick={() => set({ reading: `${it.reading}${/\s$/.test(it.reading) || !it.reading ? '' : ' '}{${i + 1}}` })}>{`{${i + 1}}`} {endName(p, e)}</button>)}
+            </div>
+            <div style={{ color: readingValid(it) || !it.reading.trim() ? 'var(--muted)' : 'var(--warn, #b45309)', marginTop: 4 }}>{readingValid(it) || !it.reading.trim() ? 'Reads: ' : 'Missing an end, default used: '}{readRel(it, it.ends.map((e) => endName(p, e)))}</div>
+          </Field>
           <Field single label="Variables" hint="Properties of the link as a whole, e.g. the distance between the two entities. Whether the relationship holds at all is already available as a yes/no variable in contexts, beliefs and traces. If an end has several instances, conditions can say ‘some’, ‘every’ or ‘no’ link.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
             <ApplyStruct parent={it.id} />

@@ -94,7 +94,13 @@ export const variableName = (p: Project, v: Variable): string => {
 /** Name of a relationship end: its role, by default the entity's title. */
 export const endName = (p: Project, e: RelEnd): string => e.role.trim() || p.items[e.entity]?.title.trim() || '?'
 /** "Train on Track": first end, relationship title, remaining ends. */
-export const relName = (p: Project, r: Relationship): string => { const [a, ...rest] = r.ends.map((e) => endName(p, e)); return [a, r.title.trim() || '?', ...rest].join(' ') }
+/** The default reading of a relationship: first end, title, remaining ends. */
+export const defaultReading = (r: Relationship): string => ['{1}', r.title.trim() || '?', ...r.ends.slice(1).map((_, i) => `{${i + 2}}`)].join(' ')
+/** A custom reading is valid when it places every end (`{1}` … `{n}`) at least once; an empty one means the default. */
+export const readingValid = (r: Relationship): boolean => r.ends.every((_, i) => r.reading.includes(`{${i + 1}}`))
+/** The relationship as a sentence, its ends replaced by `texts` (in end order). */
+export const readRel = (r: Relationship, texts: string[]): string => (r.reading.trim() && readingValid(r) ? r.reading.trim() : defaultReading(r)).replace(/\{(\d+)\}/g, (_, n) => texts[+n - 1] ?? '?')
+export const relName = (p: Project, r: Relationship): string => readRel(r, r.ends.map((e) => endName(p, e)))
 
 /** Name of a variable without its owner (chips show the owner on hover only). */
 export const shortName = (p: Project, v: Variable): string => {
