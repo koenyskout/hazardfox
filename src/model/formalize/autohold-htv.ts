@@ -116,7 +116,7 @@ function autohold(p: Project): Project {
   const H1 = find('hazard', 'Vehicle does not maintain safe distance from nearby objects')
   const H2 = find('hazard', 'Vehicle enters dangerous area/region')
   set(H1, { variables: [distance, safeDistance], conditions: [cmp(distance, '<', safeDistance)] })
-  set(H2, { variables: [dangerous, locatedIn.pred], conditions: [cond(dangerous, '=', 'true', { as: 'ar1' }), cond(locatedIn.pred, '=', 'true', { same: 'ar1' })] })
+  set(H2, { variables: [dangerous, locatedIn.pred], conditions: [cond(dangerous, '=', 'true', { names: [{ declare: 'ar1' }] }), cond(locatedIn.pred, '=', 'true', { names: [{ use: 'ar1' }] })] })
 
   // --- UCAs (contexts) --------------------------------------------------------------------------------------
   uca('AH does not provide HOLD when vehicle stops and brake pedal released', [eq(motion, 'stopped'), eq(brakePedal, 'released'), ne(ahState, 'disabled')], 'the vehicle has just stopped')

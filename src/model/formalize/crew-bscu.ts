@@ -67,10 +67,10 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   const takeoff = ['lined up for takeoff', 'takeoff roll']
   const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
   const hazardConds: Record<string, Condition[]> = {
-    'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { as: 'o1' })],
+    'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { names: [{ declare: 'o1' }] })],
     'Deceleration is insufficient upon landing, rejected takeoff, or during taxiing': [inn(phase, ...decel), c(decelOk, 'false')],
-    'Asymmetric deceleration maneuvers aircraft toward other objects': [c(force, '0', '>', { as: 'w1' }), c(brakeSym, 'false')],
-    'Deceleration occurs after V1 point during takeoff': [c(v1, 'true'), inn(phase, 'takeoff roll', 'rejected takeoff'), c(force, '0', '>', { as: 'w1' })],
+    'Asymmetric deceleration maneuvers aircraft toward other objects': [c(force, '0', '>', { names: [{ declare: 'w1' }] }), c(brakeSym, 'false')],
+    'Deceleration occurs after V1 point during takeoff': [c(v1, 'true'), inn(phase, 'takeoff roll', 'rejected takeoff'), c(force, '0', '>', { names: [{ declare: 'w1' }] })],
     'Excessive acceleration provided while taxiing': [c(phase, 'taxi'), words(`${mention(accel)} exceeds the limit for taxiing (TBD)`)],
     'Asymmetric acceleration maneuvers aircraft toward other objects': [c(accSym, 'false'), inn(phase, 'taxi', 'takeoff roll')],
     'Acceleration is insufficient during takeoff': [c(phase, 'takeoff roll'), c(accelOk, 'false')],
@@ -83,7 +83,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     ['excessive pedal pressure', [c(phase, 'landing roll')], 'the pedal pressure is excessive'],
     ['during normal takeoff', [c(phase, 'takeoff roll')], ''],
     ['before touchdown', [c(phase, 'approach')], ''],
-    ['manual braking too late', [inn(phase, ...decel), c(collideV, 'true', '=', { as: 'o1' })], 'it is already later than TBD to avoid the collision'],
+    ['manual braking too late', [inn(phase, ...decel), c(collideV, 'true', '=', { names: [{ declare: 'o1' }] })], 'it is already later than TBD to avoid the collision'],
     ['before safe taxi speed', [c(taxiSpeed, 'false'), inn(phase, 'landing roll', 'rejected takeoff')], ''],
     ['manual braking too long', [c(speed, '0'), inn(location, 'runway', 'active taxiway')], ''],
     ['arm Autobrake before landing', [c(phase, 'approach'), c(setting, 'disarmed')], ''],
@@ -106,7 +106,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   const bs: [string, Condition[], string][] = [
     ['during RTO to V1', [c(phase, 'rejected takeoff'), c(v1, 'false')], ''],
     ['during landing roll when BSCU is armed', [c(phase, 'landing roll'), c(setting, 'disarmed', '≠')], ''],
-    ['after takeoff', [c(phase, 'climb-out'), c(gear, 'retracted', '≠'), c(rotating, 'true', '=', { as: 'w1' })], ''],
+    ['after takeoff', [c(phase, 'climb-out'), c(gear, 'retracted', '≠'), c(rotating, 'true', '=', { names: [{ declare: 'w1' }] })], ''],
     ['excessive Braking commands', [c(phase, 'landing roll')], 'the braking level is excessive (TBD)'],
     ['inappropriately during takeoff', [c(phase, 'takeoff roll')], ''],
     ['insufficient level', [c(phase, 'landing roll')], 'the braking level is insufficient (TBD)'],
@@ -116,7 +116,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     ['seconds after V1 during rejected takeoff', [c(phase, 'rejected takeoff'), c(v1, 'true')], 'more than TBD seconds have passed since V1'],
     ['before TBD taxi speed attained', [c(phase, 'landing roll'), c(taxiSpeed, 'false')], ''],
     ['too long (more than TBD seconds)', [c(phase, 'landing roll'), c(speed, '0'), c(location, 'runway')], 'the braking has lasted more than TBD seconds'],
-    ['tire lock until', [c(phase, 'approach'), c(force, '0', '>', { as: 'w1' })], 'the braking continues until less than TBD seconds before touchdown'],
+    ['tire lock until', [c(phase, 'approach'), c(force, '0', '>', { names: [{ declare: 'w1' }] })], 'the braking continues until less than TBD seconds before touchdown'],
   ]
 
   // ---- apply --------------------------------------------------------------------------------------------------------

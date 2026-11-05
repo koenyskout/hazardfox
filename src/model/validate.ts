@@ -170,7 +170,7 @@ export function validate(p: Project): Issue[] {
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
   for (const u of ucas) for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
     const v = p.items[c.variable]
-    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !c.same && !nameAt(c, 1)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
+    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !nameAt(c.names, 0)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
   }
 

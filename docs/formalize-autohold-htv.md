@@ -30,7 +30,7 @@ Beliefs of AH: one per world variable used in a UCA context. Signals: Wheel spee
 
 ### Hazards
 * H-1 `Distance of some Nearby object ne1 is less than Safe distance` (variable comparison `other`, `some` with an instance name).
-* H-2 `Dangerous of some Region ar1 is true and Vehicle is located in ar1` (`as` / `same`).
+* H-2 `Dangerous of some Region ar1 is true and Vehicle is located in ar1` (`declare` / `use`).
 
 ### UCAs (generated sentences; "AH" = Auto-Hold (AH) Module; TBD marks implicit additions)
 | UCA | Conditions | Free-text remainder |

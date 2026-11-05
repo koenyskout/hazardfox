@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { allNames, isEvent, isOnVariable, isText, isValueCmp, isVarCmp, nameAt, renameSame, sidesOf, toValue, toVarCmp, withEnd, withInstanceName } from './variables'
+import { allNames, isEvent, isOnVariable, isText, isValueCmp, isVarCmp, nameAt, renameSame, sidesOf, toValue, toVarCmp, withBinding, withInstanceName } from './variables'
 import type { Condition, ValueCondition } from './types'
 import { endName, relName } from './labels'
 import { projectBuilder } from './build'
 import { deleteItems } from './ops'
 
-const val: ValueCondition = { kind: 'value', variable: 'v', op: '<', state: '5', quant: 'all', as: 't1', same2: 'c1', time: { op: '≥', amount: '2', unit: 's' } }
+const val: ValueCondition = { kind: 'value', variable: 'v', op: '<', state: '5', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }], time: { op: '≥', amount: '2', unit: 's' } }
 
 describe('condition forms', () => {
   it('tells the forms apart', () => {
@@ -17,27 +17,28 @@ describe('condition forms', () => {
   it('converts between value and variable comparison keeping instances and timing', () => {
     const v = toVarCmp(val, '')
     expect(isVarCmp(v)).toBe(true)
-    expect(v).toMatchObject({ kind: 'var', variable: 'v', other: '', op: '<', quant: 'all', as: 't1', same2: 'c1', time: val.time })
+    expect(v).toMatchObject({ kind: 'var', variable: 'v', other: '', op: '<', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }], time: val.time })
     expect('state' in v).toBe(false)
     const back = toValue(v, { state: '' })
-    expect(back).toMatchObject({ kind: 'value', variable: 'v', state: '', quant: 'all', as: 't1' })
+    expect(back).toMatchObject({ kind: 'value', variable: 'v', state: '', quant: 'all', names: [{ declare: 't1' }, { use: 'c1' }] })
     expect('other' in back).toBe(false)
   })
   it('names and renames instances', () => {
-    expect(withInstanceName(val, 1, 'x')).toMatchObject({ as: 'x' })
-    expect(withInstanceName(val, 2, 'y')).toMatchObject({ as2: 'y' })
-    expect(withInstanceName({ kind: 'event', event: 'e' }, 1, 'x')).toEqual({ kind: 'event', event: 'e' })
-    const cmp = toVarCmp({ ...val, same: 'a' }, 'w', { otherAt: { same: 'a' } })
-    expect(renameSame(cmp, 'a', 'b')).toMatchObject({ same: 'b', otherAt: { same: 'b' } })
-    expect(withEnd(val, 1, { same: 't0' })).toMatchObject({ as: undefined, same: 't0' })
+    expect(withInstanceName(val, 0, 'x')).toMatchObject({ names: [{ declare: 'x' }, { use: 'c1' }] })
+    expect(withInstanceName(val, 1, 'y')).toMatchObject({ names: [{ declare: 't1' }, { declare: 'y' }] })
+    expect(withInstanceName({ kind: 'event', event: 'e' }, 0, 'x')).toEqual({ kind: 'event', event: 'e' })
+    const cmp = toVarCmp({ ...val, names: [{ use: 'a' }] }, 'w', { otherNames: [{ use: 'a' }]  })
+    expect(renameSame(cmp, 'a', 'b')).toMatchObject({ names: [{ use: 'b' }], otherNames: [{ use: 'b' }]  })
+    expect(withBinding(val.names, 0, { use: 't0' })).toEqual([{ use: 't0' }, { use: 'c1' }])
+    expect(withBinding([{ declare: 'a' }], 0, null)).toBeUndefined()
   })
   it('reads the names of both variables of a comparison the same way', () => {
-    const cmp = toVarCmp({ ...val, as: 't1' }, 'w', { otherAt: { as2: 'c9', same: 't2' } })
+    const cmp = toVarCmp({ ...val, names: [{ declare: 't1' }, { use: 'c1' }] }, 'w', { otherNames: [{ use: 't2' }, { declare: 'c9' }]  })
     expect(sidesOf(cmp)).toHaveLength(2)
     expect(sidesOf(val)).toHaveLength(1)
-    expect([nameAt(cmp, 1), nameAt(cmp, 2), nameAt(cmp.otherAt!, 1), nameAt(cmp.otherAt!, 2)]).toEqual(['t1', 'c1', 't2', 'c9'])
+    expect([nameAt(cmp.names, 0), nameAt(cmp.names, 1), nameAt(cmp.otherNames, 0), nameAt(cmp.otherNames, 1)]).toEqual(['t1', 'c1', 't2', 'c9'])
     expect(allNames(cmp).sort()).toEqual(['c1', 'c9', 't1', 't2'])
-    expect(withInstanceName(cmp, 1, 'x', true)).toMatchObject({ as: 't1', otherAt: { as: 'x', same: 't2' } })
+    expect(withInstanceName(cmp, 0, 'x', true)).toMatchObject({ names: [{ declare: 't1' }, { use: 'c1' }], otherNames: [{ declare: 'x' }, { declare: 'c9' }] })
   })
 })
 

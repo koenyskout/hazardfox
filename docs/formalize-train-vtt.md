@@ -7,7 +7,7 @@
 **Already formal:** entities Train and Door; typed world variables (motion, position, emergency with a refinement from fire / smoke / toxic gas, door position, door state); signals and beliefs of the door controller for all five variables; `affects` on both control actions; complete `conditions` on all 10 UCAs; scenario traces.
 
 **Added**
-- `Door` is a `many` entity (a train has several doors). The existing UCA conditions on door variables now name one instance (`do1`: first condition `as`, later ones `same`), because the controller acts on one door.
+- `Door` is a `many` entity (a train has several doors). The existing UCA conditions on door variables now name one instance (`do1`: first condition declares it, later ones use it), because the controller acts on one door.
 - Refined world variable `Door-opening situation` (Train): `unsafe for opening` if motion is moving OR position is not aligned, else `safe for opening`. This is how the disjunction in H-2 is expressed.
 - Conditions on the three leaf hazards (and `variables` links):
   - H-1 Doors close on a person in the doorway: some door do1 has a person in the doorway AND the same door is not fully open.

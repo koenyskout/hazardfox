@@ -249,15 +249,12 @@ export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
 /** Shared by every form of condition: how long it must have held (needs numeric step times in traces). With an event condition, the time since that event instead. */
 interface CondBase { time?: TimeBound }
-/** The names a condition gives to / takes from the instances of one variable of a many-instance entity (the second pair: the other end of a relationship whose both ends have several instances). */
-export interface InstanceNames {
-  /** Introduces a name for the (some) instance, for later conditions to refer to (`same`) */
-  as?: string
-  /** Refers to an instance named by `as` in another condition of the same context: the same instance, not just some */
-  same?: string
-  as2?: string
-  same2?: string
-}
+/** What a condition does with the name of one instance: `declare` introduces a name for (some) instance, `use` refers to an instance declared by another condition of the same context (the same instance, not just some). */
+export type Binding = { declare: string } | { use: string }
+/** Bindings of the many ends of a variable, in order (an entity variable has one; a relationship variable one per many end); `null` leaves an end unnamed. */
+export type EndNames = (Binding | null)[]
+/** The names a condition gives to / takes from the instances of its variable. */
+export interface InstanceNames { names?: EndNames }
 /** The instances a variable is about: how many (absent = `some`) and their names. */
 export interface Instances extends InstanceNames { quant?: Quantifier }
 /** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
@@ -269,7 +266,7 @@ export interface VarCondition extends CondBase, Instances {
   op: ConditionOp
   other: Id
   /** Names for the instances of the compared variable, e.g. speed of t1 > speed of t2 */
-  otherAt?: InstanceNames
+  otherNames?: EndNames
 }
 /** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. With `expr` the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts`. */
 export interface TextCondition extends CondBase {
