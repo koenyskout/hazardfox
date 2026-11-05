@@ -66,7 +66,6 @@ const TEXT_KEY = 'text:'
 /** The text of a lane key of a condition in words, else null. */
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
-/** Operators for comparing two variables. */
 
 
 /** Whether an entity has several instances; a specialisation of a many-instance entity does too. */
