@@ -93,7 +93,6 @@ main { overflow: auto; min-width: 0; }
 .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 0 8px; flex-wrap: wrap; } .toolbar .hint { margin-left: auto; }
 
 .tree { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-.page.full > .tree { overflow: auto; min-height: 200px; }
 .rows { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; flex: 1 0 auto; min-height: 260px; margin-bottom: 18px; }
 .row { display: flex; align-items: center; gap: 8px; padding: 2px 10px; border-bottom: 1px solid var(--line); min-height: 34px; position: relative; }
 .row:last-child { border-bottom: none; }
@@ -370,8 +369,8 @@ table.plain td { padding: 4px 10px 4px 0; }
 .varmap .via { margin-top: 3px; font-size: 12px; } .cell-add { display: flex; gap: 4px; margin-top: 3px; }
 .varmap .add { font-size: 11px; padding: 0 6px; color: var(--muted); white-space: nowrap; }
 .varmap .picker-btn.add { width: auto; border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; overflow: visible; }
-.trace-panel { border-top: 2px solid var(--line); flex: 0 0 auto; max-height: 62%; overflow: auto; padding-bottom: 16px; }
-.trace-title { align-self: center; margin-right: 8px; }
+.trace-panel { padding-bottom: 8px; }
+.modal.huge { width: min(1280px, 96vw); max-height: 90vh; } .modal-back:has(.modal.huge) { padding-top: 4vh; }
 .trace-checks { display: flex; flex-direction: column; gap: 2px; font-size: 13px; margin: 4px 0 8px; }
 .trace-checks .ok { color: var(--sev-ok); } .trace-checks .bad { color: var(--danger); } .trace-checks .unk { color: var(--muted); }
 .trace-wrap { overflow: auto; }

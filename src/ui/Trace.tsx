@@ -394,12 +394,10 @@ const Cross = ({ at, scale }: { at: Pt; scale: number }) => (
 
 /** Trace editor and animation for the selected scenario. */
 export function ScenarioTrace({ s }: { s: Scenario }) {
-  const labels = useLabels()
   const [tab, setTab] = useState<'play' | 'edit'>(s.trace.steps.length ? 'play' : 'edit')
   return (
     <div className="trace-panel">
       <div className="tabs">
-        <b className="trace-title">{labels[s.id]} trace</b>
         <button className={tab === 'play' ? 'on' : ''} onClick={() => setTab('play')} disabled={!s.trace.steps.length}>Animation</button>
         <button className={tab === 'edit' ? 'on' : ''} onClick={() => setTab('edit')}>Steps <i>{s.trace.steps.length}</i></button>
       </div>

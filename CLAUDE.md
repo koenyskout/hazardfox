@@ -25,7 +25,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
   `stateAt`, `contextHolds`, `witness`, `mismatches`, `diagnose`, `draftTrace`).
 - `ui/` – React views (`views1.tsx` step 1–4, `views2.tsx` requirements/trace/validation/overview), generic
   `TreeTable<K>` / `FlatTable<K>`, `Details.tsx` side panel, `Structure*.tsx` diagram, `Review.tsx` AI review, `Icon.tsx`,
-  `VariableMap.tsx` (world variables × controllers), `Trace.tsx` (trace editor `TraceEditor`, animation `ScenarioPlayer`).
+  `VariableMap.tsx` (world variables × controllers), `Trace.tsx` (trace editor `TraceEditor`, animation `ScenarioPlayer`; `ScenarioTrace` opens from the scenario table's Trace column in a large `Modal huge`).
 - `export/` – `tables.ts` (shared row builders), `xlsx.ts` (exceljs), `docx.ts` (docx; diagram embedded as PNG via
   `structureImage.ts`).
 - `mcp/` – stdio MCP server for agents (`server.ts` file I/O + wiring, `tools.ts` pure tool handlers `(Project, args) -> {project?, result}`, `schema.ts` field validation + label↔id mapping derived from `makeItem` defaults and `refs.ts`, `guide.ts` method text). Run: `npm run mcp -- file.hazardfox.json`. New item field/kind: check `TARGETS`/`ENUMS` in `schema.ts`.

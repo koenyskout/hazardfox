@@ -13,7 +13,6 @@ import { scenarioTarget } from '../model/refs'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText, guideApplies } from '../model/uca'
 import { GUIDE_WORD_LABELS, GUIDE_WORDS, KINDS, KIND_PLURALS, type GuideWord } from '../model/types'
-import { useStore } from '../model/store'
 import { Field, ItemHover, Ref, TextInput } from './Fields'
 import { FlatTable } from './FlatTable'
 import { addItem, commit, select, useLabels, useProject } from './hooks'
@@ -21,6 +20,7 @@ import { DomainDiagram } from './DomainDiagram'
 import { TreeTable } from './TreeTable'
 import { RangeCell, TypesPage } from './RangeTypes'
 import { ScenarioTrace } from './Trace'
+import { Modal } from './Modal'
 
 const chips = (ids: string[]) => <span className="reflist">{ids.map((i) => <Ref key={i} id={i} />)}</span>
 
@@ -200,8 +200,8 @@ export function Scenarios() {
     ...sortedUcas.filter((u) => u.kind === 'uca' && !p.items[u.ca]).map((u) => ({ id: u.id, depth: 0 }))]
   const order = new Map(outline.map((x, i) => [x.id, i]))
   const grouped = [...scenarios].sort((a, b) => (order.get(scenarioTarget(a) ?? '') ?? 1e9) - (order.get(scenarioTarget(b) ?? '') ?? 1e9))
-  const sel = useStore((s) => s.selected)
-  const cur = sel ? p.items[sel] : null
+  const [traceOf, setTraceOf] = useState<string | null>(null)
+  const traced = traceOf ? p.items[traceOf] : null
   return (
     <div className="page full">
       <FlatTable kind="scenario" items={grouped}
@@ -215,9 +215,13 @@ export function Scenarios() {
         columns={[
           { head: 'STRIDE', cell: (s) => <span className="muted">{s.stride.map((x) => x[0]).join('') || (s.adversarial ? '?' : '')}</span>, width: '70px' },
           { head: 'Risk', cell: (s) => (s.severity && s.likelihood ? <b>{s.severity * s.likelihood}</b> : <span className="muted">—</span>), width: '50px' },
-          { head: 'Trace', cell: (s) => (s.trace.steps.length ? <span className="muted">{s.trace.steps.length} steps</span> : null), width: '70px' },
+          { head: 'Trace', cell: (s) => <button type="button" className="link-btn" title="Edit and play the trace" onClick={() => setTraceOf(s.id)}>{s.trace.steps.length ? `${s.trace.steps.length} steps` : 'Add…'}</button>, width: '80px' },
         ]} />
-      {cur?.kind === 'scenario' ? <ScenarioTrace key={cur.id} s={cur} /> : <p className="hint">Select a scenario to see or edit its trace and play it on the control structure.</p>}
+      {traced?.kind === 'scenario' && (
+        <Modal title={`${labels[traced.id]} trace`} onClose={() => setTraceOf(null)} wide huge>
+          <ScenarioTrace key={traced.id} s={traced} />
+        </Modal>
+      )}
     </div>
   )
 }
