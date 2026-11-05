@@ -1,4 +1,4 @@
-import { isGroup, isText, laneParts, laneText, leaves, mapLeaves } from './variables'
+import { isEvent, isGroup, isText, isVarCmp, laneParts, laneText, leaves, mapLeaves } from './variables'
 import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
@@ -64,7 +64,7 @@ export const replaceMentions = (text: string, f: (id: Id, whole: string) => stri
 export const scenarioTarget = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : s.ca)
 
 /** Ids a condition refers to: its variable, compared variable, event, and @-mentions in a condition in words / expression. */
-const condRefs = (c: Condition): Id[] => [c.variable, c.other, c.event, ...(isText(c) ? mentions(c.text ?? '') : [])].filter((x): x is Id => !!x)
+const condRefs = (c: Condition): Id[] => (isEvent(c) ? [c.event] : isText(c) ? mentions(c.text) : isVarCmp(c) ? [c.variable, c.other] : [c.variable]).filter(Boolean)
 
 /** All ids an item refers to (excluding its tree parent). */
 export function refsOf(it: Item): Id[] {
@@ -96,8 +96,16 @@ export function linkedTo(p: Project, id: Id): Item[] {
 }
 
 /** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
-const reref = (c: Condition, from: Id, to: Id | null): Condition[] =>
-  c.event ? (c.event !== from ? [c] : to ? [{ ...c, event: to }] : []) : isText(c) ? (c.expr && !to && c.text?.includes(mention(from)) ? [] : [to && c.text?.includes(mention(from)) ? { ...c, text: c.text.split(mention(from)).join(mention(to)) } : c]) : c.variable !== from && c.other !== from ? [c] : to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(c.other === from ? { other: to } : {}) }] : []
+const reref = (c: Condition, from: Id, to: Id | null): Condition[] => {
+  if (isEvent(c)) return c.event !== from ? [c] : to ? [{ ...c, event: to }] : []
+  if (isText(c)) {
+    if (!c.text.includes(mention(from))) return [c]
+    return to ? [{ ...c, text: c.text.split(mention(from)).join(mention(to)) }] : c.expr ? [] : [c]
+  }
+  const other = isVarCmp(c) && c.other === from
+  if (c.variable !== from && !other) return [c]
+  return to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(other ? { other: to } : {}) }] : []
+}
 
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {

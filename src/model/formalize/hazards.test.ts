@@ -3,7 +3,7 @@ import { handbookExampleProject } from '../handbookExamples'
 import { deserialize, serialize } from '../serialize'
 import { itemsOfKind } from '../tree'
 import { validate } from '../validate'
-import { leaves as leafConds, conditionComplete, conditionTexts, conditionError } from '../variables'
+import { isOnVariable, leaves as leafConds, conditionComplete, conditionTexts, conditionError } from '../variables'
 import { computeLabels } from '../labels'
 import { FORMALIZED_HAZARD_EXAMPLES, formalizeHazardExample } from './hazards'
 
@@ -18,6 +18,7 @@ describe('formalized hazard examples', () => {
       for (const h of leaves) {
         expect(h.conditions.length, h.title).toBeGreaterThan(0)
         for (const c of h.conditions.flatMap(leafConds)) {
+          if (!isOnVariable(c)) continue
           expect(conditionComplete(c), h.title).toBe(true)
           const v = p.items[c.variable]
           if (v?.kind === 'variable') expect(conditionError(v, c, p), h.title).toBeNull()

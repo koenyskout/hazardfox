@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { QUANT_LABELS, UNIT_S, type Condition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Instances, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -56,9 +56,42 @@ export function stepOf(v: Variable): number {
 }
 
 /** A condition in words (no variable). */
-export const isText = (c: Condition) => c.text !== undefined
+export const isText = (c: Condition): c is TextCondition => 'text' in c && c.text !== undefined
 /** A condition on the time since an event (control action or feedback) occurred. */
-export const isEvent = (c: Condition) => c.event !== undefined
+export const isEvent = (c: Condition): c is EventCondition => 'event' in c && c.event !== undefined
+/** A condition comparing the variable with another variable instead of a constant. */
+export const isVarCmp = (c: Condition): c is VarCondition => 'other' in c && c.other !== undefined
+/** A condition on a variable: compared with a constant or with another variable. */
+export const isOnVariable = (c: Condition): c is ValueCondition | VarCondition => 'variable' in c
+/** A condition comparing a variable with constants. */
+export const isValueCmp = (c: Condition): c is ValueCondition => 'variable' in c && !isVarCmp(c)
+/** The same condition on another variable, compared with a constant; instance names and timing stay. */
+export const toValue = (c: ValueCondition | VarCondition, to: Partial<ValueCondition> = {}): ValueCondition => {
+  const { variable, quant, as, same, as2, same2, time, op } = c
+  return { variable, op: op, state: '', quant, as, same, as2, same2, time, ...to }
+}
+/** The same condition compared with the variable `other`; instance names and timing stay (the compared variable's own instance names start empty). */
+export const toVarCmp = (c: ValueCondition | VarCondition, other: Id, to: Partial<VarCondition> = {}): VarCondition => {
+  const { variable, quant, as, same, as2, same2, time, op } = c
+  return { variable, op, other, quant, as, same, as2, same2, time, ...to }
+}
+/** The instance name an end of the condition introduces (`as`) or refers to (`same`). */
+export const asAt = (c: Instances, end: 1 | 2) => (end === 1 ? c.as : c.as2)
+export const sameAt = (c: Instances, end: 1 | 2) => (end === 1 ? c.same : c.same2)
+/** The condition with what one end introduces / refers to replaced. */
+export const withEnd = <C extends Instances>(c: C, end: 1 | 2, to: { as?: string; same?: string }): C => (end === 1 ? { ...c, as: to.as, same: to.same } : { ...c, as2: to.as, same2: to.same })
+/** The condition with the name introduced at one end set (`cmp`: at the compared variable's end) or cleared. */
+export const withInstanceName = (c: Condition, end: 1 | 2, name: string | undefined, cmp = false): Condition => {
+  if (!isOnVariable(c)) return c
+  if (cmp) return isVarCmp(c) ? (end === 1 ? { ...c, oAs: name } : { ...c, oAs2: name }) : c
+  return end === 1 ? { ...c, as: name } : { ...c, as2: name }
+}
+/** The condition with references to the instance name `old` changed to `to`. */
+export const renameSame = (c: Condition, old: string, to: string | undefined): Condition => {
+  if (!isOnVariable(c)) return c
+  const r = (s: string | undefined) => (s === old ? to : s)
+  return isVarCmp(c) ? { ...c, same: r(c.same), same2: r(c.same2), oSame: r(c.oSame), oSame2: r(c.oSame2) } : { ...c, same: r(c.same), same2: r(c.same2) }
+}
 const timeOk = (t: TimeBound | undefined) => !!t && t.amount.trim() !== '' && Number.isFinite(Number(t.amount)) && Number(t.amount) >= 0
 /** Seconds of a time bound. */
 export const boundSeconds = (t: TimeBound) => Number(t.amount) * UNIT_S[t.unit]
@@ -70,18 +103,16 @@ export function parseTime(s: string): number | null {
 export const timeText = (t: TimeBound) => `${t.op === '≥' ? 'at least' : 'less than'} ${t.amount} ${t.unit}`
 const TEXT_KEY = 'text:'
 /** Trace lane / state key of a condition: its variable, or for a condition in words its text. */
-export const condKey = (c: Condition): string => (isText(c) ? TEXT_KEY + (c.text ?? '').trim() : c.variable)
+export const condKey = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? TEXT_KEY + c.text.trim() : c.variable)
 /** The text of a lane key of a condition in words, else null. */
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
-/** A condition comparing the variable with another variable instead of a constant. */
-export const isVarCmp = (c: Condition) => !!c.other
 /** Operators for comparing two variables. */
 export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : v?.type === 'symbolic' ? symbolicOps(v) : ['=', '≠'])
 
 /** Whether the condition is complete enough to appear in a sentence. */
 export const conditionComplete = (c: Condition): boolean => (isEvent(c) ? !!c.event && timeOk(c.time) : (!c.time || timeOk(c.time)) && baseComplete(c))
-const baseComplete = (c: Condition) => isText(c) ? !!c.text?.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
+const baseComplete = (c: Exclude<Condition, EventCondition>) => isText(c) ? !!c.text.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 /** Whether an entity has several instances; a specialisation of a many-instance entity does too. */
 export function manyEntity(p: Project, id: Id): boolean {
@@ -102,7 +133,7 @@ export function isMany(p: Project, v: Variable): boolean {
 
 /** The quantifier a condition effectively carries: null when it is about a single instance (also for text / variable comparisons), else its own or `some`. */
 export function quantOf(p: Project, c: Condition): Quantifier | null {
-  if (isText(c)) return null
+  if (!isOnVariable(c)) return null
   const v = p.items[c.variable]
   return v?.kind === 'variable' && isMany(p, v) ? (c.as || c.same ? 'some' : c.quant ?? 'some') : null
 }
@@ -115,9 +146,9 @@ export function boundEntity(p: Project, v: Variable): Id | null {
   return many(o.from, o.fromCard) ? o.from : many(o.to, o.toCard) ? o.to : null
 }
 /** The instance name a condition introduces or refers to. */
-export const instName = (c: Condition) => (c.as ?? c.same ?? '').trim()
+export const instName = (c: ValueCondition | VarCondition) => (c.as ?? c.same ?? '').trim()
 /** The name for the second end of a relationship (see `otherEnd`). */
-export const instName2 = (c: Condition) => (c.as2 ?? c.same2 ?? '').trim()
+export const instName2 = (c: ValueCondition | VarCondition) => (c.as2 ?? c.same2 ?? '').trim()
 /** The other end of a many-to-many relationship variable (the one `boundEntity` leaves out), else null. */
 export function otherEnd(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
@@ -127,14 +158,14 @@ export function otherEnd(p: Project, v: Variable): Id | null {
 }
 /** The instances a condition introduces or refers to: [entity, name, introduces]. */
 export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] {
-  const v = isText(c) ? undefined : p.items[c.variable]
-  if (v?.kind !== 'variable') return []
+  const v = isOnVariable(c) ? p.items[c.variable] : undefined
+  if (!isOnVariable(c) || v?.kind !== 'variable') return []
   const e1 = boundEntity(p, v), e2 = otherEnd(p, v)
   const out: { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] = []
   if (e1 && instName(c)) out.push({ entity: e1, name: instName(c), intro: c.as !== undefined, end: 1 })
   if (e2 && instName2(c)) out.push({ entity: e2, name: instName2(c), intro: c.as2 !== undefined, end: 2 })
-  const ov = c.other ? p.items[c.other] : undefined
-  if (ov?.kind === 'variable') {
+  const ov = isVarCmp(c) ? p.items[c.other] : undefined
+  if (isVarCmp(c) && ov?.kind === 'variable') {
     const o1 = boundEntity(p, ov), o2 = otherEnd(p, ov)
     if (o1 && oName(c, 1)) out.push({ entity: o1, name: oName(c, 1), intro: c.oAs !== undefined, end: 1, cmp: true })
     if (o2 && oName(c, 2)) out.push({ entity: o2, name: oName(c, 2), intro: c.oAs2 !== undefined, end: 2, cmp: true })
@@ -142,11 +173,11 @@ export function condInstances(p: Project, c: Condition): { entity: Id; name: str
   return out
 }
 /** Trace lane key of a condition about named instances ("<variable>@t1" or "<variable>@t1|c1"), else the variable. */
-export const instLane = (c: Condition): string => (isText(c) ? condKey(c) : instName(c) || instName2(c) ? `${c.variable}@${instName(c)}${instName2(c) ? '|' + instName2(c) : ''}` : c.variable)
+export const instLane = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? condKey(c) : instName(c) || instName2(c) ? `${c.variable}@${instName(c)}${instName2(c) ? '|' + instName2(c) : ''}` : c.variable)
 /** Trace lane key of the compared variable of a comparison (`other`), at the instances `oSame` / `oSame2` it names. */
 /** The instance name a comparison uses at an end of its compared variable (introduced or referred to). */
-export const oName = (c: Condition, end: 1 | 2) => ((end === 1 ? c.oAs ?? c.oSame : c.oAs2 ?? c.oSame2) ?? '').trim()
-export const otherLane = (c: Condition): string => { const a = oName(c, 1), b = oName(c, 2); return c.other && (a || b) ? `${c.other}@${a ?? ''}${b ? '|' + b : ''}` : c.other ?? '' }
+export const oName = (c: VarCondition, end: 1 | 2) => ((end === 1 ? c.oAs ?? c.oSame : c.oAs2 ?? c.oSame2) ?? '').trim()
+export const otherLane = (c: VarCondition): string => { const a = oName(c, 1), b = oName(c, 2); return a || b ? `${c.other}@${a}${b ? '|' + b : ''}` : c.other }
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
 
@@ -156,13 +187,13 @@ export function conditionText(p: Project, c: Condition, earlier: Condition[] = [
   const s = baseText(p, c, earlier)
   return c.time && s ? `${s} for ${timeText(c.time)}` : s
 }
-function baseText(p: Project, c: Condition, earlier: Condition[]): string {
+function baseText(p: Project, c: Exclude<Condition, EventCondition>, earlier: Condition[]): string {
   const q = quantOf(p, c)
   const intro = condInstances(p, c).filter((x) => x.intro && !x.cmp)
   const prior = earlier.flatMap((o) => condInstances(p, o))
   // another: it introduces a name for an entity whose instance an earlier condition already named differently
   const another = (end: 1 | 2) => { const x = intro.find((i) => i.end === end); return !!x && prior.some((o) => o.entity === x.entity && o.name !== x.name) }
-  if (q) return quantText(p, c, q, another(1), another(2))
+  if (q && isOnVariable(c)) return quantText(p, c, q, another(1), another(2))
   return plainText(p, c)
 }
 /** The sentences of a list of conditions, each knowing the ones before it. */
@@ -171,7 +202,7 @@ export const conditionTexts = (p: Project, cs: Condition[]) => cs.map((c, i) => 
 export const whenTexts = (p: Project, ws: When[]): string[] => ws.map((w, i) => whenText(p, w, false, ws.slice(0, i).flatMap(leaves))).filter(Boolean)
 
 /** "speed of every Train is 0", "speed of some Train t1 is 0", "speed of t1 is 0", "some Train t1 at Station", "no Train at Station", "some Train t1 approaches Crossing c1". */
-function quantText(p: Project, c: Condition, q: Quantifier, another = false, another2 = false): string {
+function quantText(p: Project, c: ValueCondition | VarCondition, q: Quantifier, another = false, another2 = false): string {
   const v = p.items[c.variable] as Variable
   const o = p.items[v.parent!]
   const name = shortName(p, v)
@@ -183,7 +214,7 @@ function quantText(p: Project, c: Condition, q: Quantifier, another = false, ano
   const e2 = otherEnd(p, v)
   const who2 = !e2 || !n2 ? '' : c.same2 ? n2 : `${another2 ? 'another ' : ''}${title(e2) || 'instance'} ${n2}`
   if (o.kind === 'entity') return `${name} of ${who} ${plainText(p, c).slice(name.length).trim()}`
-  if (!v.title.trim() && o.kind === 'relationship') {
+  if (!v.title.trim() && o.kind === 'relationship' && !isVarCmp(c)) {
     const bare = c.op === '=' && c.state === 'true'
     const parts = [title(o.from) || '?', o.title.trim() || '?', title(o.to) || '?']
     const first = boundEntity(p, v) === o.from ? 0 : 2
@@ -195,21 +226,22 @@ function quantText(p: Project, c: Condition, q: Quantifier, another = false, ano
   return `${who}${who2 ? ' and ' + who2 : ''} where ${plainText(p, c)}`
 }
 
-function plainText(p: Project, c: Condition): string {
-  if (isText(c)) return c.op === '≠' && !c.expr ? `not (${c.text!.trim()})` : c.text!.trim()
+function plainText(p: Project, c: Exclude<Condition, EventCondition>): string {
+  if (isEvent(c)) return ''
+  if (isText(c)) return c.op === '≠' && !c.expr ? `not (${c.text.trim()})` : c.text.trim()
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = shortName(p, v)
-  if (c.other) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[oName(c, 1), oName(c, 2)].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
+  if (isVarCmp(c)) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[oName(c, 1), oName(c, 2)].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }
 
 /** Problem with the condition's value for the variable's type, or null. */
-export function conditionError(v: Variable, c: Condition, p?: Project): string | null {
+export function conditionError(v: Variable, c: ValueCondition | VarCondition, p?: Project): string | null {
   if (c.time && !timeOk(c.time)) return 'the duration is not a number'
-  if (c.other) {
+  if (isVarCmp(c)) {
     const o = p?.items[c.other]
     if (p && o?.kind !== 'variable') return 'compared variable not found'
     if (!opsForVar(v).includes(c.op)) return `operator ${c.op} does not apply to ${v.type} variables`
@@ -254,7 +286,7 @@ export function whenText(p: Project, w: When, top = true, before: Condition[] = 
 /** A short unused instance name for an entity: t1, t2, … */
 export function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
   const base = ((p.items[entity ?? '']?.title.trim().replace(/[^\p{L}]/gu, '').slice(0, 2)) || 'x').toLowerCase()
-  const used = new Set([...scope.flatMap((o) => [o.as, o.same, o.as2, o.same2, o.oAs, o.oAs2, o.oSame, o.oSame2]), ...taken])
+  const used = new Set([...scope.filter(isOnVariable).flatMap((o) => [o.as, o.same, o.as2, o.same2, ...(isVarCmp(o) ? [o.oAs, o.oAs2, o.oSame, o.oSame2] : [])]), ...taken])
   let n = 1
   while (used.has(base + n)) n++
   return base + n
@@ -265,13 +297,14 @@ export function nameInstances(p: Project, ws: When[]): When[] {
   const out = ws.map(copy)
   const all = out.flatMap(leaves)
   for (const c of all) {
-    const v = isText(c) ? undefined : p.items[c.variable]
+    if (!isOnVariable(c)) continue
+    const v = p.items[c.variable]
     if (v?.kind !== 'variable') continue
     const e1 = quantOf(p, c) === 'some' && !c.same ? boundEntity(p, v) : null
     if (e1 && !c.as) c.as = autoName(p, e1, all)
     const e2 = !c.same2 ? otherEnd(p, v) : null
     if (e2 && !c.as2) c.as2 = autoName(p, e2, all)
-    for (const x of condInstances(p, c)) if (x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, all)
+    for (const x of condInstances(p, c)) if (isVarCmp(c) && x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, all)
   }
   return out
 }

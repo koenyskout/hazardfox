@@ -5,7 +5,7 @@ import { deserialize, serialize } from '../serialize'
 import { itemsOfKind } from '../tree'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
-import { leaves, conditionComplete, conditionError, isText, whenText } from '../variables'
+import { leaves, conditionComplete, conditionError, isOnVariable, whenText } from '../variables'
 import { formalizeCrewBscu } from './crew-bscu'
 
 describe.each(['hb-crew', 'hb-bscu'] as const)('formalize %s', (id) => {
@@ -24,7 +24,7 @@ describe.each(['hb-crew', 'hb-bscu'] as const)('formalize %s', (id) => {
       expect(it.conditions.length, it.title || it.description).toBeGreaterThan(0)
       for (const cnd of it.conditions.flatMap(leaves)) {
         expect(conditionComplete(cnd)).toBe(true)
-        if (!isText(cnd)) expect(conditionError(p.items[cnd.variable] as never, cnd, p)).toBeNull()
+        if (isOnVariable(cnd)) expect(conditionError(p.items[cnd.variable] as never, cnd, p)).toBeNull()
       }
     }
   })

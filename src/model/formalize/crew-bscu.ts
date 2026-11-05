@@ -3,7 +3,8 @@ import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { mention } from '../refs'
 import { anyOf } from '../variables'
-import type { Condition, Id, Patch, Project } from '../types'
+import { condVars } from '../expr'
+import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition } from '../types'
 
 /**
  * Formalization of the Handbook examples `hb-crew` (Table C.3) and `hb-bscu` (Table C.4): domain model, hazard conditions,
@@ -63,7 +64,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   // ---- conditions ---------------------------------------------------------------------------------------------------
   const decel = ['landing roll', 'rejected takeoff', 'taxi']
   const takeoff = ['lined up for takeoff', 'takeoff roll']
-  const words = (text: string): Condition => ({ variable: '', op: '=', state: '', text })
+  const words = (text: string): Condition => ({ op: '=', text })
   const hazardConds: Record<string, Condition[]> = {
     'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { as: 'o1' })],
     'Deceleration is insufficient upon landing, rejected takeoff, or during taxiing': [inn(phase, ...decel), c(decelOk, 'false')],
@@ -121,7 +122,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   for (const h of itemsOfKind(q, 'hazard')) {
     const conds = hazardConds[h.title]
     if (!conds) continue
-    set(h.id, { conditions: conds, variables: [...new Set(conds.map((x) => x.variable).filter(Boolean))] })
+    set(h.id, { conditions: conds, variables: [...new Set(conds.flatMap(condVars))] })
   }
   const ctrl = itemsOfKind(q, 'node').find((n) => n.role === 'controller')!.id
   const table = id === 'hb-crew' ? crew : bs
@@ -132,10 +133,10 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     if (!row) continue
     const [, conds, context] = row
     set(u.id, { conditions: conds, context, override: '', description: `Handbook wording: ${u.override}` })
-    for (const x of conds) for (const v of [x.variable, x.other ?? '']) if (v) q = addBelief(q, ctrl, v).project
+    for (const x of conds) for (const v of condVars(x)) q = addBelief(q, ctrl, v).project
   }
   return q
 }
 
-function c(variable: Id, state: string, op: Condition['op'] = '=', extra: Partial<Condition> = {}): Condition { return { variable, op, state, ...extra } }
+function c(variable: Id, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { variable, op, state, ...extra } }
 const inn = (variable: Id, ...set: string[]): Condition => ({ variable, op: 'in', state: '', set })

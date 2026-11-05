@@ -1,8 +1,9 @@
 import { createItem, updateItem } from '../ops'
 import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
-import { anyOf, leaves, nameAllInstances } from '../variables'
-import type { Condition, Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
+import { anyOf, isOnVariable, leaves, nameAllInstances } from '../variables'
+import { condVars } from '../expr'
+import type { Condition, ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, VarCondition, Variable } from '../types'
 
 /**
  * Adds the formal layers (domain model, typed world variables, `many` entities, conditions on leaf hazards and UCAs,
@@ -30,12 +31,12 @@ const kit = (c: Ctx) => {
   /** Replace a hazard's / UCA's conditions when it has none yet (never overwrites what is there); hazards also list their world variables. */
   const hazardConditions = (h: Hazard, conditions: Condition[]) => {
     const have = c.p.items[h.id] as Hazard
-    set(h.id, { conditions: have.conditions.length ? have.conditions : conditions, variables: [...new Set([...have.variables, ...conditions.map((x) => x.variable), ...conditions.flatMap((x) => (x.other ? [x.other] : []))])] })
+    set(h.id, { conditions: have.conditions.length ? have.conditions : conditions, variables: [...new Set([...have.variables, ...conditions.flatMap(condVars)])] })
   }
   /** Add the conditions the UCA does not yet have (matched by variable and instance), before the existing ones. */
   const ucaConditions = (u: Uca, conditions: Condition[], context = '') => {
     const have = (c.p.items[u.id] as Uca)
-    const missing = conditions.filter((x) => !have.conditions.flatMap(leaves).some((y) => y.variable === x.variable))
+    const missing = conditions.filter((x) => isOnVariable(x) && !have.conditions.flatMap(leaves).some((y) => isOnVariable(y) && y.variable === x.variable))
     set(u.id, { conditions: [...missing, ...have.conditions], ...(context && !have.context.trim() ? { context } : {}) })
   }
   const belief = (ctrl: Id, w: Id) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
@@ -44,7 +45,7 @@ const kit = (c: Ctx) => {
 }
 const eq = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
 /** `variable` compared with another variable (`other`). */
-const cmp = (variable: Id, op: Condition['op'], other: Id, extra: Partial<Condition> = {}): Condition => ({ variable, op, state: '', other, ...extra })
+const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ variable, op, other, ...extra })
 
 function aeb(c: Ctx) {
   const k = kit(c)

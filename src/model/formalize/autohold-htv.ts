@@ -2,6 +2,7 @@ import { addBelief, addSignal } from '../formal'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
 import { leaves, nameAllInstances } from '../variables'
+import { condVars } from '../expr'
 import type { Condition, ConditionOp, Id, Kind, Patch, Project } from '../types'
 
 /**
@@ -43,7 +44,7 @@ function kit(p: Project) {
     for (const u of itemsOfKind(q, 'uca')) {
       const ca = q.items[u.ca]
       if (ca?.kind !== 'ca') continue
-      for (const c of u.conditions.flatMap(leaves)) for (const v of [c.variable, c.other ?? '']) {
+      for (const c of u.conditions.flatMap(leaves)) for (const v of condVars(c)) {
         const w = q.items[v]
         if (w?.kind === 'variable' && w.layer === 'domain') q = addBelief(q, ca.from, v).project
       }

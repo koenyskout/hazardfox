@@ -5,7 +5,7 @@ import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
 import { paramVar } from './params'
-import type { Condition, ItemOf, Project, Variable } from './types'
+import type { ConditionOp, ItemOf, ValueCondition, VarCondition, Project, Variable } from './types'
 
 const setup = () => {
   let p: Project = emptyProject()
@@ -17,7 +17,8 @@ const setup = () => {
   const v = (i: string) => p.items[i] as Variable
   return { p: () => p, v, t1, t2, id, set: (f: (q: Project) => Project) => { p = f(p) } }
 }
-const c = (variable: string, op: Condition['op'], state: string, other?: string): Condition => ({ variable, op, state, ...(other !== undefined ? { other } : {}) })
+const c = (variable: string, op: ConditionOp, state: string): ValueCondition => ({ variable, op, state })
+const cv = (variable: string, op: ConditionOp, other: string): VarCondition => ({ variable, op, other })
 
 describe('symbolic types', () => {
   it('a named type gives its properties to the variables', () => {
@@ -63,8 +64,8 @@ describe('symbolic types', () => {
 
   it('variables compare only within the same symbolic type', () => {
     const s = setup()
-    expect(conditionError(s.v(s.t1), c(s.t1, '<', '', s.t2), s.p())).toBeNull()
-    expect(conditionError(s.v(s.t1), c(s.t1, '=', '', s.id), s.p())).toMatch(/different symbolic types/)
+    expect(conditionError(s.v(s.t1), cv(s.t1, '<', s.t2), s.p())).toBeNull()
+    expect(conditionError(s.v(s.t1), cv(s.t1, '=', s.id), s.p())).toMatch(/different symbolic types/)
     expect(opsForVar(s.v(s.id))).toEqual(['=', '≠'])
     expect(describeStates(s.v(s.t1))).toBe('Timestamp (ordered)')
   })

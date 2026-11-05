@@ -2,8 +2,8 @@ import { variableName } from './labels'
 import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
 import { NEGATE } from './traces'
-import { compareSymbols, conditionError, isSetOp, symbolAfter, symbolBefore } from './variables'
-import type { Condition, Group, Id, Project, Variable, When } from './types'
+import { compareSymbols, conditionError, isEvent, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
+import type { Condition, Group, Id, Project, TextCondition, ValueCondition, Variable, VarCondition, When } from './types'
 
 /** Arithmetic comparisons ("Gap − 2 × Speed < 5", "Door state = prev(Door state)"): a condition with `text` (variables as `@[id]`) and `expr: true`.
  *  Terms: numbers, symbols, variables, `prev(x)` (value at the previous trace step), `succ(x)` / `pred(x)` (sequential symbols), `+ − ×`, `min` `max` `abs`. */
@@ -18,7 +18,8 @@ export type CmpOp = (typeof CMP_OPS)[number]
 export interface Cmp { l: Expr; op: CmpOp; r: Expr }
 const FNS: Record<string, number> = { prev: 1, succ: 1, pred: 1, abs: 1, min: 2, max: 2 }
 
-export const isExpr = (c: Condition) => !!c.expr && c.text !== undefined
+/** An expression condition: a text condition whose text is a comparison. */
+export const isExpr = (c: Condition): c is TextCondition => isText(c) && !!c.expr
 
 type Tok = { t: 'n' | 'c' | 'v' | 'w' | 'op'; v: string }
 type Names = [string, Id][]
@@ -133,12 +134,12 @@ export const printCmp = (c: Cmp, name?: (id: Id) => string) => `${printExpr(c.l,
 
 const cache = new Map<string, Cmp | null>()
 /** The comparison stored in an expression condition (null when it does not read). */
-export function cmpOf(c: Condition): Cmp | null {
-  const s = c.text ?? ''
+export function cmpOf(c: TextCondition): Cmp | null {
+  const s = c.text
   if (!cache.has(s)) { try { const r = parseComparison(s); cache.set(s, 'cmp' in r ? r.cmp : null) } catch { cache.set(s, null) } }
   return cache.get(s)!
 }
-export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): Condition => ({ variable: '', op: '=', state: '', text: printCmp(cmp, name), expr: true })
+export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): TextCondition => ({ op: '=', text: printCmp(cmp, name), expr: true })
 
 // ---- types
 
@@ -196,7 +197,7 @@ export function cmpError(p: Project, c: Cmp): string | null {
   } catch (e) { return (e as Error).message }
 }
 /** Error of an expression condition (null when fine). */
-export function exprError(p: Project, c: Condition): string | null {
+export function exprError(p: Project, c: TextCondition): string | null {
   const m = cmpOf(c)
   return m ? cmpError(p, m) : 'does not read as a comparison'
 }
@@ -242,27 +243,27 @@ export function cmpHolds(p: Project, c: Cmp, get: (id: Id) => string | undefined
   return c.op === '<' ? k < 0 : c.op === '≤' ? k <= 0 : c.op === '>' ? k > 0 : k >= 0
 }
 /** Whether an expression condition holds: undefined when it does not read. */
-export function exprHolds(p: Project, c: Condition, get: (id: Id) => string | undefined, prev?: (id: Id) => string | undefined): boolean | null | undefined {
+export function exprHolds(p: Project, c: TextCondition, get: (id: Id) => string | undefined, prev?: (id: Id) => string | undefined): boolean | null | undefined {
   const m = cmpOf(c)
   return m ? cmpHolds(p, m, get, prev) : undefined
 }
-export const exprVars = (c: Condition): Id[] => [...new Set(mentions(c.text ?? ''))]
+export const exprVars = (c: TextCondition): Id[] => [...new Set(mentions(c.text))]
 /** Variables a condition reads (both sides of a comparison, or those in an expression). */
-export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : c.text !== undefined || c.event ? [] : [c.variable, c.other ?? ''].filter(Boolean))
+export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : !isOnVariable(c) ? [] : isVarCmp(c) ? [c.variable, c.other].filter(Boolean) : [c.variable].filter(Boolean))
 
 // ---- plain-text form of a condition tree
 
-const SIMPLE = (c: Condition) => !c.quant && !c.as && !c.same && !c.as2 && !c.same2 && !c.oAs && !c.oAs2 && !c.oSame && !c.oSame2 && !c.time && !c.event
+const SIMPLE = (c: ValueCondition | VarCondition) => !c.quant && !c.as && !c.same && !c.as2 && !c.same2 && !c.time && (!isVarCmp(c) || !(c.oAs || c.oAs2 || c.oSame || c.oSame2))
 /** One line for a condition, or null when it needs the rows editor (quantifiers, instance names, timing, events, words). */
 export function conditionLine(p: Project, c: Condition): string | null {
-  if (!SIMPLE(c)) return null
+  if (isEvent(c) || (isOnVariable(c) && !SIMPLE(c)) || (isText(c) && c.time)) return null
   const name = (id: Id) => { const v = p.items[id]; return v?.kind === 'variable' ? variableName(p, v).trim() : '?' }
   if (isExpr(c)) { const m = cmpOf(c); return m ? printCmp(m, name) : null }
-  if (c.text !== undefined) return null
+  if (isText(c) || isEvent(c)) return null
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return null
   const n = name(c.variable), q = (s: string) => constText(s)
-  if (c.other) return `${n} ${c.op} ${name(c.other)}`
+  if (isVarCmp(c)) return `${n} ${c.op} ${name(c.other)}`
   if (c.op === 'between' || c.op === 'not between') return `${n} ${c.op} ${q(c.state)} and ${q(c.to ?? '')}`
   if (isSetOp(c.op)) return `${n} ${c.op === 'in' ? '∈' : '∉'} {${(c.set ?? []).map(q).join(', ')}}`
   return `${n} ${c.op} ${q(c.state)}`
@@ -290,7 +291,7 @@ export function whenToText(p: Project, ws: When[]): string {
 export function lineCondition(p: Project, src: string, names: Names = namesOf(p)): Condition {
   const r = parseComparison(src, names)
   const nameOf = (id: Id) => mention(id)
-  const bad = (c: Condition) => { const v = p.items[c.variable]; return v?.kind === 'variable' ? conditionError(v, c, p) : 'unknown variable' }
+  const bad = (c: ValueCondition | VarCondition) => { const v = p.items[c.variable]; return v?.kind === 'variable' ? conditionError(v, c, p) : 'unknown variable' }
   let c: Condition
   if ('between' in r) c = { variable: r.between.v, op: r.between.not ? 'not between' : 'between', state: r.between.a, to: r.between.b }
   else if ('set' in r) c = { variable: r.set.v, op: r.set.not ? 'not in' : 'in', state: '', set: r.set.of }
@@ -298,10 +299,10 @@ export function lineCondition(p: Project, src: string, names: Names = namesOf(p)
     const { l, op, r: rr } = r.cmp
     const k = (e: Expr): string | null => (e.k === 'n' || e.k === 'c' ? e.v : e.k === 'b' && e.o === '−' && e.l.k === 'n' && e.l.v === '0' && e.r.k === 'n' ? '-' + e.r.v : null)
     if (l.k === 'v' && k(rr) !== null) c = { variable: l.id, op, state: k(rr)! }
-    else if (l.k === 'v' && rr.k === 'v') c = { variable: l.id, op, state: '', other: rr.id }
+    else if (l.k === 'v' && rr.k === 'v') c = { variable: l.id, op, other: rr.id }
     else c = exprCondition(r.cmp, nameOf)
   }
-  const e = isExpr(c) ? exprError(p, c) : bad(c)
+  const e = isExpr(c) ? exprError(p, c) : bad(c as ValueCondition | VarCondition)
   if (e) throw new Error(e)
   return c
 }
@@ -311,8 +312,8 @@ export function negate(w: When): When {
   if ('of' in w) return w.not ? { any: false, of: w.of } : { any: !w.any, of: w.of.map(negate) }
   const m = isExpr(w) ? cmpOf(w) : null
   if (m) return exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })
-  if (w.time || w.event || w.quant || w.same || w.as || w.as2) return { any: false, not: true, of: [w] }
-  return { ...w, op: NEGATE[w.op] }
+  if (isEvent(w) || w.time || (isOnVariable(w) && (w.quant || w.same || w.as || w.as2))) return { any: false, not: true, of: [w] }
+  return isText(w) ? { ...w, op: w.op === '=' ? '≠' : '=' } : { ...w, op: NEGATE[w.op] }
 }
 
 /** Reads the text form of a tree (markers `&` `|` `-` `and` `or` `∧` `∨` are optional and ignored; nesting is by indentation). */

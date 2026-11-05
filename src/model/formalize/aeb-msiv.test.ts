@@ -5,7 +5,7 @@ import { validate } from '../validate'
 import { computeLabels } from '../labels'
 import { generateUcaText } from '../uca'
 import { itemsOfKind, isLeaf } from '../tree'
-import { leaves, conditionComplete, conditionError, conditionTexts, nameAllInstances } from '../variables'
+import { isOnVariable, leaves, conditionComplete, conditionError, conditionTexts, nameAllInstances } from '../variables'
 import { deserialize, serialize } from '../serialize'
 import { beliefsAbout } from '../formal'
 import type { Condition, Project } from '../types'
@@ -25,7 +25,7 @@ describe.each(IDS)('formalized %s', (id) => {
   })
 
   it('gives every leaf hazard and every UCA complete, valid conditions', () => {
-    const complete = (cs: Condition[]) => cs.length > 0 && cs.every((c) => conditionComplete(c) && !conditionError(p.items[c.variable] as never, c, p))
+    const complete = (cs: Condition[]) => cs.length > 0 && cs.every((c) => conditionComplete(c) && (!isOnVariable(c) || !conditionError(p.items[c.variable] as never, c, p)))
     for (const h of itemsOfKind(p, 'hazard').filter((x) => isLeaf(p, x.id))) expect(complete(h.conditions.flatMap(leaves)), L[h.id]).toBe(true)
     for (const u of itemsOfKind(p, 'uca')) expect(complete(u.conditions.flatMap(leaves)), L[u.id]).toBe(true)
   })
@@ -33,7 +33,7 @@ describe.each(IDS)('formalized %s', (id) => {
   it('gives the issuing controller a belief about each world variable of a UCA context', () => {
     for (const u of itemsOfKind(p, 'uca')) {
       const from = (p.items[u.ca] as { from: string }).from
-      for (const c of u.conditions.flatMap(leaves)) expect(beliefsAbout(p, from, c.variable).length, `${L[u.id]} ${c.variable}`).toBeGreaterThan(0)
+      for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) expect(beliefsAbout(p, from, c.variable).length, `${L[u.id]} ${c.variable}`).toBeGreaterThan(0)
     }
   })
 

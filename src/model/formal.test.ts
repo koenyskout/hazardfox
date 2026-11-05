@@ -9,9 +9,9 @@ import { deserialize, serialize } from './serialize'
 import { diagnose, draftTrace, holds, pickValue, ruleConflicts, ruleValue, traceState, valueAt, witness } from './traces'
 import { expand, refineUca } from './refinement'
 import { itemsOfKind } from './tree'
-import { allOf, anyOf, whenText } from './variables'
+import { allOf, anyOf, isOnVariable, whenText } from './variables'
 import { validate } from './validate'
-import type { Condition, Id, Project, Scenario, Trace, Variable } from './types'
+import type { Comparison, Condition, Id, Project, Scenario, Trace, Variable } from './types'
 
 function base() {
   let p: Project = emptyProject()
@@ -64,7 +64,7 @@ describe('formal variable layers', () => {
 describe('traces', () => {
   const range: Variable = { ...(base().p.items[base().level] as Variable), type: 'range', min: 0, max: 100, unit: '', states: [] }
   it('picks values that satisfy (or violate) a condition', () => {
-    const cs: Condition[] = [{ variable: '', op: '>', state: '50' }, { variable: '', op: 'between', state: '20', to: '40' }, { variable: '', op: 'not between', state: '0', to: '40' }]
+    const cs: Comparison[] = [{ op: '>', state: '50' }, { op: 'between', state: '20', to: '40' }, { op: 'not between', state: '0', to: '40' }]
     for (const c of cs) {
       expect(holds(range, c, pickValue(range, c))).toBe(true)
       expect(holds(range, c, pickValue(range, c, true))).toBe(false)
@@ -172,7 +172,7 @@ describe('refinement', () => {
     let r = refineUca(p0, uca, 0)
     expect(r.ids).toHaveLength(1)
     expect(r.project.items[r.ids[0]]).toMatchObject({ refines: uca, guide: 'provided' })
-    expect((r.project.items[r.ids[0]] as { conditions: Condition[] }).conditions.map((c) => c.variable)).toContain(speed)
+    expect((r.project.items[r.ids[0]] as { conditions: Condition[] }).conditions.filter(isOnVariable).map((c) => c.variable)).toContain(speed)
     r = refineUca(r.project, uca, 0)
     expect(itemsOfKind(r.project, 'uca')).toHaveLength(2)
     const q = deleteItems(r.project, [uca])

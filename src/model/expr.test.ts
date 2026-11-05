@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { cmpError, cmpOf, conditionLine, lineCondition, negate, textToWhen, whenToText, parseComparison, printCmp, exprCondition } from './expr'
+import { cmpError, cmpOf, conditionLine, lineCondition, negate, textToWhen, whenToText, parseComparison, printCmp, exprCondition, isExpr } from './expr'
 import { createItem, defineSymbolicType, updateItem } from './ops'
 import { clockAt, getter, traceState, whenHolds } from './traces'
 import { whenText } from './variables'
@@ -31,7 +31,7 @@ describe('expression conditions', () => {
   it('evaluates arithmetic, prev and succ', () => {
     const s = setup()
     const c = lineCondition(s.p, 'Gap − 2 × Speed < 5')
-    expect(c.expr).toBe(true)
+    expect(isExpr(c)).toBe(true)
     const t = trace([{ [s.gap]: '30', [s.speed]: '10' }, { [s.gap]: '30', [s.speed]: '14' }])
     const at = (i: number, w: When) => whenHolds(s.p, w, getter(traceState(s.p, t, i), clockAt(s.p, t, i)))
     expect(at(0, c)).toBe(false)

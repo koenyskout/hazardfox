@@ -9,7 +9,7 @@ import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './t
 import { guideApplies } from './uca'
 import { shortName } from './labels'
 import { condVars, conditionLine, exprError, isExpr } from './expr'
-import { condInstances, conditionError, instName, isText, leaves, quantOf, valuesOf } from './variables'
+import { condInstances, conditionError, instName, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -143,7 +143,7 @@ export function validate(p: Project): Issue[] {
     if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
     for (const r of v.rules) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && v.type !== 'symbolic' && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
-        : leaves(r.when).map((c) => { if (isExpr(c)) return exprError(p, c); if (isText(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
+        : leaves(r.when).map((c) => { if (isExpr(c)) return exprError(p, c); if (!isOnVariable(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
@@ -163,7 +163,7 @@ export function validate(p: Project): Issue[] {
     }
   }
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
-  for (const u of ucas) for (const c of u.conditions.flatMap(leaves)) {
+  for (const u of ucas) for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
     const v = p.items[c.variable]
     if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !c.same && !instName(c)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
@@ -173,8 +173,8 @@ export function validate(p: Project): Issue[] {
     const e = exprError(p, c)
     if (e) add('warning', it, 'expr-invalid', `${nm(it)}: the comparison "${conditionLine(p, c) ?? c.text}" ${e}`, condVars(c))
   }
-  for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter((c) => c.event)) {
-    const e = p.items[c.event!]
+  for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isEvent)) {
+    const e = p.items[c.event]
     if (e && e.kind !== 'ca' && e.kind !== 'feedback' && e.kind !== 'operation') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action, feedback or operation`)
   }
   for (const ca of itemsOfKind(p, 'ca')) {

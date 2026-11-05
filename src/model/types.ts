@@ -248,9 +248,10 @@ export type TimeUnit = (typeof TIME_UNITS)[number]
 export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
 /** A duration bound: "at least" (`≥`) or "less than" (`<`) `amount` of `unit`. */
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
-/** The instance-naming part of a condition on a many-instance entity / relationship. */
+/** Shared by every form of condition: how long it must have held (needs numeric step times in traces). With an event condition, the time since that event instead. */
+interface CondBase { time?: TimeBound }
+/** A variable of a many-instance entity / relationship: how many instances the condition is about (absent = `some`) and the names it gives to / takes from them. */
 export interface Instances {
-  /** Only meaningful for variables of a many-instance entity / relationship; absent = `some` */
   quant?: Quantifier
   /** Names the (some) instance this condition is about, for later conditions to refer to (`same`) */
   as?: string
@@ -259,27 +260,30 @@ export interface Instances {
   /** Same as `as` / `same`, for the other end of a relationship whose both ends have several instances */
   as2?: string
   same2?: string
-  /** With `other`: the named instances (as `same` / `same2`) of the compared variable, e.g. speed of t1 > speed of t2 */
+}
+/** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
+export interface ValueCondition extends CondBase, Comparison, Instances { variable: Id }
+/** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
+export interface VarCondition extends CondBase, Instances {
+  variable: Id
+  op: ConditionOp
+  other: Id
+  /** The named instances (as `same` / `same2`) of the compared variable, e.g. speed of t1 > speed of t2 */
   oSame?: string
   oSame2?: string
-  /** With `other`: introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
+  /** Introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
   oAs?: string
   oAs2?: string
 }
-/** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
- *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
-export interface Condition extends Comparison, Instances {
-  variable: Id
-  text?: string
-  /** With `text`: the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts` */
+/** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. With `expr` the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts`. */
+export interface TextCondition extends CondBase {
+  text: string
+  op: '=' | '≠'
   expr?: boolean
-  /** Compare with the value of this other variable instead of a constant (`state` / `to` / `set` unused); ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥` */
-  other?: Id
-  /** Timing: the condition has held continuously for at least / less than this long (needs numeric step times in traces). With `event`, the time since that event instead. */
-  time?: TimeBound
-  /** A timing condition on an event: time since this control action / feedback last occurred (`time` says how long). It has no variable. */
-  event?: Id
 }
+/** A timing condition on an event: the time since this control action / feedback last occurred (`time` says how long). It has no variable. */
+export interface EventCondition extends CondBase { event: Id }
+export type Condition = ValueCondition | VarCondition | TextCondition | EventCondition
 export interface Uca extends Base {
   kind: 'uca'
   ca: Id

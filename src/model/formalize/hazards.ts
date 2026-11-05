@@ -1,6 +1,6 @@
 import { predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
-import type { Condition, Id, Patch, Project } from '../types'
+import type { Condition, ConditionOp, Id, Patch, Project, VarCondition } from '../types'
 import { anyOf, nameAllInstances } from '../variables'
 
 /**
@@ -36,7 +36,7 @@ export const above = (variable: Id, n: number, extra: Partial<Condition> = {}): 
 export const below = (variable: Id, n: number, extra: Partial<Condition> = {}): Condition => ({ variable, op: '<', state: String(n), ...extra })
 export const outside = (variable: Id, lo: number, hi: number, extra: Partial<Condition> = {}): Condition => ({ variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
 /** `variable op other`, both read at the instances named in `extra` (`as`/`same`, `oSame`). */
-export const cmp = (variable: Id, op: Condition['op'], other: Id, extra: Partial<Condition> = {}): Condition => ({ variable, op, state: '', other, ...extra })
+export const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ variable, op, other, ...extra })
 
 const REGIONS = ['head', 'neck', 'thorax', 'abdomen', 'pelvis', 'limbs']
 

@@ -6,8 +6,8 @@ import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { refsOf } from './refs'
 import { deleteItems } from './ops'
-import { anyOf, leaves, whenTexts } from './variables'
-import type { Condition, Id, Scenario, Uca } from './types'
+import { anyOf, isOnVariable, leaves, whenTexts } from './variables'
+import type { ConditionOp, Id, Scenario, Uca, ValueCondition } from './types'
 
 function setup() {
   const b = projectBuilder()
@@ -17,7 +17,7 @@ function setup() {
   const n = b.add('node', { title: 'Nurse', role: 'controller' })
   const pr = b.add('node', { title: 'Patient', role: 'process' })
   const ca = b.add('ca', { from: n, to: pr, title: 'Stop' })
-  const cond = (variable: Id, op: Condition['op'], state: string): Condition => ({ variable, op, state })
+  const cond = (variable: Id, op: ConditionOp, state: string): ValueCondition => ({ variable, op, state })
   const u = b.add('uca', { ca, guide: 'not-provided', conditions: [cond(c, '>', '5'), anyOf(cond(a, '=', 'on'), cond(a, '=', 'off'))] })
   return { b, a, c, u, ca, cond }
 }
@@ -49,7 +49,7 @@ describe('any-of conditions', () => {
     const { b, a, u } = setup()
     const q = deleteItems(b.project, [a])
     const uca = q.items[u] as Uca
-    expect(uca.conditions.flatMap(leaves).every((c) => c.variable !== a)).toBe(true)
+    expect(uca.conditions.flatMap(leaves).filter(isOnVariable).every((c) => c.variable !== a)).toBe(true)
   })
   it('drafts a trace that satisfies the first branch', () => {
     const { b, a, u } = setup()

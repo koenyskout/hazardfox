@@ -8,7 +8,7 @@ import { clockAt, contextHolds, diagnose, getter, whenHolds, draftTrace, mismatc
 import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
-import { condInstances, instLane, isMany, isText, laneParts, leaves, laneText, stepOf, valuesOf } from '../model/variables'
+import { condInstances, instLane, isMany, isOnVariable, laneParts, leaves, laneText, stepOf, valuesOf } from '../model/variables'
 import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
@@ -65,7 +65,8 @@ export function TraceEditor({ s }: { s: Scenario }) {
   // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
   const ctrl = uca ? p.items[uca.ca] : null
   const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap(leaves).flatMap((c) => {
-    const v = isText(c) ? undefined : p.items[c.variable]
+    if (!isOnVariable(c)) return []
+    const v = p.items[c.variable]
     const k = instLane(c)
     if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []
     const suf = k.slice(v.id.length), tag = laneParts(k).names.filter(Boolean).join(', ')

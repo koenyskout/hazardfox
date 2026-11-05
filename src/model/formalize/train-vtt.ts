@@ -1,7 +1,8 @@
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
-import { anyOf, autoName, conditionComplete, isText, leaves, quantOf } from '../variables'
+import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, quantOf } from '../variables'
+import { condVars } from '../expr'
 import type { Condition, Id, Item, ItemOf, Project, Variable } from '../types'
 
 /**
@@ -26,7 +27,7 @@ function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: 
 }
 const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, patch as never) }
 const cond = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
-const words = (text: string): Condition => ({ variable: '', op: '=', state: 'true', text })
+const words = (text: string): Condition => ({ op: '=', text })
 const isEmpty = (cs: unknown[]) => cs.length === 0
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 
@@ -34,7 +35,7 @@ const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'v
 function oneInstance(b: Box, cs: Condition[], vars: Id[], name: string): Condition[] {
   let first = true
   return cs.map((c) => {
-    if (!vars.includes(c.variable) || c.as || c.same || quantOf(b.p, c) !== 'some') return c
+    if (!isOnVariable(c) || !vars.includes(c.variable) || c.as || c.same || quantOf(b.p, c) !== 'some') return c
     const out: Condition = { ...c, ...(first ? { as: name } : { same: name }) }
     first = false
     return out
@@ -82,7 +83,7 @@ function train(p0: Project): Project {
     [h2, [cond(sit, 'unsafe for opening'), cond(doorPos, 'fully closed', { op: '≠', quant: 'some', as: d1 })]],
     [h3, [cond(em, 'evacuation required'), cond(doorPos, 'fully open', { quant: 'none' })]],
   ]
-  for (const [h, cs] of hz) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.map((c) => c.variable))]) }) })
+  for (const [h, cs] of hz) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
   return b.p
 }
 
@@ -126,7 +127,7 @@ function vtt(p0: Project): Project {
     [hz(/vehicles or other objects/), [cond(motion, 'moving'), cond(inWay, 'true', { quant: 'some', as: 've1' })]],
     [hz(/leaves the area/), [cond(loc, 'outside operating area')]],
   ]
-  for (const [h, cs] of hzs) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.map((c) => c.variable))]) }) })
+  for (const [h, cs] of hzs) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
 
   const uca = (ca: string, guide: string, re = /./) => itemsOfKind(b.p, 'uca').find((u) => (b.p.items[u.ca] as { title: string }).title === ca && u.guide === guide && re.test(u.override))!
   const ucs: [ReturnType<typeof uca>, Condition[]][] = [

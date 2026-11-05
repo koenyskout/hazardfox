@@ -6,7 +6,7 @@ import { computeLabels } from '../labels'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
 import { deserialize, serialize } from '../serialize'
-import { leaves, conditionComplete, conditionError, conditionTexts, isText, whenText, allOf } from '../variables'
+import { leaves, conditionComplete, conditionError, conditionTexts, isOnVariable, whenText, allOf } from '../variables'
 import type { Project } from '../types'
 
 const IDS = ['hb-autohold', 'hb-htv'] as const
@@ -29,7 +29,7 @@ describe.each(IDS)('formalize %s', (id) => {
     for (const h of itemsOfKind(p, 'hazard')) {
       expect(h.conditions.length, h.title).toBeGreaterThan(0)
       console.log(`${L[h.id]} ${whenText(p, allOf(...h.conditions))}`)
-      for (const c of h.conditions.flatMap(leaves)) { expect(conditionComplete(c), h.title).toBe(true); const v = p.items[c.variable]; if (!isText(c) && v?.kind === 'variable') expect(conditionError(v, c, p), h.title).toBeNull() }
+      for (const c of h.conditions.flatMap(leaves)) { expect(conditionComplete(c), h.title).toBe(true); if (isOnVariable(c)) { const v = p.items[c.variable]; if (v?.kind === 'variable') expect(conditionError(v, c, p), h.title).toBeNull() } }
     }
   })
 
@@ -42,7 +42,7 @@ describe.each(IDS)('formalize %s', (id) => {
       expect(u.override).toBe('')
       if (TEXT_ONLY.some((x) => u.notes.includes(x))) { expect(u.context).not.toBe(''); continue }
       expect(u.conditions.length, t).toBeGreaterThan(0)
-      for (const c of u.conditions.flatMap(leaves)) { expect(conditionComplete(c), t).toBe(true); const v = p.items[c.variable]; if (!isText(c) && v?.kind === 'variable') expect(conditionError(v, c, p), t).toBeNull() }
+      for (const c of u.conditions.flatMap(leaves)) { expect(conditionComplete(c), t).toBe(true); if (isOnVariable(c)) { const v = p.items[c.variable]; if (v?.kind === 'variable') expect(conditionError(v, c, p), t).toBeNull() } }
       expect(conditionTexts(p, u.conditions.flatMap(leaves)).every(Boolean)).toBe(true)
     }
   })
