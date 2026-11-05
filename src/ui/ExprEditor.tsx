@@ -271,7 +271,7 @@ function Leaf({ env, x, path, remove }: { env: Env; x: Expr; path: number[]; rem
         {x.k === 'between' && <><Operand env={env} x={x.lo} path={[...path, 1]} ty={slotType(env.ctx, env.root, [...path, 1])} /><span className="cond-word">and</span><Operand env={env} x={x.hi} path={[...path, 2]} ty={slotType(env.ctx, env.root, [...path, 2])} /></>}
         {x.k === 'in' && <span className="cond-set">{x.set.map((m, i) => <Operand key={i} env={env} x={m} path={[...path, i + 1]} ty={slotType(env.ctx, env.root, [...path, i + 1])} />)}<button type="button" className="x" title="Add a value" onClick={() => edit(path, { ...x, set: [...x.set, HOLE] })}><Icon name="plus" size={12} /></button></span>}
       </>}
-      <button type="button" className="hold-btn" title="Require this to have held for a time (only checked in traces with step times such as 5 s)" onClick={() => edit(path, { k: 'cmp', op: '≥', l: { k: 'app', fn: 'heldFor', args: [x] }, r: num('', 's') })}>⏱ held for…</button>
+      {!(path.length > 1 && (parent => parent?.k === 'app' && parent.fn === 'heldFor')(at(env.root, path.slice(0, -1)))) && <button type="button" className="hold-btn" title="Require this to have held for a time (only checked in traces with step times such as 5 s)" onClick={() => edit(path, { k: 'cmp', op: '≥', l: { k: 'app', fn: 'heldFor', args: [x] }, r: num('', 's') })}>⏱ held for…</button>}
       {remove}
       <Problems env={env} path={path} />
     </div>
