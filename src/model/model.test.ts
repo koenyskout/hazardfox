@@ -209,12 +209,12 @@ describe('control action duration', () => {
 describe('variable types and conditions', () => {
   it('compares a variable with another variable', async () => {
     const { say } = await import('./say')
-    const { holds, cmp, variable, check } = await import('./lang')
+    const { holds, gt, variable, check } = await import('./lang')
     const { makeItem } = await import('./create')
     let q = emptyProject()
     const mk = (title: string) => { const r = createItem(q, 'variable', { ...makeItem('variable'), type: 'range' as const, title, unit: 'ml' }); q = r.project; return r.id }
     const flow = mk('Flow'), dose = mk('Prescribed dose')
-    const c = cmp('>', variable(flow), variable(dose))
+    const c = gt( variable(flow), variable(dose))
     expect(say(q, c)).toBe('Flow is greater than Prescribed dose')
     expect(check({ p: q }, c).filter((d) => d.level === 'error')).toEqual([])
     const env = (m: Record<string, string>) => ({ get: (id: string) => m[id] }) as never
@@ -227,7 +227,7 @@ describe('variable types and conditions', () => {
   })
   it('describes states, validates conditions per type', async () => {
     const { describeStates, opsFor } = await import('./variables')
-    const { checkError, cmp, between, variable, val, num, not, oneOf } = await import('./lang')
+    const { checkError, gt, ge, lt, between, variable, val, num, not, oneOf } = await import('./lang')
     const { say } = await import('./say')
     const { makeItem } = await import('./create')
     const range = { ...makeItem('variable'), type: 'range' as const, unit: '%', min: 0, max: 100 }
@@ -241,9 +241,9 @@ describe('variable types and conditions', () => {
     const m = createItem(p, 'variable', { ...en, title: 'Mode' }); p = m.project
     const bo = createItem(p, 'variable', { type: 'boolean', title: 'Armed' }); p = bo.project
     const err = (e: Parameters<typeof checkError>[1]) => checkError({ p }, e)
-    expect(err(cmp('>', variable(r.id), val('abc')))).toMatch(/not a number/)
-    expect(err(cmp('≥', variable(r.id), val('5')))).toBeNull()
-    expect(err(cmp('<', variable(bo.id), val('true')))).toBeTruthy()
+    expect(err(gt( variable(r.id), val('abc')))).toMatch(/not a number/)
+    expect(err(ge( variable(r.id), val('5')))).toBeNull()
+    expect(err(lt( variable(bo.id), val('true')))).toBeTruthy()
     expect(err(oneOf(variable(m.id), 'a', 'z'))).toMatch(/"z" is not one of/)
     expect(err(not(oneOf(variable(m.id), 'a', 'b')))).toBeNull()
     expect(say(p, between(variable(r.id), num(1), num(5)))).toBe('Rate is between 1 and 5 %')

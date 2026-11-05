@@ -4,7 +4,7 @@ import { blankField, createItem, defineEnumType, defineRangeType, defineStructTy
 import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
 import { opsFor, describeStates } from './variables'
-import { val, checkError, cmp, opsFor as opsForTy, tyOfSpec, variable } from './lang'
+import { val, checkError, eq, lt, opsFor as opsForTy, tyOfSpec, variable } from './lang'
 import { paramVar } from './params'
 import type { Comparison, ConditionOp, ItemOf, Project, Variable } from './types'
 import { typeSpec } from './create'
@@ -32,7 +32,7 @@ describe('symbolic types', () => {
     expect(s.v(s.id)).toMatchObject({ ordered: true })
     s.set((q) => defineSymbolicType(q, 'ID', { ordered: false }))
     expect(opsFor(s.v(s.id))).toEqual(['=', '≠'])
-    expect(checkError({ p: s.p() }, cmp('<', variable(s.id), val('a')))).toMatch(/has no order/)
+    expect(checkError({ p: s.p() }, lt( variable(s.id), val('a')))).toMatch(/has no order/)
   })
 
   it('rename and delete keep variables consistent', () => {
@@ -65,8 +65,8 @@ describe('symbolic types', () => {
 
   it('variables compare only within the same symbolic type', () => {
     const s = setup()
-    expect(checkError({ p: s.p() }, cmp('<', variable(s.t1), variable(s.t2)))).toBeNull()
-    expect(checkError({ p: s.p() }, cmp('=', variable(s.t1), variable(s.id)))).toMatch(/cannot compare/)
+    expect(checkError({ p: s.p() }, lt( variable(s.t1), variable(s.t2)))).toBeNull()
+    expect(checkError({ p: s.p() }, eq( variable(s.t1), variable(s.id)))).toMatch(/cannot compare/)
     expect(opsForTy(tyOfSpec(s.v(s.id))).filter((o) => o !== 'in')).toEqual(['=', '≠'])
     expect(describeStates(s.v(s.t1))).toBe('Timestamp (ordered)')
   })

@@ -2,7 +2,7 @@ import { createItem, updateItem } from '../ops'
 import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
 import { varsOf } from '../atoms'
-import { and, cmp, is, or, some, variable, type Expr } from '../lang'
+import { and, is, or, some, variable, type Expr, lt, gt } from '../lang'
 import type { Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
 
 /**
@@ -62,14 +62,14 @@ function aeb(c: Ctx) {
   const within = k.world(av, 'Object within CIBd', {
     type: 'boolean',
     definition: 'Some forward mobile object or some prohibited area is closer to the AV than the collision imminent braking distance.',
-    rules: [{ state: 'true', when: or(some('fmo1', fmo, cmp('<', variable(dF, 'fmo1'), variable(cibd))), some('pa1', pa, cmp('<', variable(dP, 'pa1'), variable(cibd)))) }],
+    rules: [{ state: 'true', when: or(some('fmo1', fmo, lt( variable(dF, 'fmo1'), variable(cibd))), some('pa1', pa, lt( variable(dP, 'pa1'), variable(cibd)))) }],
     otherwise: 'false',
   })
 
   // hazards: distance below the minimum safe distance (FMO / PA) and too high g-force
-  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), some('fmo1', fmo, cmp('<', variable(dF, 'fmo1'), variable(msd))))
-  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), some('pa1', pa, cmp('<', variable(dP, 'pa1'), variable(msd))))
-  k.hazardConditions(k.hazard('AV occupants are exposed to unhealthy g-forces exceeding the safety threshold of the AV'), cmp('>', variable(g), variable(gMax)))
+  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), some('fmo1', fmo, lt( variable(dF, 'fmo1'), variable(msd))))
+  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), some('pa1', pa, lt( variable(dP, 'pa1'), variable(msd))))
+  k.hazardConditions(k.hazard('AV occupants are exposed to unhealthy g-forces exceeding the safety threshold of the AV'), gt( variable(g), variable(gMax)))
 
   // UCAs: no BFC / too weak BFC while an object is inside the collision imminent braking distance
   const ucas = itemsOfKind(c.p, 'uca')
