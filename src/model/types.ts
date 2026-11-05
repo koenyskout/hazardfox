@@ -149,26 +149,18 @@ export interface Relationship extends Base {
   /** Manual layout nudge of its box in the domain diagram */
   nudge: Offset | null
 }
+/** The value type shared by variables, control-action parameters and struct fields: enum `states`, boolean, range (`min`/`max`/`unit`) or symbolic; optionally following a named range / enum type. */
+export interface TypeSpec { type: VariableType; states: string[]; unit: string; min: number | null; max: number | null; rangeType: string; enumType: string }
 /** A variable; its owner (`parent`) depends on the layer: domain → entity, signal → feedback, belief / internal → controller node. */
-export interface Variable extends Base {
+export interface Variable extends Base, TypeSpec {
   kind: 'variable'
   layer: VariableLayer
   /** signal / belief: the world variable it observes / stands for (designation δ) */
   about: Id | null
   /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
   definition: string
-  /** enum: named `states`; boolean: true / false; range: numeric, optional `min`/`max` bounds and `unit` */
-  type: VariableType
-  states: string[]
-  unit: string
-  min: number | null
-  max: number | null
-  /** Name of the project's `rangeTypes` entry that `min`/`max`/`unit` follow ('' = custom bounds) */
-  rangeType: string
   /** Set on variables generated from a struct type: the instance (`id`, `name`), the root type and the field `path`; the variable follows the type */
   struct?: { id: string; type: string; name: string; path: string }
-  /** Name of the project's `enumTypes` entry that `states` follow ('' = own states) */
-  enumType: string
   /** symbolic: values are opaque symbolic constants ("t1", "id7"); every symbolic variable supports = / ≠, `ordered` also < ≤ > ≥ (natural order of the symbols) */
   ordered: boolean
   /** symbolic, more properties: every new value differs from all earlier ones / never decreases / each change is to the successor (implies ordered) */
@@ -186,7 +178,7 @@ export interface RangeType { min: number | null; max: number | null; unit: strin
 /** A reusable opaque type (Timestamp: ordered; ID: no properties): properties shared by every symbolic variable that uses it. */
 export interface SymbolicType { ordered: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
 /** A field of a struct type: a name and a variable type, optionally sharing a named range / enum type. */
-export interface StructField { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
+export interface StructField extends TypeSpec { name: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
 export interface StructType { fields: StructField[] }
 /** Condition tree: all (`any` false) or any of its conditions and nested groups hold; with `not` the group is negated (not all of its members hold). */
@@ -208,11 +200,11 @@ export interface CsNode extends Base {
   /** Extra height in px (0 = automatic). */
   tall: number
 }
-/** Control action edge. */
 /** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
-export interface Param { name: string; type: VariableType; states: string[]; min: number | null; max: number | null; unit: string; rangeType: string; enumType: string; symbolicType?: string; ordered?: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
+export interface Param extends TypeSpec { name: string; symbolicType?: string; ordered?: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
 export interface ArgCondition { param: string; op: ConditionOp; state: string; to?: string; set?: string[] }
+/** Control action edge. */
 export interface ControlAction extends Base {
   kind: 'ca'
   from: Id
