@@ -57,7 +57,7 @@ describe('expression conditions', () => {
 
   it('simple comparisons become ordinary conditions', () => {
     const s = setup()
-    expect(lineCondition(s.p, 'Speed > 0')).toMatchObject({ variable: s.speed, op: '>', state: '0' })
+    expect(lineCondition(s.p, 'Speed > 0')).toMatchObject({ kind: 'value', variable: s.speed, op: '>', state: '0' })
     expect(lineCondition(s.p, 'Door state ∈ {open, closed}')).toMatchObject({ op: 'in', set: ['open', 'closed'] })
     expect(lineCondition(s.p, 'Gap between 1 and 5')).toMatchObject({ op: 'between', state: '1', to: '5' })
     expect(lineCondition(s.p, 'Gap = Speed' .replace('Speed', 'Gap'))).toMatchObject({ other: s.gap })
@@ -77,7 +77,7 @@ describe('expression conditions', () => {
     // negation is pushed to the leaves; a timed leaf has no opposite and keeps a not group
     const nots = textToWhen(s.p, 'not:\n  & Speed > 0\n  & Door state = open')
     expect(whenToText(s.p, nots)).toBe('any of:\n  | Speed ≤ 0\n  | Door state ≠ open')
-    expect(negate({ variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toMatchObject({ not: true })
-    expect(conditionLine(s.p, { variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toBeNull()
+    expect(negate({ kind: 'value', variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toMatchObject({ not: true })
+    expect(conditionLine(s.p, { kind: 'value', variable: s.speed, op: '=', state: '1', time: { op: '≥', amount: '1', unit: 's' } })).toBeNull()
   })
 })

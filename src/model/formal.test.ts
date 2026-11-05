@@ -11,7 +11,7 @@ import { expand, refineUca } from './refinement'
 import { itemsOfKind } from './tree'
 import { allOf, anyOf, isOnVariable, whenText } from './variables'
 import { validate } from './validate'
-import type { Comparison, Condition, Id, Project, Scenario, Trace, Variable } from './types'
+import type { Comparison, Condition, Id, Project, Scenario, Trace, ValueCondition, Variable } from './types'
 
 function base() {
   let p: Project = emptyProject()
@@ -22,7 +22,7 @@ function base() {
   const proc = mk(createItem(p, 'node', { title: 'Tank', role: 'process' }))
   const ca = mk(createItem(p, 'ca', { title: 'Open inlet', from: ctrl, to: proc, affects: [level] }))
   const fb = mk(createItem(p, 'feedback', { title: 'Level reading', from: proc, to: ctrl }))
-  const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ variable: level, op: '=', state: 'high' }] }))
+  const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ kind: 'value', variable: level, op: '=', state: 'high' }] }))
   return { p, level, ctrl, ca, fb, uca }
 }
 
@@ -44,7 +44,7 @@ describe('formal variable layers', () => {
     p = addBelief(p, ctrl, level).project
     expect(validate(p).some((i) => i.rule === 'context-unrepresented')).toBe(false)
     const b = beliefsOf(p, ctrl)[0].id
-    p = updateItem(p, uca, { conditions: [{ variable: b, op: '=', state: 'high' }] })
+    p = updateItem(p, uca, { conditions: [{ kind: 'value', variable: b, op: '=', state: 'high' }] })
     expect(validate(p).some((i) => i.rule === 'context-not-world')).toBe(true)
   })
 
@@ -119,44 +119,44 @@ describe('refinement', () => {
     const speed = mk(createItem(p, 'variable', { title: 'Speed', parent: ent, type: 'range', min: 0, max: 200, unit: 'km/h' }))
     const fire = mk(createItem(p, 'variable', { title: 'Fire', parent: ent, type: 'boolean' }))
     const smoke = mk(createItem(p, 'variable', { title: 'Smoke', parent: ent, type: 'boolean' }))
-    const moving = mk(createItem(p, 'variable', { title: 'Motion', parent: ent, states: ['stopped', 'moving'], rules: [{ state: 'moving', when: allOf({ variable: speed, op: '>', state: '0.5' }) }], otherwise: 'stopped' }))
-    const em = mk(createItem(p, 'variable', { title: 'Emergency', parent: ent, states: ['none', 'evacuation'], rules: [{ state: 'evacuation', when: allOf({ variable: fire, op: '=', state: 'true' }) }, { state: 'evacuation', when: allOf({ variable: smoke, op: '=', state: 'true' }) }], otherwise: 'none' }))
+    const moving = mk(createItem(p, 'variable', { title: 'Motion', parent: ent, states: ['stopped', 'moving'], rules: [{ state: 'moving', when: allOf({ kind: 'value', variable: speed, op: '>', state: '0.5' }) }], otherwise: 'stopped' }))
+    const em = mk(createItem(p, 'variable', { title: 'Emergency', parent: ent, states: ['none', 'evacuation'], rules: [{ state: 'evacuation', when: allOf({ kind: 'value', variable: fire, op: '=', state: 'true' }) }, { state: 'evacuation', when: allOf({ kind: 'value', variable: smoke, op: '=', state: 'true' }) }], otherwise: 'none' }))
     const ctrl = mk(createItem(p, 'node', { title: 'Ctrl', role: 'controller' }))
     const proc = mk(createItem(p, 'node', { title: 'Door', role: 'process' }))
     const ca = mk(createItem(p, 'ca', { title: 'Open', from: ctrl, to: proc }))
-    const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ variable: moving, op: '=', state: 'moving' }, { variable: em, op: '=', state: 'none' }] }))
+    const uca = mk(createItem(p, 'uca', { ca, guide: 'provided', conditions: [{ kind: 'value', variable: moving, op: '=', state: 'moving' }, { kind: 'value', variable: em, op: '=', state: 'none' }] }))
     return { p, speed, fire, smoke, moving, em, ctrl, uca }
   }
 
   it('expands a refined condition into contexts over the parts', () => {
     const { p, fire, smoke, em } = train()
     const v = p.items[em] as Variable
-    expect(expand(p, v, { variable: em, op: '=', state: 'evacuation' })).toEqual([[{ variable: fire, op: '=', state: 'true' }], [{ variable: smoke, op: '=', state: 'true' }]])
-    expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ variable: fire, op: '=', state: 'false' }, { variable: smoke, op: '=', state: 'false' }]])
+    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'evacuation' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'true' }], [{ kind: 'value', variable: smoke, op: '=', state: 'true' }]])
+    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'false' }, { kind: 'value', variable: smoke, op: '=', state: 'false' }]])
   })
 
   it('evaluates and expands nested all / any groups', () => {
     let { p, fire, smoke, speed, em } = train()
-    const [f, s, fast] = [{ variable: fire, op: '=' as const, state: 'true' }, { variable: smoke, op: '=' as const, state: 'true' }, { variable: speed, op: '>' as const, state: '100' }]
+    const [f, s, fast]: ValueCondition[] = [{ kind: 'value', variable: fire, op: '=' as const, state: 'true' }, { kind: 'value', variable: smoke, op: '=' as const, state: 'true' }, { kind: 'value', variable: speed, op: '>' as const, state: '100' }]
     p = updateItem(p, em, { rules: [{ state: 'evacuation', when: allOf(fast, anyOf(f, s)) }] })
     const v = p.items[em] as Variable
     expect(whenText(p, v.rules[0].when)).toBe('Speed is greater than 100 km/h and (Fire is true or Smoke is true)')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false', [smoke]: 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [speed]: '50' })[id])).toBe('none')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false' })[id])).toBeUndefined()
-    expect(expand(p, v, { variable: em, op: '=', state: 'evacuation' })).toEqual([[fast, f], [fast, s]])
-    expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ ...fast, op: '≤' }], [{ ...f, state: 'false' }, { ...s, state: 'false' }]])
+    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'evacuation' })).toEqual([[fast, f], [fast, s]])
+    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ ...fast, op: '≤' }], [{ ...f, state: 'false' }, { ...s, state: 'false' }]])
   })
 
   it('treats conditions in words as booleans keyed by their text', () => {
     let { p, fire, em, uca } = train()
-    const words: Condition = { variable: '', op: '=', state: 'true', text: 'Passengers are boarding' }
-    p = updateItem(p, em, { rules: [{ state: 'evacuation', when: anyOf({ variable: fire, op: '=', state: 'true' }, words) }] })
+    const words: Condition = { kind: 'text', op: '=', text: 'Passengers are boarding' }
+    p = updateItem(p, em, { rules: [{ state: 'evacuation', when: anyOf({ kind: 'value', variable: fire, op: '=', state: 'true' }, words) }] })
     const v = p.items[em] as Variable
     expect(whenText(p, v.rules[0].when)).toBe('Fire is true or Passengers are boarding')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false', 'text:Passengers are boarding': 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false' })[id])).toBeUndefined()
-    expect(expand(p, v, { variable: em, op: '=', state: 'none' })).toEqual([[{ variable: fire, op: '=', state: 'false' }, { ...words, op: '≠' }]])
+    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'false' }, { ...words, op: '≠' }]])
     p = updateItem(p, uca, { conditions: [{ ...words, op: '≠' }] })
     const r = createItem(p, 'scenario', { scenarioType: 'uca', uca, cause: 'control-algorithm' })
     p = r.project
@@ -188,8 +188,8 @@ describe('refinement', () => {
     expect(traceState(p, t, 0)).toMatchObject({ [moving]: 'stopped', [bm]: 'stopped' })
     expect(traceState(p, t, 1)).toMatchObject({ [moving]: 'moving', [bm]: 'stopped' })
     expect(ruleConflicts(p, t, 1)).toEqual([[moving, 'stopped', 'moving']])
-    p = updateItem(p, fire, { rules: [{ state: 'true', when: allOf({ variable: moving, op: '=', state: 'moving' }) }] })
-    p = updateItem(p, moving, { rules: [{ state: 'moving', when: allOf({ variable: fire, op: '=', state: 'true' }) }] })
+    p = updateItem(p, fire, { rules: [{ state: 'true', when: allOf({ kind: 'value', variable: moving, op: '=', state: 'moving' }) }] })
+    p = updateItem(p, moving, { rules: [{ state: 'moving', when: allOf({ kind: 'value', variable: fire, op: '=', state: 'true' }) }] })
     expect(validate(p).some((i) => i.rule === 'refinement-cycle')).toBe(true)
   })
 

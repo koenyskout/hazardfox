@@ -3,7 +3,7 @@ import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
 import { anyOf, isOnVariable, leaves, nameAllInstances } from '../variables'
 import { condVars } from '../expr'
-import type { Condition, ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, VarCondition, Variable } from '../types'
+import type { Condition, ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, ValueCondition, VarCondition, Variable } from '../types'
 
 /**
  * Adds the formal layers (domain model, typed world variables, `many` entities, conditions on leaf hazards and UCAs,
@@ -43,9 +43,9 @@ const kit = (c: Ctx) => {
   const signal = (fb: Id, w: Id) => { c.p = addSignal(c.p, fb, w).project }
   return { find, entity, world, rng, set, hazard, node, feedback, hazardConditions, ucaConditions, belief, signal }
 }
-const eq = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
+const eq = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
 /** `variable` compared with another variable (`other`). */
-const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ variable, op, other, ...extra })
+const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
 
 function aeb(c: Ctx) {
   const k = kit(c)

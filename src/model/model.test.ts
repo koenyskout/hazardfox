@@ -212,7 +212,7 @@ describe('variable types and conditions', () => {
     let q = emptyProject()
     const mk = (title: string) => { const r = createItem(q, 'variable', { ...makeItem('variable'), type: 'range' as const, title, unit: 'ml' }); q = r.project; return r.id }
     const flow = mk('Flow'), dose = mk('Prescribed dose')
-    const c = { variable: flow, op: '>' as const, state: '', other: dose }
+    const c = { kind: 'var' as const, variable: flow, op: '>' as const, other: dose }
     expect(conditionText(q, c)).toBe('Flow is greater than Prescribed dose')
     expect(conditionError(q.items[flow] as never, c, q)).toBeNull()
     expect(condHolds(q, c, (id) => ({ [flow]: '5', [dose]: '3' })[id])).toBe(true)
@@ -229,19 +229,19 @@ describe('variable types and conditions', () => {
     expect(describeStates(range)).toBe('0–100 %')
     expect(opsFor(range)).toContain('between')
     expect(opsFor({ ...makeItem('variable'), type: 'boolean' })).toEqual(['=', '≠'])
-    expect(conditionError(range, { variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
-    expect(conditionError(range, { variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
-    expect(conditionText({ ...emptyProject(), items: { x: { ...range, id: 'x', title: 'Rate' } } }, { variable: 'x', op: 'not between', state: '1', to: '5' })).toBe('Rate is not between 1 and 5 %')
-    expect(conditionError(range, { variable: 'x', op: '≥', state: '5' })).toBeNull()
-    expect(conditionError({ ...range, type: 'boolean' }, { variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
+    expect(conditionError(range, { kind: 'value', variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
+    expect(conditionError(range, { kind: 'value', variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
+    expect(conditionText({ ...emptyProject(), items: { x: { ...range, id: 'x', title: 'Rate' } } }, { kind: 'value', variable: 'x', op: 'not between', state: '1', to: '5' })).toBe('Rate is not between 1 and 5 %')
+    expect(conditionError(range, { kind: 'value', variable: 'x', op: '≥', state: '5' })).toBeNull()
+    expect(conditionError({ ...range, type: 'boolean' }, { kind: 'value', variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
     const en = { ...makeItem('variable'), title: 'Mode', states: ['a', 'b', 'c'] }
     expect(opsFor(en)).toEqual(['=', '≠', 'in', 'not in'])
-    expect(conditionError(en, { variable: 'x', op: 'in', state: '', set: ['a', 'z'] })).toMatch(/"z" is not one of/)
-    expect(conditionError(en, { variable: 'x', op: 'not in', state: '', set: ['a', 'b'] })).toBeNull()
+    expect(conditionError(en, { kind: 'value', variable: 'x', op: 'in', state: '', set: ['a', 'z'] })).toMatch(/"z" is not one of/)
+    expect(conditionError(en, { kind: 'value', variable: 'x', op: 'not in', state: '', set: ['a', 'b'] })).toBeNull()
     let p = emptyProject()
     p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
     const v = Object.values(p.items)[0]
-    expect(conditionText(p, { variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
+    expect(conditionText(p, { kind: 'value', variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
   })
 })
 

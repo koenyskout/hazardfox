@@ -179,26 +179,26 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       const k = r.p.items[event]?.kind
       if (k !== 'ca' && k !== 'feedback') throw new Error(`event: ${r.labels[event]} is not a control action or feedback`)
       if (!time) throw new Error('an event condition needs "time", e.g. {op: "≥", amount: 3, unit: "s"}: the time since the event occurred')
-      return { event, time }
+      return { kind: 'event', event, time }
     }
     const cond = parseBase(c)
     return time ? { ...cond, time } : cond
   }
   const parseBase = (c: Rec): Condition => {
     if (isStr(c?.text) && c.variable === undefined && c.expr === true) {
-      const e: TextCondition = { op: '=', text: r.internalText(c.text), expr: true }
+      const e: TextCondition = { kind: 'text', op: '=', text: r.internalText(c.text), expr: true }
       const bad = exprError(r.p, e)
       if (bad) throw new Error(bad)
       return e
     }
-    if (isStr(c?.text) && c.variable === undefined) return { op: c.op === '≠' || c.negate === true ? '≠' : '=', text: c.text }
+    if (isStr(c?.text) && c.variable === undefined) return { kind: 'text', op: c.op === '≠' || c.negate === true ? '≠' : '=', text: c.text }
     const variable = r.resolve(c?.variable)
     checkKind(variable, 'variable')
     if (c.other !== undefined && c.other !== null && c.other !== '') {
       const other = r.resolve(c.other)
       checkKind(other, 'variable')
       const op: ConditionOp = c.op === undefined ? '=' : (c.op as ConditionOp)
-      const cmp: VarCondition = { variable, op, other, ...instanceFields(c), ...otherInstanceFields(c) }
+      const cmp: VarCondition = { kind: 'var', variable, op, other, ...instanceFields(c), ...otherInstanceFields(c) }
       const vi = r.p.items[variable]
       const bad = vi?.kind === 'variable' ? conditionError(vi, cmp, r.p) : null
       if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
@@ -208,7 +208,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
     const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
     if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
-    const cond: ValueCondition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}), ...instanceFields(c) }
+    const cond: ValueCondition = { kind: 'value', variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}), ...instanceFields(c) }
     const vi = r.p.items[variable]
     const bad = vi?.kind === 'variable' ? conditionError(vi, cond, r.p) : null
     if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
@@ -329,12 +329,14 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
 
 const empty = (v: unknown) => v === '' || v === null || v === false || v === 0 || (Array.isArray(v) && v.length === 0)
 
+const omitKind = <T extends { kind: string }>({ kind: _k, ...rest }: T) => rest
+
 /** Agent-facing view of an item: labels instead of ids, empty fields left out. */
 export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const raw = it as unknown as Rec
   const refs = new Set(refFields(it.kind))
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
-  const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.expr ? { expr: true } : {}), ...(c.time ? { time: c.time } : {}) } : { ...c, variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
+  const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.expr ? { expr: true } : {}), ...(c.time ? { time: c.time } : {}) } : { ...omitKind(c), variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
   const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]

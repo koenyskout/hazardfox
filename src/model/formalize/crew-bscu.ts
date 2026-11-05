@@ -64,7 +64,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   // ---- conditions ---------------------------------------------------------------------------------------------------
   const decel = ['landing roll', 'rejected takeoff', 'taxi']
   const takeoff = ['lined up for takeoff', 'takeoff roll']
-  const words = (text: string): Condition => ({ op: '=', text })
+  const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
   const hazardConds: Record<string, Condition[]> = {
     'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { as: 'o1' })],
     'Deceleration is insufficient upon landing, rejected takeoff, or during taxiing': [inn(phase, ...decel), c(decelOk, 'false')],
@@ -138,5 +138,5 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   return q
 }
 
-function c(variable: Id, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { variable, op, state, ...extra } }
-const inn = (variable: Id, ...set: string[]): Condition => ({ variable, op: 'in', state: '', set })
+function c(variable: Id, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { kind: 'value', variable, op, state, ...extra } }
+const inn = (variable: Id, ...set: string[]): Condition => ({ kind: 'value', variable, op: 'in', state: '', set })

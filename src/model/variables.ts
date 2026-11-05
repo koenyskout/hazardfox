@@ -56,24 +56,24 @@ export function stepOf(v: Variable): number {
 }
 
 /** A condition in words (no variable). */
-export const isText = (c: Condition): c is TextCondition => 'text' in c && c.text !== undefined
+export const isText = (c: Condition): c is TextCondition => c.kind === 'text'
 /** A condition on the time since an event (control action or feedback) occurred. */
-export const isEvent = (c: Condition): c is EventCondition => 'event' in c && c.event !== undefined
+export const isEvent = (c: Condition): c is EventCondition => c.kind === 'event'
 /** A condition comparing the variable with another variable instead of a constant. */
-export const isVarCmp = (c: Condition): c is VarCondition => 'other' in c && c.other !== undefined
+export const isVarCmp = (c: Condition): c is VarCondition => c.kind === 'var'
 /** A condition on a variable: compared with a constant or with another variable. */
-export const isOnVariable = (c: Condition): c is ValueCondition | VarCondition => 'variable' in c
+export const isOnVariable = (c: Condition): c is ValueCondition | VarCondition => c.kind === 'value' || c.kind === 'var'
 /** A condition comparing a variable with constants. */
-export const isValueCmp = (c: Condition): c is ValueCondition => 'variable' in c && !isVarCmp(c)
+export const isValueCmp = (c: Condition): c is ValueCondition => c.kind === 'value'
 /** The same condition on another variable, compared with a constant; instance names and timing stay. */
 export const toValue = (c: ValueCondition | VarCondition, to: Partial<ValueCondition> = {}): ValueCondition => {
   const { variable, quant, as, same, as2, same2, time, op } = c
-  return { variable, op: op, state: '', quant, as, same, as2, same2, time, ...to }
+  return { kind: 'value', variable, op: op, state: '', quant, as, same, as2, same2, time, ...to }
 }
 /** The same condition compared with the variable `other`; instance names and timing stay (the compared variable's own instance names start empty). */
 export const toVarCmp = (c: ValueCondition | VarCondition, other: Id, to: Partial<VarCondition> = {}): VarCondition => {
   const { variable, quant, as, same, as2, same2, time, op } = c
-  return { variable, op, other, quant, as, same, as2, same2, time, ...to }
+  return { kind: 'var', variable, op, other, quant, as, same, as2, same2, time, ...to }
 }
 /** The instance name an end of the condition introduces (`as`) or refers to (`same`). */
 export const asAt = (c: Instances, end: 1 | 2) => (end === 1 ? c.as : c.as2)

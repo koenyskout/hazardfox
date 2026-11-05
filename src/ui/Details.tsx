@@ -760,11 +760,11 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
   )
 }
 
-const BLANK: ValueCondition = { variable: '', op: '=', state: '' }
-const EXPR: TextCondition = { op: '=', text: '', expr: true }
-const WORDS: TextCondition = { op: '=', text: '' }
+const BLANK: ValueCondition = { kind: 'value', variable: '', op: '=', state: '' }
+const EXPR: TextCondition = { kind: 'text', op: '=', text: '', expr: true }
+const WORDS: TextCondition = { kind: 'text', op: '=', text: '' }
 const TIME: TimeBound = { op: '≥', amount: '', unit: 's' }
-const EVENT: EventCondition = { event: '', time: TIME }
+const EVENT: EventCondition = { kind: 'event', event: '', time: TIME }
 
 /** Duration of a timing condition: "for at least 3 s" (after a condition) or "at least 3 s after <event>". */
 function TimeEdit({ t, onChange }: { t: TimeBound; onChange: (t: TimeBound) => void }) {

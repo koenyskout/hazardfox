@@ -23,7 +23,7 @@ function setup() {
   const rel = add('relationship', { from: train, to: station, title: 'at', fromCard: '*', toCard: '1' })
   return { get p() { return p }, set p(x: Project) { p = x }, add, train, station, speed, rel }
 }
-const cond = (variable: Id, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state: '0', ...extra })
+const cond = (variable: Id, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state: '0', ...extra })
 
 describe('instance quantification', () => {
   it('defaults to a single instance: nothing changes', () => {
@@ -52,15 +52,15 @@ describe('instance quantification', () => {
     expect(conditionText(s.p, cond(s.speed, { quant: 'all' }))).toBe('speed of every Train is 0')
     expect(conditionText(s.p, cond(s.speed, { quant: 'none' }))).toBe('speed of no Train is 0')
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
-    expect(conditionText(s.p, { variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
-    expect(conditionText(s.p, { variable: pred, op: '=', state: 'true', quant: 'none' })).toBe('no Train at Station')
+    expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
+    expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true', quant: 'none' })).toBe('no Train at Station')
     const uca = s.add('uca', { conditions: [cond(s.speed, { quant: 'all' })] })
     expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('when speed of every Train is 0')
   })
   it('a many-cardinality relationship quantifies its variables', () => {
     const s = setup()
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
-    expect(quantOf(s.p, { variable: pred, op: '=', state: 'true' })).toBe('some')
+    expect(quantOf(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some')
   })
   it('none flips a trace value', () => {
     const s = setup()
@@ -81,7 +81,7 @@ describe('instance quantification', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const v = createItem(s.p, 'variable', { layer: 'domain', parent: s.train, title: 'moving', type: 'boolean', rules: [{ state: 'true', when: { any: false, of: [cond(s.speed, { op: '>', state: '0' })] } }], otherwise: 'false' } as never)
-    expect(expand(v.project, v.project.items[v.id] as never, { variable: v.id, op: '=', state: 'true', quant: 'none' })).toBeNull()
+    expect(expand(v.project, v.project.items[v.id] as never, { kind: 'value', variable: v.id, op: '=', state: 'true', quant: 'none' })).toBeNull()
   })
   it('round-trips and old files load', () => {
     const s = setup()
@@ -127,7 +127,7 @@ describe('level crossing example', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
-    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
+    const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1' }
     const b = cond(s.speed, { same: 't1', op: '>', state: '10' })
     expect(conditionText(s.p, a)).toBe('some Train t1 at Station')
     expect(conditionText(s.p, b)).toBe('speed of t1 is greater than 10')
@@ -148,8 +148,8 @@ describe('level crossing example', () => {
     const crossing = s.add('entity', { title: 'Crossing' })
     const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
-    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
-    const b: Condition = { variable: pred, op: '=', state: 'true', as: 't2' }
+    const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1' }
+    const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't2' }
     expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing', 'another Train t2 approaches Crossing'])
     expect(consistent(s.p, [a, b])).toBe(true)
   })
@@ -160,8 +160,8 @@ describe('level crossing example', () => {
     const min = s.add('variable', { layer: 'domain', parent: crossing, title: 'minimum speed', type: 'range', min: 0, max: 100 })
     const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
-    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1' }
-    const b: Condition = { variable: s.speed, op: '>', state: '', other: min, same: 't1' }
+    const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1' }
+    const b: Condition = { kind: 'var', variable: s.speed, op: '>', other: min, same: 't1' }
     expect(conditionText(s.p, a)).toBe('some Train t1 approaches Crossing')
     expect(conditionText(s.p, b)).toBe('speed of t1 is greater than minimum speed')
     const uca = s.add('uca', { conditions: [a, b] })
@@ -177,8 +177,8 @@ describe('level crossing example', () => {
     const crossing = s.add('entity', { title: 'Crossing', many: true })
     const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '*' })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
-    const a: Condition = { variable: pred, op: '=', state: 'true', as: 't1', as2: 'c1' }
-    const b: Condition = { variable: pred, op: '=', state: 'true', as: 't2', same2: 'c1' }
+    const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1', as2: 'c1' }
+    const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't2', same2: 'c1' }
     expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing c1', 'another Train t2 approaches c1'])
     expect(instLane(a)).toBe(`${pred}@t1|c1`)
     expect(laneParts(`${pred}@t1|c1`)).toEqual({ id: pred, names: ['t1', 'c1'] })
@@ -240,11 +240,11 @@ describe('variable mentions in free-text conditions', () => {
     const s = setup()
     const v2 = s.add('variable', { layer: 'domain', parent: s.train, title: 'brake', type: 'boolean' })
     const hz = s.add('hazard', {})
-    s.p = updateItem(s.p, hz, { conditions: [{ variable: '', op: '=', state: '', text: `alert while ${mention(s.speed)} is high` }] }) as Project
+    s.p = updateItem(s.p, hz, { conditions: [{ kind: 'text', op: '=', text: `alert while ${mention(s.speed)} is high` }] }) as Project
     expect(refsOf(s.p.items[hz])).toContain(s.speed)
     expect(refsOf(s.p.items[v2])).not.toContain(s.speed)
     const rt = deserialize(serialize(s.p))
-    expect((rt.items[hz] as unknown as { conditions: Condition[] }).conditions[0]).toMatchObject({ text: expect.stringContaining(mention(s.speed)) })
+    expect((rt.items[hz] as unknown as { conditions: Condition[] }).conditions[0]).toMatchObject({ kind: 'text', text: expect.stringContaining(mention(s.speed)) })
   })
 })
 
@@ -267,7 +267,7 @@ describe('another instance is a separate instance in traces', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const limit = s.add('variable', { layer: 'domain', parent: s.train, title: 'limit', type: 'range', min: 0, max: 100 })
-    const c: VarCondition = { variable: s.speed, op: '>', as: 't1', other: limit, oSame: 't2' }
+    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: limit, oSame: 't2' }
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than limit of t2')
     expect(instLane({ ...c })).toBe(`${s.speed}@t1`)
     const get = getter({ [`${s.speed}@t1`]: '50', [`${limit}@t2`]: '40', [`${limit}@t1`]: '90' })
@@ -281,7 +281,7 @@ describe('another instance is a separate instance in traces', () => {
   it('a comparison can introduce a second named instance on its compared side', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const c: VarCondition = { variable: s.speed, op: '>', as: 't1', other: s.speed, oAs: 't2' }
+    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: s.speed, oAs: 't2' }
     expect(oName(c, 1)).toBe('t2')
     expect(condInstances(s.p, c).map((x) => [x.name, x.intro, !!x.cmp])).toEqual([['t1', true, false], ['t2', true, true]])
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than speed of t2')

@@ -17,7 +17,7 @@ function setup() {
   const n = b.add('node', { title: 'Nurse', role: 'controller' })
   const pr = b.add('node', { title: 'Patient', role: 'process' })
   const ca = b.add('ca', { from: n, to: pr, title: 'Stop' })
-  const cond = (variable: Id, op: ConditionOp, state: string): ValueCondition => ({ variable, op, state })
+  const cond = (variable: Id, op: ConditionOp, state: string): ValueCondition => ({ kind: 'value', variable, op, state })
   const u = b.add('uca', { ca, guide: 'not-provided', conditions: [cond(c, '>', '5'), anyOf(cond(a, '=', 'on'), cond(a, '=', 'off'))] })
   return { b, a, c, u, ca, cond }
 }
@@ -33,7 +33,7 @@ describe('any-of conditions', () => {
     const { b, a, c, u } = setup()
     const p = b.project, uca = p.items[u] as Uca
     expect(contextHolds(p, uca, { [c]: '7', [a]: 'off' })).toBe(true)
-    expect(contextHolds(p, { ...uca, conditions: [anyOf({ variable: a, op: '=', state: 'on' }, { variable: c, op: '<', state: '3' })] }, { [c]: '7', [a]: 'off' })).toBe(false)
+    expect(contextHolds(p, { ...uca, conditions: [anyOf({ kind: 'value', variable: a, op: '=', state: 'on' }, { kind: 'value', variable: c, op: '<', state: '3' })] }, { [c]: '7', [a]: 'off' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '2', [a]: 'on' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '7' })).toBeNull()
   })

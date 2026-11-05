@@ -31,9 +31,9 @@ export function exampleProject(): Project {
 
   const vRx = add('variable', { title: 'Prescribed rate', parent: patient, type: 'range', min: 0, max: 500, unit: 'ml/h', definition: 'Rate prescribed for the patient.' })
   const vSrc = add('variable', { title: 'Therapy change source', parent: pump, states: ['authorised', 'unauthorised'], definition: 'Who issued the last therapy change: an authenticated, authorised user or anyone else.' })
-  b.set(h11, { variables: [vFlow, vRx], conditions: [{ variable: vFlow, op: '>', state: '', other: vRx }] })
-  b.set(h12, { variables: [vFlow, vOcc], conditions: [{ variable: vRun, op: '=', state: 'running' }, { variable: vOcc, op: '=', state: 'occluded' }] })
-  b.set(h2, { variables: [vSrc], conditions: [{ variable: vSrc, op: '=', state: 'unauthorised' }] })
+  b.set(h11, { variables: [vFlow, vRx], conditions: [{ kind: 'var', variable: vFlow, op: '>', other: vRx }] })
+  b.set(h12, { variables: [vFlow, vOcc], conditions: [{ kind: 'value', variable: vRun, op: '=', state: 'running' }, { kind: 'value', variable: vOcc, op: '=', state: 'occluded' }] })
+  b.set(h2, { variables: [vSrc], conditions: [{ kind: 'value', variable: vSrc, op: '=', state: 'unauthorised' }] })
 
   const clinic = add('node', { title: 'Hospital', role: 'external' })
   const nurse = add('node', { title: 'Nurse', role: 'controller', parent: clinic })
@@ -57,9 +57,9 @@ export function exampleProject(): Project {
   add('variable', { layer: 'belief', parent: nurse, about: vSrc, title: 'Therapy change source', states: enumOf(vSrc).states, definition: 'Whether the issuer believes the request comes from an authorised source.' })
   const vMode = add('variable', { layer: 'internal', parent: ctrl, title: 'Mode', states: ['priming', 'infusing', 'alarm'], definition: 'Operating mode; occlusion detection is suppressed while priming.' })
 
-  const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ variable: vOcc, op: '=', state: 'occluded' }], constraint: 'Controller must not drive the motor when the line is occluded' })
-  const u2 = add('uca', { ca: ca2, guide: 'not-provided', hazards: [h12], conditions: [{ variable: vRun, op: '=', state: 'running' }], constraint: 'Controller must keep driving the motor while infusion is running' })
-  add('uca', { ca: ca1, guide: 'provided', hazards: [h2], context: 'rate set by an unauthenticated source', conditions: [{ variable: vSrc, op: '=', state: 'unauthorised' }], constraint: 'Controller must reject unauthenticated rate changes' })
+  const u1 = add('uca', { ca: ca2, guide: 'provided', hazards: [h11], conditions: [{ kind: 'value', variable: vOcc, op: '=', state: 'occluded' }], constraint: 'Controller must not drive the motor when the line is occluded' })
+  const u2 = add('uca', { ca: ca2, guide: 'not-provided', hazards: [h12], conditions: [{ kind: 'value', variable: vRun, op: '=', state: 'running' }], constraint: 'Controller must keep driving the motor while infusion is running' })
+  add('uca', { ca: ca1, guide: 'provided', hazards: [h2], context: 'rate set by an unauthenticated source', conditions: [{ kind: 'value', variable: vSrc, op: '=', state: 'unauthorised' }], constraint: 'Controller must reject unauthenticated rate changes' })
   const s1 = add('scenario', { uca: u1, cause: 'feedback', element: ctrl, title: 'Occlusion sensor reading is stale after reconnect', adversarial: false, severity: 5, likelihood: 2 })
   const s3 = add('scenario', { uca: u1, cause: 'process-model', element: ctrl, title: 'Controller ignores the occlusion flag while it is still in priming mode', severity: 4, likelihood: 2 })
   const s2 = add('scenario', { uca: u1, title: 'Attacker spoofs occlusion feedback to mask a blockage', adversarial: true, stride: ['Spoofing', 'Tampering'], threat: 'Man-in-the-middle on the sensor bus', severity: 5, likelihood: 2 })

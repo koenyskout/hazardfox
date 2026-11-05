@@ -42,7 +42,7 @@ export function crossingExampleProject(): Project {
   add('variable', { layer: 'belief', parent: ctrl, about: vNear, title: 'Train approaching', type: 'boolean' })
   add('variable', { layer: 'belief', parent: ctrl, about: vGate, title: 'Gate position', states: ['open', 'closed', 'unknown'] })
 
-  const c = (variable: Id, state: string, quant?: Quantifier): Condition => ({ variable, op: '=', state, ...(quant ? { quant } : {}) })
+  const c = (variable: Id, state: string, quant?: Quantifier): Condition => ({ kind: 'value', variable, op: '=', state, ...(quant ? { quant } : {}) })
   b.set(H1, { conditions: [c(vGate, 'open'), c(vNear, 'true', 'some')] })
   b.set(H2, { conditions: [c(vGate, 'closed'), c(vNear, 'true', 'none')] })
   const u1 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], conditions: [c(vPos, 'approaching', 'some')], constraint: 'Controller must not raise the gate while some train is approaching' })

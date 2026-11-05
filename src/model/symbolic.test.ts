@@ -17,8 +17,8 @@ const setup = () => {
   const v = (i: string) => p.items[i] as Variable
   return { p: () => p, v, t1, t2, id, set: (f: (q: Project) => Project) => { p = f(p) } }
 }
-const c = (variable: string, op: ConditionOp, state: string): ValueCondition => ({ variable, op, state })
-const cv = (variable: string, op: ConditionOp, other: string): VarCondition => ({ variable, op, other })
+const c = (variable: string, op: ConditionOp, state: string): ValueCondition => ({ kind: 'value', variable, op, state })
+const cv = (variable: string, op: ConditionOp, other: string): VarCondition => ({ kind: 'var', variable, op, other })
 
 describe('symbolic types', () => {
   it('a named type gives its properties to the variables', () => {

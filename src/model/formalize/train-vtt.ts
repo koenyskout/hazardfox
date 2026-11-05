@@ -3,7 +3,7 @@ import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, quantOf } from '../variables'
 import { condVars } from '../expr'
-import type { Condition, Id, Item, ItemOf, Project, Variable } from '../types'
+import type { Condition, Id, ValueCondition, Item, ItemOf, Project, Variable } from '../types'
 
 /**
  * Formalizes the published examples `pub-train-door` and `pub-vtt-am` as far as the model allows: domain model (entities with
@@ -26,8 +26,8 @@ function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: 
   return r.id
 }
 const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, patch as never) }
-const cond = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
-const words = (text: string): Condition => ({ op: '=', text })
+const cond = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
+const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
 const isEmpty = (cs: unknown[]) => cs.length === 0
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 

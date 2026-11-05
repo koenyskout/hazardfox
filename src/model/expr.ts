@@ -19,7 +19,7 @@ export interface Cmp { l: Expr; op: CmpOp; r: Expr }
 const FNS: Record<string, number> = { prev: 1, succ: 1, pred: 1, abs: 1, min: 2, max: 2 }
 
 /** An expression condition: a text condition whose text is a comparison. */
-export const isExpr = (c: Condition): c is TextCondition => isText(c) && !!c.expr
+export const isExpr = (c: Condition): c is TextCondition & { expr: true } => isText(c) && !!c.expr
 
 type Tok = { t: 'n' | 'c' | 'v' | 'w' | 'op'; v: string }
 type Names = [string, Id][]
@@ -139,7 +139,7 @@ export function cmpOf(c: TextCondition): Cmp | null {
   if (!cache.has(s)) { try { const r = parseComparison(s); cache.set(s, 'cmp' in r ? r.cmp : null) } catch { cache.set(s, null) } }
   return cache.get(s)!
 }
-export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): TextCondition => ({ op: '=', text: printCmp(cmp, name), expr: true })
+export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): TextCondition => ({ kind: 'text', op: '=', text: printCmp(cmp, name), expr: true })
 
 // ---- types
 
@@ -293,13 +293,13 @@ export function lineCondition(p: Project, src: string, names: Names = namesOf(p)
   const nameOf = (id: Id) => mention(id)
   const bad = (c: ValueCondition | VarCondition) => { const v = p.items[c.variable]; return v?.kind === 'variable' ? conditionError(v, c, p) : 'unknown variable' }
   let c: Condition
-  if ('between' in r) c = { variable: r.between.v, op: r.between.not ? 'not between' : 'between', state: r.between.a, to: r.between.b }
-  else if ('set' in r) c = { variable: r.set.v, op: r.set.not ? 'not in' : 'in', state: '', set: r.set.of }
+  if ('between' in r) c = { kind: 'value', variable: r.between.v, op: r.between.not ? 'not between' : 'between', state: r.between.a, to: r.between.b }
+  else if ('set' in r) c = { kind: 'value', variable: r.set.v, op: r.set.not ? 'not in' : 'in', state: '', set: r.set.of }
   else {
     const { l, op, r: rr } = r.cmp
     const k = (e: Expr): string | null => (e.k === 'n' || e.k === 'c' ? e.v : e.k === 'b' && e.o === '−' && e.l.k === 'n' && e.l.v === '0' && e.r.k === 'n' ? '-' + e.r.v : null)
-    if (l.k === 'v' && k(rr) !== null) c = { variable: l.id, op, state: k(rr)! }
-    else if (l.k === 'v' && rr.k === 'v') c = { variable: l.id, op, other: rr.id }
+    if (l.k === 'v' && k(rr) !== null) c = { kind: 'value', variable: l.id, op, state: k(rr)! }
+    else if (l.k === 'v' && rr.k === 'v') c = { kind: 'var', variable: l.id, op, other: rr.id }
     else c = exprCondition(r.cmp, nameOf)
   }
   const e = isExpr(c) ? exprError(p, c) : bad(c as ValueCondition | VarCondition)

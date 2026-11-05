@@ -262,9 +262,10 @@ export interface Instances {
   same2?: string
 }
 /** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
-export interface ValueCondition extends CondBase, Comparison, Instances { variable: Id }
+export interface ValueCondition extends CondBase, Comparison, Instances { kind: 'value'; variable: Id }
 /** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
 export interface VarCondition extends CondBase, Instances {
+  kind: 'var'
   variable: Id
   op: ConditionOp
   other: Id
@@ -277,12 +278,13 @@ export interface VarCondition extends CondBase, Instances {
 }
 /** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. With `expr` the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts`. */
 export interface TextCondition extends CondBase {
+  kind: 'text'
   text: string
   op: '=' | '≠'
   expr?: boolean
 }
 /** A timing condition on an event: the time since this control action / feedback last occurred (`time` says how long). It has no variable. */
-export interface EventCondition extends CondBase { event: Id }
+export interface EventCondition extends CondBase { kind: 'event'; event: Id }
 export type Condition = ValueCondition | VarCondition | TextCondition | EventCondition
 export interface Uca extends Base {
   kind: 'uca'

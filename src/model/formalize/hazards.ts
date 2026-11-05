@@ -1,6 +1,6 @@
 import { predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
-import type { Condition, ConditionOp, Id, Patch, Project, VarCondition } from '../types'
+import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition, VarCondition } from '../types'
 import { anyOf, nameAllInstances } from '../variables'
 
 /**
@@ -28,15 +28,15 @@ class Ctx {
   conditions = (title: string, ...cs: Condition[]) => { this.p = updateItem(this.p, this.hazard(title), { conditions: cs }) }
 }
 
-export const is = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '=', state, ...extra })
-export const isNot = (variable: Id, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op: '≠', state, ...extra })
-export const isIn = (variable: Id, set: string[], extra: Partial<Condition> = {}): Condition => ({ variable, op: 'in', state: '', set, ...extra })
-export const notIn = (variable: Id, set: string[], extra: Partial<Condition> = {}): Condition => ({ variable, op: 'not in', state: '', set, ...extra })
-export const above = (variable: Id, n: number, extra: Partial<Condition> = {}): Condition => ({ variable, op: '>', state: String(n), ...extra })
-export const below = (variable: Id, n: number, extra: Partial<Condition> = {}): Condition => ({ variable, op: '<', state: String(n), ...extra })
-export const outside = (variable: Id, lo: number, hi: number, extra: Partial<Condition> = {}): Condition => ({ variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
+export const is = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
+export const isNot = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '≠', state, ...extra })
+export const isIn = (variable: Id, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'in', state: '', set, ...extra })
+export const notIn = (variable: Id, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not in', state: '', set, ...extra })
+export const above = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '>', state: String(n), ...extra })
+export const below = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '<', state: String(n), ...extra })
+export const outside = (variable: Id, lo: number, hi: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
 /** `variable op other`, both read at the instances named in `extra` (`as`/`same`, `oSame`). */
-export const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ variable, op, other, ...extra })
+export const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
 
 const REGIONS = ['head', 'neck', 'thorax', 'abdomen', 'pelvis', 'limbs']
 
@@ -129,7 +129,7 @@ function radiation(c: Ctx) {
   const gap = c.range(approach, 'distance', 0, null, 'cm')
   const minGap = c.range(approach, 'minimum safe distance', 0, null, 'cm')
   const motion = c.states(mover, 'motion', ['stationary', 'moving'])
-  const pa = (extra: Partial<Condition> = {}) => ({ same: 'pa1', ...extra })
+  const pa = (extra: Partial<ValueCondition> & Partial<VarCondition> = {}) => ({ same: 'pa1', ...extra })
   const sameDose = (op: '=' | '≠') => cmp(dose, op, rx, pa({ oSame: 'pa1' }))
   const sameSite = (op: '=' | '≠') => cmp(site, op, target, pa({ oSame: 'pa1' }))
   const irradiated = is(c.pred(irradiates), 'true', { quant: 'some', as: 'pa1' })

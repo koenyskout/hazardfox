@@ -3,7 +3,7 @@ import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
 import { leaves, nameAllInstances } from '../variables'
 import { condVars } from '../expr'
-import type { Condition, ConditionOp, Id, Kind, Patch, Project } from '../types'
+import type { Condition, ConditionOp, Id, Kind, Patch, Project, ValueCondition } from '../types'
 
 /**
  * Formalizes the Handbook examples hb-autohold (Auto-Hold, Table C.1) and hb-htv (H-II Transfer Vehicle, Table C.2):
@@ -57,10 +57,10 @@ function kit(p: Project) {
     if (b) set(b.id, { definition })
   }
   const signal = (fb: Id, world: Id) => { q = addSignal(q, fb, world).project }
-  const cond = (variable: Id, op: ConditionOp, state: string, extra: Partial<Condition> = {}): Condition => ({ variable, op, state, ...extra })
+  const cond = (variable: Id, op: ConditionOp, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op, state, ...extra })
   const eq = (v: Id, s: string) => cond(v, '=', s)
   const ne = (v: Id, s: string) => cond(v, '≠', s)
-  const cmp = (v: Id, op: ConditionOp, other: Id): Condition => ({ variable: v, op, state: '', other })
+  const cmp = (v: Id, op: ConditionOp, other: Id): Condition => ({ kind: 'var', variable: v, op, other })
   return { get p() { return q }, add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, believe, belief, describeBelief, signal, cond, eq, ne, cmp }
 }
 
