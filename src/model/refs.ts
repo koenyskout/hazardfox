@@ -1,7 +1,9 @@
 import type { Lane } from './types'
-import { isEvent, isGroup, hasText, isExpr, isVarCmp, laneEntries, laneKeys, laneLike, laneOf, laneParts, laneText, leaves, mapLeaves, textLane } from './variables'
+import { laneEntries, laneKeys, laneLike, laneOf, laneParts, laneText, textLane } from './variables'
+import { dropRef, mapRefs, refsOf as exprRefs } from './lang'
 import { rulesOf } from './types'
-import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
+import type { Expr } from './lang'
+import type { Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
 type Fields<K extends Kind, V> = ItemOf<K> extends infer I ? I extends unknown ? { [F in keyof I]-?: I[F] extends V ? F : never }[keyof I] & string : never : never
@@ -66,9 +68,6 @@ export const replaceMentions = (text: string, f: (id: Id, whole: string) => stri
 export const ucaOf = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : null)
 export const scenarioTarget = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : s.ca)
 
-/** Ids a condition refers to: its variable, compared variable, event, and @-mentions in a condition in words / expression. */
-const condRefs = (c: Condition): Id[] => (isEvent(c) ? [c.event] : hasText(c) ? mentions(c.text) : isVarCmp(c) ? [c.variable, c.other] : [c.variable]).filter(Boolean)
-
 /** All ids an item refers to (excluding its tree parent). */
 export function refsOf(it: Item): Id[] {
   const out: Id[] = []
@@ -77,10 +76,10 @@ export function refsOf(it: Item): Id[] {
     if (typeof v === 'string' && v) out.push(v)
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
-  if (it.kind === 'uca' || it.kind === 'hazard') out.push(...it.conditions.flatMap(leaves).flatMap(condRefs))
+  if ((it.kind === 'uca' || it.kind === 'hazard') && it.when) out.push(...exprRefs(it.when))
   if (it.kind === 'relationship') out.push(...it.ends.map((e) => e.entity).filter(Boolean))
   if (it.kind === 'operation') out.push(...it.params.map((x) => x.entity).filter(Boolean), ...it.effects.map((e) => e.variable).filter(Boolean))
-  if (it.kind === 'variable') for (const r of rulesOf(it)) out.push(...leaves(r.when).flatMap(condRefs))
+  if (it.kind === 'variable') for (const r of rulesOf(it)) out.push(...exprRefs(r.when))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
@@ -99,17 +98,8 @@ export function linkedTo(p: Project, id: Id): Item[] {
   return Object.values(p.items).filter((o) => listRefs(o.kind).some((f) => getList(o, f).includes(id)))
 }
 
-/** The condition with variable `from` replaced by `to`; none when it is removed (a comparison with a removed variable is dropped). */
-const reref = (c: Condition, from: Id, to: Id | null): Condition[] => {
-  if (isEvent(c)) return c.event !== from ? [c] : to ? [{ ...c, event: to }] : []
-  if (hasText(c)) {
-    if (!c.text.includes(mention(from))) return [c]
-    return to ? [{ ...c, text: c.text.split(mention(from)).join(mention(to)) }] : isExpr(c) ? [] : [c]
-  }
-  const other = isVarCmp(c) && c.other === from
-  if (c.variable !== from && !other) return [c]
-  return to ? [{ ...c, ...(c.variable === from ? { variable: to } : {}), ...(other ? { other: to } : {}) }] : []
-}
+/** The condition with `from` replaced by `to`, or what refers to it removed. */
+const reref = (e: Expr | null, from: Id, to: Id | null): Expr | null => (e && (to ? mapRefs(e, (id) => (id === from ? to : null)) : dropRef(e, from)))
 
 /** Replace (to !== null) or remove (to === null) every reference to `from` in the draft item. */
 export function rewriteRefs(it: Item, from: Id, to: Id | null) {
@@ -123,16 +113,14 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     }
     setField(it, f, next)
   }
-  if (it.kind === 'uca' || it.kind === 'hazard') {
-    it.conditions = it.conditions.flatMap((w) => (isGroup(w) ? [mapLeaves(w, (c) => reref(c, from, to)[0] ?? null)] : reref(w, from, to) as When[]))
-  }
+  if (it.kind === 'uca' || it.kind === 'hazard') it.when = reref(it.when, from, to)
   if (it.kind === 'relationship' && to) it.ends = it.ends.map((e) => (e.entity === from ? { ...e, entity: to } : e))
   if (it.kind === 'operation') {
     const gone = it.params.filter((x) => x.entity === from && !to).map((x) => x.name)
     it.params = it.params.flatMap((x) => (x.entity !== from ? [x] : to ? [{ ...x, entity: to }] : []))
     it.effects = it.effects.flatMap((e) => (e.variable === from ? (to ? [{ ...e, variable: to }] : []) : e.on && gone.includes(e.on) ? [] : [e]))
   }
-  if (it.kind === 'variable') for (const r of rulesOf(it)) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
+  if (it.kind === 'variable' && it.layer === 'domain') it.rules = rulesOf(it).flatMap((r) => { const w = reref(r.when, from, to); return w ? [{ ...r, when: w }] : [] })
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
     // lanes of single instances ("<variable>@t1") follow their variable

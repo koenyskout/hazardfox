@@ -5,7 +5,8 @@ import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
 import { paramVar } from './params'
-import type { ConditionOp, ItemOf, ValueCondition, VarCondition, Project, Variable } from './types'
+import type { ConditionOp, ItemOf, Project, Variable } from './types'
+import type { ValueCondition, VarCondition } from './legacy'
 import { typeSpec } from './create'
 
 const setup = () => {

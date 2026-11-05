@@ -7,7 +7,8 @@ import { computeLabels } from './labels'
 import { refsOf } from './refs'
 import { deleteItems } from './ops'
 import { anyOf, isOnVariable, leaves, whenTexts } from './variables'
-import type { ConditionOp, Id, Scenario, Uca, ValueCondition } from './types'
+import type { ConditionOp, Id, Scenario, Uca } from './types'
+import type { ValueCondition } from './legacy'
 import { laneOf } from './variables'
 
 function setup() {

@@ -1,6 +1,6 @@
 import { renderText } from './labels'
 import { argTexts } from './params'
-import { isEvent, isGroup, hasText, isValueCmp, isVarCmp, mapLeaves, whenTexts } from './variables'
+import { say } from './say'
 import type { ControlAction, GuideWord, Id, Project, Uca } from './types'
 
 const PHRASE: Record<Uca['guide'], string> = {
@@ -15,7 +15,7 @@ export function generateUcaText(p: Project, labels: Record<Id, string>, u: Uca):
   if (u.override) return u.override
   const ca = p.items[u.ca]
   const from = ca && ca.kind === 'ca' ? p.items[ca.from] : null
-  const conds = whenTexts(p, u.conditions.map((w) => (isGroup(w) ? mapLeaves(w, (c) => ((hasText(c) || isEvent(c) || ((isValueCmp(c) || isVarCmp(c)) && p.items[c.variable])) ? c : null)) : w)).filter((w) => isGroup(w) || hasText(w) || isEvent(w) || ((isValueCmp(w) || isVarCmp(w)) && p.items[w.variable]))).map((t) => renderText(labels, t))
+  const conds = [renderText(labels, say(p, u.when))]
   const ctx = [...conds, renderText(labels, u.context).trim()].filter(Boolean).join(' and ')
   const args = argTexts(p, u).join(' and ')
   return `${from?.title || '⟨controller⟩'} ${PHRASE[u.guide]} ${ca?.title || '⟨control action⟩'}${args ? ` (${args})` : ''}${ctx ? ' when ' + ctx : ''}`

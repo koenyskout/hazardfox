@@ -1,6 +1,6 @@
 import { emptyProject, makeItem } from './create'
 import { groupKey } from './tree'
-import { nameAllInstances } from './variables'
+
 import { KINDS, type Item, type Patch, type Project } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
@@ -31,5 +31,5 @@ export function deserialize(text: string): Project {
   if (raw.symbolicTypes) p.symbolicTypes = raw.symbolicTypes
   if (raw.structTypes) p.structTypes = raw.structTypes
   for (const [id, r] of Object.entries((raw.reviews ?? {}) as NonNullable<Project['reviews']>)) if (p.items[id]) (p.reviews ??= {})[id] = r
-  return nameAllInstances(p)
+  return p
 }

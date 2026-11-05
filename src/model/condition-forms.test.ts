@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { allNames, isEvent, isOnVariable, isText, isValueCmp, isVarCmp, nameAt, renameSame, sidesOf, toValue, toVarCmp, withBinding, withInstanceName } from './variables'
-import type { Condition, ValueCondition } from './types'
+import type { Condition, ValueCondition } from './legacy'
 import { endName, relName } from './labels'
 import { projectBuilder } from './build'
 import { deleteItems } from './ops'

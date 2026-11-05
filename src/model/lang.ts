@@ -1,6 +1,6 @@
 import { isA } from './formal'
 import { variableName } from './labels'
-import { mention } from './refs'
+import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
 import { TIME_UNITS, UNIT_S } from './types'
 import type { Id, Project, TimeUnit, TypeSpec, Variable } from './types'
@@ -113,10 +113,10 @@ export const walk = (e: Expr, f: (x: Expr) => void): void => { f(e); children(e)
 export const at = (e: Expr, path: number[]): Expr | undefined => path.reduce<Expr | undefined>((x, i) => (x ? children(x)[i] : undefined), e)
 /** Replace the node at a path. */
 export const replaceAt = (e: Expr, path: number[], to: Expr): Expr => (path.length ? mapChildren(e, (c, i) => (i === path[0] ? replaceAt(c, path.slice(1), to) : c)) : to)
-/** Items an expression refers to: variables, events, quantified entities. */
+/** Items an expression refers to: variables, events, quantified entities, and `@[id]` mentions in words. */
 export function refsOf(e: Expr): Id[] {
   const out = new Set<Id>()
-  walk(e, (x) => { if (x.k === 'var' || x.k === 'event') out.add(x.id); else if (x.k === 'quant') out.add(x.entity) })
+  walk(e, (x) => { if (x.k === 'var' || x.k === 'event') out.add(x.id); else if (x.k === 'quant') out.add(x.entity); else if (x.k === 'text') mentions(x.text).forEach((m) => out.add(m)) })
   return [...out]
 }
 /** Rewrite the ids an expression refers to (`f` returns the new id, or null to leave it). */
@@ -124,7 +124,21 @@ export function mapRefs(e: Expr, f: (id: Id) => Id | null): Expr {
   const m = mapChildren(e, (c) => mapRefs(c, f))
   if (m.k === 'var' || m.k === 'event') return { ...m, id: (f(m.id) ?? m.id) as never }
   if (m.k === 'quant') return { ...m, entity: (f(m.entity) ?? m.entity) as Id<'entity'> }
+  if (m.k === 'text') return { ...m, text: mentions(m.text).reduce((t, id) => { const to = f(id); return to && to !== id ? t.split(mention(id)).join(mention(to)) : t }, m.text) }
   return m
+}
+/** The expression without what refers to `id`: a comparison that mentions it is dropped from its and / or (a group left empty, and a negation or quantifier of nothing, goes too); words keep the text. Null when nothing is left. */
+export function dropRef(e: Expr, id: Id): Expr | null {
+  switch (e.k) {
+    case 'and': case 'or': {
+      const of = e.of.flatMap((c) => dropRef(c, id) ?? [])
+      return of.length === 0 ? null : of.length === 1 && of.length !== e.of.length ? of[0] : { ...e, of }
+    }
+    case 'not': { const x = dropRef(e.e, id); return x && { ...e, e: x } }
+    case 'quant': { if (e.entity === id) return null; const b = dropRef(e.body, id); return b && { ...e, body: b } }
+    case 'text': return e
+    default: return refsOf(e).includes(id) ? null : e
+  }
 }
 
 // ---- constructors (examples, tests, editors)

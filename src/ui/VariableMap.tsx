@@ -1,11 +1,11 @@
 import { addBelief, addSignal, beliefsAbout, clusterStructs, controlledBy, feedbackInto, refines, signalsInto, structPath, updatedBy, variablesIn } from '../model/formal'
 import { useState } from 'react'
-import { condVars } from '../model/expr'
+import { varsOf } from '../model/atoms'
 import { StructViewToggle, useStructView } from './structView'
 import { createItem } from '../model/ops'
 import { aboutOf, structOf } from '../model/types'
 import type { Id, Project, Variable } from '../model/types'
-import { describeStates, leaves } from '../model/variables'
+import { describeStates } from '../model/variables'
 import { itemsOfKind } from '../model/tree'
 import { Ref } from './Fields'
 import { Icon, LayerIcon } from './Icon'
@@ -38,7 +38,7 @@ export function VariableMap({ only }: { only?: string } = {}) {
   const ucas = itemsOfKind(p, 'uca')
   const owners = [...new Set(world.map((w) => w.parent ?? ''))]
   /** Is w part of the context of a UCA of a control action from controller c? */
-  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && u.conditions.flatMap(leaves).some((x) => condVars(x).includes(w)))
+  const needed = (c: string, w: string) => ucas.some((u) => p.items[u.ca]?.kind === 'ca' && (p.items[u.ca] as { from: string }).from === c && varsOf(u.when).includes(w as Id<'variable'>))
   if (!world.length) return <p className="empty">Add world variables (layer “World”) to your entities first. Then you can map what each controller observes and believes.</p>
   return (
     <div className="varmap-wrap">

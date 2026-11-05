@@ -1,9 +1,14 @@
 import { createItem, updateItem } from '../ops'
 import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
-import { anyOf, isOnVariable, leaves, nameAllInstances } from '../variables'
+import { anyOf, isOnVariable } from '../variables'
+import { upgrade, type Init, type Legacy } from '../build'
+import { whenToExpr } from '../bridge'
+import { varsOf } from '../atoms'
+import { and, type Expr } from '../lang'
 import { condVars } from '../expr'
-import type { Condition, ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, ValueCondition, VarCondition, Variable } from '../types'
+import type { ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
+import type { Condition, ValueCondition, VarCondition } from '../legacy'
 
 /**
  * Adds the formal layers (domain model, typed world variables, `many` entities, conditions on leaf hazards and UCAs,
@@ -18,26 +23,28 @@ const kit = (c: Ctx) => {
     if (have) return have.id
     const r = createItem(c.p, 'entity', { title, ...patch }); c.p = r.project; return r.id
   }
-  const world = (owner: Id<'entity' | 'relationship'>, title: string, patch: Patch<'variable'>): Id<'variable'> => {
+  const world = (owner: Id<'entity' | 'relationship'>, title: string, patch: Init<'variable'>): Id<'variable'> => {
     const have = find(itemsOfKind(c.p, 'variable').filter((v) => v.layer === 'domain'), title, owner)
     if (have) return have.id
-    const r = createItem(c.p, 'variable', { layer: 'domain', parent: owner, title, ...patch }); c.p = r.project; return r.id
+    const r = createItem(c.p, 'variable', upgrade(c.p, { layer: 'domain', parent: owner, title, ...patch }) as Patch<'variable'>); c.p = r.project; return r.id
   }
   const rng = (owner: Id<'entity' | 'relationship'>, title: string, unit: string, definition = '') => world(owner, title, { type: 'range', min: 0, max: null, unit, definition })
-  const set = (id: Id, patch: Patch) => { c.p = updateItem(c.p, id, patch) }
+  const set = (id: Id, patch: Patch | Legacy) => { c.p = updateItem(c.p, id, upgrade(c.p, patch as Record<string, unknown>) as Patch) }
   const hazard = (title: string): Hazard => { const h = itemsOfKind(c.p, 'hazard').find((x) => x.title === title); if (!h) throw new Error('hazard not found: ' + title); return h }
   const node = (title: string) => { const n = itemsOfKind(c.p, 'node').find((x) => x.title.startsWith(title)); if (!n) throw new Error('node not found: ' + title); return n.id }
   const feedback = (title: string, from: Id<'node'>, to: Id<'node'>) => { const f = itemsOfKind(c.p, 'feedback').find((x) => x.title.startsWith(title) && x.from === from && x.to === to); if (!f) throw new Error('feedback not found: ' + title); return f.id }
   /** Replace a hazard's / UCA's conditions when it has none yet (never overwrites what is there); hazards also list their world variables. */
   const hazardConditions = (h: Hazard, conditions: Condition[]) => {
     const have = c.p.items[h.id] as Hazard
-    set(h.id, { conditions: have.conditions.length ? have.conditions : conditions, variables: [...new Set([...have.variables, ...conditions.flatMap(condVars)])] })
+    set(h.id, { ...(have.when ? {} : { conditions }), variables: [...new Set([...have.variables, ...conditions.flatMap(condVars)])] })
   }
   /** Add the conditions the UCA does not yet have (matched by variable and instance), before the existing ones. */
   const ucaConditions = (u: Uca, conditions: Condition[], context = '') => {
     const have = (c.p.items[u.id] as Uca)
-    const missing = conditions.filter((x) => isOnVariable(x) && !have.conditions.flatMap(leaves).some((y) => isOnVariable(y) && y.variable === x.variable))
-    set(u.id, { conditions: [...missing, ...have.conditions], ...(context && !have.context.trim() ? { context } : {}) })
+    const had = new Set(varsOf(have.when))
+    const missing = conditions.filter((x) => isOnVariable(x) && !had.has(x.variable))
+    const parts = [whenToExpr(c.p, missing), have.when].filter((x): x is Expr => !!x)
+    set(u.id, { when: parts.length ? and(...parts) : null, ...(context && !have.context.trim() ? { context } : {}) })
   }
   const belief = (ctrl: Id<'node'>, w: Id<'variable'>) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
   const signal = (fb: Id<'feedback'>, w: Id<'variable'>) => { c.p = addSignal(c.p, fb, w).project }
@@ -150,5 +157,5 @@ export function formalizeAebMsiv(id: 'pub-aeb' | 'pub-thomas-msiv', p: Project):
   const c: Ctx = { p }
   if (id === 'pub-aeb') aeb(c)
   else msiv(c)
-  return nameAllInstances(c.p)
+  return c.p
 }

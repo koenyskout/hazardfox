@@ -5,7 +5,8 @@ import { isExpr } from './variables'
 import { createItem, defineSymbolicType, updateItem } from './ops'
 import { clockAt, getter, traceState, whenHolds } from './traces'
 import { whenText } from './variables'
-import type { Project, Trace, When } from './types'
+import type { Project, Trace } from './types'
+import type { When } from './legacy'
 
 const setup = () => {
   let p: Project = emptyProject()

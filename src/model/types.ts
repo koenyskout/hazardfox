@@ -1,3 +1,4 @@
+import type { Expr } from './lang'
 /** Item id; `Id<K>` is an id of an item of kind K (a bare `Id` is any string, converts in freely; an id of another kind does not). */
 export type Id<K extends Kind = never> = [K] extends [never] ? string : string & { readonly __kind?: K }
 /** Display labels per item id (derived, see `labels.ts`). */
@@ -91,8 +92,8 @@ export interface Hazard extends Base<'hazard', Id<'hazard'>> {
   lossExclude: Id<'loss'>[]
   /** World (domain) variables describing the system state or environment conditions that make this a hazard. */
   variables: Id<'variable'>[]
-  /** Logical definition of the hazardous state over world variables (all must hold). */
-  conditions: When[]
+  /** Logical definition of the hazardous state over world variables (`null` = none given). */
+  when: Expr | null
   /** STPA-Sec: hazard is caused by / relevant for adversarial actions. */
   security: boolean
 }
@@ -197,11 +198,8 @@ export interface SymbolicType { ordered: boolean; unique?: boolean; monotonic?: 
 export interface StructField extends TypeSpec { name: string; /** name of another struct type this field is an instance of ('' = plain field) */ structType?: string }
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
 export interface StructType { fields: StructField[] }
-/** Condition tree: all (`any` false) or any of its conditions and nested groups hold; with `not` the group is negated (not all of its members hold). */
-export interface Group { kind: 'group'; any: boolean; of: When[]; not?: boolean }
-export type When = Condition | Group
 /** The refined variable has value `state` when `when` holds. */
-export interface Rule { state: string; when: Group }
+export interface Rule { state: string; when: Expr }
 
 /** Control structure node; `parent` nests nodes (hierarchy / subsystems). */
 export interface CsNode extends Base<'node', Id<'node'>> {
@@ -264,37 +262,12 @@ export type TimeUnit = (typeof TIME_UNITS)[number]
 export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3600 }
 /** A duration bound: "at least" (`≥`) or "less than" (`<`) `amount` of `unit`. */
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
-/** Shared by every form of condition: how long it must have held (needs numeric step times in traces). With an event condition, the time since that event instead. */
-interface CondBase { time?: TimeBound }
-/** What a condition does with the name of one instance: `declare` introduces the name, ranging over the instances as `quant` says (default `some`); `use` refers to an instance declared by another condition of the same context (the same instance, not just some). Different names of one entity are different instances. */
-export type Binding = { declare: string; quant?: Quantifier } | { use: string }
-/** Bindings of the many ends of a variable, in order (an entity variable has one; a relationship variable one per many end); `null` leaves an end unnamed. */
-export type EndNames = (Binding | null)[]
-/** The names a condition gives to / takes from the instances of its variable. */
-export interface InstanceNames { names?: EndNames }
-/** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
-export interface ValueCondition extends CondBase, Comparison, InstanceNames { kind: 'value'; variable: Id<'variable'> }
-/** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
-export interface VarCondition extends CondBase, InstanceNames {
-  kind: 'var'
-  variable: Id<'variable'>
-  op: ConditionOp
-  other: Id<'variable'>
-  /** Names for the instances of the compared variable, e.g. speed of t1 > speed of t2 */
-  otherNames?: EndNames
-}
-/** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
-export interface TextCondition extends CondBase { kind: 'text'; text: string; op: '=' | '≠' }
-/** An arithmetic comparison (variables as `@[id]`, `prev(x)`, `+ − ×`, `min/max/abs`, `= ≠ < ≤ > ≥`) in canonical text, see `model/expr.ts`. */
-export interface ExprCondition extends CondBase { kind: 'expr'; text: string }
-/** A timing condition on an event: the time since this control action / feedback last occurred (`time` says how long). It has no variable. */
-export interface EventCondition extends CondBase { kind: 'event'; event: Id<'ca' | 'feedback' | 'operation'> }
-export type Condition = ValueCondition | VarCondition | TextCondition | ExprCondition | EventCondition
 export interface Uca extends Base<'uca'> {
   kind: 'uca'
   ca: Id<'ca'>
   guide: GuideWord
-  conditions: When[]
+  /** When the action is unsafe, as one typed condition over world variables (`null` = none given). */
+  when: Expr | null
   /** Conditions on the control action's parameters (optional; the action must have those parameters) */
   args: ArgCondition[]
   /** Free text refinement */

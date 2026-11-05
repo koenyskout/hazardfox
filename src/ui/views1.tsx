@@ -6,7 +6,8 @@ import { effectText, operationsOf } from '../model/operations'
 import { paramSummary } from '../model/params'
 import { clusterStructs, isPredicate, structPath } from '../model/formal'
 import { effectiveLosses } from '../model/derived'
-import { describeStates, whenTexts } from '../model/variables'
+import { describeStates } from '../model/variables'
+import { say } from '../model/say'
 import { byLabel, renderText } from '../model/labels'
 import { updateItem, updateMeta } from '../model/ops'
 import { scenarioTarget } from '../model/refs'
@@ -74,7 +75,7 @@ export function Step1() {
       {sub === 'hazard' && (
         <TreeTable kind="hazard" extraHeader="Losses" empty="A hazard is a system state that, together with worst-case environmental conditions, can lead to a loss."
           extra={(h) => chips(effectiveLosses(p, h.id))}
-          extra2Header="Condition" extra2={(h) => whenTexts(p, h.conditions).length > 0 ? <span className="muted">{renderText(labels, whenTexts(p, h.conditions).join(' and '))}</span> : null} />
+          extra2Header="Condition" extra2={(h) => h.when ? <span className="muted">{renderText(labels, say(p, h.when))}</span> : null} />
       )}
       {sub === 'constraint' && (
         <TreeTable kind="constraint" extraHeader="Hazards" extra={(c) => chips(c.hazards)} />

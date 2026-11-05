@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { nameAllInstances } from '../model/variables'
 import { buildTables, defaultOptions, SECTIONS } from '../export/tables'
 import { effectiveLosses, scenarioHazards } from '../model/derived'
 import { compareLabels } from '../model/labels'
@@ -193,7 +192,6 @@ export const TOOLS = [
         }
       })
       const fin = new Resolver(p)
-      p = nameAllInstances(p)
       const issues = issuesFor(p, made.map((m) => m.id))
       return {
         project: p,
@@ -234,7 +232,6 @@ export const TOOLS = [
           throw new Error(`updates[${n}] (${u.ref}): ${(e as Error).message}`)
         }
       })
-      p = nameAllInstances(p)
       const fin = new Resolver(p)
       return { project: p, result: { updated: ids.map((id) => ({ ref: fin.label(id), title: p.items[id].title })), issues: issuesFor(p, ids) } }
     },

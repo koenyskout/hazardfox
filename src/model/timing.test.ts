@@ -5,7 +5,8 @@ import { clockAt, draftTrace, witness } from './traces'
 import { deleteItems } from './ops'
 import { refsOf } from './refs'
 import { boundSeconds, conditionComplete, parseTime, whenTexts } from './variables'
-import type { Condition, Id, Scenario, Trace, Uca } from './types'
+import type { Id, Scenario, Trace, Uca } from './types'
+import type { Condition } from './legacy'
 import { laneOf } from './variables'
 
 function setup(conditions: (a: Id, ca: Id, ev: Id) => Condition[]) {

@@ -30,7 +30,7 @@ export const newProject = (): Project => ({ ...emptyProject(), rangeTypes: struc
 /** Default values of the kind-specific fields. */
 const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base<K> | 'kind'> } = {
   loss: () => ({}),
-  hazard: () => ({ lossLinks: [], lossExclude: [], variables: [], conditions: [], security: false }),
+  hazard: () => ({ lossLinks: [], lossExclude: [], variables: [], when: null, security: false }),
   constraint: () => ({ hazards: [] }),
   requirement: () => ({ sources: [], type: 'requirement' }),
   assumption: () => ({ about: [] }),
@@ -41,7 +41,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base<K> | 'kind'> } =
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], params: [], operation: null, actuator: '', notApplicable: [], bend: null, labelShift: null }),
   feedback: () => ({ from: '', to: '', sensor: '', bend: null, labelShift: null }),
-  uca: () => ({ ca: '', guide: 'not-provided', conditions: [], args: [], context: '', override: '', hazards: [], constraint: '', refines: null }),
+  uca: () => ({ ca: '', guide: 'not-provided', when: null, args: [], context: '', override: '', hazards: [], constraint: '', refines: null }),
   scenario: () => ({
     scenarioType: 'uca', uca: null, ca: null, hazards: [], cause: '', element: null,
     stride: [], threat: '', adversarial: false, severity: 0, likelihood: 0, trace: { lanes: [], steps: [] },

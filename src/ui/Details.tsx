@@ -1,16 +1,19 @@
 import { ControllerEditorButton } from './VariableMap'
 import { Select } from './Select'
 import { WhenView } from './WhenView'
-import { conditionLine, lineCondition, namesOf, textable, textToWhen, whenToText } from '../model/expr'
+import { ConditionEditor } from './ExprEditor'
+import { requiredAtoms } from '../model/atoms'
+import { say } from '../model/say'
+import { HOLE, type Expr } from '../model/lang'
 import { renderText, variableName, defaultReading, readingValid, readRel, endName } from '../model/labels'
 import { affectable, attributesOf, generalisations, isA, addBelief, addSignal, beliefsAbout, beliefsOf, controlledBy, predicateOf, refinedBy, signalsOf, setLayer, updatedBy, updates, variablesIn } from '../model/formal'
 import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantAt, declare, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { describeStates, symProps, isRangeOp, isSetOp, OP_LABELS, opsFor, valuesOf } from '../model/variables'
 import { typeSpec } from '../model/create'
-import { type TypeSpec, type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
+import { type TypeSpec, type Effect, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Rule, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem, setScenarioType } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -30,8 +33,8 @@ import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ChoicePicker, Picker } from './Picker'
 import { ReviewItem } from './Review'
-import { SubjectPicker, type SubjectChoice } from './Subject'
-import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, BoundedNumber, RangeBar, VIEW_OF } from './Fields'
+import { SubjectPicker } from './Subject'
+import { Field, ItemHover, Ref, RefList, RichText, SingleRef, Tags, TextInput, VIEW_OF } from './Fields'
 import type { View } from '../model/store'
 
 /** Kinds that may be selected in a view although they belong to another one. */
@@ -465,12 +468,12 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = whenTexts(p, it.conditions).map((l) => renderText(labels, l))
+  const lines = say(p, it.when) ? [say(p, it.when)] : []
   return (
     <div className="ctx-summary">
       {lines.length || it.context ? (
         <>
-          {lines.length > 0 && <WhenView ws={it.conditions} />}
+          {lines.length > 0 && <WhenView e={it.when} />}
           {it.context && <ul><li>{renderText(labels, it.context)}</li></ul>}
         </>
       ) : <span className="muted">No context yet</span>}
@@ -490,12 +493,11 @@ function ContextSummary({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
 
 function HazardCondition({ it, set }: { it: ItemOf<'hazard'>; set: Set }) {
   const p = useProject()
-  const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = whenTexts(p, it.conditions).map((l) => renderText(labels, l))
+  const lines = say(p, it.when) ? [say(p, it.when)] : []
   return (
     <div className="ctx-summary">
-      {lines.length ? <WhenView ws={it.conditions} /> : <span className="muted">No condition yet</span>}
+      {lines.length ? <WhenView e={it.when} /> : <span className="muted">No condition yet</span>}
       <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit condition…</button>
       {open && (
         <Modal title="Edit hazardous condition" onClose={() => setOpen(false)} wide>
@@ -514,103 +516,7 @@ function ConditionsEditor({ it, set, vars: given }: { it: ItemOf<'uca' | 'hazard
   const vars = given ?? itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' || (v.layer === 'internal' && ca?.kind === 'ca' && v.parent === ca.from))
   const label = <b>{useLabels()[it.id]}</b>
   const head = <span>{it.kind === 'uca' ? <>{label} applies when</> : <>The system is in hazard state {label} when</>}</span>
-  return <ConditionList conditions={it.conditions} onChange={(conditions) => set({ conditions })} vars={vars} head={head} />
-}
-
-/** A conjunction of conditions (UCA context, hazard state), laid out like a rule. */
-function ConditionList({ conditions, onChange, vars, head }: { conditions: When[]; onChange: (cs: When[]) => void; vars: Variable[]; head: ReactNode }) {
-  const p = useProject()
-  const [mode, setMode] = useState<'rows' | 'text'>('rows')
-  const can = textable(p, conditions)
-  return (
-    <div className="rule">
-      <div className="tx-tabs">
-        <button type="button" className={mode === 'rows' ? 'on' : ''} onClick={() => setMode('rows')}>Rows</button>
-        <button type="button" className={mode === 'text' && can ? 'on' : ''} disabled={!can} title={can ? 'Edit the condition as text' : 'This condition uses quantifiers, instance names, timing or words that only the rows editor can show'} onClick={() => setMode('text')}>Text</button>
-      </div>
-      {mode === 'text' && can
-        ? <><span className="rule-head">{head}</span><TextTree conditions={conditions} onChange={(cs) => onChange(nameInstances(p, cs))} /></>
-        : <><Declarations conditions={conditions} onChange={onChange} /><GroupEditor g={allOf(...conditions)} onChange={(g) => onChange(nameInstances(p, g.of))} vars={vars} head={head} flat scope={conditions.flatMap(leaves)} /></>}
-    </div>
-  )
-}
-
-/** A condition tree as text: `all of:` / `any of:` / `not:` headers with members marked `&` / `|`, nesting by indentation; markers are optional when typing. */
-function TextTree({ conditions, onChange }: { conditions: When[]; onChange: (cs: When[]) => void }) {
-  const p = useProject()
-  const canonical = whenToText(p, conditions)
-  const [draft, setDraft] = useState(canonical)
-  const [focus, setFocus] = useState(false)
-  useEffect(() => { if (!focus) setDraft(canonical) }, [canonical, focus])
-  let error: string | null = null
-  let parsed: When[] | null = null
-  try { parsed = textToWhen(p, draft) } catch (e) {
-    const line = draft.split('\n').filter((l) => l.trim())
-    error = (e as Error).message
-    // locate the first line that does not read
-    for (let i = 0; i < line.length; i++) { try { const b = line[i].trim().replace(/^(&|\||-|∧|∨|and\b|or\b)\s+/, ''); if (!/^(all of|any of|not):$/i.test(b)) lineCondition(p, b.replace(/^not:\s*/i, '')) } catch (x) { error = `line ${i + 1}: ${(x as Error).message}`; break } }
-  }
-  const hl = draft.split('\n').map((l, i) => {
-    const m = /^(\s*)(&|\||-)?(\s*)(all of:|any of:|not:)?(.*)$/.exec(l)!
-    return <div key={i}>{m[1]}{m[2] && <span className={m[2] === '|' ? 'tx-or' : 'tx-and'}>{m[2]}</span>}{m[3]}{m[4] && <span className={m[4] === 'not:' ? 'tx-not' : 'tx-hd'}>{m[4]}</span>}{m[5]}{'\u200b'}</div>
-  })
-  const commit = () => { setFocus(false); if (parsed && whenToText(p, parsed) !== canonical) onChange(parsed); else if (parsed) setDraft(whenToText(p, parsed)) }
-  return (
-    <div>
-      <div className="tx" style={{ height: Math.max(1, draft.split('\n').length) * 22 + 18 }}>
-        <pre aria-hidden>{hl}</pre>
-        <textarea spellCheck={false} value={draft} onFocus={() => setFocus(true)} onChange={(e) => setDraft(e.target.value)} onBlur={commit} />
-      </div>
-      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>all of:</code> / <code>any of:</code> / <code>not:</code> open a group, members start with <code>&amp;</code> or <code>|</code>. Also: prev(x), succ(x), pred(x), + − ×, min, max, abs, between … and …, ∈ {'{a, b}'}.</div>}
-    </div>
-  )
-}
-
-/** The tree list with `f` applied to each condition (given its position among the conditions in reading order). */
-const mapAt = (ws: When[], f: (c: Condition, i: number) => Condition): When[] => {
-  let k = 0
-  const go = (w: When): When => (isGroup(w) ? { ...w, of: w.of.map(go) } : f(w, k++))
-  return ws.map(go)
-}
-
-/** The instances the conditions talk about (an entity with several instances), one line each: quantifier, entity, name. Edits apply to the condition that introduces the instance; conditions refer to it by name. */
-function Declarations({ conditions: tree, onChange }: { conditions: When[]; onChange: (cs: When[]) => void }) {
-  const p = useProject()
-  const conditions = tree.flatMap(leaves)
-  const decls = conditions.flatMap((c, i) => {
-    const v = isOnVariable(c) ? p.items[c.variable] : undefined
-    if (v?.kind !== 'variable' || !isOnVariable(c)) return []
-    const out: { i: number; end: number; name: string; entity: Id | null; quant: Quantifier; cmp?: boolean }[] = []
-    manyEndsOf(p, v).filter((e) => !uses(c.names, e.end)).forEach((e) => out.push({ i, end: e.end, name: declaredAt(c.names, e.end) ?? '', entity: e.entity, quant: quantAt(c.names, e.end) }))
-    for (const x of condInstances(p, c)) if (x.cmp && x.intro) out.push({ i, end: x.end, name: x.name, entity: x.entity, quant: x.quant, cmp: true })
-    return out
-  })
-  if (!decls.length) return null
-  const rename = (d: (typeof decls)[number], to: string) => {
-    const old = d.name
-    onChange(mapAt(tree, (c, i) => {
-      const x = i === d.i ? withInstanceName(c, d.end, to || undefined, d.cmp) : c
-      return old ? renameSame(x, old, to || undefined) : x
-    }))
-  }
-  const setQuant = (d: (typeof decls)[number], q: Quantifier) => {
-    const name = d.name || autoName(p, d.entity, conditions)
-    onChange(mapAt(tree, (c, i) => (i === d.i ? withInstanceName(c, d.end, name, d.cmp, q) : c)))
-  }
-  return (
-    <div className="decls">
-      {decls.map((d, n) => (
-        <div key={d.i + ':' + d.end + (d.cmp ? 'c' : '')} className="decl">
-          <span className="cond-word">{d.quant === 'all' ? (n ? 'and for' : 'For') : n ? 'and' : 'There is'}</span>
-          <Select value={d.quant} onChange={(e) => setQuant(d, e.target.value as Quantifier)}>
-            {QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}
-          </Select>
-          <span className="chip k-entity">{p.items[d.entity ?? '']?.title.trim() || 'instance'}</span>
-          <input className="decl-name" value={d.name} placeholder="name" onChange={(e) => rename(d, e.target.value.replace(/\s/g, ''))} />
-        </div>
-      ))}
-    </div>
-  )
+  return <ConditionEditor e={it.when} onChange={(when) => set({ when })} vars={vars} head={head} />
 }
 
 const BLANK_PARAM: Param = { name: '', ...typeSpec({ type: 'range' }) }
@@ -769,296 +675,11 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
   )
 }
 
-const BLANK: ValueCondition = { kind: 'value', variable: '', op: '=', state: '' }
-const EXPR: ExprCondition = { kind: 'expr', text: '' }
-const WORDS: TextCondition = { kind: 'text', op: '=', text: '' }
-const TIME: TimeBound = { op: '≥', amount: '', unit: 's' }
-const EVENT: EventCondition = { kind: 'event', event: '', time: TIME }
-
-/** Duration of a timing condition: "for at least 3 s" (after a condition) or "at least 3 s after <event>". */
-function TimeEdit({ t, onChange }: { t: TimeBound; onChange: (t: TimeBound) => void }) {
-  return (
-    <span className="cond-time">
-      <Select value={t.op} onChange={(e) => onChange({ ...t, op: e.target.value as TimeBound['op'] })}><option value="≥">at least</option><option value="<">less than</option></Select>
-      <input className="time-amount" type="number" min={0} step="any" value={t.amount} placeholder="…" onChange={(e) => onChange({ ...t, amount: e.target.value })} />
-      <Select value={t.unit} onChange={(e) => onChange({ ...t, unit: e.target.value as TimeUnit })}>{TIME_UNITS.map((u) => <option key={u}>{u}</option>)}</Select>
-    </span>
-  )
-}
-
-/** A condition tree: "all of" / "any of" its conditions and nested groups; the choice shows once there are two or more. `flat`: conditions only, all of them. */
-function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope?: Condition[]; g: Group; onChange: (g: Group, binds?: Binds) => void; onRemove?: () => void; vars: Variable[]; head: ReactNode; flat?: boolean }) {
-  const bound = (x: When, binds: Binds): When => (isGroup(x) ? { ...x, of: x.of.map((y) => bound(y, binds)) } : binds.filter((b) => b.target === x).reduce(withName, x))
-  const upd = (i: number, w: When | null, binds: Binds = []) => onChange({ ...g, of: (w ? g.of.map((x, j) => (j === i ? w : x)) : g.of.filter((_, j) => j !== i)).map((x, j) => (j === i ? x : bound(x, binds))) }, binds)
-  const kind = g.not ? 'not' : g.any ? 'any' : 'all'
-  const setKind = (k: string) => { const { not: _, ...rest } = g; onChange({ ...rest, any: k === 'any', ...(k === 'not' ? { not: true } : {}) }) }
-  return (
-    <>
-      <div className="rule-head">
-        {head}
-        {flat ? <span className="wv-tag">all of</span> : <Select className={'tagsel ' + kind} value={kind} onChange={(e) => setKind(e.target.value)}><option value="all">All of</option><option value="any">Any of</option>{kind === 'not' && <option value="not">Not</option>}</Select>}
-        {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
-      </div>
-      <div className={'conds g-' + (flat ? 'all' : kind) + (onRemove ? ' group' : '')}>
-        {g.of.map((w, i) => isGroup(w)
-          ? <GroupEditor key={i} g={w} head={null} vars={vars} scope={scope} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />
-          : <ConditionRow key={i} c={w} word="" scope={scope} vars={vars} onChange={(x, bs) => upd(i, x, bs)} onRemove={() => upd(i, null)} />)}
-        <div className="rule-add">
-          <button onClick={() => onChange({ ...g, of: [...g.of, BLANK] })}><Icon name="plus" size={12} /> condition</button>
-          <button title="An arithmetic comparison such as Gap − 2 × Speed < 5, or Door state ≠ prev(Door state)" onClick={() => onChange({ ...g, of: [...g.of, EXPR] })}><Icon name="plus" size={12} /> expression</button>
-          <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}><Icon name="plus" size={12} /> time since an event</button>
-          <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}><Icon name="plus" size={12} /> free text</button>
-          <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { kind: 'group', any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all of' : 'any of'}</button>
-        </div>
-      </div>
-    </>
-  )
-}
-
-/** A change to another condition of the same context made alongside a row's own change: set / clear the instance name of one of its ends. */
-type Bind = { target: ValueCondition | VarCondition; end: number }
-type Binds = Bind[]
-const withName = (x: Condition, bind: Bind): Condition => (isOnVariable(x) ? bindAt(x, bind.end, null) : x)
-
-const VAR_OPTION = '\u0000var'
-
-/** An arithmetic comparison, typed with variable names; a plain "variable op constant" becomes an ordinary row. */
-function ExprRow({ c, word, vars, onChange, onRemove }: { c: ExprCondition; word: string; vars: Variable[]; onChange: (c: Condition) => void; onRemove: () => void }) {
-  const p = useProject()
-  const shown = conditionLine(p, c) ?? ''
-  const [draft, setDraft] = useState(shown)
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => { setDraft(shown) }, [shown])
-  const names = namesOf(p, (v) => vars.some((x) => x.id === v.id))
-  const commit = () => {
-    if (!draft.trim()) { setError(null); return }
-    try { const x = lineCondition(p, draft, names); setError(null); if (JSON.stringify(x) !== JSON.stringify(c)) onChange(x) } catch (e) { setError((e as Error).message) }
-  }
-  return (
-    <div className="cond">
-      <span className="cond-word">{word}</span>
-      <input className={'cond-expr' + (error ? ' bad' : '')} value={draft} placeholder="e.g. Gap − 2 × Speed < 5   or   Door state ≠ prev(Door state)" spellCheck={false} onChange={(e) => setDraft(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') commit() }} />
-      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
-      {error && <div className="cond-err">{error}</div>}
-    </div>
-  )
-}
-
-type RowProps<C extends Condition> = { scope?: Condition[]; c: C; onChange: (c: Condition, binds?: Binds) => void; onRemove: () => void; vars: Variable[]; word: string }
-
-/** One condition of a context, edited by its form: in words, an expression, a time since an event, or a variable (against a value or another variable). */
-function ConditionRow(props: RowProps<Condition>) {
-  const { c, word, vars, onChange, onRemove, scope } = props
-  if (isExpr(c)) return <ExprRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} />
-  if (isText(c)) return <TextRow {...props} c={c} />
-  if (isEvent(c)) return <EventRow {...props} c={c} />
-  return <VariableRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} scope={scope} />
-}
-
-function TextRow({ c, word, onChange, onRemove }: RowProps<TextCondition>) {
-  return (
-    <div className="cond">
-      <span className="cond-word">{word}</span>
-      <span className="cond-text"><RichText compact value={c.text} onChange={(text) => onChange({ ...c, text })} only={(it) => it.kind === 'variable' || it.kind === 'entity' || it.kind === 'relationship'} placeholder="condition in words… (type @ to refer to a variable)" /></span>
-      <Select value={c.op} onChange={(e) => onChange({ ...c, op: e.target.value === '≠' ? '≠' : '=' })}><option value="=">holds</option><option value="≠">does not hold</option></Select>
-      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
-    </div>
-  )
-}
-
-function EventRow({ c, word, onChange, onRemove }: RowProps<EventCondition>) {
-  const p = useProject()
-  const labels = useLabels()
-  const events = Object.values(p.items).filter((x) => x.kind === 'ca' || x.kind === 'feedback' || x.kind === 'operation')
-  return (
-    <div className="cond cond-ev">
-      <span className="cond-word">{word}</span>
-      <TimeEdit t={c.time ?? TIME} onChange={(time) => onChange({ ...c, time })} />
-      <span className="cond-word">after</span>
-      <Select value={c.event} onChange={(e) => onChange({ ...c, event: e.target.value })}>
-        <option value="" disabled hidden>control action or feedback…</option>
-        {events.map((x) => <option key={x.id} value={x.id}>{labels[x.id]} {renderText(labels, x.title)}</option>)}
-      </Select>
-      <span className="cond-word">occurred</span>
-      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
-    </div>
-  )
-}
-
-/** A condition on a variable, compared with a constant or with another variable (⇄ switches). */
-function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps<ValueCondition | VarCondition>) {
-  const p = useProject()
-  const labels = useLabels()
-  const upd = (patch: { time?: TimeBound }) => onChange({ ...c, ...patch })
-  const v = p.items[c.variable]
-  const vr = v?.kind === 'variable' ? v : undefined
-  const idx = scope.indexOf(c)
-  const entityTitle = (e: Id | null) => p.items[e ?? '']?.title.trim() || 'instance'
-  /** The ways to pick the instance at one end of condition `c0` (variable `v`): a quantifier, the same instance as an earlier condition, or another one. */
-  const instOptions = (c0: ValueCondition | VarCondition, v: Variable, end: number) => {
-    const ends = manyEndsOf(p, v)
-    const ent = ends.find((e) => e.end === end)?.entity
-    if (!ent) return null
-    const pool = scope.flatMap((o, i) => {
-      const ov = isOnVariable(o) && o !== c ? p.items[o.variable] : undefined
-      if (!isOnVariable(o) || ov?.kind !== 'variable') return []
-      return manyEndsOf(p, ov).filter((e) => !uses(o.names, e.end) && e.entity === ent)
-        .map(({ end: e }) => ({ o, i, e, name: declaredAt(o.names, e) ?? '' }))
-    }).filter((x) => x.name)
-    const mine = declaredAt(c0.names, end)
-    const other = mine ? pool.find((x) => x.name !== mine && x.i < idx) : undefined
-    const same = usedAt(c0.names, end)
-    const value = same ? 'same:' + same : other ? `other:${other.i}:${other.e}` : quantAt(c0.names, end)
-    const apply = (x: string) => <C extends ValueCondition | VarCondition>(c1: C): { c: C; binds: Bind[] } => {
-      // leaving a reference may orphan the name it used
-      const ref = usedAt(c1.names, end)
-      const used = (o: Condition) => o !== c && isOnVariable(o) && (o.names ?? []).some((_, e) => usedAt(o.names, e) === ref)
-      const intro = ref && !scope.some(used) ? scope.flatMap((o): Bind[] => (!isOnVariable(o) ? [] : (o.names ?? []).flatMap((_, e) => (declaredAt(o.names, e) === ref ? [e] : [])).slice(0, 1).map((e) => ({ target: o, end: e }))))[0] : undefined
-      const cleared = bindAt(c1, end, null)
-      const base: C = cleared
-      const drop: Bind[] = intro ? [intro] : []
-      if (x.startsWith('same:')) return { c: bindAt(base, end, { use: x.slice(5) }), binds: drop.filter((d) => declaredAt(d.target.names, d.end) !== x.slice(5)) }
-      if (x.startsWith('other:')) {
-        const [, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (isOnVariable(t) ? declaredAt(t.names, Number(e)) : undefined) ?? ''
-        return { c: bindAt(base, end, { declare: autoName(p, ent, scope, [tn]) }), binds: drop }
-      }
-      return { c: x === 'some' ? base : bindAt(base, end, declare(autoName(p, ent, scope), x as Quantifier)), binds: drop }
-    }
-    const t = entityTitle(ent)
-    const opts = [
-      ...QUANTIFIERS.map((q) => ({ value: q as string, short: QUANT_LABELS[q], long: `${QUANT_LABELS[q]} ${t}` })),
-      ...pool.map(({ name }) => ({ value: 'same:' + name, short: name, long: name })),
-      ...pool.filter(({ i }) => i < idx).map(({ i, e, name }) => ({ value: `other:${i}:${e}`, short: `another ${t} than ${name}`, long: `another ${t} than ${name}` })),
-    ].map((o) => ({ ...o, apply: apply(o.value) }))
-    return { value, opts }
-  }
-  /** Slot k: the k-th many end of the variable (the editor offers two). */
-  const slotEnd = (v: Variable, k: number) => manyEndsOf(p, v)[k]?.end
-  const instText = (k: number) => { const end = vr && slotEnd(vr, k); const io = vr && end !== undefined ? instOptions(c, vr, end) : null; const o = io?.opts.find((x) => x.value === io.value); return o && end !== undefined ? (declaredAt(c.names, end) ?? o.long) : '' }
-  /** Every subject (variable with its instance choices) the condition could be started with. */
-  const subjectChoices = (): SubjectChoice[] => vars.flatMap((v) => {
-    const c0 = toValue(c, { variable: v.id, op: opsFor(v).includes(c.op) ? c.op : '=', names: undefined })
-    const [s1, s2] = [slotEnd(v, 0), slotEnd(v, 1)]
-    const o1 = (s1 !== undefined && instOptions(c0, v, s1)?.opts) || [null], o2 = (s2 !== undefined && instOptions(c0, v, s2)?.opts) || [null]
-    return o1.flatMap((a) => o2.map((b) => {
-      const r1 = a ? a.apply(c0) : { c: c0, binds: [] as Bind[] }
-      const r2 = b ? b.apply(r1.c) : { c: r1.c, binds: [] as Bind[] }
-      const [before, after] = [a?.long, b?.long]
-      return { key: `${v.id}|${a?.value}|${b?.value}`, variable: v, before, after, text: `${before ?? ''} ${variableName(p, v)} ${labels[v.id]} ${after ?? ''}`, pick: () => onChange(r2.c, [...r1.binds, ...r2.binds]) }
-    }))
-  })
-  const swap = (title: string, run: () => void) => <button type="button" className="btn" title={title} style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={run}>⇄</button>
-  const subject = (
-    <SubjectPicker choices={subjectChoices} create={{ label: '+ New variable…', run: () => onChange(toValue(c, { variable: addItemInDialog('variable'), op: '=' })) }}>
-      {v ? <>{instText(0) && <span className="subj-inst">{instText(0)}</span>}<ItemHover id={v.id}><span className={'chip k-' + v.kind}><ChipLabel it={v} label={labels[v.id]} /></span></ItemHover>{instText(1) && <span className="subj-inst">{instText(1)}</span>}</> : <span className="muted">variable…</span>}
-    </SubjectPicker>
-  )
-  const err = vr && (isVarCmp(c) ? c.other : c.state || c.set?.length) ? conditionError(vr, c, p) : null
-  return (
-    <div className="cond">
-      <span className="cond-word">{word}</span>
-      {subject}
-      {isVarCmp(c)
-        ? <VarCompare c={c} vr={vr} vars={vars} onChange={onChange} entityTitle={entityTitle} scope={scope} swap={swap} />
-        : <ValueCompare c={c} vr={vr} onChange={onChange} swap={swap} />}
-      {c.time ? <div className="cond-dur"><span className="cond-word">held for</span><TimeEdit t={c.time} onChange={(time) => upd({ time })} /><button type="button" className="btn" title="Remove the duration" onClick={() => upd({ time: undefined })}>⊘</button></div>
-        : vr && <button type="button" className="btn" title="Require the condition to have held for some time" style={{ flex: 'none', padding: '1px 6px', fontSize: 11 }} onClick={() => upd({ time: TIME })}>⏱</button>}
-      <button className="x" title="Remove" onClick={onRemove}><Icon name="x" size={12} /></button>
-      {err && <small className="cond-err">{err}</small>}
-    </div>
-  )
-}
-
-type SwapButton = (title: string, run: () => void) => ReactNode
-
-/** Operator and constant(s) of a condition on a variable. */
-function ValueCompare({ c, vr, onChange, swap }: { c: ValueCondition; vr: Variable | undefined; onChange: (c: Condition) => void; swap: SwapButton }) {
-  const values = valuesOf(vr)
-  const bar = vr?.type === 'range' && vr.min !== null && vr.max !== null && vr.max > vr.min
-  const toVar = () => vr && onChange(toVarCmp(c, '', { op: opsForVar(vr).includes(c.op) ? c.op : '=' }))
-  const valueInput = (key: 'state' | 'to', placeholder: string) => {
-    const put = (x: string) => onChange(key === 'state' ? { ...c, state: x } : { ...c, to: x })
-    return values ? (
-      <Select value={c[key] ?? ''} onChange={(e) => e.target.value === VAR_OPTION ? toVar() : put(e.target.value)}>
-        <option value="" disabled hidden>{placeholder}</option>
-        {values.map((s) => <option key={s}>{s}</option>)}
-        {key === 'state' && !isRangeOp(c.op) && <option value={VAR_OPTION}>another variable…</option>}
-      </Select>
-    ) : vr?.type === 'symbolic' ? (
-      <TextInput value={c[key] ?? ''} onChange={put} placeholder="symbol, e.g. t1" />
-    ) : (
-      <BoundedNumber value={c[key] ?? ''} onChange={put} min={vr?.min ?? null} max={vr?.max ?? null} step={vr ? stepOf(vr) : 1} placeholder={placeholder} />
-    )
-  }
-  return (
-    <>
-      <Select value={c.op} onChange={(e) => onChange({ ...c, op: e.target.value as ConditionOp })}>
-        {opsFor(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
-      </Select>
-      <div className={'cond-val' + (bar && !isSetOp(c.op) ? ' bar' : '')}>
-        {bar && vr && (
-          <RangeBar min={vr.min!} max={vr.max!} step={stepOf(vr)} op={c.op} a={c.state} b={c.to ?? ''} unit={vr.unit} onChange={(a, b) => onChange(isRangeOp(c.op) ? { ...c, state: a, to: b } : { ...c, state: a })} />
-        )}
-        {isSetOp(c.op)
-          ? <span className="setpick"><span className="brace">{'{'}</span>{(vr?.states ?? []).map((s) => <button type="button" key={s} role="checkbox" aria-checked={!!c.set?.includes(s)} className={'opt' + (c.set?.includes(s) ? ' on' : '')} onClick={() => onChange({ ...c, set: toggled(c.set ?? [], s) })}>{c.set?.includes(s) ? '✓ ' : ''}{s}</button>)}<span className="brace">{'}'}</span>{!vr?.states.length && <span className="muted">pick a variable with states</span>}</span>
-          : !bar && valueInput('state', vr?.type === 'range' ? 'value…' : 'state…')}
-        {isRangeOp(c.op) && !bar && <><span className="cond-word">and</span>{valueInput('to', 'value…')}</>}
-        {vr?.type === 'range' && vr.unit && !bar && <span className="muted">{vr.unit}</span>}
-        {vr && !values && !isSetOp(c.op) && swap('Compare with another variable instead', toVar)}
-      </div>
-    </>
-  )
-}
-
-/** Operator and compared variable (with the instances it is read at) of a comparison of two variables. */
-function VarCompare({ c, vr, vars, onChange, entityTitle, scope, swap }: { c: VarCondition; vr: Variable | undefined; vars: Variable[]; onChange: (c: Condition) => void; entityTitle: (e: Id | null) => string; scope: Condition[]; swap: SwapButton }) {
-  const p = useProject()
-  const labels = useLabels()
-  const ov = p.items[c.other]
-  /** Names the compared variable can be read at (instances introduced by the other conditions), per end of a variable. */
-  const otherNames = (ent: Id) => [...new Set(scope.flatMap((o) => (o === c ? [] : condInstances(p, o).filter((x) => x.entity === ent && x.intro).map((x) => x.name))))]
-  const otherChoices = (): SubjectChoice[] => !vr ? [] : vars.filter((x) => x.id !== vr.id && x.type === vr.type).flatMap((x) => {
-    const [m1, m2] = manyEndsOf(p, x), [e1, e2] = [m1?.entity ?? null, m2?.entity ?? null]
-    // per end: read at any instance, at a named one, or at one introduced here ("another … than t1")
-    const ends = (e: Id | null, taken: string[]): { label: string | undefined; binding: Binding | null }[] => {
-      if (!e) return [{ label: undefined, binding: null }]
-      const names = otherNames(e), t = entityTitle(e), fresh = autoName(p, e, scope, [...names, ...taken])
-      return [
-        { label: `any ${t}`, binding: null },
-        ...names.map((n) => ({ label: n, binding: { use: n } })),
-        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, binding: { declare: fresh } })) : [{ label: `some ${t}`, binding: { declare: fresh } }]),
-      ]
-    }
-    return ends(e1, []).flatMap((a, ai) => ends(e2, a.binding ? [nameOf(a.binding)] : []).map((b, bi) => {
-      const [before, after] = [a.label, b.label]
-      const otherNames = withBinding(withBinding(undefined, m1?.end ?? 0, a.binding), m2?.end ?? 1, b.binding)
-      return { key: `${x.id}|${ai}|${bi}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => onChange(toVarCmp(c, x.id, { otherNames })) }
-    }))
-  })
-  const instOf = (k: number) => { const m = ov?.kind === 'variable' ? manyEndsOf(p, ov)[k] : undefined, end = m?.end ?? 0, e = m?.entity ?? null; return e ? (nameAt(c.otherNames, end) || `any ${entityTitle(e)}`) : '' }
-  const toValueCmp = () => vr && onChange(toValue(c, { op: opsFor(vr).includes(c.op) ? c.op : '=' }))
-  return (
-    <>
-      <Select value={c.op} onChange={(e) => onChange({ ...c, op: e.target.value as ConditionOp })}>
-        {opsForVar(vr).map((o) => <option key={o} value={o}>{OP_LABELS[o]}</option>)}
-      </Select>
-      <div className="cond-val">
-        {vr && (
-          <SubjectPicker choices={otherChoices}>
-            {ov?.kind === 'variable' ? <>{instOf(0) && <span className="subj-inst">{instOf(0)}</span>}<ItemHover id={ov.id}><span className={'chip k-' + ov.kind}><ChipLabel it={ov} label={labels[ov.id]} /></span></ItemHover>{instOf(1) && <span className="subj-inst">{instOf(1)}</span>}</> : <span className="muted">variable…</span>}
-          </SubjectPicker>
-        )}
-        {vr && swap('Compare with a fixed value instead', toValueCmp)}
-      </div>
-    </>
-  )
-}
-
 function RulesSummary({ it, set }: { it: Variable; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = rulesOf(it).map((r) => `${r.state || '?'} when ${renderText(labels, whenText(p, r.when)) || '?'}`)
+  const lines = rulesOf(it).map((r) => `${r.state || '?'} when ${renderText(labels, say(p, r.when)) || '?'}`)
   return (
     <div className="ctx-summary">
       {lines.length ? (
@@ -1094,22 +715,32 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
       {!rulesOf(it).length && <p className="muted">No rules: {name} gets its value directly in each trace.</p>}
       {rulesOf(it).map((r, i) => (
         <div key={i} className="rule">
-          <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars}
+          <ConditionEditor e={r.when.k === 'hole' ? null : r.when} onChange={(when) => upd(i, { when: when ?? HOLE })} vars={vars}
             head={<><span>{i ? 'Else, ' : ''}{name} is</span>{value(r.state, (v) => upd(i, { state: v }), 'value…')}<span>when</span></>} />
           <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: rulesOf(it).filter((_, j) => j !== i) })}><Icon name="x" size={12} /></button>
         </div>
       ))}
       {rulesOf(it).length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(otherwiseOf(it), (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
-      <div className="rule-add"><button onClick={() => set({ rules: [...rulesOf(it), { state: '', when: allOf(BLANK) }] })}><Icon name="plus" size={12} /> rule</button></div>
+      <div className="rule-add"><button onClick={() => set({ rules: [...rulesOf(it), { state: '', when: HOLE }] })}><Icon name="plus" size={12} /> rule</button></div>
     </div>
   )
 }
+
+/** Paths (through `and` members and quantifier bodies) of the required conditions, in the order of `requiredAtoms`. */
+function atomPaths(e: Expr | null, path: number[] = []): number[][] {
+  if (!e || e.k === 'hole') return []
+  if (e.k === 'and') return e.of.flatMap((x, i) => atomPaths(x, [...path, i]))
+  if (e.k === 'quant') return atomPaths(e.body, [...path, 0])
+  if (e.k === 'or') return e.of.length ? atomPaths(e.of[0], [...path, 0]) : []
+  return [path]
+}
+const atomPath = (e: Expr | null, i: number) => atomPaths(e)[i] ?? []
 
 /** UCAs refined from this one (and the one it refines), with a button per context condition whose variable has rules. */
 function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const kids = itemsOfKind(p, 'uca').filter((u) => u.refines === it.id)
-  const refinable = it.conditions.flatMap((c, i) => (!isGroup(c) && isOnVariable(c) ? [[c, i] as const] : [])).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && rulesOf(v).length > 0 && conditionComplete(c) })
+  const refinable = requiredAtoms(it.when).flatMap((a, i) => (a.lit?.kind === 'value' ? [[a.lit, i] as const] : [])).filter(([l]) => { const v = p.items[l.id]; return v?.kind === 'variable' && rulesOf(v).length > 0 })
   return (
     <>
       {it.refines && (
@@ -1121,7 +752,7 @@ function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
         <Field label="Refined into" hint="Replaces a computed variable in the context by its rules: one more detailed UCA for each way the condition can hold.">
           <div className="reflist">
             {kids.map((u) => <Ref key={u.id} id={u.id} />)}
-            {refinable.map(([c, i]) => <button key={i} className="link" onClick={() => commit((q) => refineUca(q, it.id, i).project)}>Refine on {p.items[c.variable].title}</button>)}
+            {refinable.map(([c, i]) => <button key={i} className="link" onClick={() => commit((q) => refineUca(q, it.id, atomPath(it.when, i)).project)}>Refine on {p.items[c.id].title}</button>)}
           </div>
         </Field>
       )}

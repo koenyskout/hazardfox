@@ -5,10 +5,11 @@ import { validate } from '../validate'
 import { computeLabels } from '../labels'
 import { generateUcaText } from '../uca'
 import { itemsOfKind, isLeaf } from '../tree'
-import { isOnVariable, leaves, conditionComplete, conditionError, conditionTexts, nameAllInstances } from '../variables'
+import { isOnVariable, leaves, conditionComplete, conditionError, conditionTexts } from '../variables'
 import { deserialize, serialize } from '../serialize'
 import { beliefsAbout } from '../formal'
-import type { Condition, Project } from '../types'
+import type { Project } from '../types'
+import type { Condition } from '../legacy'
 
 const IDS = ['pub-aeb', 'pub-thomas-msiv'] as const
 

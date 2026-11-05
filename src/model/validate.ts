@@ -2,16 +2,15 @@ import { computeLabels } from './labels'
 import { effectiveLosses } from './derived'
 import { argError } from './params'
 import { mentions, refsOf, scenarioTarget } from './refs'
-import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, sameInstance, updatedBy, updates } from './formal'
+import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, updatedBy, updates } from './formal'
 import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project, rulesOf, otherwiseOf } from './types'
 import { guideApplies } from './uca'
-import { endName, shortName, readingValid } from './labels'
-import { condVars, conditionLine, exprError } from './expr'
-import { whenToExpr } from './bridge'
+import { endName, readingValid } from './labels'
+import { varsOf } from './atoms'
 import { check } from './lang'
-import { condInstances, conditionError, isExpr, endsOf, nameAt, isVarCmp, isEvent, isOnVariable, leaves, manyEndsOf, valuesOf } from './variables'
+import { valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -49,14 +48,10 @@ export const RULES = {
   'variable-owner': { title: 'Variable has an owner of the wrong kind', why: 'World variables belong to a domain entity, signals to the feedback that carries them, beliefs and internal state to a controller. Otherwise it is unclear whose state the variable is.', fix: 'Open the variable and choose an owner of the right kind, or change its layer.' },
   'context-not-world': { title: 'UCA context uses a belief or signal', why: 'The context of a UCA states what is actually true in the world (or the controller\'s own mode). What the controller believes or observes is a cause and belongs in a loss scenario (STPA Handbook, step 3).', fix: 'Use the world variable this belief / signal is about, and explain the wrong belief in a scenario.' },
   'context-unrepresented': { title: 'Controller cannot know the UCA context', why: 'The controller can only distinguish contexts it has beliefs about: every world variable in a UCA context needs a corresponding process-model variable .', fix: 'Add a belief about this variable to the controller and a feedback that reports it.' },
-  'instance-name': { title: 'Instance name not introduced or ambiguous', why: 'A condition refers to a named instance (e.g. train t1) that no condition of the context introduces, or one name stands for two different entities.', fix: 'Name the instance with “some … as t1” in one condition, then refer to it in the others.' },
   'param-name': { title: 'Parameter without a unique name', why: 'UCAs refer to a control action parameter by its name.', fix: 'Give each parameter of the control action its own name.' },
   'param-type': { title: 'Parameter without a named type', why: 'Range, enumeration and symbolic parameters take their bounds, states or properties from a named type of the project, so they are defined once and reused.', fix: 'Pick a named type for the parameter, or create one from the type picker (Boolean parameters need none).' },
   'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
-  'expr-invalid': { title: 'Comparison does not make sense', why: 'An arithmetic comparison needs variables that exist, numbers where it calculates, the same type (and unit) on both sides, and an order only for numbers or ordered symbolic types.', fix: 'Edit the comparison so both sides have the same type, or drop the order operator.' },
   'expr-type': { title: 'Condition does not type-check', why: 'Every condition is typed: variables, constants, units and instance names must fit together (a state of the variable, a number for a range, a name introduced by a quantifier on an entity that has several instances).', fix: 'Edit the condition at the indicated spot so both sides have the same type, or remove the instance name.' },
-  'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
-  'instance-unnamed': { title: 'Instance without a name', why: 'A condition is about an instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'belief-no-about': { title: 'Belief not linked to a world variable', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
@@ -152,7 +147,7 @@ export function validate(p: Project): Issue[] {
     if (otherwiseOf(v) && vals && !vals.includes(otherwiseOf(v))) add('warning', v, 'refinement-invalid', `${nm(v)}: "${otherwiseOf(v)}" is not a value`)
     for (const r of rulesOf(v)) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && v.type !== 'symbolic' && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
-        : leaves(r.when).map((c) => { if (isExpr(c)) return exprError(p, c); if (!isOnVariable(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
+        : varsOf(r.when).map((id) => p.items[id]).flatMap((w) => (w?.kind === 'variable' && w.layer !== 'domain' ? [`condition on ${w.layer} ${w.title}`] : [])).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)
     }
     if (v.layer === 'signal' && v.about && owner?.kind === 'feedback') {
@@ -161,42 +156,9 @@ export function validate(p: Project): Issue[] {
     }
   }
 
-  // named instances: a reference needs an earlier-introduced name on the same entity, and a name denotes one entity
-  for (const u of ucas) {
-    const named = new Map<string, Id | null>()
-    const all = u.conditions.flatMap(leaves).map((c) => condInstances(p, c))
-    for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
-      const v = p.items[c.variable]
-      if (v?.kind === 'variable') for (const [side, n] of [[v, c.names], [p.items[isVarCmp(c) ? c.other : ''], isVarCmp(c) ? c.otherNames : undefined]] as const) if (side?.kind === 'variable') endsOf(p, side).forEach((e, end) => { if (nameAt(n, end) && !e.many) add('warning', u, 'instance-name', `${L[u.id]}: ${nameAt(n, end)} names an end of ${side.title || shortName(p, side)} that has a single instance`, [side.id]) })
-    }
-    for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && !sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
-    for (const x of all.flat().filter((x) => !x.intro)) {
-      if (!named.has(x.name)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} is not introduced by any condition`)
-      else if (!sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} stands for a different entity here`)
-    }
-  }
-  // conditions on many-instance variables: every instance needs a name
-  for (const u of ucas) for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
-    const v = p.items[c.variable]
-    if (v?.kind === 'variable' && manyEndsOf(p, v).some((e) => !nameAt(c.names, e.end))) add('warning', u, 'instance-unnamed', `${L[u.id]}: an instance of ${v.title || shortName(p, v)} has no name`, [v.id])
-  }
-
-  for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isExpr)) {
-    const e = exprError(p, c)
-    if (e) add('warning', it, 'expr-invalid', `${nm(it)}: the comparison "${conditionLine(p, c) ?? c.text}" ${e}`, condVars(c))
-  }
-  // typed check of the conditions the other rules do not cover (hazard states, refinement rules)
-  for (const it of [...itemsOfKind(p, 'hazard'), ...itemsOfKind(p, 'variable')]) {
-    const lists = it.kind === 'hazard' ? [it.conditions] : rulesOf(it).map((r) => [r.when])
-    for (const ws of lists) {
-      const e = whenToExpr(p, ws)
-      if (e) for (const d of check({ p }, e)) add(d.level, it, 'expr-type', `${nm(it)}: ${d.msg}`)
-    }
-  }
-  for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isEvent)) {
-    const e = p.items[c.event]
-    if (e && e.kind !== 'ca' && e.kind !== 'feedback' && e.kind !== 'operation') add('warning', it, 'event-invalid', `${nm(it)}: a timing condition refers to ${e.title || 'an item'}, which is not a control action, feedback or operation`)
-  }
+  // typed check of every condition: hazard states, UCA contexts, refinement rules
+  for (const it of [...itemsOfKind(p, 'hazard'), ...ucas, ...itemsOfKind(p, 'variable')])
+    for (const e of it.kind === 'variable' ? rulesOf(it).map((r) => r.when) : [it.when]) if (e) for (const d of check({ p }, e)) add(d.level, it, 'expr-type', `${nm(it)}: ${d.msg}`)
   for (const ca of itemsOfKind(p, 'ca')) {
     const names = ca.params.map((x) => x.name.trim())
     if (names.some((n, i) => !n || names.indexOf(n) !== i)) add('warning', ca, 'param-name', `${nm(ca)}: a parameter has no name or the same name as another`)
@@ -210,7 +172,7 @@ export function validate(p: Project): Issue[] {
   for (const u of ucas) {
     const ca = p.items[u.ca]
     for (const a of u.args) { const e = ca?.kind === 'ca' ? argError(p, ca, a) : null; if (e) add('warning', u, 'arg-invalid', `${L[u.id]}: ${e}`) }
-    for (const id of u.conditions.flatMap(leaves).flatMap(condVars)) {
+    for (const id of varsOf(u.when)) {
       const v = p.items[id]
       if (v?.kind !== 'variable') continue
       if (v.layer === 'belief' || v.layer === 'signal') add('warning', u, 'context-not-world', `${L[u.id]}: context uses ${v.layer} ${v.title}`, [v.id])

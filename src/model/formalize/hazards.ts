@@ -1,8 +1,10 @@
 import { predicateOf } from '../formal'
 import { relEnds } from '../create'
 import { createItem, updateItem } from '../ops'
-import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition, VarCondition } from '../types'
-import { anyOf, nameAllInstances } from '../variables'
+import type { ConditionOp, Id, Patch, Project } from '../types'
+import { whenToExpr } from '../bridge'
+import type { Condition, ValueCondition, VarCondition, When } from '../legacy'
+import { anyOf } from '../variables'
 
 /**
  * Formalization experiments for the hazard-only Handbook examples (hb-nuclear, hb-aircraft, hb-radiation, hb-military, hb-automotive):
@@ -20,13 +22,13 @@ class Ctx {
   bool = (parent: Id<'entity' | 'relationship'>, title: string, definition = ''): Id<'variable'> => this.add('variable', { parent, title, type: 'boolean', definition })
   range = (parent: Id<'entity' | 'relationship'>, title: string, min: number | null, max: number | null, unit: string, definition = ''): Id<'variable'> => this.add('variable', { parent, title, type: 'range', min, max, unit, definition })
   /** Defines a (refined) enum variable by rules over lower-level world variables: the first state of `rules` whose condition holds, else `otherwise`. */
-  refined = (v: Id<'variable'>, rules: [state: string, when: ReturnType<typeof anyOf>][], otherwise: string) => { this.p = updateItem(this.p, v, { rules: rules.map(([state, when]) => ({ state, when })), otherwise }) }
+  refined = (v: Id<'variable'>, rules: [state: string, when: When][], otherwise: string) => { this.p = updateItem(this.p, v, { rules: rules.map(([state, when]) => ({ state, when: whenToExpr(this.p, [when])! })), otherwise }) }
   hazard = (title: string): Id<'hazard'> => {
     const h = Object.values(this.p.items).find((i) => i.kind === 'hazard' && i.title.startsWith(title))
     if (!h) throw new Error(`no hazard "${title}"`)
     return h.id as Id<'hazard'>
   }
-  conditions = (title: string, ...cs: Condition[]) => { this.p = updateItem(this.p, this.hazard(title), { conditions: cs }) }
+  conditions = (title: string, ...cs: Condition[]) => { this.p = updateItem(this.p, this.hazard(title), { when: whenToExpr(this.p, cs) }) }
 }
 
 export const is = (variable: Id<'variable'>, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
@@ -218,5 +220,5 @@ export function formalizeHazardExample(id: string, p: Project): Project {
   if (!f) throw new Error(`no formalization for ${id}`)
   const c = new Ctx(p)
   f(c)
-  return nameAllInstances(c.p)
+  return c.p
 }

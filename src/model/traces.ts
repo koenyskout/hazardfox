@@ -1,13 +1,13 @@
 import { sameInstance, beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './formal'
 import { variableName } from './labels'
-import { holds as holdsExpr, type Env } from './lang'
-import { whenToExpr } from './bridge'
+import { holds as holdsExpr, type Env, type Expr } from './lang'
+import { laneOfVar, requiredAtoms, textLanes, underNone } from './atoms'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention, ucaOf } from './refs'
 import { itemsOfKind } from './tree'
-import { laneKeys, manyEndsOf, laneLike, laneOf, laneEntries, boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isSetOp, isText, laneParts, leaves, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
+import { laneKeys, manyEndsOf, laneLike, laneOf, laneEntries, boundSeconds, parseTime, isSetOp, laneParts, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore, textLane } from './variables'
 import { aboutOf, otherwiseOf, rulesOf } from './types'
-import type { Cause, Comparison, Condition, ConditionOp, Id, Lane, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
+import type { Cause, Comparison, ConditionOp, Id, Lane, Project, Scenario, Trace, TraceStep, Uca, Variable } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
 export function valueAt(t: Trace, i: number, id: Lane): { value: string | undefined; set: boolean } {
@@ -81,17 +81,12 @@ function universe(p: Project, get: Getter, entity: Id): string[] {
   return [...out]
 }
 type Tri = boolean | null | undefined
-/** Whether a condition holds (null when unknown). */
-export const condHolds = (p: Project, c: Condition, get: Getter): Tri => whenHolds(p, c, get)
-
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): Lane[] => [...new Set(Object.values(p.items).flatMap((it) =>
-  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? rulesOf(it).flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
+  (it.kind === 'uca' || it.kind === 'hazard' ? textLanes(it.when) : it.kind === 'variable' ? rulesOf(it).flatMap((r) => textLanes(r.when)) : []).map(textLane)))]
 
-/** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored.
- *  The names its conditions declare are quantified over the trace's instances in order of appearance, outermost first; `scope`: the conditions that declare names (default: the tree itself). */
-export function whenHolds(p: Project, w: When, get: Getter, scope: When[] = [w]): Tri {
-  const e = whenToExpr(p, [w], scope)
+/** Whether a condition holds (three-valued: null while it depends on an unknown value; undefined for no condition). Quantified names range over the trace's instances. */
+export function whenHolds(p: Project, e: Expr | null, get: Getter): Tri {
   return e ? holdsExpr({ p }, e, envOf(p, get)) : undefined
 }
 /** A getter as an expression environment (previous steps and the clock come from `get.clock`). */
@@ -179,7 +174,7 @@ export function symbolViolations(p: Project, t: Trace): { step: number; id: Id; 
 
 /** Whether the UCA's context holds in a state: false if a condition fails, null if one is unknown. */
 export function contextHolds(p: Project, u: Uca, state: Record<Id, string>, clock?: Clock): boolean | null {
-  const h = whenHolds(p, { kind: 'group', any: false, of: u.conditions }, getter(state, clock))
+  const h = whenHolds(p, u.when, getter(state, clock))
   return h === undefined ? true : h
 }
 
@@ -266,12 +261,13 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
   const st = traceState(p, s.trace, step)
   const fbs = feedbackInto(p, ca.from)
   let anyBelief = false
-  for (const c of u.conditions.flatMap(required)) {
-    if (!isOnVariable(c)) continue
-    const w = p.items[c.variable]
+  for (const a of requiredAtoms(u.when)) {
+    const c = a.lit
+    if (c?.kind !== 'value' && c?.kind !== 'var') continue
+    const w = p.items[c.id]
     if (w?.kind !== 'variable' || w.layer !== 'domain') continue
     // per-instance lanes of a named instance ("<variable>@t1"), else the lanes for all instances
-    const il = instLane(c)
+    const il = laneOfVar(c)
     const rd = (id: Id) => st[laneLike(id, il)] ?? st[laneOf(id)]
     if (rd(w.id) === undefined) continue
     // Signals about the variable or one of its parts, each compared with the world variable it is about.
@@ -304,31 +300,30 @@ export function draftTrace(p: Project, s: Scenario): Trace {
     const [init, ctx, act] = [step('t0', 'Initially the context does not hold.'), step('t1', ''), step('t2', '')]
     const lost = new Set<Id>(), sent = new Set<Id>()
     // Only the first condition is false initially; it becoming true makes the context hold.
-    for (const [k, c] of u.conditions.flatMap(required).entries()) {
-      if (isEvent(c)) continue
-      if (isText(c)) {
-        if (!conditionComplete(c)) continue
-        const key = condKey(c), after = String(c.op !== '≠')
+    for (const [k, a] of requiredAtoms(u.when).entries()) {
+      const c = a.lit
+      if (!c || c.kind === 'event') continue
+      if (c.kind === 'text') {
+        const key = textLane(c.text), after = String(!c.neg)
         lanes.push(key)
-        init.values[key] = k ? after : String(c.op === '≠')
+        init.values[key] = k ? after : String(c.neg)
         ctx.values[key] = after
         continue
       }
-      if (!isOnVariable(c)) continue
-      const w = p.items[c.variable]
+      const w = p.items[c.id]
       if (w?.kind !== 'variable') continue
-      const o = isVarCmp(c) ? p.items[c.other] : null
-      let cc: Comparison | ValueCondition = c as ValueCondition
-      if (isVarCmp(c) && o?.kind === 'variable') {
-        const ol = otherLane(c), ref = init.values[ol] ?? initialValue(o)
+      const o = c.kind === 'var' ? p.items[c.other] : null
+      let cc: Comparison = c.kind === 'value' ? c.c : { op: c.op, state: '' }
+      if (c.kind === 'var' && o?.kind === 'variable') {
+        const ol = laneOfVar({ id: c.other, at: c.otherAt }), ref = init.values[ol] ?? initialValue(o)
         lanes.push(ol)
         init.values[ol] = ctx.values[ol] = ref
-        cc = toValue(c, { state: ref })
+        cc = { op: c.op, state: ref }
       }
       // "no instance" holds when the value fails the condition; a named instance gets a lane of its own
-      const none = condInstances(p, c).some((i) => i.intro && i.quant === 'none')
+      const none = underNone(a)
       const after = pickValue(w, cc, none), before = k ? after : pickValue(w, cc, !none)
-      const lane = instLane(c)
+      const lane = laneOfVar(c)
       lanes.push(lane)
       init.values[lane] = before
       ctx.values[lane] = after
@@ -347,11 +342,11 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       }
     }
     // timing conditions: numeric times, the action sent late enough; an event condition's event occurs as the context starts
-    const timed = u.conditions.flatMap(required).filter((c) => c.time && conditionComplete(c))
+    const timed = requiredAtoms(u.when).filter((a) => a.time)
     if (timed.length) {
-      const gap = Math.max(1, ...timed.filter((c) => c.time!.op === '≥').map((c) => Math.ceil(boundSeconds(c.time!))))
+      const gap = Math.max(1, ...timed.filter((a) => a.time!.op === '≥').map((a) => Math.ceil(boundSeconds(a.time!))))
       init.t = '0'; ctx.t = '1'; act.t = String(1 + gap)
-      for (const c of timed) if (isEvent(c) && p.items[c.event]) sent.add(c.event)
+      for (const a of timed) if (a.lit?.kind === 'event' && p.items[a.lit.event]) sent.add(a.lit.event)
     }
     ctx.events = [...[...sent].map((on) => ({ on, what: 'occurs' as const })), ...[...lost].map((on) => ({ on, what: 'lost' as const }))]
     ctx.note = s.cause === 'feedback' ? 'The world changes into the UCA context, but the feedback does not report it.'

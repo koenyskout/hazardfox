@@ -3,7 +3,8 @@ import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
 import { NEGATE } from './traces'
 import { compareSymbols, conditionError, isEvent, isExpr, isGroup, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
-import type { Condition, ExprCondition, Group, Id, Project, ValueCondition, Variable, VarCondition, When } from './types'
+import type { Id, Project, Variable } from './types'
+import type { Condition, ExprCondition, Group, ValueCondition, VarCondition, When } from './legacy'
 
 /** Arithmetic comparisons ("Gap − 2 × Speed < 5", "Door state = prev(Door state)"): a condition with `text` (variables as `@[id]`) and `expr: true`.
  *  Terms: numbers, symbols, variables, `prev(x)` (value at the previous trace step), `succ(x)` / `pred(x)` (sequential symbols), `+ − ×`, `min` `max` `abs`. */

@@ -1,5 +1,6 @@
 import { endName, shortName, readRel } from './labels'
-import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ExprCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Lane, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type TimeBound, type TimeUnit, type Id, type Lane, type Quantifier, type ConditionOp, type Item, type Project, type RelEnd, type SymbolicType, type Variable } from './types'
+import type { Binding, EndNames, Condition, EventCondition, TextCondition, ExprCondition, ValueCondition, VarCondition, Group, When } from './legacy'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -321,27 +322,4 @@ export function autoName(p: Project, entity: Id | null, scope: Condition[], take
   let n = 1
   while (used.has(base + n)) n++
   return base + n
-}
-/** Every instance a condition introduces gets a name, so conditions and traces can always refer to it. */
-export function nameInstances(p: Project, ws: When[]): When[] {
-  const copy = (w: When): When => (isGroup(w) ? { ...w, of: w.of.map(copy) } : { ...w })
-  const out = ws.map(copy)
-  const all = out.flatMap(leaves)
-  for (const c of all) {
-    if (!isOnVariable(c)) continue
-    const v = p.items[c.variable]
-    if (v?.kind !== 'variable') continue
-    for (const e of manyEndsOf(p, v)) if (!nameAt(c.names, e.end)) c.names = withBinding(c.names, e.end, { declare: autoName(p, e.entity, all) })
-  }
-  return out
-}
-/** The project with every "some" instance in UCA and hazard conditions named (files and tool calls may leave names out). */
-export function nameAllInstances(p: Project): Project {
-  let q = p
-  for (const it of Object.values(p.items)) {
-    if (it.kind !== 'uca' && it.kind !== 'hazard') continue
-    const cs = nameInstances(p, it.conditions)
-    if (JSON.stringify(cs) !== JSON.stringify(it.conditions)) q = { ...q, items: { ...q.items, [it.id]: { ...it, conditions: cs } } }
-  }
-  return q
 }

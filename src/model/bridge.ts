@@ -1,6 +1,7 @@
 import { and, between, cmp, heldFor, inWords, not, num, or, parseExpr, since, some, every, none, variable, val, HOLE, type Expr } from './lang'
 import { condInstances, conditionComplete, isEvent, isExpr, isGroup, isText, isVarCmp, leaves, nameAt } from './variables'
-import type { Condition, EndNames, Id, Project, When } from './types'
+import type { Id, Project } from './types'
+import { nameInstances, type Condition, type EndNames, type When } from './legacy'
 
 /** Old condition trees as `Expr` (migration bridge: same meaning, instance names quantified outermost in order of appearance). */
 const at = (n: EndNames | undefined, len: number) => { const a = Array.from({ length: len }, (_, i) => nameAt(n, i)); while (a.length && !a[a.length - 1]) a.pop(); return a }
@@ -38,6 +39,7 @@ const tree = (p: Project, w: When): Expr | null => {
 }
 /** The conjunction of `ws`, with the names its leaves declare quantified around it (`scope`: the whole list the names are declared in). */
 export function whenToExpr(p: Project, ws: When[], scope: When[] = ws): Expr | null {
+  if (scope === ws) scope = ws = nameInstances(p, ws)
   const body = tree(p, and_(ws))
   const mine = new Set(ws.flatMap(leaves).flatMap((c) => condInstances(p, c).map((i) => i.name)))
   const decls: { name: string; entity: Id<'entity'>; q: 'some' | 'all' | 'none' }[] = []

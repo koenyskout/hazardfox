@@ -1,11 +1,13 @@
 import { addBelief, predicateOf } from '../formal'
+import { upgrade, type Init, type Legacy } from '../build'
 import { relEnds } from '../create'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { mention } from '../refs'
 import { anyOf } from '../variables'
 import { condVars } from '../expr'
-import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition } from '../types'
+import type { ConditionOp, Id, Patch, Project } from '../types'
+import type { Condition, ValueCondition } from '../legacy'
 
 /**
  * Formalization of the Handbook examples `hb-crew` (Table C.3) and `hb-bscu` (Table C.4): domain model, hazard conditions,
@@ -14,8 +16,8 @@ import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition } from 
  */
 export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Project {
   let q = p
-  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
-  const set = (item: Id, patch: Patch) => { q = updateItem(q, item, patch) }
+  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Init<K>): Id<K> => { const r = createItem(q, kind, upgrade(q, init as Record<string, unknown>) as Patch<K>); q = r.project; return r.id }
+  const set = (item: Id, patch: Patch | Legacy) => { q = updateItem(q, item, upgrade(q, patch as Record<string, unknown>) as Patch) }
 
   // ---- domain model -------------------------------------------------------------------------------------------------
   const aircraft = add('entity', { title: 'Aircraft', description: 'The aircraft being braked (one instance).' })

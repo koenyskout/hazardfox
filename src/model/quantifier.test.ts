@@ -10,7 +10,8 @@ import { computeLabels } from './labels'
 import { validate } from './validate'
 import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantAt, declare, endsOf, manyEndsOf, nameKey } from './variables'
 import { mention, refsOf } from './refs'
-import type { Condition, Id, Project, Scenario, ValueCondition, VarCondition } from './types'
+import type { Id, Project, Scenario } from './types'
+import type { Condition, ValueCondition, VarCondition } from './legacy'
 import { laneAt } from './variables'
 
 const valueOf = (c: Condition): ValueCondition => { if (!isValueCmp(c)) throw new Error('not a value comparison'); return c }

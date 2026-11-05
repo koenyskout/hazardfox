@@ -10,7 +10,8 @@ import { beliefsAbout, controlledBy, feedbackInto, signalsOf, variablesIn } from
 import { itemsOfKind } from '../model/tree'
 import { generateUcaText } from '../model/uca'
 import type { Lane } from '../model/types'
-import { asLane, laneAt, laneOf, laneLike, condInstances, instLane, isMany, isOnVariable, laneParts, leaves, laneText, stepOf, valuesOf } from '../model/variables'
+import { asLane, laneAt, laneOf, laneLike, isMany, laneParts, laneText, stepOf, valuesOf } from '../model/variables'
+import { laneOfVar, requiredAtoms } from '../model/atoms'
 import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
 import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable, aboutOf } from '../model/types'
@@ -49,7 +50,7 @@ function TraceChecks({ s }: { s: Scenario }) {
   return (
     <div className="trace-checks">
       {w && <span className={w.ok ? 'ok' : w.ok === false ? 'bad' : 'unk'}>{w.ok ? '✓' : w.ok === false ? '✗' : '?'} Witness: {w.why}</span>}
-      {w && uca && uca.conditions.length > 0 && <WhenView ws={uca.conditions} verdict={(x) => whenHolds(p, x, getter(traceState(p, s.trace, w.step), clockAt(p, s.trace, w.step)), uca.conditions)} />}
+      {w && uca?.when && <WhenView e={uca.when} verdict={(x) => whenHolds(p, x, getter(traceState(p, s.trace, w.step), clockAt(p, s.trace, w.step)))} />}
       {d && <span className={!s.cause || d.cause === s.cause ? 'ok' : 'bad'}>{!s.cause || d.cause === s.cause ? '✓' : '✗'} Trace points at <b>{CAUSE_LABELS[d.cause]}</b> ({d.why}){s.cause && d.cause !== s.cause && <> but the causal factor is {CAUSE_LABELS[s.cause]}</>}</span>}
     </div>
   )
@@ -66,11 +67,12 @@ export function TraceEditor({ s }: { s: Scenario }) {
   // lanes for the instances the UCA's conditions name, and a custom one for any variable with several instances
   // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
   const ctrl = uca ? p.items[uca.ca] : null
-  const instPick = uca && ctrl?.kind === 'ca' ? uca.conditions.flatMap(leaves).flatMap((c) => {
-    if (!isOnVariable(c)) return []
-    const v = p.items[c.variable]
-    const k = instLane(c)
-    if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []
+  const instPick = uca && ctrl?.kind === 'ca' ? requiredAtoms(uca.when).flatMap((a) => {
+    const l = a.lit
+    if (l?.kind !== 'value' && l?.kind !== 'var') return []
+    const v = p.items[l.id]
+    const k = laneOfVar(l)
+    if (v?.kind !== 'variable' || k === v.id) return []
     const tag = laneParts(k).names.filter(Boolean).join(', ')
     const related = [v, ...feedbackInto(p, ctrl.from).flatMap((f) => signalsOf(p, f.id)).filter((x) => aboutOf(x) === v.id), ...beliefsAbout(p, ctrl.from, v.id)]
     return related.filter((x) => !t.lanes.includes(laneLike(x.id, k))).map((x) => ({ k: laneLike(x.id, k), label: `${shortName(p, x)} · ${tag}` }))

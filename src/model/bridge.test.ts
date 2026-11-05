@@ -13,7 +13,8 @@ import { clockAt, getter, traceState, whenHolds } from './traces'
 import { itemsOfKind } from './tree'
 import { laneParts } from './variables'
 import { isA } from './formal'
-import type { Id, Project, When } from './types'
+import type { Id, Project } from './types'
+import type { When } from './legacy'
 
 export const projectsForTest = (): [string, Project][] => {
   const out: [string, Project][] = [['example', exampleProject()]]

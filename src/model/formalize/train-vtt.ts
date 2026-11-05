@@ -2,10 +2,13 @@ import { relEnds } from '../create'
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
-import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, declare } from '../variables'
+import { anyOf, autoName, conditionComplete, isText, declare } from '../variables'
 import { condVars } from '../expr'
 import { rulesOf } from '../types'
-import type { Condition, Id, ValueCondition, Item, ItemOf, Project, Variable } from '../types'
+import type { Id, Item, ItemOf, Project, Variable } from '../types'
+import type { Condition, ValueCondition } from '../legacy'
+import { upgrade } from '../build'
+import { mapChildren, some, type Expr } from '../lang'
 
 /**
  * Formalizes the published examples `pub-train-door` and `pub-vtt-am` as far as the model allows: domain model (entities with
@@ -27,21 +30,19 @@ function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: 
   b.p = r.project
   return r.id
 }
-const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, patch as never) }
+const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, upgrade(b.p, patch) as never) }
 const cond = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
 const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
-const isEmpty = (cs: unknown[]) => cs.length === 0
+const isEmpty = (e: Expr | null) => !e
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 
 /** Gives the first condition on a variable of `many` entity `e` the name, later ones refer to it (`same`): all describe one instance. */
-function oneInstance(cs: Condition[], vars: Id[], name: string): Condition[] {
-  let first = true
-  return cs.map((c) => {
-    if (!isOnVariable(c) || !vars.includes(c.variable) || c.names) return c
-    const out: Condition = { ...c, ...(first ? { names: [{ declare: name }] } : { names: [{ use: name }] }) }
-    first = false
-    return out
-  })
+function oneInstance(e: Expr | null, vars: Id[], name: string, entity: Id<'entity'>): Expr | null {
+  if (!e) return e
+  let hit = false
+  const go = (x: Expr): Expr => { const m = mapChildren(x, go); if (m.k === 'var' && vars.includes(m.id) && !m.at?.some(Boolean)) { hit = true; return { ...m, at: [name] } } return m }
+  const out = go(e)
+  return hit ? some(name, entity, out) : e
 }
 
 function signalFor(b: Box, fbTitle: string, worlds: Id[]) {
@@ -74,8 +75,8 @@ function train(p0: Project): Project {
 
   // The existing UCA conditions on door variables are about the door the controller drives: one named instance.
   for (const u of itemsOfKind(b.p, 'uca')) {
-    const cs = oneInstance(u.conditions.flatMap(leaves), doorVars, d1)
-    if (cs.some((c, i) => c !== u.conditions.flatMap(leaves)[i])) set(b, u.id, { conditions: cs })
+    const w = oneInstance(u.when, doorVars, d1, (b.p.items[doorVars[0]] as Variable).parent as Id<'entity'>)
+    if (w !== u.when) set(b, u.id, { when: w })
   }
 
   const [h1, h2, h3] = ['Doors close on a person in the doorway', 'Doors open when the train is moving or not aligned with a platform', 'Passengers or personnel are unable to exit the train during an emergency']
@@ -85,7 +86,7 @@ function train(p0: Project): Project {
     [h2, [cond(sit, 'unsafe for opening'), cond(doorPos, 'fully closed', { op: '≠', names: [{ declare: d1 }] })]],
     [h3, [cond(em, 'evacuation required'), cond(doorPos, 'fully open', { names: [declare('do1', 'none')] })]],
   ]
-  for (const [h, cs] of hz) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
+  for (const [h, cs] of hz) if (isEmpty(h.when)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
   return b.p
 }
 
@@ -129,7 +130,7 @@ function vtt(p0: Project): Project {
     [hz(/vehicles or other objects/), [cond(motion, 'moving'), cond(inWay, 'true', { names: [{ declare: 've1' }] })]],
     [hz(/leaves the area/), [cond(loc, 'outside operating area')]],
   ]
-  for (const [h, cs] of hzs) if (isEmpty(h.conditions)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
+  for (const [h, cs] of hzs) if (isEmpty(h.when)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
 
   const uca = (ca: string, guide: string, re = /./) => itemsOfKind(b.p, 'uca').find((u) => (b.p.items[u.ca] as { title: string }).title === ca && u.guide === guide && re.test(u.override))!
   const ucs: [ReturnType<typeof uca>, Condition[]][] = [
@@ -140,7 +141,7 @@ function vtt(p0: Project): Project {
     [uca('Environmental data', 'not-provided'), [cond(cnd, 'extraordinary')]],
     [uca('Environmental data', 'too-early-late'), [cond(motion, 'moving'), cond(cnd, 'extraordinary')]],
   ]
-  for (const [u, cs] of ucs) if (isEmpty(u.conditions)) set(b, u.id, { conditions: cs })
+  for (const [u, cs] of ucs) if (isEmpty(u.when)) set(b, u.id, { conditions: cs })
   return b.p
 }
 

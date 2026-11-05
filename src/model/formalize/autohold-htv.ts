@@ -2,9 +2,10 @@ import { addBelief, addSignal } from '../formal'
 import { relEnds } from '../create'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
-import { leaves, nameAllInstances } from '../variables'
-import { condVars } from '../expr'
-import type { Condition, ConditionOp, Id, Kind, Patch, Project, ValueCondition } from '../types'
+import { upgrade, type Init, type Legacy } from '../build'
+import { varsOf } from '../atoms'
+import type { ConditionOp, Id, Kind, Patch, Project } from '../types'
+import type { Condition, ValueCondition } from '../legacy'
 
 /**
  * Formalizes the Handbook examples hb-autohold (Auto-Hold, Table C.1) and hb-htv (H-II Transfer Vehicle, Table C.2):
@@ -14,20 +15,20 @@ import type { Condition, ConditionOp, Id, Kind, Patch, Project, ValueCondition }
  */
 export function formalizeAutoholdHtv(id: 'hb-autohold' | 'hb-htv', p: Project): Project {
   if (itemsOfKind(p, 'variable').length) return p
-  return nameAllInstances(id === 'hb-autohold' ? autohold(p) : htv(p))
+  return id === 'hb-autohold' ? autohold(p) : htv(p)
 }
 
 /** Small mutable builder over an existing project. */
 function kit(p: Project) {
   let q = p
-  const add = <K extends Kind>(kind: K, init?: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
-  const set = (id: Id, patch: Patch) => { q = updateItem(q, id, patch) }
+  const add = <K extends Kind>(kind: K, init?: Init<K>): Id<K> => { const r = createItem(q, kind, upgrade(q, (init ?? {}) as Record<string, unknown>) as Patch<K>); q = r.project; return r.id }
+  const set = (id: Id, patch: Patch | Legacy) => { q = updateItem(q, id, upgrade(q, patch as Record<string, unknown>) as Patch) }
   const find = <K extends Kind>(kind: K, title: string): Id<K> => {
     const it = itemsOfKind(q, kind).find((x) => x.title === title)
     if (!it) throw new Error(`${kind} "${title}" not found`)
     return it.id as Id<K>
   }
-  const enumVar = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], extra: Patch<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
+  const enumVar = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], extra: Init<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
   const bool = (parent: Id<'entity' | 'relationship'>, title: string, extra: Patch<'variable'> = {}) => add('variable', { parent, title, type: 'boolean', ...extra })
   const range = (parent: Id<'entity' | 'relationship'>, title: string, unit: string, min: number | null = 0, max: number | null = null, extra: Patch<'variable'> = {}) =>
     add('variable', { parent, title, type: 'range', unit, min, max, ...extra })
@@ -45,7 +46,7 @@ function kit(p: Project) {
     for (const u of itemsOfKind(q, 'uca')) {
       const ca = q.items[u.ca]
       if (ca?.kind !== 'ca') continue
-      for (const c of u.conditions.flatMap(leaves)) for (const v of condVars(c)) {
+      for (const v of varsOf(u.when)) {
         const w = q.items[v]
         if (w?.kind === 'variable' && w.layer === 'domain') q = addBelief(q, ca.from, v).project
       }
