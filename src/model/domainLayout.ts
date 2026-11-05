@@ -37,7 +37,7 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
     boxes[e.id] = { assoc, id: e.id, x: 0, y: 0, w, h: DOM.head + (assoc && !rows ? 0 : rows * DOM.row + (rows ? 8 : 0) + 4), head, title, attrs }
   }
   for (const e of entities) build(e, variablesIn(p, 'domain', e.id))
-  const assocs = itemsOfKind(p, 'relationship').filter((r) => boxes[r.from] && boxes[r.to]).map((r) => ({ r, vars: variablesIn(p, 'domain', r.id).filter((v) => v.id !== predicateOf(p, r.id)?.id) }))
+  const assocs = itemsOfKind(p, 'relationship').filter((r) => r.ends.length >= 2 && r.ends.every((e) => boxes[e.entity])).map((r) => ({ r, vars: variablesIn(p, 'domain', r.id).filter((v) => v.id !== predicateOf(p, r.id)?.id) }))
   for (const { r, vars } of assocs) build({ id: r.id, title: r.title.trim() || (predicateOf(p, r.id) ? variableName(p, predicateOf(p, r.id)!) : '') }, vars, true)
   const edges: ElkExtendedEdge[] = []
   const meta: Record<string, Omit<DomainEdge, 'pts'>> = {}
@@ -50,9 +50,11 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
   }
   // every relationship is a box on its line (entity — box — entity); without attributes it is a compact name box
   for (const { r } of assocs) {
-    meta['a:' + r.id] = { id: r.id, a: r.from, b: r.id, kind: 'rel', label: '', fromCard: r.fromCard, toCard: '', self: false }
-    meta['b:' + r.id] = { id: r.id, a: r.id, b: r.to, kind: 'rel', label: '', fromCard: '', toCard: r.toCard, self: false }
-    edges.push({ id: 'a:' + r.id, sources: [r.from], targets: [r.id] } as ElkExtendedEdge, { id: 'b:' + r.id, sources: [r.id], targets: [r.to] } as ElkExtendedEdge)
+    r.ends.forEach((e, i) => {
+      const id = `${i}:${r.id}`
+      meta[id] = { id: r.id, a: i ? r.id : e.entity, b: i ? e.entity : r.id, kind: 'rel', label: '', fromCard: i ? '' : e.card, toCard: i ? e.card : '', self: false }
+      edges.push({ id, sources: [i ? r.id : e.entity], targets: [i ? e.entity : r.id] } as ElkExtendedEdge)
+    })
   }
   const graph: ElkNode = {
     id: 'root',

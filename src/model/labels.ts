@@ -1,6 +1,6 @@
 import { plainRich } from './richtext'
 import { children, flatten, itemsOfKind, TREE_KINDS } from './tree'
-import type { Id, Kind, Labels, Project, Variable } from './types'
+import type { Id, Kind, Labels, Project, RelEnd, Relationship, Variable } from './types'
 
 export const PREFIX: Record<Kind, string> = {
   loss: 'L',
@@ -91,10 +91,15 @@ export const variableName = (p: Project, v: Variable): string => {
   return v.title.trim() && owner ? `${owner}.${v.title.trim()}` : shortName(p, v)
 }
 
+/** Name of a relationship end: its role, by default the entity's title. */
+export const endName = (p: Project, e: RelEnd): string => e.role.trim() || p.items[e.entity]?.title.trim() || '?'
+/** "Train on Track": first end, relationship title, remaining ends. */
+export const relName = (p: Project, r: Relationship): string => { const [a, ...rest] = r.ends.map((e) => endName(p, e)); return [a, r.title.trim() || '?', ...rest].join(' ') }
+
 /** Name of a variable without its owner (chips show the owner on hover only). */
 export const shortName = (p: Project, v: Variable): string => {
   const par = v.parent ? p.items[v.parent] : null
-  if (par?.kind === 'relationship' && !v.title.trim()) return [p.items[par.from]?.title, par.title, p.items[par.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  if (par?.kind === 'relationship' && !v.title.trim()) return relName(p, par)
   return v.title.trim()
 }
 

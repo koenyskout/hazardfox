@@ -49,8 +49,8 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - Variable layers (`layer`, after the formalization in `docs/Process Variables…md`): `domain` (world x, parent = entity or relationship), `signal`
   (o, parent = feedback), `belief` (x̂, parent = controller node), `internal` (q, parent = controller node). `about` = the world
   variable a signal/belief designates; `definition` (rich text) refines a world variable; `ca.affects` = controlled world variables.
-  Entity attributes *are* its world variables (no separate `attributes` field). A relationship is a
-  time-varying predicate R(from, to): `createItem` gives it an untitled boolean world variable (`predicateOf`/`isPredicate`, `formal.ts`;
+  Entity attributes *are* its world variables (no separate `attributes` field). A relationship has `ends: RelEnd[]` (`{entity, role, card}`, at least two; the editor offers two; `role` defaults to the entity title, `endName`/`relName` in `labels.ts`; `relEnds(from, to, fromCard, toCard)` builds a binary one) and is a
+  time-varying predicate R(end1, end2, …): `createItem` gives it an untitled boolean world variable (`predicateOf`/`isPredicate`, `formal.ts`;
   named "From rel To" by `variableName`). Owner kinds per layer: `VARIABLE_OWNER` (`tree.ts`, a list). UCA contexts may use only world variables and the issuing controller's internal
   ones; each world variable in a context needs a belief in that controller (validation `context-unrepresented`, Variable map red cell).
 - Scenario traces (`s.trace`: `lanes` = variable ids, sparse `steps` with `t`, `values`, `events` on CAs/feedback `occurs|absent|lost`,

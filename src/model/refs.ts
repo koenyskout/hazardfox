@@ -5,9 +5,8 @@ import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace 
 type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
 type Registry<V> = { [K in Kind]?: readonly Fields<K, V>[] }
 
-/** Required single references: if the target disappears, the item is deleted too. */
+/** Required single references: if the target disappears, the item is deleted too (besides the entities at the ends of a relationship). */
 export const REQUIRED_REFS: Registry<Id> = {
-  relationship: ['from', 'to'],
   ca: ['from', 'to'],
   feedback: ['from', 'to'],
   uca: ['ca'],
@@ -75,6 +74,7 @@ export function refsOf(it: Item): Id[] {
   }
   for (const f of listRefs(it.kind)) out.push(...getList(it, f))
   if (it.kind === 'uca' || it.kind === 'hazard') out.push(...it.conditions.flatMap(leaves).flatMap(condRefs))
+  if (it.kind === 'relationship') out.push(...it.ends.map((e) => e.entity).filter(Boolean))
   if (it.kind === 'operation') out.push(...it.params.map((x) => x.entity).filter(Boolean), ...it.effects.map((e) => e.variable).filter(Boolean))
   if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap(condRefs))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
@@ -122,6 +122,7 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
   if (it.kind === 'uca' || it.kind === 'hazard') {
     it.conditions = it.conditions.flatMap((w) => (isGroup(w) ? [mapLeaves(w, (c) => reref(c, from, to)[0] ?? null)] : reref(w, from, to) as When[]))
   }
+  if (it.kind === 'relationship' && to) it.ends = it.ends.map((e) => (e.entity === from ? { ...e, entity: to } : e))
   if (it.kind === 'operation') {
     const gone = it.params.filter((x) => x.entity === from && !to).map((x) => x.name)
     it.params = it.params.flatMap((x) => (x.entity !== from ? [x] : to ? [{ ...x, entity: to }] : []))
@@ -158,6 +159,7 @@ export function cascadeSet(p: Project, seed: Iterable<Id>): Set<Id> {
   const ownerDead = (it: Item) =>
     (it.kind === 'variable' && !!it.parent && dead.has(it.parent)) ||
     (it.kind === 'scenario' && dead.has(scenarioTarget(it) ?? '')) ||
+    (it.kind === 'relationship' && it.ends.some((e) => dead.has(e.entity))) ||
     requiredRefs(it.kind).some((f) => dead.has(getField(it, f) as Id))
   let changed = true
   while (changed) {

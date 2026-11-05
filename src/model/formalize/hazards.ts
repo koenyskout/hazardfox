@@ -1,4 +1,5 @@
 import { predicateOf } from '../formal'
+import { relEnds } from '../create'
 import { createItem, updateItem } from '../ops'
 import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition, VarCondition } from '../types'
 import { anyOf, nameAllInstances } from '../variables'
@@ -12,7 +13,7 @@ class Ctx {
   constructor(public p: Project) {}
   private add<K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id { const r = createItem(this.p, kind, init); this.p = r.project; return r.id }
   entity = (title: string, many = false, description = ''): Id => this.add('entity', { title, description, ...(many ? { many } : {}) })
-  rel = (from: Id, title: string, to: Id, fromCard = '*', toCard = '*'): Id => this.add('relationship', { from, title, to, fromCard, toCard })
+  rel = (from: Id, title: string, to: Id, fromCard = '*', toCard = '*'): Id => this.add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) })
   /** The boolean predicate R(from, to) of a relationship. */
   pred = (rel: Id): Id => predicateOf(this.p, rel)!.id
   states = (parent: Id, title: string, states: string[], definition = ''): Id => this.add('variable', { parent, title, states, definition })

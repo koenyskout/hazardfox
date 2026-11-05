@@ -1,4 +1,5 @@
 import { projectBuilder } from './build'
+import { relEnds } from './create'
 import { mention } from './refs'
 import { draftTrace } from './traces'
 import type { Project, Scenario, Variable } from './types'
@@ -23,7 +24,7 @@ export function exampleProject(): Project {
 
   const patient = add('entity', { title: 'Patient' })
   const pump = add('entity', { title: 'Pump', operations: ['Start infusion', 'Stop infusion', 'Set rate'] })
-  add('relationship', { title: 'infuses', from: pump, to: patient, fromCard: '1', toCard: '1' })
+  add('relationship', { title: 'infuses', ends: relEnds(pump, patient, '1', '1') })
   const vRun = add('variable', { title: 'Infusion state', parent: pump, states: ['running', 'stopped', 'paused'] })
   const vAlarm = add('variable', { title: 'Alarm', parent: pump, states: ['none', 'active'] })
   const vOcc = add('variable', { title: 'Line occlusion', parent: pump, states: ['clear', 'occluded'], definition: 'The line downstream of the pump is blocked (kink, closed clamp, clot), so the drug does not reach the patient.' })

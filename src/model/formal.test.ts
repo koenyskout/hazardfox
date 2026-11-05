@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { relEnds } from './create'
 import { emptyProject } from './create'
 import { exampleProject } from './example'
 import { publishedExampleProject } from './publishedExamples'
@@ -92,7 +93,7 @@ describe('traces', () => {
     let p = emptyProject()
     const a = createItem(p, 'entity', { title: 'Person' }); p = a.project
     const d = createItem(p, 'entity', { title: 'Door' }); p = d.project
-    const r = createItem(p, 'relationship', { title: 'is in doorway of', from: a.id, to: d.id }); p = r.project
+    const r = createItem(p, 'relationship', { title: 'is in doorway of', ends: relEnds(a.id, d.id) }); p = r.project
     const pred = predicateOf(p, r.id)!
     expect(pred).toMatchObject({ layer: 'domain', type: 'boolean', parent: r.id })
     expect(displayLabels(p, computeLabels(p))[pred.id]).toBe('Person is in doorway of Door')

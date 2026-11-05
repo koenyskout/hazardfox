@@ -126,7 +126,7 @@ export function Domain() {
       )}
       {tab === 'relationship' && (
         <FlatTable kind="relationship" titleEditable
-          columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.from ? <Ref id={r.from} /> : '?'} <span className="muted">{r.fromCard} — {r.toCard}</span> {r.to ? <Ref id={r.to} /> : '?'}</span> : null }]}
+          columns={[{ head: 'Relation', cell: (r) => r.kind === 'relationship' ? <span>{r.ends.map((e, i) => <span key={i}>{i > 0 && <span className="muted"> {i === 1 ? '' : '· '}{r.ends[i - 1].card} — {e.card} </span>}{e.entity ? <Ref id={e.entity} /> : '?'}{e.role.trim() && <span className="muted"> ({e.role})</span>}</span>)}</span> : null }]}
           items={itemsOfKind(p, 'relationship')} />
       )}
     </div>

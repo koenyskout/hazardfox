@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emptyProject } from './create'
+import { emptyProject, relEnds } from './create'
 import { createItem, deleteItems, updateItem } from './ops'
 import { addSignal, beliefsAbout, signalsOf } from './formal'
 import { deserialize, serialize } from './serialize'
@@ -20,7 +20,7 @@ function setup() {
   const train = add('entity', { title: 'Train' })
   const station = add('entity', { title: 'Station' })
   const speed = add('variable', { layer: 'domain', parent: train, title: 'speed', type: 'range', min: 0, max: 100 })
-  const rel = add('relationship', { from: train, to: station, title: 'at', fromCard: '*', toCard: '1' })
+  const rel = add('relationship', { title: 'at', ends: relEnds(train, station, '*', '1') })
   return { get p() { return p }, set p(x: Project) { p = x }, add, train, station, speed, rel }
 }
 const cond = (variable: Id, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state: '0', ...extra })
@@ -146,7 +146,7 @@ describe('level crossing example', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing' })
-    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
+    const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '1') })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1' }
     const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't2' }
@@ -158,7 +158,7 @@ describe('level crossing example', () => {
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing' })
     const min = s.add('variable', { layer: 'domain', parent: crossing, title: 'minimum speed', type: 'range', min: 0, max: 100 })
-    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '1' })
+    const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '1') })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1' }
     const b: Condition = { kind: 'var', variable: s.speed, op: '>', other: min, same: 't1' }
@@ -175,7 +175,7 @@ describe('level crossing example', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing', many: true })
-    const appr = s.add('relationship', { from: s.train, to: crossing, title: 'approaches', fromCard: '*', toCard: '*' })
+    const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '*') })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't1', as2: 'c1' }
     const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', as: 't2', same2: 'c1' }

@@ -1,4 +1,5 @@
 import { projectBuilder } from './build'
+import { relEnds } from './create'
 import type { Project } from './types'
 
 /** Hospital medication management: an example with a large domain model (entity hierarchy, many attributes and relationships) and a small STPA analysis on top. */
@@ -69,7 +70,7 @@ export function medicationExampleProject(): Project {
   add('variable', { title: 'Staffing level', parent: place, states: ['adequate', 'short'] })
 
   // relationships
-  const rel = (title: string, from: string, to: string, fromCard = '1', toCard = '1') => add('relationship', { title, from, to, fromCard, toCard })
+  const rel = (title: string, from: string, to: string, fromCard = '1', toCard = '1') => add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) })
   rel('prescribes', physician, order, '1', '*')
   rel('is for', order, patient, '*', '1')
   rel('specifies', order, drug, '*', '1')

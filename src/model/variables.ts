@@ -1,5 +1,5 @@
-import { shortName } from './labels'
-import { QUANT_LABELS, UNIT_S, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type InstanceNames, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
+import { endName, shortName } from './labels'
+import { QUANT_LABELS, UNIT_S, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type InstanceNames, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type Relationship, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -128,14 +128,15 @@ export function manyEntity(p: Project, id: Id): boolean {
   while (x?.kind === 'entity' && !seen.has(x.id)) { if (x.many) return true; seen.add(x.id); x = x.relation === 'specialisation' && x.parent ? p.items[x.parent] : undefined }
   return false
 }
+/** Whether an end of a relationship ranges over several instances: its entity is `many` or its cardinality says so. */
+export const manyEnd = (p: Project, e: RelEnd): boolean => manyEntity(p, e.entity) || e.card === '*' || e.card === '1..*'
+/** The many ends of a relationship (entity ends only), in order. */
+const manyEnds = (p: Project, r: Relationship): RelEnd[] => r.ends.filter((e) => p.items[e.entity]?.kind === 'entity' && manyEnd(p, e))
 /** Whether a world variable describes several instances: it belongs to a `many` entity, or to a relationship with a `many` end (entity or cardinality). */
 export function isMany(p: Project, v: Variable): boolean {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
-  const manyCard = (c: string) => c === '*' || c === '1..*'
   if (o?.kind === 'entity') return manyEntity(p, o.id)
-  if (o?.kind !== 'relationship') return false
-  const e = (id: string) => manyEntity(p, id)
-  return e(o.from) || e(o.to) || manyCard(o.fromCard) || manyCard(o.toCard)
+  return o?.kind === 'relationship' && o.ends.some((e) => manyEnd(p, e))
 }
 
 /** The quantifier a condition effectively carries: null when it is about a single instance (also for text / variable comparisons), else its own or `some`. */
@@ -149,15 +150,12 @@ export function boundEntity(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
   if (o?.kind === 'entity') return o.id
   if (o?.kind !== 'relationship') return null
-  const many = (id: string, card: string) => manyEntity(p, id) || card === '*' || card === '1..*'
-  return many(o.from, o.fromCard) ? o.from : many(o.to, o.toCard) ? o.to : null
+  return manyEnds(p, o)[0]?.entity ?? null
 }
-/** The other end of a many-to-many relationship variable (the one `boundEntity` leaves out), else null. */
+/** The second many end of a relationship variable (the one `boundEntity` leaves out), else null. */
 export function otherEnd(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
-  if (o?.kind !== 'relationship') return null
-  const many = (id: string, card: string) => p.items[id]?.kind === 'entity' && (manyEntity(p, id) || card === '*' || card === '1..*')
-  return many(o.from, o.fromCard) &&many(o.to, o.toCard) ? o.to : null
+  return o?.kind === 'relationship' ? manyEnds(p, o)[1]?.entity ?? null : null
 }
 /** The instances a condition introduces or refers to: [entity, name, introduces]. */
 export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] {
@@ -217,10 +215,11 @@ function quantText(p: Project, c: ValueCondition | VarCondition, q: Quantifier, 
   if (o.kind === 'entity') return `${name} of ${who} ${plainText(p, c).slice(name.length).trim()}`
   if (!v.title.trim() && o.kind === 'relationship' && !isVarCmp(c)) {
     const bare = c.op === '=' && c.state === 'true'
-    const parts = [title(o.from) || '?', o.title.trim() || '?', title(o.to) || '?']
-    const first = boundEntity(p, v) === o.from ? 0 : 2
+    const parts = o.ends.map((e) => endName(p, e))
+    const first = Math.max(0, o.ends.findIndex((e) => e.entity === boundEntity(p, v)))
     parts[first] = who
-    if (who2) parts[2 - first] = who2
+    if (who2) parts[o.ends.findIndex((e, i) => i !== first && e.entity === otherEnd(p, v))] = who2
+    parts.splice(1, 0, o.title.trim() || '?')
     const text = parts.join(' ')
     return bare ? text : `${text} ${OP_LABELS[c.op]} ${c.state}`
   }

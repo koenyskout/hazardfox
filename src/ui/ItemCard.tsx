@@ -2,7 +2,7 @@ import { ChipLabel, Icon, LayerTag } from './Icon'
 import { useStore } from '../model/store'
 import { Fragment, type ReactNode } from 'react'
 import { effectiveLosses, hazardTrace, upstream } from '../model/derived'
-import { byLabel, DELETED } from '../model/labels'
+import { byLabel, DELETED, relName } from '../model/labels'
 import { incoming, refsOf } from '../model/refs'
 import { isRef, parseRich } from '../model/richtext'
 import { children } from '../model/tree'
@@ -170,9 +170,9 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   const c: Ctx = { p, labels, go }
   const openEditor = useStore((s) => s.openEditor)
   const edge = it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'relationship' ? it : null
-  const ends = edge ? [edge.from, edge.to] : []
+  const ends: { id: Id; card?: string; role?: string }[] = it.kind === 'relationship' ? it.ends.map((e) => ({ id: e.entity, card: e.card, role: e.role })) : edge && edge.kind !== 'relationship' ? [{ id: edge.from }, { id: edge.to }] : []
   const refs = [...(it.parent ? [it.parent] : []), ...refsOf(it), ...(it.kind === 'hazard' ? effectiveLosses(p, it.id) : [])]
-  const shown = it.kind === 'variable' ? [it.parent, it.about] : ends
+  const shown = it.kind === 'variable' ? [it.parent, it.about] : ends.map((e) => e.id)
   const out = group(p, labels, refs.filter((i) => i !== it.id && !shown.includes(i)))
   const inc = group(p, labels, incoming(p, it.id).map((o) => o.id))
   const title = it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
@@ -204,10 +204,10 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
       {it.tags.length > 0 && <div className="hc-tags">{it.tags.map((t) => <span key={t}>#{t}</span>)}</div>}
       {(rows.length > 0 || edge) && (
         <Section>
-          {edge && ends.map((id, n) => (
-            <Row key={n} k={n ? 'To' : 'From'}>
-              <ChipLink id={id} {...c} /> {p.items[id]?.title}
-              {edge.kind === 'relationship' && <span className="muted"> {n ? edge.toCard : edge.fromCard}</span>}
+          {edge && ends.map((e, n) => (
+            <Row key={n} k={e.role?.trim() || (n ? 'To' : 'From')}>
+              <ChipLink id={e.id} {...c} /> {p.items[e.id]?.title}
+              {e.card !== undefined && <span className="muted"> {e.card}</span>}
             </Row>
           ))}
           {rows}
@@ -231,7 +231,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
 
 const ownerName = (p: Project, id: Id, l: (id: Id | null) => string) => {
   const o = p.items[id]
-  if (o?.kind === 'relationship') return [p.items[o.from]?.title, o.title, p.items[o.to]?.title].map((x) => x?.trim() || '?').join(' ')
+  if (o?.kind === 'relationship') return relName(p, o)
   return o?.title.trim() || l(id)
 }
 
@@ -245,7 +245,8 @@ export function summary(p: Project, labels: Labels, it: Item): string {
     case 'requirement': return `${it.type}${it.sources.length ? ' from ' + ls(it.sources) : ''}`
     case 'assumption': return ls(it.about) && 'about ' + ls(it.about)
     case 'node': return it.role
-    case 'ca': case 'feedback': case 'relationship': return `${l(it.from)} → ${l(it.to)}`
+    case 'ca': case 'feedback': return `${l(it.from)} → ${l(it.to)}`
+    case 'relationship': return it.ends.map((e) => l(e.entity)).join(' → ')
     case 'variable': return it.parent ? 'of ' + ownerName(p, it.parent, l) : ''
     case 'uca': return `${GUIDE_WORD_LABELS[it.guide]} · ${l(it.ca)}`
     case 'scenario': return (it.scenarioType === 'uca' ? l(it.uca) : l(it.ca)) + (it.cause ? ' · ' + CAUSE_LABELS[it.cause] : '')

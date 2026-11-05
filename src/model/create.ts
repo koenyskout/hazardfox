@@ -1,7 +1,10 @@
-import type { Base, Id, ItemOf, Kind, Patch, Project } from './types'
+import type { Base, Id, ItemOf, Kind, Patch, Project, RelEnd } from './types'
 
 export const newId = (): Id =>
   (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
+
+/** The ends of a binary relationship (roles default to the entity titles). */
+export const relEnds = (from: Id, to: Id, fromCard = '1', toCard = '*'): RelEnd[] => [{ entity: from, role: '', card: fromCard }, { entity: to, role: '', card: toCard }]
 
 export const emptyProject = (): Project => ({
   schema: 1,
@@ -30,7 +33,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   assumption: () => ({ about: [] }),
   entity: () => ({ nudge: null, relation: 'specialisation', many: false }),
   operation: () => ({ params: [], effects: [] }),
-  relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*', nudge: null }),
+  relationship: () => ({ ends: relEnds('', '', '1', '*'), nudge: null }),
   variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, symbolicType: '', rules: [], otherwise: '' }),
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], params: [], operation: null, actuator: '', notApplicable: [], bend: null, labelShift: null }),

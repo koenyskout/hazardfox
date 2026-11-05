@@ -7,7 +7,7 @@ import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
-import { shortName } from './labels'
+import { endName, shortName } from './labels'
 import { condVars, conditionLine, exprError, isExpr } from './expr'
 import { condInstances, conditionError, nameAt, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
 
@@ -58,6 +58,7 @@ export const RULES = {
   'belief-no-about': { title: 'Belief not linked to a world variable', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
   'belief-no-source': { title: 'Belief not updated by any feedback', why: 'A belief that no feedback updates can only be inferred (from own commands or a model) and may become outdated – a typical causal factor.', fix: 'Add a signal about this world variable to a feedback into the controller, or describe in the definition how the belief is inferred.' },
   'signal-unused': { title: 'Signal not used by the controller', why: 'The feedback reports something the receiving controller has no belief about, so it cannot influence its decisions.', fix: 'Add a belief about it to the receiving controller, or remove the signal.' },
+  'relationship-ends': { title: 'Relationship ends are not distinct', why: 'Instances of a relationship are told apart by the name of the end they play (its role, by default the entity title). Two ends with the same name cannot be distinguished.', fix: 'Give the ends different roles.' },
   'refinement-cycle': { title: 'Variable refined into itself', why: 'A variable can be computed from more detailed ones. If one of those is in turn computed from the first, the value can never be determined.', fix: 'Remove the variable from the rules of the variables that are computed from it.' },
   'ca-affects-invalid': { title: 'Control action affects an unrelated variable', why: 'A control action changes world variables, or the internal state and beliefs of the controller it is sent to; other variables are not under its control.', fix: 'Remove the variable, or point the action at the node that owns it.' },
   'refinement-invalid': { title: 'Invalid refinement rule', why: 'Each rule gives one value of the computed variable under conditions on world variables; a value it cannot take or an incomplete condition makes the rule meaningless.', fix: 'Pick one of the variable\'s values and fix the condition (world variables only).' },
@@ -132,6 +133,10 @@ export function validate(p: Project): Issue[] {
   for (const n of itemsOfKind(p, 'node')) {
     if (formal && n.role === 'controller' && beliefsOf(p, n.id).length === 0 && children(p, n.id, 'node').length === 0)
       add('info', n, 'controller-no-pm', `${nm(n)}: controller has no beliefs (process model)`)
+  }
+  for (const r of itemsOfKind(p, 'relationship')) {
+    const names = r.ends.map((e) => endName(p, e))
+    if (new Set(names).size < names.length) add('warning', r, 'relationship-ends', `${nm(r)}: two ends are both called “${names.find((n, i) => names.indexOf(n) !== i)}”`)
   }
   for (const v of itemsOfKind(p, 'variable')) {
     const owner = v.parent ? p.items[v.parent] : null

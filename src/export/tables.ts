@@ -1,5 +1,5 @@
 import { effectiveLosses, hazardTrace, scenarioHazards } from '../model/derived'
-import { byLabel, computeLabels, DELETED, renderText } from '../model/labels'
+import { byLabel, computeLabels, DELETED, endName, renderText } from '../model/labels'
 import { inheritedOperations, operationsOf } from '../model/operations'
 import { scenarioTarget } from '../model/refs'
 import { flatten, itemsOfKind } from '../model/tree'
@@ -67,7 +67,7 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
       const of = (layer: string) => about.filter((x) => x.layer === layer).map((x) => `${L[x.id]} ${p.items[x.parent ?? '']?.title ?? ''}.${x.title}`).join('\n')
       return [name(v.id), of('signal'), of('belief'), lab(controlledBy(p, v.id).map((c) => c.id))]
     }))
-  push('domain', 'Relationships', ['ID', 'Name', 'From', 'To', 'Cardinality'], flat('relationship').map((r) => [...common(r), name(r.from), name(r.to), `${r.fromCard} : ${r.toCard}`]))
+  push('domain', 'Relationships', ['ID', 'Name', 'Ends', 'Cardinality'], flat('relationship').map((r) => [...common(r), r.ends.map((e) => endName(p, e)).join(', '), r.ends.map((e) => e.card).join(' : ')]))
 
   const titles = (vs: { title: string }[]) => vs.map((v) => v.title).join(', ')
   push('structure', 'Control structure elements', ['ID', 'Element', 'Role', 'Parent', 'Domain entities', 'Process model', 'Internal state', 'Description', 'Status'],

@@ -9,7 +9,7 @@ import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, asAt, sameAt, withEnd, withInstanceName, renameSame, toValue, toVarCmp, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { type Effect, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -260,19 +260,21 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
         </>
       )
     }
-    case 'relationship':
+    case 'relationship': {
+      const setEnd = (i: number, patch: Partial<RelEnd>) => set({ ends: it.ends.map((e, j) => (j === i ? { ...e, ...patch } : e)) })
       return (
         <>
           <div className="field" style={{ display: 'grid', gridTemplateColumns: 'auto max-content 1fr', alignItems: 'center', columnGap: 8 }}>
-            <span>From</span>
-            <div style={{ minWidth: 0 }}><SingleRef value={it.from || null} options={of('entity')} onChange={(v) => set({ from: v ?? '' })} /></div>
-            <div><CardSelect value={it.fromCard} onChange={(v) => set({ fromCard: v })} /></div>
-            <span />
-            <span style={{ color: 'var(--muted)', lineHeight: 1, paddingLeft: 12 }}>↓</span>
-            <span />
-            <span>To</span>
-            <div style={{ minWidth: 0 }}><SingleRef value={it.to || null} options={of('entity')} onChange={(v) => set({ to: v ?? '' })} /></div>
-            <div><CardSelect value={it.toCard} onChange={(v) => set({ toCard: v })} /></div>
+            {it.ends.map((e, i) => (
+              <Fragment key={i}>
+                {i > 0 && <><span /><span style={{ color: 'var(--muted)', lineHeight: 1, paddingLeft: 12 }}>↓</span><span /></>}
+                <span>{i ? 'To' : 'From'}</span>
+                <div style={{ minWidth: 0 }}><SingleRef value={e.entity || null} options={of('entity')} onChange={(v) => setEnd(i, { entity: v ?? '' })} /></div>
+                <div><CardSelect value={e.card} onChange={(v) => setEnd(i, { card: v })} /></div>
+                <span />
+                <input value={e.role} placeholder={`Role (default ${p.items[e.entity]?.title.trim() || 'entity'})`} onChange={(ev) => setEnd(i, { role: ev.target.value })} style={{ gridColumn: '2 / 4' }} />
+              </Fragment>
+            ))}
           </div>
           <Field single label="Variables" hint="Properties of the link as a whole, e.g. the distance between the two entities. Whether the relationship holds at all is already available as a yes/no variable in contexts, beliefs and traces. If an end has several instances, conditions can say ‘some’, ‘every’ or ‘no’ link.">
             <OwnedVars vars={variablesIn(p, 'domain', it.id).filter((v) => v.id !== predicateOf(p, it.id)?.id)} add="+ new variable" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />
@@ -280,6 +282,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           </Field>
         </>
       )
+    }
     case 'node':
       return (
         <>

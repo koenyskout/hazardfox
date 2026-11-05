@@ -1,4 +1,5 @@
 import { nameAllInstances } from './variables'
+import { relEnds } from './create'
 import { projectBuilder } from './build'
 import { predicateOf } from './formal'
 import type { Condition, Id, Project, Quantifier } from './types'
@@ -22,7 +23,7 @@ export function crossingExampleProject(): Project {
   const crossing = add('entity', { title: 'Crossing' })
   const gate = add('entity', { title: 'Gate', parent: crossing, relation: 'part' })
   const vPos = add('variable', { title: 'Position', parent: train, states: ['far', 'approaching', 'on crossing'], definition: 'Where the train is relative to the crossing.' })
-  const rel = add('relationship', { title: 'approaches', from: train, to: crossing, fromCard: '*', toCard: '1' })
+  const rel = add('relationship', { title: 'approaches', ends: relEnds(train, crossing, '*', '1') })
   const vNear = predicateOf(b.project, rel)!.id
   const vGate = add('variable', { title: 'Gate position', parent: gate, states: ['open', 'closed'] })
 

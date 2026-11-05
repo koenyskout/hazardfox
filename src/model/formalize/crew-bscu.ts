@@ -1,4 +1,5 @@
 import { addBelief, predicateOf } from '../formal'
+import { relEnds } from '../create'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { mention } from '../refs'
@@ -54,8 +55,8 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     rules: [{ state: 'true', when: anyOf(c(nbNeeded, 'true'), c(abNeeded, 'true'), c(asNeeded, 'true')) }], otherwise: 'false' })
   set(brakeSym, { definition: `Left and right brake forces (${mention(force)}) are equal within tolerance. Abstraction; two wheels' values cannot be compared in a condition.` })
 
-  const tooClose = add('relationship', { title: 'is too close to', from: aircraft, to: object, fromCard: '1', toCard: '*' })
-  const collide = add('relationship', { title: 'would collide with', from: aircraft, to: object, fromCard: '1', toCard: '*' })
+  const tooClose = add('relationship', { title: 'is too close to', ends: relEnds(aircraft, object, '1', '*') })
+  const collide = add('relationship', { title: 'would collide with', ends: relEnds(aircraft, object, '1', '*') })
   const closeV = predicateOf(q, tooClose)!.id
   const collideV = predicateOf(q, collide)!.id
   set(closeV, { definition: 'Clearance to the object is below the minimum separation (TBD).' })

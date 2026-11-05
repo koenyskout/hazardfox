@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { shortName, variableName } from '../model/labels'
+import { relName, shortName, variableName } from '../model/labels'
 import { isComputed, useProject } from './hooks'
 import { LAYER_SHORT, STATUSES, type Item, type Status, type VariableLayer } from '../model/types'
 
@@ -78,7 +78,7 @@ export function ChipLabel({ it, label }: { it: Item; label: string }) {
     return <><span className="nowrap"><span className="layer-ico l-entity" title="Entity"><Icon name="entity" size={12} /></span>{first}</span>{rest}</>
   }
   if (it.kind === 'relationship') {
-    const [, first, rest] = /^(\S*)([^]*)$/.exec([p.items[it.from]?.title, it.title, p.items[it.to]?.title].map((x) => x?.trim() || '?').join(' '))!
+    const [, first, rest] = /^(\S*)([^]*)$/.exec(relName(p, it))!
     return <><span className="nowrap"><span className="layer-ico l-relationship" title="Relationship"><Icon name="relationship" size={12} /></span>{first}</span>{rest}</>
   }
   if (it.kind !== 'variable') return <>{label}</>

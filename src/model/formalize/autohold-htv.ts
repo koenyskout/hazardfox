@@ -1,4 +1,5 @@
 import { addBelief, addSignal } from '../formal'
+import { relEnds } from '../create'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
 import { leaves, nameAllInstances } from '../variables'
@@ -32,7 +33,7 @@ function kit(p: Project) {
     add('variable', { parent, title, type: 'range', unit, min, max, ...extra })
   const internalEnum = (node: Id, title: string, states: string[], definition = '') => add('variable', { layer: 'internal', parent: node, title, states, definition })
   const internalRange = (node: Id, title: string, unit: string, definition = '') => add('variable', { layer: 'internal', parent: node, title, type: 'range', unit, min: 0, max: null, definition })
-  const rel = (title: string, from: Id, to: Id, fromCard: string, toCard: string) => { const id = add('relationship', { title, from, to, fromCard, toCard }); return { id, pred: itemsOfKind(q, 'variable').find((v) => v.parent === id)!.id } }
+  const rel = (title: string, from: Id, to: Id, fromCard: string, toCard: string) => { const id = add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) }); return { id, pred: itemsOfKind(q, 'variable').find((v) => v.parent === id)!.id } }
   /** UCA lookup by the Handbook sentence, rewritten with formal conditions; the sentence is kept in the notes. */
   const uca = (text: string, conditions: Condition[], context = '', hazards?: Id[]) => {
     const u = itemsOfKind(q, 'uca').find((x) => x.override === text)

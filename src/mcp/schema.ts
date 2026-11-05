@@ -18,7 +18,6 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   constraint: { hazards: ['hazard'] },
   requirement: { sources: null },
   assumption: { about: null },
-  relationship: { from: ['entity'], to: ['entity'] },
   node: { entities: ['entity'] },
   variable: { about: ['variable'] },
   ca: { from: ['node'], to: ['node'], affects: ['variable'], operation: ['operation'] },
@@ -60,6 +59,7 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
     if (f === 'params' && kind === 'ca') info.type = '{name: string (unique), type: enum | boolean | range | symbolic, states?: string[] (enum), min?: number, max?: number, unit?: string (range), ordered?, unique?, monotonic?, sequential?: boolean (symbolic, default none), enumType?: string, rangeType?: string, symbolicType?: string (names of project types)}[] (typed parameters the control action carries, e.g. a dose)'
     if (f === 'params' && kind === 'operation') info.type = '{name: string (unique), entity?: ref (entity or relationship typed instance parameter), data?: {type, states?, min?, max?, unit?, ...} (value parameter, instead of entity)}[]'
+    if (f === 'ends') info.type = '{entity: ref (entity), role?: string (name of this end, default the entity title), card?: string (1, 0..1, *, 1..*)}[] (at least two ends; a relationship is a predicate over its ends, e.g. [{entity: Train, card: "*"}, {entity: Crossing, card: "1"}] with title "approaches"; required)'
     if (f === 'effects') info.type = '{variable: ref (world variable), state: string, on?: string (name of the parameter whose instance the variable belongs to), from?: string (name of a value parameter whose argument becomes the value)}[] (what the operation changes)'
     if (f === 'args') info.type = '{param: string (name of a parameter of the UCA\'s control action), op?: =, ≠, in, not in (set), < ≤ > ≥ between (range), state, to?, set?}[] (conditions on the control action\'s parameters, e.g. {param: "dose", op: ">", state: "5"})'
     if (f === 'conditions') info.type = `(${COND} | Group)[] where Group = {any: boolean, of: (${COND} | Group)[]}: a list means all of; {any: true, of: [...]} is a disjunction (any of)`
@@ -271,6 +271,13 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
           if (!entity && !x.data) throw new Error(`parameter ${x.name} needs an entity (instance parameter) or data (value parameter)`)
           return { name: (x.name as string).trim(), entity, ...(x.data ? { data: paramData(x.data as Rec) } : {}) }
         })
+      } else if (f === 'ends') {
+        if (!Array.isArray(v) || v.length < 2) throw new Error('expected at least two ends [{entity, role?, card?}]')
+        out[f] = v.map((x: Rec) => {
+          const entity = r.resolve(x?.entity)
+          checkKind(entity, 'entity')
+          return { entity, role: isStr(x.role) ? x.role.trim() : '', card: isStr(x.card) && x.card ? x.card : '1' }
+        })
       } else if (f === 'effects') {
         if (!Array.isArray(v)) throw new Error('expected an array')
         out[f] = v.map((x: Rec) => {
@@ -316,6 +323,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
   }
   if (mode === 'create') {
     for (const f of requiredRefs(kind)) if (!out[f]) errors.push(`${f} is required`)
+    if (kind === 'relationship' && !out.ends) errors.push('ends is required (at least two)')
     if (kind === 'scenario') {
       const t = (out.scenarioType as string) ?? 'uca'
       if (t === 'uca' && !out.uca) errors.push('scenarioType "uca" needs the field "uca"')
@@ -350,6 +358,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
     else if (f === 'conditions') out[f] = (v as When[]).map((w) => (isGroup(w) ? mapLeaves(w, cond as (c: Condition) => Condition) : cond(w)))
     else if (f === 'params' && it.kind === 'operation') out[f] = it.params.map((x) => ({ ...x, entity: x.entity ? r.label(x.entity) : '' }))
+    else if (f === 'ends' && it.kind === 'relationship') out[f] = it.ends.map((x) => ({ entity: r.label(x.entity), ...(x.role ? { role: x.role } : {}), card: x.card }))
     else if (f === 'effects' && it.kind === 'operation') out[f] = it.effects.map((x) => ({ ...x, variable: r.label(x.variable) }))
     else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: mapLeaves(x.when, cond as (c: Condition) => Condition) }))
     else if (f === 'trace') {
