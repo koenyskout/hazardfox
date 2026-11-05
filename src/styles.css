@@ -661,3 +661,13 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .cond.xr > .select.cond-op { flex: 0 0 130px; }
 .decl .decl-add { width: auto; font-size: 12px; padding: 1px 8px; }
 .select-pop .chip { font-size: 12px; }
+/* the add bar hangs off its group's line with a dashed, hollow dot (not yet a condition) */
+.rule .conds > .rule-add { position: relative; }
+.rule .conds > .rule-add:before { content: ""; position: absolute; left: -22px; top: 8px; width: 5px; height: 5px; border-radius: 50%; border: 2px solid var(--gc); background: var(--panel); opacity: .45; z-index: 1; box-shadow: 0 0 0 2px var(--panel); }
+.rule .conds > .rule-add:after { content: ""; position: absolute; left: -13px; top: 13px; width: 10px; border-top: 2px dashed var(--gc); opacity: .45; }
+.cascade-pop li { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.cascade-pop li.cas-in { padding-left: 24px; justify-content: flex-start; }
+.cascade-pop li.grp.cas-sec { justify-content: flex-start; text-transform: none; letter-spacing: 0; }
+.cas-n { color: var(--muted); font-size: 12px; }
+.cas-tag { color: var(--muted); font-size: 11px; margin-left: auto; }
+.cas-back { color: var(--muted); font-size: 12px; justify-content: flex-start !important; }

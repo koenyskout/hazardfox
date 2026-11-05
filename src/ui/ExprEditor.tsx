@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Select } from './Select'
+import { Cascade, type CGroup, type COpt } from './Cascade'
 import { ChipLabel, Icon } from './Icon'
 import { RichText, TextInput } from './Fields'
 import { useLabels, useProject } from './hooks'
@@ -17,17 +18,26 @@ interface Env { p: Project; root: Expr; ctx: Ctx; vars: Variable[]; edit: Edit; 
 const ARITY_WORD: Record<Fn, string> = { '+': '+', '−': '−', '×': '×', min: 'min', max: 'max', abs: 'abs', prev: 'previous', succ: 'next', pred: 'before', since: 'since', heldFor: 'held for' }
 
 /** A variable as a pill (layer icon, short name); the owner follows when the name does not say it (or other listed variables share the name). */
-function VarPill({ v, vars }: { v: Variable; vars: Variable[] }) {
+function VarPill({ v, vars, owned }: { v: Variable; vars: Variable[]; /** the owner is shown elsewhere (a heading) */ owned?: boolean }) {
   const p = useProject()
   const labels = useLabels()
   const short = shortName(p, v)
   const par = v.parent ? p.items[v.parent] : null
   const owner = !par ? '' : par.kind === 'relationship' ? relName(p, par) : par.title.trim() || labels[par.id]
-  const show = !!owner && owner !== short && (!short.toLowerCase().includes(owner.toLowerCase()) || vars.some((o) => o.id !== v.id && shortName(p, o) === short))
+  const show = !owned && !!owner && owner !== short && (!short.toLowerCase().includes(owner.toLowerCase()) || vars.some((o) => o.id !== v.id && shortName(p, o) === short))
   return <span className="chip k-variable"><ChipLabel it={v} label={labels[v.id]} />{show && <span className="pill-owner"> · {owner}</span>}</span>
 }
 const EntityPill = ({ e }: { e: Item }) => <span className="chip k-entity"><ChipLabel it={e} label={e.title} /></span>
-const varOption = (v: Variable, vars: Variable[], value: string, p: Project, labels: ReturnType<typeof useLabels>) => <option key={value} value={value} label={renderText(labels, variableName(p, v))}><VarPill v={v} vars={vars} /></option>
+/** Variables for the picker, listed under their owner. */
+function varOpts(p: Project, labels: ReturnType<typeof useLabels>, vars: Variable[], all: Variable[], value: (v: Variable) => string): COpt[] {
+  const owner = (v: Variable) => (v.parent && p.items[v.parent] ? p.items[v.parent] : null)
+  const key = (v: Variable) => owner(v)?.id ?? ''
+  const order = [...new Set(vars.map(key))]
+  return order.flatMap((k) => vars.filter((v) => key(v) === k).map((v): COpt => {
+    const o = owner(v)
+    return { value: value(v), text: `${labels[v.id]} ${o ? labels[o.id] ?? o.title : ''}`, node: <VarPill v={v} vars={all} owned />, section: o ? { key: o.id, node: <span className={'chip k-' + o.kind}><ChipLabel it={o} label={labels[o.id]} /></span> } : { key: '', node: <>Other variables</> } }
+  }))
+}
 
 /** Names used by quantifiers anywhere in the condition. */
 const usedNames = (e: Expr): Set<string> => { const s = new Set<string>(); walk(e, (x) => { if (x.k === 'quant') s.add(x.name) }); return s }
@@ -195,14 +205,11 @@ function Starter({ env, path }: { env: Env; path: number[] }) {
     if (x?.kind !== 'variable') return
     ensureNames(env, path, mkVar(x.id), (e) => edit(path, x.type === 'boolean' ? e : eq(e, HOLE)))
   }
-  return (
-    <Select className="cond-var" value="" onChange={(ev) => pick(ev.target.value)}>
-      <option value="" disabled hidden>variable or condition…</option>
-      {vars.map((v) => varOption(v, vars, v.id, p, labels))}
-      <option value={'\0words'}>in words…</option>
-      <option value={'\0event'}>time since an event…</option>
-    </Select>
-  )
+  const groups: CGroup[] = [
+    { key: 'var', label: 'Variable', options: varOpts(p, labels, vars, vars, (v) => v.id) },
+    { key: 'cond', label: 'Other condition', options: [{ value: '\0words', text: 'in words', node: <>in words…</> }, { value: '\0event', text: 'time since an event', node: <>time since an event…</> }] },
+  ]
+  return <Cascade className="cond-var" groups={groups} onPick={pick} display={<span className="muted">variable or condition…</span>} />
 }
 
 /** Names for the many-ends of a variable put in a slot: an instance name in scope, else a new quantifier around the condition. */
@@ -329,17 +336,18 @@ function Operand({ env, x, path, ty }: { env: Env; x: Expr; path: number[]; ty: 
       case 'fn': return here({ k: 'app', fn: a as Fn, args: a === 'abs' || a === 'prev' || a === 'succ' || a === 'pred' ? [HOLE] : [HOLE, HOLE] })
     }
   }
-  const options = (
-    <>
-      {cands.filter((c) => c.k === 'var').map((c) => varOption(p.items[c.id] as Variable, vars, 'var\0' + c.id, p, labels))}
-      {cands.filter((c) => c.k === 'const').map((c) => <option key={'c' + c.v} value={'const\0' + c.v}>{c.v}</option>)}
-      {cands.filter((c) => c.k === 'number' || c.k === 'symbol' || c.k === 'duration').slice(0, 1).map((c) => <option key={c.k} value={c.k + '\0'}>{c.k === 'number' ? 'a number…' : c.k === 'duration' ? 'a duration…' : 'a value…'}</option>)}
-      {cands.filter((c) => c.k === 'name' || c.k === 'param').map((c) => <option key={c.k + c.name} value={c.k + '\0' + c.name}>{c.name}</option>)}
-      {cands.filter((c) => c.k === 'fn').map((c) => <option key={c.fn} value={'fn\0' + c.fn}>{ARITY_WORD[c.fn]}(…)</option>)}
-    </>
-  )
+  const groups: CGroup[] = [
+    { key: 'var', label: 'Variable', options: varOpts(p, labels, cands.flatMap((c) => (c.k === 'var' ? [p.items[c.id] as Variable] : [])), vars, (v) => 'var\0' + v.id) },
+    { key: 'val', label: 'Value', options: [
+      ...cands.flatMap((c): COpt[] => (c.k === 'const' ? [{ value: 'const\0' + c.v, text: c.v, node: <>{c.v}</> }] : [])),
+      ...cands.filter((c) => c.k === 'number' || c.k === 'symbol' || c.k === 'duration').slice(0, 1).map((c): COpt => { const t = c.k === 'number' ? 'a number…' : c.k === 'duration' ? 'a duration…' : 'a value…'; return { value: c.k + '\0', text: t, node: <>{t}</> } }),
+    ] },
+    { key: 'inst', label: 'Instance', options: cands.flatMap((c): COpt[] => (c.k === 'name' || c.k === 'param' ? [{ value: c.k + '\0' + c.name, text: c.name, node: <>{c.name}</> }] : [])) },
+    { key: 'fn', label: 'Function', options: cands.flatMap((c): COpt[] => (c.k === 'fn' ? [{ value: 'fn\0' + c.fn, text: ARITY_WORD[c.fn], node: <>{ARITY_WORD[c.fn]}(…)</> }] : [])) },
+  ]
+  const choose = (display: ReactNode, value?: string) => <Cascade className="cond-var" groups={groups} value={value} onPick={pick} display={display} />
   switch (x.k) {
-    case 'hole': return <Select className="cond-var" value="" onChange={(ev) => pick(ev.target.value)}><option value="" disabled hidden>…</option>{options}</Select>
+    case 'hole': return choose(<span className="muted">…</span>)
     case 'var': {
       const cand = cands.find((c): c is Extract<Candidate, { k: 'var' }> => c.k === 'var' && c.id === x.id)
       const v = p.items[x.id]
@@ -354,12 +362,7 @@ function Operand({ env, x, path, ty }: { env: Env; x: Expr; path: number[]; ty: 
             </Select>
           : <EntityPill key={'en' + end} e={p.items[e.entity]} />
       }
-      const sel = (display?: ReactNode) => (
-        <Select className="cond-var" value={'var\0' + x.id} display={display} onChange={(ev) => pick(ev.target.value)}>
-          {!cand && (v?.kind === 'variable' ? varOption(v, vars, 'var\0' + x.id, p, labels) : <option value={'var\0' + x.id}>?</option>)}
-          {options}
-        </Select>
-      )
+      const sel = (display?: ReactNode) => choose(display ?? (v?.kind === 'variable' ? <VarPill v={v} vars={vars} /> : '?'), 'var\0' + x.id)
       // a relationship predicate reads as its sentence: "tr1 approaches Crossing", ends as pickers, the words open the variable list
       if (rel) {
         const parts = readRel(rel, rel.ends.map((_, i) => `\0${i}\0`)).split('\0')
@@ -378,13 +381,13 @@ function Operand({ env, x, path, ty }: { env: Env; x: Expr; path: number[]; ty: 
       if (ty.t === 'bool') return <Select value={x.v} onChange={(ev) => here({ k: 'const', v: ev.target.value })}><option>true</option><option>false</option></Select>
       return <TextInput value={x.v} onChange={(v) => here({ ...x, v })} placeholder={ty.t === 'num' ? 'number' : 'value'} />
     }
-    case 'name': return <Select value={x.name} onChange={(ev) => pick('name\0' + ev.target.value)}><option value={x.name}>{x.name}</option>{options}</Select>
-    case 'param': return <Select value={x.name} onChange={(ev) => pick('param\0' + ev.target.value)}><option value={x.name}>{x.name}</option>{options}</Select>
+    case 'name': return choose(x.name, 'name\0' + x.name)
+    case 'param': return choose(x.name, 'param\0' + x.name)
     case 'app': {
       const a = x.args
       return (
         <span className="cond-fn">
-          <Select value={x.fn} onChange={(ev) => pick('fn\0' + ev.target.value)}><option value={x.fn}>{ARITY_WORD[x.fn]}</option>{options}</Select>
+          {choose(ARITY_WORD[x.fn], 'fn\0' + x.fn)}
           {a.map((m, i) => <Operand key={i} env={env} x={m} path={[...path, i]} ty={slotType(env.ctx, env.root, [...path, i])} />)}
         </span>
       )
