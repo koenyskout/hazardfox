@@ -481,7 +481,11 @@ export function evalExpr(ctx: Ctx, e: Expr, env: Env, bind: Bind = {}, wantUnit:
     case 'and': return kleeneAnd(e.of.map(evb))
     case 'or': return kleeneOr(e.of.map(evb))
     case 'quant': {
-      const inst = env.instances?.(e.entity) ?? []
+      // different names of one entity stand for different instances
+      const taken = Object.entries(ctx.scope ?? {}).filter(([n, en]) => n in bind && isA(p, en, e.entity) || n in bind && isA(p, e.entity, en)).map(([n]) => bind[n])
+      const all = env.instances?.(e.entity) ?? []
+      const inst = all.filter((x) => !taken.includes(x))
+      if (all.length && !inst.length) return null
       const rs = (inst.length ? inst : ['']).map((i) => asBool(evalExpr({ ...ctx, scope: { ...ctx.scope, [e.name]: e.entity } }, e.body, env, { ...bind, [e.name]: i })))
       if (e.q === 'all') return kleeneAnd(rs)
       const any = kleeneOr(rs)
