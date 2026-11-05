@@ -48,7 +48,7 @@ export const getField = (it: Item, f: string): unknown => (it as unknown as Reco
 export const setField = (it: Item, f: string, v: unknown) => {
   ;(it as unknown as Record<string, unknown>)[f] = v
 }
-export const getList = (it: Item, f: string) => getField(it, f) as Id[]
+export const getList = (it: Item, f: string) => (getField(it, f) as Id[] | undefined) ?? []
 
 const MENTION_RE = /@\[([^\]]+)\]/g
 export const mention = (id: Id) => `@[${id}]`
@@ -61,6 +61,8 @@ export const replaceMentions = (text: string, f: (id: Id, whole: string) => stri
   text.replace(MENTION_RE, (whole, id: string) => f(id, whole))
 
 /** The UCA (type 'uca') or control action (type 'ca') a scenario explains. */
+/** The UCA a type 'uca' scenario explains. */
+export const ucaOf = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : null)
 export const scenarioTarget = (s: Scenario): Id | null => (s.scenarioType === 'uca' ? s.uca : s.ca)
 
 /** Ids a condition refers to: its variable, compared variable, event, and @-mentions in a condition in words / expression. */

@@ -46,7 +46,7 @@ export interface FieldInfo { type: string; values?: readonly string[]; targets?:
 
 /** Machine-readable description of the fields of a kind, derived from the model defaults and ref registry. */
 export function describeKind(kind: Kind): Record<string, FieldInfo> {
-  const defaults = (kind === 'variable' ? Object.assign({}, ...VARIABLE_LAYERS.map((layer) => makeItem('variable', { layer }))) : makeItem(kind)) as unknown as Rec
+  const defaults = (kind === 'variable' ? Object.assign({}, ...VARIABLE_LAYERS.map((layer) => makeItem('variable', { layer }))) : kind === 'scenario' ? Object.assign({}, ...SCENARIO_TYPES.map((scenarioType) => makeItem('scenario', { scenarioType }))) : makeItem(kind)) as unknown as Rec
   const out: Record<string, FieldInfo> = {}
   for (const f of Object.keys(defaults)) {
     if (HIDDEN.has(f) || (f === 'parent' && !parentKinds(kind).length)) continue

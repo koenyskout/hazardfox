@@ -2,7 +2,7 @@ import { beliefsAbout, feedbackInto, partsOf, signalsOf, worldOf } from './forma
 import { variableName } from './labels'
 import { exprHolds } from './expr'
 import { appliedEffects, isOccurrence } from './operations'
-import { mention } from './refs'
+import { mention, ucaOf } from './refs'
 import { itemsOfKind } from './tree'
 import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
 import { aboutOf, otherwiseOf, rulesOf } from './types'
@@ -280,7 +280,7 @@ export function mismatches(p: Project, t: Trace, i: number): Mismatch[] {
 
 /** Causal factor the trace points at, from comparing world, signals and beliefs of the controller at the action step. */
 export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string } | null {
-  const u = s.uca ? p.items[s.uca] : null
+  const u = ucaOf(s) ? p.items[ucaOf(s)!] : null
   const ca = u?.kind === 'uca' ? p.items[u.ca] : null
   if (s.scenarioType !== 'uca' || u?.kind !== 'uca' || ca?.kind !== 'ca') return null
   const step = actionStep(s.trace, ca.id)
@@ -317,7 +317,7 @@ const step = (t: string, note: string, values: Record<Id, string> = {}, events: 
 /** Draft a trace that exhibits the scenario: from the UCA's context and the chosen causal factor (type 'uca'), or from the control action and what goes wrong with it (type 'ca'). */
 export function draftTrace(p: Project, s: Scenario): Trace {
   if (s.scenarioType === 'uca') {
-    const u = s.uca ? p.items[s.uca] : null
+    const u = ucaOf(s) ? p.items[ucaOf(s)!] : null
     const ca = u?.kind === 'uca' ? p.items[u.ca] : null
     if (u?.kind !== 'uca' || ca?.kind !== 'ca') return { lanes: [], steps: [] }
     const ctrl = ca.from

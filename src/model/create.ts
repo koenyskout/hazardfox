@@ -67,5 +67,6 @@ export function makeItem<K extends Kind>(kind: K, init: Patch<K> = {} as Patch<K
   }
   const it = { ...base, ...DEFAULTS[kind](), ...init, kind } as unknown as Record<string, unknown>
   if (kind === 'variable') layerFields(it)
+  if (kind === 'scenario') { if (it.scenarioType === 'uca') { delete it.ca; delete it.hazards } else delete it.uca }
   return it as unknown as ItemOf<K>
 }

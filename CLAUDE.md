@@ -67,6 +67,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - Control actions have a `duration` (`continuous` default / `instantaneous`). Per the Handbook, "stopped too soon / applied too long" only applies to continuous ones: `guideApplies(ca, guide)` (`uca.ts`) drives the UCA grid (auto N/A cell), Details, validation and MCP `uca_coverage`.
 - UCAs and system constraints link only to **leaf** hazards. Hazard→loss links are many-to-many; sub-hazards inherit.
 - Sensors and actuators are **not nodes**: node roles are controller / process / external. A feedback has an optional `sensor`, a control action an optional `actuator` (names), drawn as small coloured pills on the arrow (`DEVICE_STYLE`).
+- `Scenario` is a union (`UcaScenario` with `uca`; `CaScenario` with `ca` + `hazards`; both share `cause`, `element`, STRIDE, ratings, `trace`): narrow on `scenarioType`, `ucaOf`/`scenarioTarget` (`refs.ts`) read the target of any scenario, `setScenarioType` converts; `getList` is empty for an absent list.
 - Two scenario kinds (`scenarioType`): `'uca'` (why a UCA occurs; hazards inherited from the UCA) and `'ca'` (why a
   control action is not executed properly; own `hazards`, `cause` from `CAUSES`, optional `element`).
   Use `scenarioHazards(p, s)` (`derived.ts`) and `scenarioTarget(s)` rather than reading `s.hazards` directly.

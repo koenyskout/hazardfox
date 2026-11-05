@@ -5,7 +5,7 @@ import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
 import { isWorld, structOf } from './types'
-import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, SymbolicType, StructType, Variable, WorldVariable } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, SymbolicType, StructType, ScenarioType, Variable, WorldVariable } from './types'
 
 type Draft = Project
 
@@ -50,6 +50,15 @@ export function createItem<K extends Kind>(
   })
   return { project, id: item.id }
 }
+
+/** Turn a scenario into one of the other type, pointing at `target` (a UCA or control action); the fields of the old type are dropped, hazards start empty. */
+export const setScenarioType = (p: Project, id: Id, type: ScenarioType, target: Id | null): Project =>
+  produce(p, (d) => {
+    const s = d.items[id]
+    if (s?.kind !== 'scenario') return
+    const { uca: _u, ca: _c, hazards: _h, ...rest } = s as typeof s & { uca?: Id | null; ca?: Id | null; hazards?: Id[] }
+    d.items[id] = type === 'uca' ? { ...rest, scenarioType: 'uca', uca: target } : { ...rest, scenarioType: 'ca', ca: target, hazards: [] }
+  })
 
 export function updateItem(p: Project, id: Id, patch: Patch): Project {
   if (!p.items[id]) return p

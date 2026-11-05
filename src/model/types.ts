@@ -345,15 +345,8 @@ export interface TraceStep { t: string; note: string; values: Record<Id, string>
 /** A finite run σ of the system (world, signals, beliefs, internal state) that exhibits the scenario. */
 export interface Trace { lanes: Id[]; steps: TraceStep[] }
 
-export interface Scenario extends Base {
+interface ScenarioBase extends Base {
   kind: 'scenario'
-  scenarioType: ScenarioType
-  /** type 'uca': the unsafe control action explained */
-  uca: Id | null
-  /** type 'ca': the control action that is not executed properly */
-  ca: Id | null
-  /** type 'ca' only: leaf hazards it may lead to (type 'uca' inherits them from the UCA) */
-  hazards: Id[]
   /** '' = unspecified */
   cause: Cause | ''
   /** Control structure element where the cause lies (optional) */
@@ -365,6 +358,11 @@ export interface Scenario extends Base {
   likelihood: number // 1..5, 0 = unrated
   trace: Trace
 }
+/** Why an unsafe control action occurs; its hazards are inherited from the UCA. */
+export interface UcaScenario extends ScenarioBase { scenarioType: 'uca'; uca: Id | null }
+/** Why a control action is not executed properly: the control action and the leaf hazards it may lead to. */
+export interface CaScenario extends ScenarioBase { scenarioType: 'ca'; ca: Id | null; hazards: Id[] }
+export type Scenario = UcaScenario | CaScenario
 
 export type Item =
   | Loss

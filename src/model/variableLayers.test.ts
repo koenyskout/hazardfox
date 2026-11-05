@@ -35,3 +35,23 @@ describe('variables by layer', () => {
     expect(serialize(deserialize(serialize(q)))).toBe(serialize(q))
   })
 })
+
+describe('scenarios by type', () => {
+  it('carry only the fields of their type and convert', async () => {
+    const { setScenarioType } = await import('./ops')
+    const { describeKind } = await import('../mcp/schema')
+    const u = makeItem('scenario', { scenarioType: 'uca' }) as unknown as Record<string, unknown>
+    const c = makeItem('scenario', { scenarioType: 'ca' }) as unknown as Record<string, unknown>
+    expect(u).toHaveProperty('uca')
+    expect(u).not.toHaveProperty('hazards')
+    expect(c).toHaveProperty('hazards')
+    expect(c).not.toHaveProperty('uca')
+    expect(Object.keys(describeKind('scenario'))).toEqual(expect.arrayContaining(['uca', 'ca', 'hazards', 'cause']))
+    const p = crossingExampleProject()
+    const s = itemsOfKind(p, 'scenario').find((x) => x.scenarioType === 'uca')!
+    const q = setScenarioType(p, s.id, 'ca', null)
+    expect(q.items[s.id]).toMatchObject({ scenarioType: 'ca', hazards: [] })
+    expect(q.items[s.id]).not.toHaveProperty('uca')
+    expect(serialize(deserialize(serialize(q)))).toBe(serialize(q))
+  })
+})

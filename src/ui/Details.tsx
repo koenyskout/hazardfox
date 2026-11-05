@@ -11,7 +11,7 @@ import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/pa
 import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
-import { updateItem } from '../model/ops'
+import { updateItem, setScenarioType } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
 import { ApplyStruct, EnumTypeDialog, RangeTypeDialog, SymbolicPicker, SymbolicTypeDialog, VariableRangeDialog } from './RangeTypes'
 import { generateUcaText } from '../model/uca'
@@ -393,7 +393,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           <Field label="Kind of scenario">
             <Select value={it.scenarioType} onChange={(e) => {
               const t = e.target.value as ScenarioType
-              set(t === 'uca' ? { scenarioType: t, uca: it.uca ?? of('uca')[0]?.id ?? null, ca: null, hazards: [], cause: '' } : { scenarioType: t, ca: it.ca ?? of('ca')[0]?.id ?? null, uca: null, cause: '' })
+              commit((q) => setScenarioType(q, it.id, t, t === 'uca' ? of('uca')[0]?.id ?? null : of('ca')[0]?.id ?? null))
             }}>
               {SCENARIO_TYPES.map((t) => <option key={t} value={t}>{SCENARIO_TYPE_LABELS[t]}</option>)}
             </Select>

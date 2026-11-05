@@ -1,4 +1,5 @@
 import { Select } from './Select'
+import { ucaOf } from '../model/refs'
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { updateItem } from '../model/ops'
 import { isRef, parseRich } from '../model/richtext'
@@ -41,7 +42,7 @@ function TraceChecks({ s }: { s: Scenario }) {
   const p = useProject()
   const w = witness(p, s)
   const d = diagnose(p, s)
-  const u = s.uca ? p.items[s.uca] : null
+  const u = ucaOf(s) ? p.items[ucaOf(s)!] : null
   const uca = u?.kind === 'uca' ? u : null
   if (!s.trace.steps.length) return null
   return (
@@ -59,7 +60,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
   const labels = useLabels()
   const t = s.trace
   const vars = lanesOf(p, t)
-  const u = s.uca ? p.items[s.uca] : null
+  const u = ucaOf(s) ? p.items[ucaOf(s)!] : null
   const uca = u?.kind === 'uca' ? u : null
   // lanes for the instances the UCA's conditions name, and a custom one for any variable with several instances
   // lanes for the instances the UCA's conditions name, with the signals and beliefs about them
@@ -270,7 +271,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
   const shown = ({ v, key }: Lane): string | undefined => (v.layer === 'domain' || v.layer === 'internal' ? after : fbDone ? after : before)[key]
   const mm = new Map(mismatches(p, t, step).map((m) => [m.id, m]))
   const vars = lanesOf(p, t)
-  const u = s.uca ? p.items[s.uca] : null
+  const u = ucaOf(s) ? p.items[ucaOf(s)!] : null
   const uca = u?.kind === 'uca' ? u : null
   const w = witness(p, s)
   const ctx = uca ? contextHolds(p, uca, after) : null
