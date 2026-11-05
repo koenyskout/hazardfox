@@ -1,3 +1,4 @@
+import { relEnds } from '../create'
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
@@ -20,7 +21,7 @@ type Box = { p: Project }
 const all = (b: Box) => Object.values(b.p.items)
 const named = <T extends Item>(xs: T[], title: string) => xs.find((x) => x.title.trim() === title)
 function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: K, title: string, init: Record<string, unknown>, owner?: Id): Id {
-  const have = all(b).find((i) => i.kind === kind && i.title.trim() === title && (!owner || i.parent === owner || (i as { from?: Id }).from === owner))
+  const have = all(b).find((i) => i.kind === kind && i.title.trim() === title && (!owner || i.parent === owner || (i.kind === 'relationship' && i.ends[0]?.entity === owner)))
   if (have) return have.id
   const r = createItem(b.p, kind, { title, ...init } as never)
   b.p = r.project
@@ -99,7 +100,7 @@ function vtt(p0: Project): Project {
   const loc = V('AM location', am, ['inside operating area', 'outside operating area'], 'Whether the AM is within the area where it is intended to operate.')
   const prog = V('Route progress', am, ['at a route point', 'on the path to a route point'], 'Whether the AM is standing at a route point or already driving along the path between two.')
   const cnd = V('Environmental condition', env, ['normal', 'extraordinary'], 'Extraordinary environmental conditions are those where the AM must change its driving parameters (the source lists no values).')
-  const rel = (title: string, from: Id) => { const id = ensure(b, 'relationship', title, { from, to: am, fromCard: '*', toCard: '1', description: '' }, from); return predicateOf(b.p, id)!.id }
+  const rel = (title: string, from: Id) => { const id = ensure(b, 'relationship', title, { ends: relEnds(from, am, '*', '1') }, from); return predicateOf(b.p, id)!.id }
   const near = rel('near', person), inWay = rel('in the way of', thing)
 
   // Hierarchical: "operational context" the drive command has to be adjusted to (people near, objects in the way, extraordinary environment).

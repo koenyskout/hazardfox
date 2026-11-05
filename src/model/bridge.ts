@@ -3,7 +3,7 @@ import { condInstances, conditionComplete, isEvent, isExpr, isGroup, isText, isV
 import type { Condition, EndNames, Id, Project, When } from './types'
 
 /** Old condition trees as `Expr` (migration bridge: same meaning, instance names quantified outermost in order of appearance). */
-const at = (n: EndNames | undefined, len: number) => Array.from({ length: len }, (_, i) => nameAt(n, i))
+const at = (n: EndNames | undefined, len: number) => { const a = Array.from({ length: len }, (_, i) => nameAt(n, i)); while (a.length && !a[a.length - 1]) a.pop(); return a }
 function leaf(p: Project, c: Condition): Expr | null {
   if (!isEvent(c) && !isText(c) && !isExpr(c) && !conditionComplete(c)) return null
   let e: Expr

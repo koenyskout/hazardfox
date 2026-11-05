@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { validate } from './validate'
 import { whenToExpr } from './bridge'
 import { exampleProject } from './example'
 import { holds as newHolds, type Env } from './lang'
@@ -14,7 +15,7 @@ import { laneParts } from './variables'
 import { isA } from './formal'
 import type { Id, Project, When } from './types'
 
-const projects = (): [string, Project][] => {
+export const projectsForTest = (): [string, Project][] => {
   const out: [string, Project][] = [['example', exampleProject()]]
   for (const x of PUBLISHED_EXAMPLES) {
     let p = publishedExampleProject(x.id)
@@ -32,7 +33,7 @@ const projects = (): [string, Project][] => {
 }
 
 describe('Expr agrees with the old condition trees on every example trace', () => {
-  for (const [name, p] of projects()) it(name, () => {
+  for (const [name, p] of projectsForTest()) it(name, () => {
     let compared = 0
     const lists: When[][] = []
     for (const u of itemsOfKind(p, 'uca')) lists.push(u.conditions)
@@ -61,5 +62,13 @@ describe('Expr agrees with the old condition trees on every example trace', () =
       }
     }
     console.log('compared', name, compared)
+  })
+})
+
+describe('typed check of the examples', () => {
+  it('finds no ill-typed condition in any example', () => {
+    const bad: string[] = []
+    for (const [name, p] of projectsForTest()) for (const i of validate(p)) if (i.rule === 'expr-type') bad.push(`${name}: ${i.message}`)
+    expect(bad).toEqual([])
   })
 })

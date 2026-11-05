@@ -9,6 +9,8 @@ import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project, rulesOf, o
 import { guideApplies } from './uca'
 import { endName, shortName, readingValid } from './labels'
 import { condVars, conditionLine, exprError } from './expr'
+import { whenToExpr } from './bridge'
+import { check } from './lang'
 import { condInstances, conditionError, isExpr, endsOf, nameAt, isVarCmp, isEvent, isOnVariable, leaves, manyEndsOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
@@ -52,6 +54,7 @@ export const RULES = {
   'param-type': { title: 'Parameter without a named type', why: 'Range, enumeration and symbolic parameters take their bounds, states or properties from a named type of the project, so they are defined once and reused.', fix: 'Pick a named type for the parameter, or create one from the type picker (Boolean parameters need none).' },
   'arg-invalid': { title: 'Condition on a parameter is invalid', why: 'A UCA constrains a parameter that the control action does not have, or with a value that does not fit its type.', fix: 'Pick one of the control action’s parameters and a value of its type (or remove the condition).' },
   'expr-invalid': { title: 'Comparison does not make sense', why: 'An arithmetic comparison needs variables that exist, numbers where it calculates, the same type (and unit) on both sides, and an order only for numbers or ordered symbolic types.', fix: 'Edit the comparison so both sides have the same type, or drop the order operator.' },
+  'expr-type': { title: 'Condition does not type-check', why: 'Every condition is typed: variables, constants, units and instance names must fit together (a state of the variable, a number for a range, a name introduced by a quantifier on an entity that has several instances).', fix: 'Edit the condition at the indicated spot so both sides have the same type, or remove the instance name.' },
   'event-invalid': { title: 'Timing condition on something that is not an event', why: 'A timing condition measures the time since an event, which must be a control action or a feedback.', fix: 'Choose a control action or feedback.' },
   'instance-unnamed': { title: 'Instance without a name', why: 'A condition is about an instance of a many-instance entity but gives it no name, so later conditions and traces cannot refer to that instance.', fix: 'Name the instance (e.g. tr1); the context editor does this automatically.' },
   'belief-no-about': { title: 'Belief not linked to a world variable', why: 'A belief only has meaning if it is clear which world state it stands for; otherwise "the belief is wrong" cannot be judged.', fix: 'Choose the world variable it is about, or describe the world predicate in its definition.' },
@@ -181,6 +184,14 @@ export function validate(p: Project): Issue[] {
   for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isExpr)) {
     const e = exprError(p, c)
     if (e) add('warning', it, 'expr-invalid', `${nm(it)}: the comparison "${conditionLine(p, c) ?? c.text}" ${e}`, condVars(c))
+  }
+  // typed check of the conditions the other rules do not cover (hazard states, refinement rules)
+  for (const it of [...itemsOfKind(p, 'hazard'), ...itemsOfKind(p, 'variable')]) {
+    const lists = it.kind === 'hazard' ? [it.conditions] : rulesOf(it).map((r) => [r.when])
+    for (const ws of lists) {
+      const e = whenToExpr(p, ws)
+      if (e) for (const d of check({ p }, e)) add(d.level, it, 'expr-type', `${nm(it)}: ${d.msg}`)
+    }
   }
   for (const it of [...ucas, ...itemsOfKind(p, 'hazard')]) for (const c of it.conditions.flatMap(leaves).filter(isEvent)) {
     const e = p.items[c.event]
