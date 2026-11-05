@@ -46,6 +46,7 @@ describe('TLA+ block format', () => {
     const t = formatExpr(e, (id) => '@[' + id + ']')
     expect(t).toContain('∧ ')
     expect(t).toContain('∨ ')
+    expect(t).toMatch(/^∧ ∨ .*\n {2}∨ /m)
     expect(parseExpr(p, t)).toEqual(e)
   })
 })

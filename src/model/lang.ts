@@ -713,7 +713,7 @@ export function formatExpr(e: Expr, name: (id: Id) => string = mention): string 
   const fmt = (x: Expr): string[] => {
     if ((x.k === 'and' || x.k === 'or') && x.of.length >= 2) {
       const b = x.k === 'and' ? '∧' : '∨'
-      return x.of.flatMap((m) => { const l = fmt(m); return [b + ' ' + l[0], ...l.slice(1).map((r) => '   ' + r)] })
+      return x.of.flatMap((m) => { const l = fmt(m); return [b + ' ' + l[0], ...l.slice(1).map((r) => '  ' + r)] })
     }
     if (x.k === 'quant') {
       const head = `${x.q} ${x.name} in ${name(x.entity)}:`, body = fmt(x.body)

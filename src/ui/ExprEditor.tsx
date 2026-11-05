@@ -135,7 +135,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
     }
     if (ev.key !== 'Enter') return false
     if (!rest) { const up = draft.slice(0, ls).split('\n').reverse().map((l) => /^(\s*)(∧|∨|\/\\|\\\/)\s/.exec(l)).find((x) => x && x[1].length < ind.length); splice(ls, at, up ? up[1] + up[2] + ' ' : ''); return true }
-    splice(at, at, rest.trimEnd().endsWith(':') ? '\n' + ind + '    ' + bullet + ' ' : '\n' + ind + bullet + ' ')
+    splice(at, at, rest.trimEnd().endsWith(':') ? '\n' + ind + '  ' + ' '.repeat(bullet.length + 1) + bullet + ' ' : '\n' + ind + bullet + ' ')
     return true
   }
   const key = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
