@@ -118,13 +118,35 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
     area.current?.focus()
   }
   const sync = (el: HTMLTextAreaElement) => { setCaret(el.selectionStart) }
-  const key = (ev: React.KeyboardEvent) => {
+  const splice = (from: number, to: number, insert: string) => { nextCaret.current = from + insert.length; setDraft(draft.slice(0, from) + insert + draft.slice(to)); setShut(false); setHi(0) }
+  /** Enter continues the bullet list; Enter or Backspace on an empty bullet goes up to the enclosing list's bullet. */
+  const smart = (ev: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    const el = ev.currentTarget
+    if (el.selectionStart !== el.selectionEnd || ev.shiftKey || ev.ctrlKey || ev.metaKey || ev.altKey) return false
+    const at = el.selectionStart, ls = draft.lastIndexOf('\n', at - 1) + 1
+    const m = /^(\s*)(∧|∨|\/\\|\\\/)(\s*)(.*)$/.exec(draft.slice(ls, at))
+    if (!m) return false
+    const [, ind, bullet, gap, rest] = m
+    if (ev.key === 'Backspace') {
+      if (rest || gap.length > 1) return false
+      const up = draft.slice(0, ls).split('\n').reverse().map((l) => /^(\s*)(∧|∨|\/\\|\\\/)\s/.exec(l)).find((x) => x && x[1].length < ind.length)
+      splice(ls, at, up ? up[1] + up[2] + ' ' : '')
+      return true
+    }
+    if (ev.key !== 'Enter') return false
+    if (!rest) { const up = draft.slice(0, ls).split('\n').reverse().map((l) => /^(\s*)(∧|∨|\/\\|\\\/)\s/.exec(l)).find((x) => x && x[1].length < ind.length); splice(ls, at, up ? up[1] + up[2] + ' ' : ''); return true }
+    splice(at, at, rest.trimEnd().endsWith(':') ? '\n' + ind + '    ' + bullet + ' ' : '\n' + ind + bullet + ' ')
+    return true
+  }
+  const key = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (ev.key === ' ' && ev.ctrlKey) { ev.preventDefault(); setShut(false); return }
-    if (!items.length) return
-    if (ev.key === 'ArrowDown') { ev.preventDefault(); setHi((h) => (h + 1) % items.length) }
-    else if (ev.key === 'ArrowUp') { ev.preventDefault(); setHi((h) => (h + items.length - 1) % items.length) }
-    else if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); accept(items[Math.min(hi, items.length - 1)]) }
-    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setShut(true) }
+    if (items.length) {
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); setHi((h) => (h + 1) % items.length); return }
+      if (ev.key === 'ArrowUp') { ev.preventDefault(); setHi((h) => (h + items.length - 1) % items.length); return }
+      if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); accept(items[Math.min(hi, items.length - 1)]); return }
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setShut(true); return }
+    }
+    if ((ev.key === 'Enter' || ev.key === 'Backspace') && smart(ev)) ev.preventDefault()
   }
   return (
     <div>
@@ -139,7 +161,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
           </ul>
         )}
       </div>
-      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code> / <code>or</code> (shown as ∧ ∨; <code>/\</code> <code>\/</code> also work), as aligned lists like TLA+, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
+      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code> / <code>or</code> (shown as ∧ ∨; <code>/\</code> <code>\/</code> also work), as aligned lists like TLA+, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests; Enter continues a list, Backspace on an empty bullet goes up a level.</div>}
     </div>
   )
 }
