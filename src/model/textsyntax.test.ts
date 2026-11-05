@@ -35,7 +35,7 @@ describe('incomplete amounts', () => {
   })
 })
 
-import { formatExpr, and, or, namesOf } from './lang'
+import { formatExpr, and, or, namesOf, type Expr } from './lang'
 describe('TLA+ block format', () => {
   it('round-trips nested lists and quantifiers', () => {
     const p = crossingExampleProject()
@@ -46,6 +46,20 @@ describe('TLA+ block format', () => {
     const t = formatExpr(e, (id) => '@[' + id + ']')
     expect(t).toContain('/\\ ')
     expect(t).toContain('\\/ ')
+    expect(parseExpr(p, t)).toEqual(e)
+  })
+})
+
+describe('not as a block', () => {
+  it('round-trips not over lists and quantifiers', () => {
+    const p = crossingExampleProject()
+    const vs = namesOf(p).filter(([, id]) => p.items[id].kind === 'variable').slice(0, 3).map(([, id]) => ({ k: 'var', id } as const))
+    const ent = namesOf(p).find(([, id]) => p.items[id].kind === 'entity')![1]
+    const b = (v: (typeof vs)[number]) => cmp('=', v, num('true'))
+    const q: Expr = { k: 'quant', q: 'all', name: 'x', entity: ent, body: or(b(vs[0]), b(vs[1])) }
+    const e = and(b(vs[2]), { k: 'not', e: q }, { k: 'not', e: or(b(vs[0]), and(b(vs[1]), b(vs[2]))) }, b(vs[0]))
+    const t = formatExpr(e, (id) => '@[' + id + ']')
+    expect(t).not.toContain('(')
     expect(parseExpr(p, t)).toEqual(e)
   })
 })

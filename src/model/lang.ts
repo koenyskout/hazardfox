@@ -719,6 +719,10 @@ export function formatExpr(e: Expr, name: (id: Id) => string = mention): string 
       const head = `${x.q} ${x.name} in ${name(x.entity)}:`, body = fmt(x.body)
       return body.length === 1 ? [head + ' ' + body[0]] : [head, ...body.map((r) => '  ' + r)]
     }
+    if (x.k === 'not' && (x.e.k === 'quant' || ((x.e.k === 'and' || x.e.k === 'or') && x.e.of.length >= 2))) {
+      const l = fmt(x.e)
+      return x.e.k === 'quant' ? ['not ' + l[0], ...l.slice(1).map((r) => '    ' + r)] : ['not', ...l.map((r) => '  ' + r)]
+    }
     return [printExpr(x, name)]
   }
   return fmt(e).join('\n')
