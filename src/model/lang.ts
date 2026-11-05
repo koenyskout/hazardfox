@@ -673,7 +673,11 @@ class Parser {
       return { k: 'const', v: t.v }
     }
     if (t.v === '(') { const e = this.or(); this.eat(')'); return e }
-    if (t.v === '?') return { k: 'hole' }
+    if (t.v === '?') {
+      const u = this.peek()
+      if (u?.t === 'word' && (TIME_UNITS as readonly string[]).includes(u.v)) { this.i++; return { k: 'const', v: '', unit: u.v as TimeUnit } }
+      return { k: 'hole' }
+    }
     if (t.v === '$') { const n = this.ts[this.i++]; if (n?.t !== 'word') throw new Error('$ needs a parameter name'); return { k: 'param', name: n.v } }
     throw new Error(`unexpected "${t.v}"`)
   }
@@ -691,7 +695,7 @@ export function parseExpr(p: Project, src: string, names: NameEntry[] = namesOf(
 
 const PREC: Record<string, number> = { quant: 0, or: 1, and: 2, not: 3, cmp: 4, between: 4, in: 4, '+': 5, '−': 5, '×': 6 }
 const precOf = (e: Expr) => (e.k === 'app' ? PREC[e.fn] ?? 7 : PREC[e.k] ?? 7)
-const constText = (e: Extract<Expr, { k: 'const' }>) => (e.unit ? `${e.v} ${e.unit}` : /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(e.v) || /^-?\d+(\.\d+)?$/.test(e.v) ? e.v : `"${e.v}"`)
+const constText = (e: Extract<Expr, { k: 'const' }>) => (e.unit && e.v === '' ? `? ${e.unit}` : e.unit ? `${e.v} ${e.unit}` : /^[\p{L}_][\p{L}\p{N}_.]*$/u.test(e.v) || /^-?\d+(\.\d+)?$/.test(e.v) ? e.v : `"${e.v}"`)
 /** Text of an expression; `name` writes the item an id refers to (as a reference `@[id]` by default, as a label in the UI). */
 export function printExpr(e: Expr, name: (id: Id) => string = mention, parent = 0, last = true): string {
   const sub = (x: Expr, prec: number, l = true) => printExpr(x, name, prec, l)

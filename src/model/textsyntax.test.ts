@@ -24,3 +24,13 @@ describe('text syntax', () => {
     expect(v.every((c) => c.kind === 'value')).toBe(true)
   })
 })
+
+import { parseExpr, printExpr, num, cmp } from './lang'
+describe('incomplete amounts', () => {
+  it('print and parse back an empty time amount', () => {
+    const e = cmp('≥', { k: 'app', fn: 'heldFor', args: [{ k: 'text', text: 'x' }] }, num('', 's'))
+    const t = printExpr(e)
+    expect(t).toContain('? s')
+    expect(parseExpr(crossingExampleProject(), t)).toEqual(e)
+  })
+})
