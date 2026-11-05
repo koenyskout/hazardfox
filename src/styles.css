@@ -677,3 +677,7 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 /* a lone quantifier is not a group member: no line or dot */
 .rule .conds.sole { border-left: 0; padding-left: 0; margin-left: 0; }
 .conds.sole > .cond:before, .conds.sole > .cond:after { display: none; }
+.decl .cond-word { min-width: 0; text-align: left; padding-right: 0; }
+.decl { gap: 6px; }
+.decl .decl-name { flex: 0 0 72px; width: 72px; }
+.decl > .x { margin-left: auto; }
