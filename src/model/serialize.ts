@@ -1,7 +1,7 @@
 import { emptyProject, makeItem } from './create'
 import { groupKey } from './tree'
 import { nameAllInstances } from './variables'
-import { KINDS, type Item, type Project } from './types'
+import { KINDS, type Item, type Patch, type Project } from './types'
 
 const sortKeys = (_: string, v: unknown) =>
   v && typeof v === 'object' && !Array.isArray(v)
@@ -25,7 +25,7 @@ export function deserialize(text: string): Project {
   if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
-  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' || it.kind === 'variable' || it.kind === 'operation' ? ({ ...makeItem(it.kind), ...it } as Item) : it
+  for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' || it.kind === 'variable' || it.kind === 'operation' ? (makeItem(it.kind, it as Patch<typeof it.kind>) as Item) : it
   if (raw.rangeTypes) p.rangeTypes = raw.rangeTypes
   if (raw.enumTypes) p.enumTypes = raw.enumTypes
   if (raw.symbolicTypes) p.symbolicTypes = raw.symbolicTypes

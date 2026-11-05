@@ -3,6 +3,7 @@ import { clusterStructs, predicateOf, structPath, variablesIn } from './formal'
 import { variableName } from './labels'
 import type { Pt } from './structure'
 import { itemsOfKind } from './tree'
+import { structOf } from './types'
 import type { EntityRelation, Id, Labels, Project, Variable } from './types'
 import { describeStates } from './variables'
 
@@ -24,11 +25,11 @@ export async function layoutDomain(p: Project, labels: Labels): Promise<DomainLa
       let k = 0
       while (k < path.length && path[k] === prev[k]) k++
       path.slice(k).forEach((h, j) => {
-        let t = v.struct!.type
+        let t = structOf(v)!.type
         for (const seg of path.slice(1, k + j + 1)) t = p.structTypes?.[t]?.fields.find((f) => f.name === seg)?.structType ?? t
         attrs.push({ id: `${v.id}:h${k + j}`, text: h, detail: `: ${t}`, indent: k + j, head: true })
       })
-      attrs.push({ id: v.id, text: v.struct ? v.struct.path.split('.').pop()! : variableName(p, v), detail: v.type === 'enum' && v.states.length > 3 ? `: ${v.states.slice(0, 3).join(' | ')} …` : `: ${describeStates(v)}`, indent: path.length })
+      attrs.push({ id: v.id, text: structOf(v)?.path.split('.').pop() ?? variableName(p, v), detail: v.type === 'enum' && v.states.length > 3 ? `: ${v.states.slice(0, 3).join(' | ')} …` : `: ${describeStates(v)}`, indent: path.length })
     })
     const head = labels[e.id] ?? ''
     const title = e.title.trim() || '(untitled)'

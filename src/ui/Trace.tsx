@@ -11,7 +11,7 @@ import { generateUcaText } from '../model/uca'
 import { condInstances, instLane, isMany, isOnVariable, laneParts, leaves, laneText, stepOf, valuesOf } from '../model/variables'
 import { renderText, shortName } from '../model/labels'
 import { makeItem } from '../model/create'
-import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable } from '../model/types'
+import { CAUSE_LABELS, TRACE_EVENT_LABELS, TRACE_EVENTS, VARIABLE_LAYERS, type Id, type Project, type Scenario, type Trace, type TraceEventKind, type Variable, aboutOf } from '../model/types'
 import { Ref, RichText } from './Fields'
 import { WhenView } from './WhenView'
 
@@ -70,7 +70,7 @@ export function TraceEditor({ s }: { s: Scenario }) {
     const k = instLane(c)
     if (v?.kind !== 'variable' || k === v.id || !condInstances(p, c).length) return []
     const suf = k.slice(v.id.length), tag = laneParts(k).names.filter(Boolean).join(', ')
-    const related = [v, ...feedbackInto(p, ctrl.from).flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about === v.id), ...beliefsAbout(p, ctrl.from, v.id)]
+    const related = [v, ...feedbackInto(p, ctrl.from).flatMap((f) => signalsOf(p, f.id)).filter((x) => aboutOf(x) === v.id), ...beliefsAbout(p, ctrl.from, v.id)]
     return related.filter((x) => !t.lanes.includes(x.id + suf)).map((x) => ({ k: x.id + suf, label: `${shortName(p, x)} · ${tag}` }))
   }) : []
   const manyVars = itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain' && isMany(p, v))
@@ -282,7 +282,7 @@ export function ScenarioPlayer({ s }: { s: Scenario }) {
     const par = v.parent ? p.items[v.parent] : null
     const ents = par?.kind === 'relationship' ? par.ends.map((e) => e.entity) : [v.parent]
     const role = (n: { id: Id }, r?: string) => { const it = p.items[n.id]; return it?.kind === 'node' && it.entities.some((e) => ents.includes(e)) && (!r || it.role === r) }
-    const sensed = variablesIn(p, 'signal').find((x) => x.about === v.id && x.parent)
+    const sensed = variablesIn(p, 'signal').find((x) => aboutOf(x) === v.id && x.parent)
     const fb = sensed && p.items[sensed.parent!]
     const ca = controlledBy(p, v.id)[0]
     return d.nodes.find((n) => role(n, 'process')) ?? (fb?.kind === 'feedback' ? box[fb.from] : undefined) ?? (ca ? box[ca.to] : undefined) ?? d.nodes.find((n) => role(n))

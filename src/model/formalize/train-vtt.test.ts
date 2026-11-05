@@ -3,6 +3,7 @@ import { computeLabels, renderText } from '../labels'
 import { publishedExampleProject } from '../publishedExamples'
 import { deserialize, serialize } from '../serialize'
 import { itemsOfKind } from '../tree'
+import { rulesOf } from '../types'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
 import { leaves as leafConds, conditionTexts } from '../variables'
@@ -50,7 +51,7 @@ describe('what the formalization adds', () => {
     const p = formalizeTrainVtt('pub-train-door', publishedExampleProject('pub-train-door'))
     const door = itemsOfKind(p, 'entity').find((e) => e.title === 'Door')!
     expect(door.many).toBe(true)
-    expect(itemsOfKind(p, 'variable').some((v) => v.title === 'Door-opening situation' && v.rules.length === 1)).toBe(true)
+    expect(itemsOfKind(p, 'variable').some((v) => v.title === 'Door-opening situation' && rulesOf(v).length === 1)).toBe(true)
     expect(validate(p).filter((i) => (i.rule ?? '').startsWith('trace'))).toEqual([])
   })
   it('vtt: people, objects, environment; beliefs in the traffic and mission control system', () => {

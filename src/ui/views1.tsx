@@ -1,4 +1,5 @@
 import { StructViewToggle, useStructView } from './structView'
+import { structOf } from '../model/types'
 import type { ItemOf } from '../model/types'
 import { useState } from 'react'
 import { effectText, operationsOf } from '../model/operations'
@@ -110,7 +111,7 @@ export function Domain() {
           <FlatTable kind="variable" addLabel="Add variable…" addTo={itemsOfKind(p, 'entity')}
             groupBy={(v) => v.parent}
             nest={structMode === 'nested' ? structPath : undefined}
-            titleView={structMode === 'nested' ? (v) => v.struct ? v.struct.path.split('.').pop() : null : undefined}
+            titleView={structMode === 'nested' ? (v) => structOf(v)?.path.split('.').pop() ?? null : undefined}
             groupAdd={(g, v) => ({ layer: v!.layer, parent: g })}
             sub={(v) => v.type === 'range' ? null : describeStates(v)}
             tail={(v) => <RangeCell v={v} />}

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { StringList } from './StringList'
 import { nestableStructs, applyStructType, blankField, defineStructType, deleteStructType, renameStructType, defineEnumType, deleteEnumType, renameEnumType, defineRangeType, deleteRangeType, renameRangeType, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from '../model/ops'
 import { describeStates, normSym, symProps, SYMBOLIC_DEFAULT } from '../model/variables'
+import { structOf } from '../model/types'
 import type { RangeType, StructField, SymbolicType, Variable } from '../model/types'
 import { commit, useProject } from './hooks'
 import { Field, NumberInput, TextInput } from './Fields'
@@ -244,7 +245,7 @@ function StructTypes() {
       {creating && <StructTypeDialog onClose={() => setCreating(false)} />}
       {editing && <StructTypeDialog edit={editing} onClose={() => setEditing(null)} />}
       {!names.length && <p className="empty">No struct types yet.</p>}
-      {names.map((n) => <TypeRow key={n} name={n} def={p.structTypes![n].fields.map((f) => f.name).filter(Boolean).join(', ') || 'no fields'} vars={Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && i.struct?.type === n)} onEdit={() => setEditing(n)} onDelete={() => commit((q) => deleteStructType(q, n))} deleteTip="Delete type (existing variables stay)" />)}
+      {names.map((n) => <TypeRow key={n} name={n} def={p.structTypes![n].fields.map((f) => f.name).filter(Boolean).join(', ') || 'no fields'} vars={Object.values(p.items).filter((i): i is Variable => i.kind === 'variable' && structOf(i)?.type === n)} onEdit={() => setEditing(n)} onDelete={() => commit((q) => deleteStructType(q, n))} deleteTip="Delete type (existing variables stay)" />)}
     </Section>
   )
 }

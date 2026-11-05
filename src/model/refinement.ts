@@ -3,6 +3,7 @@ import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
 import { cmpOf, exprCondition } from './expr'
 import { condKey, nameKey, usesAny, isEvent, isExpr, hasText, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
+import { rulesOf, otherwiseOf } from './types'
 import type { Condition, ExprCondition, Id, Project, TextCondition, ValueCondition, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
@@ -68,16 +69,16 @@ const simplify = (d: Dnf): Dnf => {
 }
 
 /** Values a refined variable can take: those its rules give. */
-export const ruleValues = (v: Variable) => [...new Set([...v.rules.map((r) => r.state), v.otherwise].filter(Boolean))]
+export const ruleValues = (v: Variable) => [...new Set([...rulesOf(v).map((r) => r.state), otherwiseOf(v)].filter(Boolean))]
 
 /** The contexts over v's parts in which v satisfies c (rules are tried in order, so earlier rules for other values must not hold). Null if v has no rules. */
 export function expand(p: Project, v: Variable, c: ValueCondition, max = 64): Dnf | null {
-  if (!v.rules.length || quantOf(p, c) !== null) return null
+  if (!rulesOf(v).length || quantOf(p, c) !== null) return null
   const out: Dnf = []
   for (const s of ruleValues(v).filter((x) => holds(v, c, x))) {
-    const guard = (upto: number): Dnf => v.rules.slice(0, upto).filter((r) => r.state !== s).reduce<Dnf>((acc, r) => and(p, acc, dnf(p, r.when, true)), [[]])
-    v.rules.forEach((r, i) => { if (r.state === s) out.push(...and(p, dnf(p, r.when), guard(i))) })
-    if (v.otherwise === s) out.push(...guard(v.rules.length))
+    const guard = (upto: number): Dnf => rulesOf(v).slice(0, upto).filter((r) => r.state !== s).reduce<Dnf>((acc, r) => and(p, acc, dnf(p, r.when, true)), [[]])
+    rulesOf(v).forEach((r, i) => { if (r.state === s) out.push(...and(p, dnf(p, r.when), guard(i))) })
+    if (otherwiseOf(v) === s) out.push(...guard(rulesOf(v).length))
     if (out.length > max) break
   }
   return simplify(out).slice(0, max)

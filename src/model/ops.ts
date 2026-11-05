@@ -4,7 +4,8 @@ import { makeItem } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
-import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, SymbolicType, StructType, Variable } from './types'
+import { isWorld, structOf } from './types'
+import type { Id, Item, ItemOf, Kind, Patch, Project, RangeType, StructField, SymbolicType, StructType, Variable, WorldVariable } from './types'
 
 type Draft = Project
 
@@ -157,13 +158,13 @@ export const blankField = (): StructField => ({ name: '', type: 'enum', states: 
 export const defineStructType = (p: Project, name: string, t: StructType): Project => syncStructs(produce(p, (d) => { (d.structTypes ??= {})[name] = t }))
 export const renameStructType = (p: Project, from: string, to: string): Project => {
   if (!to || to === from || !p.structTypes?.[from] || p.structTypes[to]) return p
-  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from]; for (const t of Object.values(d.structTypes!)) for (const f of t.fields) if (f.structType === from) f.structType = to; for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.struct?.type === from) it.struct.type = to })
+  return produce(p, (d) => { d.structTypes![to] = d.structTypes![from]; delete d.structTypes![from]; for (const t of Object.values(d.structTypes!)) for (const f of t.fields) if (f.structType === from) f.structType = to; for (const it of Object.values(d.items)) if (it.kind === 'variable' && isWorld(it) && it.struct?.type === from) it.struct.type = to })
 }
 /** Remove a struct type; instances of it, or of types containing it, are unlinked and keep their variables. */
 export const deleteStructType = (p: Project, name: string): Project => {
   const uses = (t: string, seen: string[] = []): boolean => t === name || (!seen.includes(t) && (p.structTypes?.[t]?.fields ?? []).some((f) => !!f.structType && uses(f.structType, [...seen, t])))
   return produce(p, (d) => {
-    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.struct && uses(it.struct.type)) delete it.struct
+    for (const it of Object.values(d.items)) if (it.kind === 'variable' && isWorld(it) && it.struct && uses(it.struct.type)) delete it.struct
     delete d.structTypes?.[name]
     for (const t of Object.values(d.structTypes ?? {})) for (const f of t.fields) if (f.structType === name) f.structType = ''
   })
@@ -184,20 +185,20 @@ const structLeaves = (p: Project, type: string, prefix = '', seen: string[] = []
 /** Bring every struct instance in line with its type: update, add and remove field variables; instances of a deleted type are unlinked (variables stay). */
 export function syncStructs(p: Project): Project {
   const inst = new Map<string, Variable[]>()
-  for (const it of Object.values(p.items)) if (it.kind === 'variable' && it.struct) inst.set(it.struct.id, [...(inst.get(it.struct.id) ?? []), it])
+  for (const it of Object.values(p.items)) if (it.kind === 'variable' && isWorld(it) && it.struct) inst.set(it.struct.id, [...(inst.get(it.struct.id) ?? []), it])
   let q = p
   for (const vars of inst.values()) {
-    const { id, type, name } = vars[0].struct!
-    if (!q.structTypes?.[type]) { q = produce(q, (d) => { for (const v of vars) delete (d.items[v.id] as Variable).struct }); continue }
+    const { id, type, name } = structOf(vars[0])!
+    if (!q.structTypes?.[type]) { q = produce(q, (d) => { for (const v of vars) delete (d.items[v.id] as WorldVariable).struct }); continue }
     const want = structLeaves(q, type)
-    const have = new Map(vars.map((v) => [v.struct!.path, v]))
+    const have = new Map(vars.map((v) => [structOf(v)!.path, v]))
     for (const { path, f } of want) {
       const patch: Patch<'variable'> = { title: `${name}.${path}`, type: f.type, states: [...f.states], min: f.min, max: f.max, unit: f.unit, rangeType: f.type === 'range' && q.rangeTypes?.[f.rangeType] ? f.rangeType : '', enumType: f.type === 'enum' && q.enumTypes?.[f.enumType] ? f.enumType : '' }
       const v = have.get(path)
       if (v) q = updateItem(q, v.id, patch)
       else q = createItem(q, 'variable', { ...patch, layer: 'domain', parent: vars[0].parent, struct: { id, type, name, path } }).project
     }
-    const gone = vars.filter((v) => !want.some((w) => w.path === v.struct!.path)).map((v) => v.id)
+    const gone = vars.filter((v) => !want.some((w) => w.path === structOf(v)!.path)).map((v) => v.id)
     if (gone.length) q = deleteItems(q, gone)
   }
   return q

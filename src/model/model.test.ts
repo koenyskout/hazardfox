@@ -6,6 +6,7 @@ import { emptyProject, makeItem } from './create'
 import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
 import { guideApplies } from './uca'
+import { structOf } from './types'
 import type { Hazard, Id, Kind, Patch, Project, Variable } from './types'
 
 function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
@@ -268,7 +269,7 @@ describe('struct and enum types', () => {
     expect(titles()).toEqual(['front.gap', 't.door.gap'])
     p = deleteStructType(p, 'Door')
     expect(titles()).toEqual(['front.gap', 't.door.gap'])
-    expect(Object.values(p.items).some((i) => i.kind === 'variable' && i.struct)).toBe(false)
+    expect(Object.values(p.items).some((i) => i.kind === 'variable' && structOf(i))).toBe(false)
   })
 })
 

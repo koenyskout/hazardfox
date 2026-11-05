@@ -5,7 +5,9 @@ import { variableName } from './labels'
 import { condVars } from './expr'
 import { mentions } from './refs'
 import { itemsOfKind } from './tree'
-import type { Feedback, Id, Project, Variable, VariableLayer } from './types'
+import { aboutOf, structOf, rulesOf } from './types'
+import { isWorld } from './types'
+import type { Feedback, Id, Project, Rule, Variable, VariableLayer, WorldVariable } from './types'
 
 /** Relations of the formalization (world variable v, signal o, belief v̂, internal q) between the variables of a project. */
 
@@ -40,7 +42,7 @@ export const signalsInto = (p: Project, node: Id) => feedbackInto(p, node).flatM
 /** The world variable a signal or belief is about (itself for world variables). */
 export const worldOf = (p: Project, v: Variable): Variable | null => {
   if (v.layer === 'domain') return v
-  const a = v.about ? p.items[v.about] : null
+  const a = aboutOf(v) ? p.items[aboutOf(v)!] : null
   return a?.kind === 'variable' ? a : null
 }
 
@@ -50,7 +52,7 @@ export const isPredicate = (p: Project, v: Variable) => p.items[v.parent ?? '']?
 
 /** Variables a refined world variable is defined from (refinement ρ: its rules, and @-mentions in its definition). */
 export const refines = (p: Project, v: Variable): Id[] =>
-  [...new Set([...v.rules.flatMap((r) => leaves(r.when).flatMap(condVars)), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
+  [...new Set([...rulesOf(v).flatMap((r) => leaves(r.when).flatMap(condVars)), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
 
 /** All lower-level variables v is refined into, transitively (includes v itself only on a cycle). */
 export function partsOf(p: Project, v: Id): Id[] {
@@ -65,21 +67,21 @@ export const wholesOf = (p: Project, v: Id): Id[] => itemsOfKind(p, 'variable').
 export const refinedBy = (p: Project, v: Id) => itemsOfKind(p, 'variable').filter((w) => refines(p, w).includes(v))
 
 /** Beliefs of a controller about a world variable. */
-export const beliefsAbout = (p: Project, node: Id, world: Id) => beliefsOf(p, node).filter((b) => b.about === world)
+export const beliefsAbout = (p: Project, node: Id, world: Id) => beliefsOf(p, node).filter((b) => aboutOf(b) === world)
 
 /** Signals that update a belief: those about the same world variable, or one of its parts, on feedback into its controller. */
 export function updatedBy(p: Project, belief: Variable) {
-  if (!belief.parent || !belief.about) return []
-  const about = [belief.about, ...partsOf(p, belief.about)]
-  return signalsInto(p, belief.parent).filter((s) => s.about && about.includes(s.about))
+  if (!belief.parent || !aboutOf(belief)) return []
+  const about = [aboutOf(belief), ...partsOf(p, aboutOf(belief)!)]
+  return signalsInto(p, belief.parent).filter((s) => aboutOf(s) && about.includes(aboutOf(s)))
 }
 
 /** Beliefs a signal updates (in the receiving controller). */
 export const updates = (p: Project, signal: Variable) => {
   const fb = signal.parent ? p.items[signal.parent] : null
-  if (fb?.kind !== 'feedback' || !signal.about) return []
-  const about = [signal.about, ...wholesOf(p, signal.about)]
-  return beliefsOf(p, fb.to).filter((b) => b.about && about.includes(b.about))
+  if (fb?.kind !== 'feedback' || !aboutOf(signal)) return []
+  const about = [aboutOf(signal), ...wholesOf(p, aboutOf(signal)!)]
+  return beliefsOf(p, fb.to).filter((b) => aboutOf(b) && about.includes(aboutOf(b)))
 }
 
 /** Non-world variables a control action to `node` can change: its internal state and beliefs. */
@@ -105,7 +107,7 @@ export function addSignal(p: Project, fb: Id, world: Id): { project: Project; id
   const f = p.items[fb]
   const w = p.items[world]
   if (f?.kind !== 'feedback' || w?.kind !== 'variable') return { project: p, id: '' }
-  const have = signalsOf(p, fb).find((s) => s.about === world)
+  const have = signalsOf(p, fb).find((s) => aboutOf(s) === world)
   if (have) return { project: p, id: have.id }
   const r = createItem(p, 'variable', { ...copyOf(p, w), layer: 'signal', parent: fb })
   const to = r.project.items[f.to]
@@ -117,15 +119,15 @@ export const setLayer = (p: Project, id: Id, layer: VariableLayer, parent: Id | 
   produce(p, (d) => {
     const v = d.items[id]
     if (v?.kind !== 'variable') return
-    v.layer = layer
-    v.parent = parent
-    if (layer === 'domain' || layer === 'internal') v.about = null
+    const { about: _a, rules: _r, otherwise: _o, struct: _s, ...rest } = v as Variable & { about?: Id | null; rules?: Rule[]; otherwise?: string; struct?: WorldVariable['struct'] }
+    const base = { ...rest, parent }
+    d.items[id] = layer === 'domain' ? { ...base, layer, rules: [], otherwise: '' } : layer === 'internal' ? { ...base, layer } : { ...base, layer, about: aboutOf(v as Variable) }
   })
 
 /** The groups a struct-generated variable sits under: the instance name, then the nested struct fields (`motion.position.x` → motion, position). */
-export const structPath = (v: Variable): string[] => (v.struct ? [v.struct.name, ...v.struct.path.split('.').slice(0, -1)] : [])
+export const structPath = (v: Variable): string[] => (isWorld(v) && v.struct ? [v.struct.name, ...v.struct.path.split('.').slice(0, -1)] : [])
 /** Keeps order, but gathers (in field order) the variables of one struct instance (after the plain ones) so that they can be shown grouped. */
 export function clusterStructs<T extends Variable>(vars: T[]): T[] {
-  const ids = [...new Set(vars.filter((v) => v.struct).map((v) => v.struct!.id))]
-  return [...vars.filter((v) => !v.struct), ...ids.flatMap((id) => vars.filter((v) => v.struct?.id === id).sort((a, b) => a.rank - b.rank))]
+  const ids = [...new Set(vars.filter((v) => structOf(v)).map((v) => structOf(v)!.id))]
+  return [...vars.filter((v) => !structOf(v)), ...ids.flatMap((id) => vars.filter((v) => structOf(v)?.id === id).sort((a, b) => a.rank - b.rank))]
 }

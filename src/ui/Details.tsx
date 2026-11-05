@@ -9,7 +9,7 @@ import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -239,7 +239,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
               <RulesSummary it={it} set={set} />
             </Field>
           )}
-          {it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
+          {isWorld(it) && it.struct && <p className="hint">This is the field <b>{it.struct.path}</b> of the structured type <b>{it.struct.type}</b> (instance {it.struct.name}). To change its type, states or title, edit the type under Domain model → Types.</p>}
           <VariableLinks v={it} />
           <Field label="Type">
             <DataTypeSelect x={it} own="only for this variable" onChange={(patch) => commit((q) => updateItem(q, it.id, patch as Patch<'variable'>))} />
@@ -325,7 +325,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
           )}
           {it.kind === 'feedback' && (
             <Field label="Signals" hint="What this feedback reports, each about a world variable. The receiving controller automatically gets a matching belief.">
-              <OwnedVars vars={signalsOf(p, it.id)} add="+ reports on…" options={of('variable').filter((v) => v.layer === 'domain' && !signalsOf(p, it.id).some((x) => x.about === v.id))} onAdd={(w) => commit((q) => addSignal(q, it.id, w).project)} />
+              <OwnedVars vars={signalsOf(p, it.id)} add="+ reports on…" options={of('variable').filter((v) => v.layer === 'domain' && !signalsOf(p, it.id).some((x) => aboutOf(x) === v.id))} onAdd={(w) => commit((q) => addSignal(q, it.id, w).project)} />
             </Field>
           )}
           {it.kind === 'ca' && (
@@ -1050,13 +1050,13 @@ function RulesSummary({ it, set }: { it: Variable; set: Set }) {
   const p = useProject()
   const labels = useLabels()
   const [open, setOpen] = useState(false)
-  const lines = it.rules.map((r) => `${r.state || '?'} when ${renderText(labels, whenText(p, r.when)) || '?'}`)
+  const lines = rulesOf(it).map((r) => `${r.state || '?'} when ${renderText(labels, whenText(p, r.when)) || '?'}`)
   return (
     <div className="ctx-summary">
       {lines.length ? (
         <ul>
           {lines.map((l, i) => <li key={i}>{i ? 'else ' : ''}{l}</li>)}
-          <li>otherwise {it.otherwise || 'unknown'}</li>
+          <li>otherwise {otherwiseOf(it) || 'unknown'}</li>
         </ul>
       ) : <span className="muted">Not computed: set directly</span>}
       <button type="button" onClick={() => setOpen(true)}><Icon name="pencil" size={12} /> Edit rules…</button>
@@ -1079,20 +1079,20 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
   const value = (v: string, on: (v: string) => void, placeholder: string) => values
     ? <Select value={v} onChange={(e) => on(e.target.value)}><option value="">{placeholder}</option>{values.map((s) => <option key={s}>{s}</option>)}</Select>
     : <TextInput value={v} onChange={on} placeholder={placeholder} />
-  const upd = (i: number, r: Partial<Rule>) => set({ rules: it.rules.map((x, j) => (j === i ? { ...x, ...r } : x)) })
+  const upd = (i: number, r: Partial<Rule>) => set({ rules: rulesOf(it).map((x, j) => (j === i ? { ...x, ...r } : x)) })
   const name = <b>{it.title || 'the variable'}</b>
   return (
     <div className="rules">
-      {!it.rules.length && <p className="muted">No rules: {name} gets its value directly in each trace.</p>}
-      {it.rules.map((r, i) => (
+      {!rulesOf(it).length && <p className="muted">No rules: {name} gets its value directly in each trace.</p>}
+      {rulesOf(it).map((r, i) => (
         <div key={i} className="rule">
           <GroupEditor g={r.when} onChange={(when) => upd(i, { when })} vars={vars}
             head={<><span>{i ? 'Else, ' : ''}{name} is</span>{value(r.state, (v) => upd(i, { state: v }), 'value…')}<span>when</span></>} />
-          <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: it.rules.filter((_, j) => j !== i) })}><Icon name="x" size={12} /></button>
+          <button className="x rule-x" title="Remove rule" onClick={() => set({ rules: rulesOf(it).filter((_, j) => j !== i) })}><Icon name="x" size={12} /></button>
         </div>
       ))}
-      {it.rules.length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(it.otherwise, (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
-      <div className="rule-add"><button onClick={() => set({ rules: [...it.rules, { state: '', when: allOf(BLANK) }] })}><Icon name="plus" size={12} /> rule</button></div>
+      {rulesOf(it).length > 0 && <div className="rule-head"><span>Otherwise, {name} is</span>{value(otherwiseOf(it), (v) => set({ otherwise: v }, 'otherwise'), 'unknown')}</div>}
+      <div className="rule-add"><button onClick={() => set({ rules: [...rulesOf(it), { state: '', when: allOf(BLANK) }] })}><Icon name="plus" size={12} /> rule</button></div>
     </div>
   )
 }
@@ -1101,7 +1101,7 @@ function RulesEditor({ it, set }: { it: Variable; set: Set }) {
 function UcaRefinement({ it, set }: { it: ItemOf<'uca'>; set: Set }) {
   const p = useProject()
   const kids = itemsOfKind(p, 'uca').filter((u) => u.refines === it.id)
-  const refinable = it.conditions.flatMap((c, i) => (!isGroup(c) && isOnVariable(c) ? [[c, i] as const] : [])).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && v.rules.length > 0 && conditionComplete(c) })
+  const refinable = it.conditions.flatMap((c, i) => (!isGroup(c) && isOnVariable(c) ? [[c, i] as const] : [])).filter(([c]) => { const v = p.items[c.variable]; return v?.kind === 'variable' && rulesOf(v).length > 0 && conditionComplete(c) })
   return (
     <>
       {it.refines && (

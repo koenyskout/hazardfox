@@ -12,6 +12,7 @@ import { expand, refineUca } from './refinement'
 import { itemsOfKind } from './tree'
 import { allOf, anyOf, isOnVariable, whenText } from './variables'
 import { validate } from './validate'
+import { rulesOf, aboutOf } from './types'
 import type { Comparison, Condition, Id, Project, Scenario, Trace, ValueCondition, Variable } from './types'
 
 function base() {
@@ -58,7 +59,7 @@ describe('formal variable layers', () => {
     const s = p.items[r.id] as Scenario
     expect(s.trace.lanes).not.toContain(level)
     expect(s.trace.steps.every((x) => !(level in x.values))).toBe(true)
-    expect(beliefsOf(p, ctrl)[0].about).toBeNull()
+    expect(aboutOf(beliefsOf(p, ctrl)[0])).toBeNull()
   })
 })
 
@@ -141,7 +142,7 @@ describe('refinement', () => {
     const [f, s, fast]: ValueCondition[] = [{ kind: 'value', variable: fire, op: '=' as const, state: 'true' }, { kind: 'value', variable: smoke, op: '=' as const, state: 'true' }, { kind: 'value', variable: speed, op: '>' as const, state: '100' }]
     p = updateItem(p, em, { rules: [{ state: 'evacuation', when: allOf(fast, anyOf(f, s)) }] })
     const v = p.items[em] as Variable
-    expect(whenText(p, v.rules[0].when)).toBe('Speed is greater than 100 km/h and (Fire is true or Smoke is true)')
+    expect(whenText(p, rulesOf(v)[0].when)).toBe('Speed is greater than 100 km/h and (Fire is true or Smoke is true)')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false', [smoke]: 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [speed]: '50' })[id])).toBe('none')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false' })[id])).toBeUndefined()
@@ -154,7 +155,7 @@ describe('refinement', () => {
     const words: Condition = { kind: 'text', op: '=', text: 'Passengers are boarding' }
     p = updateItem(p, em, { rules: [{ state: 'evacuation', when: anyOf({ kind: 'value', variable: fire, op: '=', state: 'true' }, words) }] })
     const v = p.items[em] as Variable
-    expect(whenText(p, v.rules[0].when)).toBe('Fire is true or Passengers are boarding')
+    expect(whenText(p, rulesOf(v)[0].when)).toBe('Fire is true or Passengers are boarding')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false', 'text:Passengers are boarding': 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false' })[id])).toBeUndefined()
     expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'false' }, { ...words, op: '≠' }]])

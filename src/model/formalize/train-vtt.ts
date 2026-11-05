@@ -3,6 +3,7 @@ import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { anyOf, autoName, conditionComplete, isOnVariable, isText, leaves, quantOf } from '../variables'
 import { condVars } from '../expr'
+import { rulesOf } from '../types'
 import type { Condition, Id, ValueCondition, Item, ItemOf, Project, Variable } from '../types'
 
 /**
@@ -103,7 +104,7 @@ function vtt(p0: Project): Project {
 
   // Hierarchical: "operational context" the drive command has to be adjusted to (people near, objects in the way, extraordinary environment).
   const ctx = V('Operational context', am, ['normal', 'adjusted driving required'], 'The situation the drive command must be adjusted to: people nearby, vehicles or objects in the way or extraordinary environmental conditions.')
-  if (!(b.p.items[ctx] as Variable).rules.length)
+  if (!rulesOf((b.p.items[ctx] as Variable)).length)
     set(b, ctx, { rules: [{ state: 'adjusted driving required', when: anyOf(cond(near, 'true', { quant: 'some', names: [{ declare: 'pe1' }] }), cond(inWay, 'true', { quant: 'some', names: [{ declare: 've1' }] }), cond(cnd, 'extraordinary')) }], otherwise: 'normal' })
 
   // Elements know their entities; the movement control action changes the AM's world state.

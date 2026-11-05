@@ -7,7 +7,7 @@ import { generateUcaText } from '../model/uca'
 import { paramSummary } from '../model/params'
 import { describeStates, whenText, whenTexts } from '../model/variables'
 import { attributesOf, beliefsOf, controlledBy, signalsOf, variablesIn } from '../model/formal'
-import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status } from '../model/types'
+import { CAUSE_LABELS, GUIDE_WORD_LABELS, LAYER_SHORT, TRACE_EVENT_LABELS, type Id, type Item, type Kind, type Project, type Status, aboutOf, otherwiseOf, rulesOf } from '../model/types'
 
 export const SECTIONS = [
   ['summary', 'Summary'],
@@ -60,10 +60,10 @@ export function buildTables(p: Project, o: ExportOptions): Table[] {
   push('domain', 'Entities', ['ID', 'Entity', 'Relation to parent', 'Variables', 'Operations', 'Description', 'Status', 'Tags'],
     tree('entity').map(({ item: e }) => [...common(e), e.parent ? e.relation : '', attributesOf(p, e.id).map((a) => a.v.title + (a.inherited ? ` (from ${name(a.from)})` : '')).join('\n'), [...operationsOf(p, e.id).map((o) => o.title), ...inheritedOperations(p, e.id).map(({ o, from }) => `${o.title} (from ${name(from)})`)].join('\n'), T(e.description), e.status, e.tags.join(', ')]))
   push('domain', 'Variables', ['ID', 'Variable', 'Layer', 'Owner', 'About', 'States', 'Definition', 'Computed from', 'Description', 'Status'],
-    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), v.about ? name(v.about) : '', describeStates(v), T(v.definition), v.rules.map((r) => `${r.state} when ${T(whenText(p, r.when))}`).concat(v.rules.length && v.otherwise ? [`otherwise ${v.otherwise}`] : []).join('\n'), T(v.description), v.status]))
+    itemsOfKind(p, 'variable').sort(byLabel(L)).filter(keep).map((v) => [...common(v), LAYER_SHORT[v.layer], name(v.parent as Id), name(aboutOf(v) ?? ''), describeStates(v), T(v.definition), rulesOf(v).map((r) => `${r.state} when ${T(whenText(p, r.when))}`).concat(rulesOf(v).length && otherwiseOf(v) ? [`otherwise ${otherwiseOf(v)}`] : []).join('\n'), T(v.description), v.status]))
   push('domain', 'Variable map', ['World variable', 'Observed by (signals)', 'Believed by (process models)', 'Controlled by'],
     itemsOfKind(p, 'variable').filter((v) => v.layer === 'domain').sort(byLabel(L)).filter(keep).map((v) => {
-      const about = itemsOfKind(p, 'variable').filter((x) => x.about === v.id)
+      const about = itemsOfKind(p, 'variable').filter((x) => aboutOf(x) === v.id)
       const of = (layer: string) => about.filter((x) => x.layer === layer).map((x) => `${L[x.id]} ${p.items[x.parent ?? '']?.title ?? ''}.${x.title}`).join('\n')
       return [name(v.id), of('signal'), of('belief'), lab(controlledBy(p, v.id).map((c) => c.id))]
     }))

@@ -1,8 +1,9 @@
 import { isEvent, isGroup, hasText, isExpr, isVarCmp, laneParts, laneText, leaves, mapLeaves } from './variables'
+import { rulesOf } from './types'
 import type { When, Condition, Id, Item, ItemOf, Kind, Project, Scenario, Trace } from './types'
 
 /** Names of the fields of kind K whose value type is V. */
-type Fields<K extends Kind, V> = { [F in keyof ItemOf<K>]-?: ItemOf<K>[F] extends V ? F : never }[keyof ItemOf<K>] & string
+type Fields<K extends Kind, V> = ItemOf<K> extends infer I ? I extends unknown ? { [F in keyof I]-?: I[F] extends V ? F : never }[keyof I] & string : never : never
 type Registry<V> = { [K in Kind]?: readonly Fields<K, V>[] }
 
 /** Required single references: if the target disappears, the item is deleted too (besides the entities at the ends of a relationship). */
@@ -76,7 +77,7 @@ export function refsOf(it: Item): Id[] {
   if (it.kind === 'uca' || it.kind === 'hazard') out.push(...it.conditions.flatMap(leaves).flatMap(condRefs))
   if (it.kind === 'relationship') out.push(...it.ends.map((e) => e.entity).filter(Boolean))
   if (it.kind === 'operation') out.push(...it.params.map((x) => x.entity).filter(Boolean), ...it.effects.map((e) => e.variable).filter(Boolean))
-  if (it.kind === 'variable') for (const r of it.rules) out.push(...leaves(r.when).flatMap(condRefs))
+  if (it.kind === 'variable') for (const r of rulesOf(it)) out.push(...leaves(r.when).flatMap(condRefs))
   if (it.kind === 'scenario') out.push(...traceRefs(it.trace))
   for (const f of textFields(it.kind)) out.push(...mentions(getField(it, f) as string))
   return out
@@ -128,7 +129,7 @@ export function rewriteRefs(it: Item, from: Id, to: Id | null) {
     it.params = it.params.flatMap((x) => (x.entity !== from ? [x] : to ? [{ ...x, entity: to }] : []))
     it.effects = it.effects.flatMap((e) => (e.variable === from ? (to ? [{ ...e, variable: to }] : []) : e.on && gone.includes(e.on) ? [] : [e]))
   }
-  if (it.kind === 'variable') for (const r of it.rules) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
+  if (it.kind === 'variable') for (const r of rulesOf(it)) r.when = mapLeaves(r.when, (c) => reref(c, from, to)[0] ?? null)
   if (it.kind === 'scenario' && traceRefs(it.trace).includes(from)) {
     const t = it.trace
     // lanes of single instances ("<variable>@t1") follow their variable

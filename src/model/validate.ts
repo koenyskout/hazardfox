@@ -5,7 +5,7 @@ import { mentions, refsOf, scenarioTarget } from './refs'
 import { affectable, beliefsAbout, beliefsOf, isPredicate, partsOf, sameInstance, updatedBy, updates } from './formal'
 import { diagnose, ruleConflicts, symbolViolations, witness } from './traces'
 import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
-import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
+import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project, rulesOf, otherwiseOf } from './types'
 import { guideApplies } from './uca'
 import { endName, shortName } from './labels'
 import { condVars, conditionLine, exprError } from './expr'
@@ -145,8 +145,8 @@ export function validate(p: Project): Issue[] {
     if (v.layer === 'belief' && v.about && !updatedBy(p, v).length && !v.definition.trim()) add('info', v, 'belief-no-source', `${nm(v)}: no feedback updates this belief`, [v.about])
     if (partsOf(p, v.id).includes(v.id)) add('error', v, 'refinement-cycle', `${nm(v)}: computed from itself`)
     const vals = valuesOf(v)
-    if (v.otherwise && vals && !vals.includes(v.otherwise)) add('warning', v, 'refinement-invalid', `${nm(v)}: "${v.otherwise}" is not a value`)
-    for (const r of v.rules) {
+    if (otherwiseOf(v) && vals && !vals.includes(otherwiseOf(v))) add('warning', v, 'refinement-invalid', `${nm(v)}: "${otherwiseOf(v)}" is not a value`)
+    for (const r of rulesOf(v)) {
       const bad = !r.state ? 'a rule has no value' : vals && !vals.includes(r.state) ? `"${r.state}" is not a value` : !vals && v.type !== 'symbolic' && !Number.isFinite(Number(r.state)) ? `"${r.state}" is not a number`
         : leaves(r.when).map((c) => { if (isExpr(c)) return exprError(p, c); if (!isOnVariable(c)) return null; const w = p.items[c.variable]; return w?.kind !== 'variable' ? 'a condition has no variable' : w.layer !== 'domain' ? `condition on ${w.layer} ${w.title}` : conditionError(w, c, p) }).find(Boolean)
       if (bad) add('warning', v, 'refinement-invalid', `${nm(v)}: ${bad}`)

@@ -150,16 +150,11 @@ export interface Relationship extends Base {
 }
 /** The value type shared by variables, control-action parameters and struct fields: enum `states`, boolean, range (`min`/`max`/`unit`) or symbolic; optionally following a named range / enum type. */
 export interface TypeSpec { type: VariableType; states: string[]; unit: string; min: number | null; max: number | null; rangeType: string; enumType: string }
-/** A variable; its owner (`parent`) depends on the layer: domain → entity, signal → feedback, belief / internal → controller node. */
-export interface Variable extends Base, TypeSpec {
+/** What every variable has, whatever its layer. The owner (`parent`) depends on the layer: domain → entity / relationship, signal → feedback, belief / internal → controller node. */
+interface VariableBase extends Base, TypeSpec {
   kind: 'variable'
-  layer: VariableLayer
-  /** signal / belief: the world variable it observes / stands for (designation δ) */
-  about: Id | null
   /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
   definition: string
-  /** Set on variables generated from a struct type: the instance (`id`, `name`), the root type and the field `path`; the variable follows the type */
-  struct?: { id: string; type: string; name: string; path: string }
   /** symbolic: values are opaque symbolic constants ("t1", "id7"); every symbolic variable supports = / ≠, `ordered` also < ≤ > ≥ (natural order of the symbols) */
   ordered: boolean
   /** symbolic, more properties: every new value differs from all earlier ones / never decreases / each change is to the successor (implies ordered) */
@@ -168,10 +163,27 @@ export interface Variable extends Base, TypeSpec {
   sequential: boolean
   /** Name of the project's `symbolicTypes` entry that `ordered` / `unique` / … follow ('' = own properties) */
   symbolicType: string
-  /** Refinement ρ (domain): the value as a function of lower-level world variables. The first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
+}
+/** A world variable x. Set on variables generated from a struct type: `struct` = the instance (`id`, `name`), the root type and the field `path`; the variable follows the type. Refinement ρ: the value as a function of lower-level world variables; the first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
+export interface WorldVariable extends VariableBase {
+  layer: 'domain'
+  struct?: { id: string; type: string; name: string; path: string }
   rules: Rule[]
   otherwise: string
 }
+/** An observed signal o (of a feedback) or a belief x̂ (of a controller): `about` is the world variable it observes / stands for (designation δ). */
+export interface SignalVariable extends VariableBase { layer: 'signal'; about: Id | null }
+export interface BeliefVariable extends VariableBase { layer: 'belief'; about: Id | null }
+/** A controller's internal variable q, not about the world. */
+export interface InternalVariable extends VariableBase { layer: 'internal' }
+export type Variable = WorldVariable | SignalVariable | BeliefVariable | InternalVariable
+export const isWorld = (v: Variable): v is WorldVariable => v.layer === 'domain'
+/** The world variable a signal or belief is about; null for other layers or when unset. */
+export const aboutOf = (v: Variable): Id | null => ('about' in v ? v.about : null)
+/** A world variable's refinement rules, `otherwise` value and struct instance; empty on other layers. */
+export const rulesOf = (v: Variable): Rule[] => (isWorld(v) ? v.rules : [])
+export const otherwiseOf = (v: Variable): string => (isWorld(v) ? v.otherwise : '')
+export const structOf = (v: Variable) => (isWorld(v) ? v.struct : undefined)
 /** A reusable numeric type: bounds and unit shared by every variable that uses it. */
 export interface RangeType { min: number | null; max: number | null; unit: string }
 /** A reusable opaque type (Timestamp: ordered; ID: no properties): properties shared by every symbolic variable that uses it. */
@@ -373,7 +385,7 @@ export type Item =
 export type Kind = Item['kind']
 export type ItemOf<K extends Kind> = Extract<Item, { kind: K }>
 /** Changeable fields of an item of kind K (distributes over unions of kinds). */
-export type Patch<K extends Kind = Kind> = K extends Kind ? Partial<Omit<ItemOf<K>, 'id' | 'kind'>> : never
+export type Patch<K extends Kind = Kind> = K extends Kind ? ItemOf<K> extends infer I ? I extends unknown ? Partial<Omit<I, 'id' | 'kind'>> : never : never : never
 
 export const KIND_NAMES: Record<Kind, string> = {
   loss: 'Loss',

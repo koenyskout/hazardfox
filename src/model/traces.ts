@@ -5,6 +5,7 @@ import { appliedEffects, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
 import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
+import { aboutOf, otherwiseOf, rulesOf } from './types'
 import type { Cause, Comparison, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -110,7 +111,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
-  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
+  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? rulesOf(it).flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
 export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Condition) => boolean): boolean | null | undefined {
@@ -122,12 +123,12 @@ export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Conditi
 
 /** Value of a refined variable from its rules (first rule whose condition holds, else `otherwise`); undefined while a needed part is unknown. */
 export function ruleValue(p: Project, v: Variable, get: Getter): string | undefined {
-  for (const r of v.rules) {
+  for (const r of rulesOf(v)) {
     const h = whenHolds(p, r.when, get)
     if (h === null) return undefined
     if (h !== false) return r.state
   }
-  return v.otherwise || undefined
+  return otherwiseOf(v) || undefined
 }
 
 /** State at step i, with refined world variables (and a controller's beliefs about them, from its beliefs about the parts) computed by their rules. */
@@ -140,18 +141,18 @@ export function traceState(p: Project, t: Trace, i: number): Record<Id, string> 
   }
   const out = { ...raw }
   const vars = itemsOfKind(p, 'variable')
-  if (!vars.some((v) => v.rules.length)) return out
+  if (!vars.some((v) => rulesOf(v).length)) return out
   const busy = new Set<Id>()
   const derive = (id: Id, get: (id: Id) => string | undefined, own: string | undefined): string | undefined => {
     const v = p.items[id]
-    if (v?.kind !== 'variable' || !v.rules.length || busy.has(id)) return own
+    if (v?.kind !== 'variable' || !rulesOf(v).length || busy.has(id)) return own
     busy.add(id)
     const x = ruleValue(p, v, get)
     busy.delete(id)
     return x ?? own
   }
   const world = (id: Id): string | undefined => derive(id, world, raw[id])
-  for (const v of vars) if (v.rules.length) { const x = world(v.id); if (x !== undefined) out[v.id] = x }
+  for (const v of vars) if (rulesOf(v).length) { const x = world(v.id); if (x !== undefined) out[v.id] = x }
   for (const b of vars) {
     if (b.layer !== 'belief' || !b.parent || !b.about) continue
     const ctrl = b.parent
@@ -297,10 +298,10 @@ export function diagnose(p: Project, s: Scenario): { cause: Cause; why: string }
     if (rd(w.id) === undefined) continue
     // Signals about the variable or one of its parts, each compared with the world variable it is about.
     const about = [w.id, ...partsOf(p, w.id)]
-    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => x.about && about.includes(x.about) && rd(x.id) !== undefined)
+    const sigs = fbs.flatMap((f) => signalsOf(p, f.id)).filter((x) => about.includes(aboutOf(x) ?? '') && rd(x.id) !== undefined)
     const bel = beliefsAbout(p, ca.from, w.id).filter((b) => rd(b.id) !== undefined)
-    const bad = sigs.find((x) => rd(x.about!) !== undefined && rd(x.id) !== rd(x.about!))
-    if (bad) return { cause: 'feedback', why: `the signal about ${variableName(p, p.items[bad.about!] as Variable)} differs from the world` }
+    const bad = sigs.find((x) => rd(aboutOf(x)!) !== undefined && rd(x.id) !== rd(aboutOf(x)!))
+    if (bad) return { cause: 'feedback', why: `the signal about ${variableName(p, p.items[aboutOf(bad)!] as Variable)} differs from the world` }
     for (const b of bel) {
       anyBelief = true
       if (rd(b.id) === rd(w.id)) continue
@@ -356,7 +357,7 @@ export function draftTrace(p: Project, s: Scenario): Trace {
       if (w.layer !== 'domain') continue
       // signals and beliefs about a named instance get that instance's lane too
       const suf = lane.slice(w.id.length)
-      for (const f of fbs) for (const sig of signalsOf(p, f.id).filter((x) => x.about === w.id)) {
+      for (const f of fbs) for (const sig of signalsOf(p, f.id).filter((x) => aboutOf(x) === w.id)) {
         lanes.push(sig.id + suf)
         init.values[sig.id + suf] = before
         if (s.cause === 'feedback') lost.add(f.id)

@@ -12,7 +12,7 @@ import { freshReview } from '../llm/auto'
 import { refines } from '../model/formal'
 import { isComputed } from './hooks'
 import { HoverCard } from './HoverCard'
-import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, KIND_PLURALS, type Id, type Item, type Kind, type Labels, type Project } from '../model/types'
+import { CAUSE_LABELS, GUIDE_WORD_LABELS, KIND_NAMES, KIND_PLURALS, type Id, type Item, type Kind, type Labels, type Project, aboutOf } from '../model/types'
 import { paramSummary } from '../model/params'
 import { operationsOf } from '../model/operations'
 import { describeStates } from '../model/variables'
@@ -139,7 +139,7 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       const owner = it.parent && p.items[it.parent]
       if (owner) row(OWNER_ROW[it.layer], <><ChipLink id={owner.id} {...c} /> {owner.title}</>)
       row('Computed from', parts.length > 0 && isComputed(p, it) && <>{parts.map((id) => <ChipLink key={id} id={id} {...c} />)}</>)
-      row('About', it.about && <ChipLink id={it.about} {...c} />)
+      row('About', aboutOf(it) && <ChipLink id={aboutOf(it)!} {...c} />)
       row('Type', VARIABLE_TYPE_LABELS[it.type].split(' (')[0])
       row('States', it.type === 'enum' ? list(it.states, 6) : describeStates(it))
       break
@@ -172,7 +172,7 @@ export function ItemCard({ it, p, labels, go }: { it: Item } & Ctx) {
   const edge = it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'relationship' ? it : null
   const ends: { id: Id; card?: string; role?: string }[] = it.kind === 'relationship' ? it.ends.map((e) => ({ id: e.entity, card: e.card, role: e.role })) : edge && edge.kind !== 'relationship' ? [{ id: edge.from }, { id: edge.to }] : []
   const refs = [...(it.parent ? [it.parent] : []), ...refsOf(it), ...(it.kind === 'hazard' ? effectiveLosses(p, it.id) : [])]
-  const shown = it.kind === 'variable' ? [it.parent, it.about] : ends.map((e) => e.id)
+  const shown = it.kind === 'variable' ? [it.parent, aboutOf(it)] : ends.map((e) => e.id)
   const out = group(p, labels, refs.filter((i) => i !== it.id && !shown.includes(i)))
   const inc = group(p, labels, incoming(p, it.id).map((o) => o.id))
   const title = it.title || (it.kind === 'uca' ? generateUcaText(p, labels, it) : '')
