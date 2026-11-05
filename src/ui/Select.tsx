@@ -1,7 +1,7 @@
 import { Children, Fragment, isValidElement, useEffect, useRef, useState, type CSSProperties, type ChangeEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-interface Opt { value: string; label: ReactNode; disabled: boolean; group?: boolean }
+interface Opt { value: string; label: ReactNode; text: string; disabled: boolean; group?: boolean }
 
 const textOf = (n: ReactNode): string => Children.toArray(n).map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c) : isValidElement(c) ? textOf((c.props as { children?: ReactNode }).children) : '')).join('')
 
@@ -10,14 +10,15 @@ function options(children: ReactNode): Opt[] {
     if (!isValidElement(c)) return []
     const p = c.props as { value?: string | number; children?: ReactNode; disabled?: boolean; label?: string }
     if (c.type === Fragment) return options(p.children)
-    if (c.type === 'optgroup') return [{ value: '', label: p.label, disabled: true, group: true }, ...options(p.children)]
-    return [{ value: p.value !== undefined ? String(p.value) : textOf(p.children), label: p.children, disabled: !!p.disabled }]
+    if (c.type === 'optgroup') return [{ value: '', label: p.label, text: p.label ?? '', disabled: true, group: true }, ...options(p.children)]
+    const text = p.label ?? textOf(p.children)
+    return [{ value: p.value !== undefined ? String(p.value) : text, label: p.children, text, disabled: !!p.disabled }]
   })
 }
 
 const SEARCH_FROM = 8
 
-/** Drop-in for `<select>` with `<option>` children (single choice), with a styled popup instead of the OS menu. `onChange` gets `{ target: { value } }`.
+/** Drop-in for `<select>` with `<option>` children (single choice; an option's children may be rich, its `label` attribute is the text searched), with a styled popup instead of the OS menu. `onChange` gets `{ target: { value } }`.
  *  With `search`, a filter box appears once there are more than a few options; groups named in `always` stay visible while filtering. */
 export function Select({ value, onChange, children, className, style, title, disabled, search, always, display }: {
   value: string | number; onChange?: (e: ChangeEvent<HTMLSelectElement>) => void; children?: ReactNode; className?: string; style?: CSSProperties; title?: string; disabled?: boolean; search?: boolean; always?: string[]; display?: ReactNode
@@ -31,8 +32,8 @@ export function Select({ value, onChange, children, className, style, title, dis
     let grp: Opt | null = null, keep = false, kept: Opt[] = []
     const flush = () => { if (grp && kept.length) out.push(grp, ...kept); kept = [] }
     for (const o of all) {
-      if (o.group) { flush(); grp = o; keep = !!always?.includes(textOf(o.label)); continue }
-      const t = textOf(o.label).toLowerCase()
+      if (o.group) { flush(); grp = o; keep = !!always?.includes(o.text); continue }
+      const t = o.text.toLowerCase()
       if (keep || words.every((w) => t.includes(w))) kept.push(o)
     }
     flush()

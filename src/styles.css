@@ -650,3 +650,14 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .cond.xr > .select.cond-op { flex: 0 0 110px; }
 .cond.xr > .cond-in, .cond.xr > .decl, .cond.xr > .cond-err { flex: 1 1 100%; }
 .cond.xr > .x { margin-left: auto; }
+/* condition editor: pills in pickers, predicate sentences, wrapped names */
+.cond .select-val, .decl .select-val { white-space: normal; overflow: visible; text-overflow: clip; }
+.cond .select, .decl .select { height: auto; }
+.pill-owner { font-weight: 400; opacity: .75; }
+.cond-sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; flex: 1 1 260px; min-width: 0; }
+.cond-sentence > span:not(.chip) { display: inline-flex; }
+.cond-sentence .select { width: auto; }
+.cond-sentence .cond-var { max-width: 100%; }
+.cond.xr > .select.cond-op { flex: 0 0 130px; }
+.decl .decl-add { width: auto; font-size: 12px; padding: 1px 8px; }
+.select-pop .chip { font-size: 12px; }

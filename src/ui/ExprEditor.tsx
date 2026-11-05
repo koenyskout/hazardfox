@@ -1,19 +1,33 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Select } from './Select'
-import { Icon } from './Icon'
+import { ChipLabel, Icon } from './Icon'
 import { RichText, TextInput } from './Fields'
 import { useLabels, useProject } from './hooks'
-import { renderText, variableName } from '../model/labels'
+import { readRel, relName, renderText, shortName, variableName } from '../model/labels'
+import { isPredicate } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { manyEntity } from '../model/variables'
-import { QUANTIFIERS, QUANT_LABELS, TIME_UNITS, type Id, type Project, type Quantifier, type TimeUnit, type Variable } from '../model/types'
-import { ANY, BOOL, HOLE, at, check, checkError, children, eq, fills, namesOf, num, opsFor, parseExpr, printExpr, quant, replaceAt, scopeAt, slotType, typeOf, walk, type Candidate, type CmpOp, type Ctx, type Expr, type Fn, type Ty } from '../model/lang'
+import { QUANTIFIERS, QUANT_LABELS, TIME_UNITS, type Id, type Item, type Project, type Quantifier, type Relationship, type TimeUnit, type Variable } from '../model/types'
+import { ANY, BOOL, HOLE, val, at, check, checkError, children, eq, fills, namesOf, num, opsFor, parseExpr, printExpr, quant, replaceAt, scopeAt, slotType, typeOf, walk, type Candidate, type CmpOp, type Ctx, type Expr, type Fn, type Ty } from '../model/lang'
 
 type Q = Extract<Expr, { k: 'quant' }>
 type Edit = (path: number[], to: Expr) => void
 interface Env { p: Project; root: Expr; ctx: Ctx; vars: Variable[]; edit: Edit; wrap: (path: number[], q: Q) => void; remove: (path: number[]) => void }
 
 const ARITY_WORD: Record<Fn, string> = { '+': '+', '−': '−', '×': '×', min: 'min', max: 'max', abs: 'abs', prev: 'previous', succ: 'next', pred: 'before', since: 'since', heldFor: 'held for' }
+
+/** A variable as a pill (layer icon, short name); the owner follows when the name does not say it (or other listed variables share the name). */
+function VarPill({ v, vars }: { v: Variable; vars: Variable[] }) {
+  const p = useProject()
+  const labels = useLabels()
+  const short = shortName(p, v)
+  const par = v.parent ? p.items[v.parent] : null
+  const owner = !par ? '' : par.kind === 'relationship' ? relName(p, par) : par.title.trim() || labels[par.id]
+  const show = !!owner && owner !== short && (!short.toLowerCase().includes(owner.toLowerCase()) || vars.some((o) => o.id !== v.id && shortName(p, o) === short))
+  return <span className="chip k-variable"><ChipLabel it={v} label={labels[v.id]} />{show && <span className="pill-owner"> · {owner}</span>}</span>
+}
+const EntityPill = ({ e }: { e: Item }) => <span className="chip k-entity"><ChipLabel it={e} label={e.title} /></span>
+const varOption = (v: Variable, vars: Variable[], value: string, p: Project, labels: ReturnType<typeof useLabels>) => <option key={value} value={value} label={renderText(labels, variableName(p, v))}><VarPill v={v} vars={vars} /></option>
 
 /** Names used by quantifiers anywhere in the condition. */
 const usedNames = (e: Expr): Set<string> => { const s = new Set<string>(); walk(e, (x) => { if (x.k === 'quant') s.add(x.name) }); return s }
@@ -97,23 +111,25 @@ function Group({ env, x, path, head, top, onRemove }: { env: Env; x: Expr; path:
   const base = x.k === 'and' || x.k === 'or' ? path : null
   const pathOf = (i: number) => (base ? [...path, i] : path)
   const add = (m: Expr) => setMembers([...members, m])
+  // a lone quantifier owns the add bar (inside it): one bar, not one inside and one outside
+  const sole = members.length === 1 && members[0].k === 'quant'
   return (
     <>
       <div className="rule-head">
         {head}
-        {top && members.length < 2 ? <span className="wv-tag">all of</span> : <Select className={'tagsel ' + kind} value={kind} onChange={(ev) => edit(path, { k: ev.target.value === 'any' ? 'or' : 'and', of: members })}><option value="all">All of</option><option value="any">Any of</option></Select>}
+        {top && members.length < 2 ? (sole ? null : <span className="wv-tag">all of</span>) : <Select className={'tagsel ' + kind} value={kind} onChange={(ev) => edit(path, { k: ev.target.value === 'any' ? 'or' : 'and', of: members })}><option value="all">All of</option><option value="any">Any of</option></Select>}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
       </div>
       <div className={'conds g-' + kind + (top ? '' : ' group')}>
         {members.map((m, i) => <Row key={i} env={env} x={m} path={pathOf(i)} onRemove={() => setMembers(members.filter((_, j) => j !== i))} />)}
-        <div className="rule-add">
+        {!sole && <div className="rule-add">
           <button onClick={() => add(HOLE)}><Icon name="plus" size={12} /> condition</button>
           <button title="Time since a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => add({ k: 'cmp', op: '≥', l: { k: 'app', fn: 'since', args: [{ k: 'event', id: '' as never }] }, r: num('', 's') })}><Icon name="plus" size={12} /> time since an event</button>
           <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => add({ k: 'text', text: '' })}><Icon name="plus" size={12} /> free text</button>
           <button title="A nested group" onClick={() => add({ k: x.k === 'or' ? 'and' : 'or', of: [HOLE, HOLE] })}><Icon name="plus" size={12} /> {x.k === 'or' ? 'all of' : 'any of'}</button>
           <button title="Holds when the condition does not" onClick={() => add({ k: 'not', e: HOLE })}><Icon name="plus" size={12} /> not</button>
           <button title="About instances of an entity with several instances: some / every / no instance" onClick={() => add(quant('some', '', firstMany(env.p) ?? ('' as Id<'entity'>), HOLE))}><Icon name="plus" size={12} /> instance</button>
-        </div>
+        </div>}
       </div>
     </>
   )
@@ -150,18 +166,20 @@ function QuantRow({ env, x, path, remove }: { env: Env; x: Q; path: number[]; re
   const { p, edit } = env
   const entities = itemsOfKind(p, 'entity').filter((e) => manyEntity(p, e.id))
   const body = x.body
+  const multi = body.k === 'and' || body.k === 'or'
   return (
     <div className="cond xr cond-q">
       <div className="decl">
         <Select value={x.q} onChange={(ev) => edit(path, { ...x, q: ev.target.value as Quantifier })}>{QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}</Select>
         <Select value={x.entity} onChange={(ev) => edit(path, { ...x, entity: ev.target.value as Id<'entity'>, name: x.name || freshName(p, env.root, ev.target.value as Id) })}>
           <option value="" disabled hidden>entity…</option>
-          {entities.map((e) => <option key={e.id} value={e.id}>{e.title.trim() || 'instance'}</option>)}
+          {entities.map((e) => <option key={e.id} value={e.id} label={e.title.trim() || 'instance'}><EntityPill e={e} /></option>)}
         </Select>
         <input className="decl-name" value={x.name} placeholder="name" onChange={(ev) => edit(path, { ...x, name: ev.target.value.replace(/\s/g, '') })} />
+        {!multi && <button type="button" className="decl-add" title="Add another condition inside" onClick={() => edit([...path, 0], { k: 'and', of: [body, HOLE] })}><Icon name="plus" size={12} /> and</button>}
         {remove}
       </div>
-      <div className="cond-in"><Group env={env} x={body} path={[...path, 0]} /></div>
+      <div className="cond-in">{multi ? <Group env={env} x={body} path={[...path, 0]} /> : <Row env={env} x={body} path={[...path, 0]} onRemove={() => edit([...path, 0], HOLE)} />}</div>
     </div>
   )
 }
@@ -180,7 +198,7 @@ function Starter({ env, path }: { env: Env; path: number[] }) {
   return (
     <Select className="cond-var" value="" onChange={(ev) => pick(ev.target.value)}>
       <option value="" disabled hidden>variable or condition…</option>
-      {vars.map((v) => <option key={v.id} value={v.id}>{renderText(labels, variableName(p, v))}</option>)}
+      {vars.map((v) => varOption(v, vars, v.id, p, labels))}
       <option value={'\0words'}>in words…</option>
       <option value={'\0event'}>time since an event…</option>
     </Select>
@@ -222,6 +240,9 @@ function Leaf({ env, x, path, remove }: { env: Env; x: Expr; path: number[]; rem
   const sc = scopeAt(env.ctx, env.root, path)
   const lt = x.k === 'var' || x.k === 'name' || x.k === 'const' ? BOOL : typeOf(sc, l)
   const ops = opsFor(lt)
+  // a yes/no variable: "holds" / "does not hold" instead of "= true"
+  const bvar = x.k === 'var' ? x : x.k === 'cmp' && x.l.k === 'var' ? x.l : null
+  const truth: boolean | null = x.k === 'var' ? true : x.k === 'cmp' && bvar && (x.op === '=' || x.op === '≠') && x.r.k === 'const' && (x.r.v === 'true' || x.r.v === 'false') && env.p.items[bvar.id]?.kind === 'variable' && (env.p.items[bvar.id] as Variable).type === 'boolean' ? (x.op === '=') === (x.r.v === 'true') : null
   const op = x.k === 'cmp' ? x.op : x.k === 'between' ? 'between' : x.k === 'in' ? 'in' : null
   const setOp = (o: string) => {
     if (o === 'between') return edit(path, { k: 'between', e: l, lo: HOLE, hi: HOLE })
@@ -230,7 +251,10 @@ function Leaf({ env, x, path, remove }: { env: Env; x: Expr; path: number[]; rem
   }
   return (
     <div className="cond xr">
-      {x.k === 'var' ? <Operand env={env} x={x} path={path} ty={BOOL} /> : <>
+      {truth !== null ? <>
+        <Operand env={env} x={bvar!} path={x.k === 'var' ? path : lpath} ty={BOOL} />
+        <Select className="cond-op" value={truth ? 'y' : 'n'} onChange={(ev) => edit(path, eq(bvar!, val(ev.target.value === 'y' ? 'true' : 'false')))}><option value="y">holds</option><option value="n">does not hold</option></Select>
+      </> : <>
         <Operand env={env} x={l} path={lpath} ty={ANY} />
         {op !== null && (ops.length
           ? <Select className="cond-op" value={op} onChange={(ev) => setOp(ev.target.value)}>{ops.map((o) => <option key={o} value={o}>{o === 'between' ? 'between' : o === 'in' ? '∈ one of' : o}</option>)}</Select>
@@ -276,7 +300,7 @@ function SinceRow({ env, x, path, remove }: { env: Env; x: Extract<Expr, { k: 'c
       <span className="cond-word">after</span>
       <Select value={ev} onChange={(e) => edit(path, { ...x, l: { k: 'app', fn: 'since', args: [{ k: 'event', id: e.target.value as never }] } })}>
         <option value="" disabled hidden>control action or feedback…</option>
-        {events.map((i) => <option key={i.id} value={i.id}>{labels[i.id]} {renderText(labels, i.title)}</option>)}
+        {events.map((i) => <option key={i.id} value={i.id} label={`${labels[i.id]} ${renderText(labels, i.title)}`}><span className={'chip k-' + i.kind}>{labels[i.id]}</span> {renderText(labels, i.title)}</option>)}
       </Select>
       <span className="cond-word">occurred</span>
       {remove}
@@ -307,7 +331,7 @@ function Operand({ env, x, path, ty }: { env: Env; x: Expr; path: number[]; ty: 
   }
   const options = (
     <>
-      {cands.filter((c) => c.k === 'var').map((c) => <option key={'v' + c.id} value={'var\0' + c.id}>{renderText(labels, variableName(p, p.items[c.id] as Variable))}</option>)}
+      {cands.filter((c) => c.k === 'var').map((c) => varOption(p.items[c.id] as Variable, vars, 'var\0' + c.id, p, labels))}
       {cands.filter((c) => c.k === 'const').map((c) => <option key={'c' + c.v} value={'const\0' + c.v}>{c.v}</option>)}
       {cands.filter((c) => c.k === 'number' || c.k === 'symbol' || c.k === 'duration').slice(0, 1).map((c) => <option key={c.k} value={c.k + '\0'}>{c.k === 'number' ? 'a number…' : c.k === 'duration' ? 'a duration…' : 'a value…'}</option>)}
       {cands.filter((c) => c.k === 'name' || c.k === 'param').map((c) => <option key={c.k + c.name} value={c.k + '\0' + c.name}>{c.name}</option>)}
@@ -319,18 +343,33 @@ function Operand({ env, x, path, ty }: { env: Env; x: Expr; path: number[]; ty: 
     case 'var': {
       const cand = cands.find((c): c is Extract<Candidate, { k: 'var' }> => c.k === 'var' && c.id === x.id)
       const v = p.items[x.id]
-      return (
-        <>
-          <Select className="cond-var" value={'var\0' + x.id} onChange={(ev) => pick(ev.target.value)}>
-            {!cand && <option value={'var\0' + x.id}>{v?.kind === 'variable' ? renderText(labels, variableName(p, v)) : '?'}</option>}
-            {options}
-          </Select>
-          {cand?.ends.filter((e) => e.many).map((e) => (
-            <Select key={e.end} className="cond-at" value={x.at?.[e.end] ?? ''} onChange={(ev) => { const at = [...(x.at ?? [])]; at[e.end] = ev.target.value; here({ ...x, at }) }}>
+      const rel = v?.kind === 'variable' && isPredicate(p, v) ? (p.items[v.parent!] as Relationship) : null
+      const pick1 = (end: number) => {
+        const e = cand?.ends.find((m) => m.end === end)
+        if (!e) return null
+        return e.many
+          ? <Select key={'at' + end} className="cond-at" value={x.at?.[end] ?? ''} onChange={(ev) => { const at = [...(x.at ?? [])]; at[end] = ev.target.value; here({ ...x, at }) }}>
               <option value="">any {p.items[e.entity]?.title.trim() || 'instance'}</option>
               {e.names.map((n) => <option key={n}>{n}</option>)}
             </Select>
-          ))}
+          : <EntityPill key={'en' + end} e={p.items[e.entity]} />
+      }
+      const sel = (display?: ReactNode) => (
+        <Select className="cond-var" value={'var\0' + x.id} display={display} onChange={(ev) => pick(ev.target.value)}>
+          {!cand && (v?.kind === 'variable' ? varOption(v, vars, 'var\0' + x.id, p, labels) : <option value={'var\0' + x.id}>?</option>)}
+          {options}
+        </Select>
+      )
+      // a relationship predicate reads as its sentence: "tr1 approaches Crossing", ends as pickers, the words open the variable list
+      if (rel) {
+        const parts = readRel(rel, rel.ends.map((_, i) => `\0${i}\0`)).split('\0')
+        let words = false
+        return <span className="cond-sentence">{parts.map((t, i) => i % 2 ? pick1(+t) : !t.trim() ? null : words ? <span key={i} className="cond-word">{t.trim()}</span> : (words = true, <span key={i}>{sel(t.trim())}</span>))}</span>
+      }
+      return (
+        <>
+          {sel()}
+          {cand?.ends.filter((e) => e.many).map((e) => pick1(e.end))}
         </>
       )
     }
