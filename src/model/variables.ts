@@ -80,7 +80,13 @@ export const bindingAt = (n: EndNames | undefined, end: number): Binding | null 
 export const declares = (n: EndNames | undefined, end: number): boolean => { const b = bindingAt(n, end); return !!b && 'declare' in b }
 export const uses = (n: EndNames | undefined, end: number): boolean => { const b = bindingAt(n, end); return !!b && 'use' in b }
 /** The name used at an end, declared or referred to ('' if none). */
-export const nameAt = (n: EndNames | undefined, end: number): string => { const b = bindingAt(n, end); return b ? ('declare' in b ? b.declare : b.use).trim() : '' }
+/** The name of a binding. */
+export const nameOf = (b: Binding): string => ('declare' in b ? b.declare : b.use).trim()
+/** The name declared at an end, if it declares one. */
+export const declaredAt = (n: EndNames | undefined, end: number): string | undefined => (declares(n, end) ? nameAt(n, end) : undefined)
+/** The name an end refers to, if it uses one. */
+export const usedAt = (n: EndNames | undefined, end: number): string | undefined => (uses(n, end) ? nameAt(n, end) : undefined)
+export const nameAt = (n: EndNames | undefined, end: number): string => { const b = bindingAt(n, end); return b ? nameOf(b) : '' }
 /** The names with one end's binding replaced (`null` clears it); undefined when no end is bound. */
 export const withBinding = (n: EndNames | undefined, end: number, b: Binding | null): EndNames | undefined => {
   const out = [...(n ?? [])]
@@ -89,6 +95,8 @@ export const withBinding = (n: EndNames | undefined, end: number, b: Binding | n
   while (out.length && out[out.length - 1] === null) out.pop()
   return out.length ? out : undefined
 }
+/** `c` with the binding at one end set (or cleared). */
+export const bindAt = <C extends { names?: EndNames }>(c: C, end: number, b: Binding | null): C => ({ ...c, names: withBinding(c.names, end, b) })
 /** The name sets of a condition: its variable's and, in a variable comparison, the compared variable's. */
 export const sidesOf = (c: ValueCondition | VarCondition): EndNames[] => (isVarCmp(c) && c.otherNames ? [c.names ?? [], c.otherNames] : [c.names ?? []])
 /** Every instance name a condition uses. */

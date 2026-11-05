@@ -8,8 +8,8 @@ import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declares, uses, withBinding, withInstanceName, renameSame, toValue, toVarCmp, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type EndNames, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -574,9 +574,9 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
     if (v?.kind !== 'variable' || !isOnVariable(c)) return []
     const out: { i: number; end: number; name: string; entity: Id | null; quant: Quantifier | null; cmp?: boolean }[] = []
     const e1 = quantOf(p, c) && !uses(c.names, 0) ? boundEntity(p, v) : null
-    if (e1) out.push({ i, end: 0, name: asAt(c, 0) ?? '', entity: e1, quant: quantOf(p, c) })
+    if (e1) out.push({ i, end: 0, name: declaredAt(c.names, 0) ?? '', entity: e1, quant: quantOf(p, c) })
     const e2 = !uses(c.names, 1) ? otherEnd(p, v) : null
-    if (e2) out.push({ i, end: 1, name: asAt(c, 1) ?? '', entity: e2, quant: 'some' })
+    if (e2) out.push({ i, end: 1, name: declaredAt(c.names, 1) ?? '', entity: e2, quant: 'some' })
     for (const x of condInstances(p, c)) if (x.cmp && x.intro) out.push({ i, end: x.end, name: x.name, entity: x.entity, quant: 'some', cmp: true })
     return out
   })
@@ -810,13 +810,9 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
 }
 
 /** A change to another condition of the same context made alongside a row's own change: set / clear the instance name of one of its ends. */
-type Bind = { target: ValueCondition | VarCondition; end: number; as: string | undefined }
+type Bind = { target: ValueCondition | VarCondition; end: number }
 type Binds = Bind[]
-const asAt = (c: { names?: EndNames }, end: number) => (declares(c.names, end) ? nameAt(c.names, end) : undefined)
-const sameAt = (c: { names?: EndNames }, end: number) => (uses(c.names, end) ? nameAt(c.names, end) : undefined)
-/** `c` with the instance name at one end set: declared (`as`), used from another condition (`same`) or none. */
-const withEnd = <C extends { names?: EndNames }>(c: C, end: number, n: { as?: string; same?: string }): C => ({ ...c, names: withBinding(c.names, end, n.same ? { use: n.same } : n.as ? { declare: n.as } : null) })
-const withName = (x: Condition, bind: Bind): Condition => (isOnVariable(x) ? withEnd(x, bind.end, { as: bind.as, same: sameAt(x, bind.end) }) : x)
+const withName = (x: Condition, bind: Bind): Condition => (isOnVariable(x) ? bindAt(x, bind.end, null) : x)
 
 const VAR_OPTION = '\u0000var'
 
@@ -899,24 +895,24 @@ function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps
       const ov = isOnVariable(o) && o !== c ? p.items[o.variable] : undefined
       if (!isOnVariable(o) || ov?.kind !== 'variable') return []
       return [0, 1].filter((e) => (e === 0 ? quantOf(p, o) === 'some' && !uses(o.names, 0) && boundEntity(p, ov) === ent : !uses(o.names, 1) && otherEnd(p, ov) === ent))
-        .map((e) => ({ o, i, e, name: asAt(o, e) ?? '' }))
+        .map((e) => ({ o, i, e, name: declaredAt(o.names, e) ?? '' }))
     }).filter((x) => x.name)
-    const mine = asAt(c0, end)
+    const mine = declaredAt(c0.names, end)
     const other = mine ? pool.find((x) => x.name !== mine && x.i < idx) : undefined
-    const same = sameAt(c0, end)
+    const same = usedAt(c0.names, end)
     const value = same ? 'same:' + same : other ? `other:${other.i}:${other.e}` : end === 0 ? quantOf(p, c0)! : 'some'
     const apply = (x: string) => <C extends ValueCondition | VarCondition>(c1: C): { c: C; binds: Bind[] } => {
       // leaving a reference may orphan the name it used
-      const ref = sameAt(c1, end)
-      const used = (o: Condition) => o !== c && isOnVariable(o) && [0, 1].some((e) => sameAt(o, e) === ref)
-      const intro = ref && !scope.some(used) ? scope.flatMap((o): Bind[] => (!isOnVariable(o) ? [] : [0, 1].filter((e) => asAt(o, e) === ref).slice(0, 1).map((e) => ({ target: o, end: e, as: undefined }))))[0] : undefined
-      const cleared = withEnd(c1, end, {})
+      const ref = usedAt(c1.names, end)
+      const used = (o: Condition) => o !== c && isOnVariable(o) && [0, 1].some((e) => usedAt(o.names, e) === ref)
+      const intro = ref && !scope.some(used) ? scope.flatMap((o): Bind[] => (!isOnVariable(o) ? [] : [0, 1].filter((e) => declaredAt(o.names, e) === ref).slice(0, 1).map((e) => ({ target: o, end: e }))))[0] : undefined
+      const cleared = bindAt(c1, end, null)
       const base: C = end === 0 ? { ...cleared, quant: undefined } : cleared
       const drop: Bind[] = intro ? [intro] : []
-      if (x.startsWith('same:')) return { c: withEnd(base, end, { same: x.slice(5) }), binds: drop.filter((d) => asAt(d.target, d.end) !== x.slice(5)) }
+      if (x.startsWith('same:')) return { c: bindAt(base, end, { use: x.slice(5) }), binds: drop.filter((d) => declaredAt(d.target.names, d.end) !== x.slice(5)) }
       if (x.startsWith('other:')) {
-        const [, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (isOnVariable(t) ? asAt(t, e === '0' ? 0 : 1) : undefined) ?? ''
-        return { c: withEnd(base, end, { as: autoName(p, ent, scope, [tn]) }), binds: drop }
+        const [, i2, e] = x.split(':'), t = scope[Number(i2)], tn = (isOnVariable(t) ? declaredAt(t.names, e === '0' ? 0 : 1) : undefined) ?? ''
+        return { c: bindAt(base, end, { declare: autoName(p, ent, scope, [tn]) }), binds: drop }
       }
       return { c: end === 1 && x !== 'some' ? { ...base, quant: x as Quantifier } : base, binds: drop }
     }
@@ -928,7 +924,7 @@ function VariableRow({ c, onChange, onRemove, vars, word, scope = [] }: RowProps
     ].map((o) => ({ ...o, apply: apply(o.value) }))
     return { value, opts }
   }
-  const instText = (end: number) => { const io = vr && instOptions(c, vr, end); const o = io?.opts.find((x) => x.value === io.value); return o ? (asAt(c, end) ?? o.long) : '' }
+  const instText = (end: number) => { const io = vr && instOptions(c, vr, end); const o = io?.opts.find((x) => x.value === io.value); return o ? (declaredAt(c.names, end) ?? o.long) : '' }
   /** Every subject (variable with its instance choices) the condition could be started with. */
   const subjectChoices = (): SubjectChoice[] => vars.flatMap((v) => {
     const c0 = toValue(c, { variable: v.id, op: opsFor(v).includes(c.op) ? c.op : '=', quant: undefined, names: undefined })
@@ -1013,18 +1009,18 @@ function VarCompare({ c, vr, vars, onChange, entityTitle, scope, swap }: { c: Va
   const otherChoices = (): SubjectChoice[] => !vr ? [] : vars.filter((x) => x.id !== vr.id && x.type === vr.type).flatMap((x) => {
     const e1 = boundEntity(p, x), e2 = otherEnd(p, x)
     // per end: read at any instance, at a named one, or at one introduced here ("another … than t1")
-    const ends = (e: Id | null, taken: string[]): { label: string | undefined; names: { as?: string; same?: string } }[] => {
-      if (!e) return [{ label: undefined, names: {} }]
+    const ends = (e: Id | null, taken: string[]): { label: string | undefined; binding: Binding | null }[] => {
+      if (!e) return [{ label: undefined, binding: null }]
       const names = otherNames(e), t = entityTitle(e), fresh = autoName(p, e, scope, [...names, ...taken])
       return [
-        { label: `any ${t}`, names: {} },
-        ...names.map((n) => ({ label: n, names: { same: n } })),
-        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, names: { as: fresh } })) : [{ label: `some ${t}`, names: { as: fresh } }]),
+        { label: `any ${t}`, binding: null },
+        ...names.map((n) => ({ label: n, binding: { use: n } })),
+        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, binding: { declare: fresh } })) : [{ label: `some ${t}`, binding: { declare: fresh } }]),
       ]
     }
-    return ends(e1, []).flatMap((a, ai) => ends(e2, [a.names.as, a.names.same].filter((s): s is string => !!s)).map((b, bi) => {
+    return ends(e1, []).flatMap((a, ai) => ends(e2, a.binding ? [nameOf(a.binding)] : []).map((b, bi) => {
       const [before, after] = [a.label, b.label]
-      const otherNames = withEnd(withEnd<{ names?: EndNames }>({}, 0, a.names), 1, b.names).names
+      const otherNames = withBinding(withBinding(undefined, 0, a.binding), 1, b.binding)
       return { key: `${x.id}|${ai}|${bi}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => onChange(toVarCmp(c, x.id, { otherNames })) }
     }))
   })
