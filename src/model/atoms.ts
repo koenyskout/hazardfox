@@ -1,5 +1,4 @@
 import { children, mapChildren, type EventId, type Expr, type Quant } from './lang'
-import { nameKey } from './variables'
 import type { Comparison, ConditionOp, Id, Lane, TimeBound } from './types'
 import { laneAt } from './variables'
 
@@ -19,7 +18,6 @@ export const negateOp = (op: ConditionOp): ConditionOp => NOT[op]
 const lane = (id: string, at: string[] = []) => laneAt(id as Id, at.join('|').replace(/\|+$/, ''))
 /** The lane a `var` node reads. */
 export const laneOfVar = (e: { id: Id<'variable'>; at?: string[] }): Lane => lane(e.id, e.at)
-export { nameKey }
 
 const isConst = (e: Expr): e is Extract<Expr, { k: 'const' }> => e.k === 'const'
 const FLIP: Record<string, ConditionOp> = { '<': '>', '≤': '≥', '>': '<', '≥': '≤', '=': '=', '≠': '≠' }

@@ -7,12 +7,10 @@ import { computeLabels } from './labels'
 import { refsOf } from './refs'
 import { deleteItems } from './ops'
 import { say } from './say'
-import { anyOf } from './variables'
 import { varsOf } from './atoms'
-import { whenToExpr } from './bridge'
-import type { ConditionOp, Id, Scenario, Uca } from './types'
-import type { ValueCondition } from './legacy'
+import type { Scenario, Uca } from './types'
 import { laneOf } from './variables'
+import { and, gt, is, lt, or, val, variable } from './lang'
 
 function setup() {
   const b = projectBuilder()
@@ -22,9 +20,8 @@ function setup() {
   const n = b.add('node', { title: 'Nurse', role: 'controller' })
   const pr = b.add('node', { title: 'Patient', role: 'process' })
   const ca = b.add('ca', { from: n, to: pr, title: 'Stop' })
-  const cond = (variable: Id, op: ConditionOp, state: string): ValueCondition => ({ kind: 'value', variable, op, state })
-  const u = b.add('uca', { ca, guide: 'not-provided', conditions: [cond(c, '>', '5'), anyOf(cond(a, '=', 'on'), cond(a, '=', 'off'))] })
-  return { b, a, c, u, ca, cond }
+  const u = b.add('uca', { ca, guide: 'not-provided', when: and(gt(variable(c), val('5')), or(is(a, 'on'), is(a, 'off'))) })
+  return { b, a, c, u, ca }
 }
 
 describe('any-of conditions', () => {
@@ -38,7 +35,7 @@ describe('any-of conditions', () => {
     const { b, a, c, u } = setup()
     const p = b.project, uca = p.items[u] as Uca
     expect(contextHolds(p, uca, { [c]: '7', [a]: 'off' })).toBe(true)
-    expect(contextHolds(p, { ...uca, when: whenToExpr(p, [anyOf({ kind: 'value', variable: a, op: '=', state: 'on' }, { kind: 'value', variable: c, op: '<', state: '3' })]) }, { [c]: '7', [a]: 'off' })).toBe(false)
+    expect(contextHolds(p, { ...uca, when: or(is(a, 'on'), lt(variable(c), val('3'))) }, { [c]: '7', [a]: 'off' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '2', [a]: 'on' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '7' })).toBeNull()
   })

@@ -1,13 +1,11 @@
 import { addBelief, predicateOf } from '../formal'
-import { upgrade, type Init, type Legacy } from '../build'
 import { relEnds } from '../create'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { mention } from '../refs'
-import { anyOf } from '../variables'
-import { condVars } from '../expr'
-import type { ConditionOp, Id, Patch, Project } from '../types'
-import type { Condition, ValueCondition } from '../legacy'
+import { varsOf } from '../atoms'
+import { and, cmp, inWords, is, isNot, num, oneOf, or, some, variable, type CmpOp, type Expr } from '../lang'
+import type { Id, Patch, Project } from '../types'
 
 /**
  * Formalization of the Handbook examples `hb-crew` (Table C.3) and `hb-bscu` (Table C.4): domain model, hazard conditions,
@@ -16,8 +14,8 @@ import type { Condition, ValueCondition } from '../legacy'
  */
 export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Project {
   let q = p
-  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Init<K>): Id<K> => { const r = createItem(q, kind, upgrade(q, init as Record<string, unknown>) as Patch<K>); q = r.project; return r.id }
-  const set = (item: Id, patch: Patch | Legacy) => { q = updateItem(q, item, upgrade(q, patch as Record<string, unknown>) as Patch) }
+  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
+  const set = (item: Id, patch: Patch) => { q = updateItem(q, item, patch) }
 
   // ---- domain model -------------------------------------------------------------------------------------------------
   const aircraft = add('entity', { title: 'Aircraft', description: 'The aircraft being braked (one instance).' })
@@ -52,9 +50,9 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   const surface = en('Surface condition', runway, ['dry', 'wet', 'contaminated'])
   // refinements: derived "needed" abstractions over lower-level world variables
   const bscuNeeded = add('variable', { title: 'BSCU function needed', parent: wbs, type: 'boolean', definition: 'Autobrake or Anti-skid behavior is needed.',
-    rules: [{ state: 'true', when: anyOf(c(abNeeded, 'true'), c(asNeeded, 'true')) }], otherwise: 'false' })
+    rules: [{ state: 'true', when: or(c(abNeeded, 'true'), c(asNeeded, 'true')) }], otherwise: 'false' })
   const brakingNeeded = add('variable', { title: 'Braking function needed', parent: wbs, type: 'boolean', definition: 'Normal braking mode, Autobrake or Anti-skid is to be used.',
-    rules: [{ state: 'true', when: anyOf(c(nbNeeded, 'true'), c(abNeeded, 'true'), c(asNeeded, 'true')) }], otherwise: 'false' })
+    rules: [{ state: 'true', when: or(c(nbNeeded, 'true'), c(abNeeded, 'true'), c(asNeeded, 'true')) }], otherwise: 'false' })
   set(brakeSym, { definition: `Left and right brake forces (${mention(force)}) are equal within tolerance. Abstraction; two wheels' values cannot be compared in a condition.` })
 
   const tooClose = add('relationship', { title: 'is too close to', ends: relEnds(aircraft, object, '1', '*') })
@@ -67,25 +65,27 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   // ---- conditions ---------------------------------------------------------------------------------------------------
   const decel = ['landing roll', 'rejected takeoff', 'taxi']
   const takeoff = ['lined up for takeoff', 'takeoff roll']
-  const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
-  const hazardConds: Record<string, Condition[]> = {
-    'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { names: [null, { declare: 'o1' }] })],
+  const words = inWords
+  /** One instance `name` of `entity` that all of `cs` hold for. */
+  const W = (name: string, entity: Id<'entity'>, ...cs: Expr[]): Expr[] => [some(name, entity, cs.length > 1 ? and(...cs) : cs[0])]
+  const hazardConds: Record<string, Expr[]> = {
+    'Aircraft comes too close to other objects on the ground': W('o1', object, c(closeV, 'true', '=', '', 'o1')),
     'Deceleration is insufficient upon landing, rejected takeoff, or during taxiing': [inn(phase, ...decel), c(decelOk, 'false')],
-    'Asymmetric deceleration maneuvers aircraft toward other objects': [c(force, '0', '>', { names: [{ declare: 'w1' }] }), c(brakeSym, 'false')],
-    'Deceleration occurs after V1 point during takeoff': [c(v1, 'true'), inn(phase, 'takeoff roll', 'rejected takeoff'), c(force, '0', '>', { names: [{ declare: 'w1' }] })],
+    'Asymmetric deceleration maneuvers aircraft toward other objects': W('w1', wheel, c(force, '0', '>', 'w1'), c(brakeSym, 'false')),
+    'Deceleration occurs after V1 point during takeoff': W('w1', wheel, c(v1, 'true'), inn(phase, 'takeoff roll', 'rejected takeoff'), c(force, '0', '>', 'w1')),
     'Excessive acceleration provided while taxiing': [c(phase, 'taxi'), words(`${mention(accel)} exceeds the limit for taxiing (TBD)`)],
     'Asymmetric acceleration maneuvers aircraft toward other objects': [c(accSym, 'false'), inn(phase, 'taxi', 'takeoff roll')],
     'Acceleration is insufficient during takeoff': [c(phase, 'takeoff roll'), c(accelOk, 'false')],
   }
 
   // key: a distinctive part of the Handbook wording; value: conditions; the rest of the wording goes to `context`
-  const crew: [string, Condition[], string][] = [
+  const crew: [string, Expr[], string][] = [
     ['does not provide manual braking during landing', [inn(phase, ...decel), c(decelOk, 'false')], 'Autobrake is not providing braking or is providing insufficient braking'],
     ['insufficient pedal pressure', [inn(phase, ...decel)], 'the pedal pressure is insufficient (TBD)'],
     ['excessive pedal pressure', [c(phase, 'landing roll')], 'the pedal pressure is excessive'],
     ['during normal takeoff', [c(phase, 'takeoff roll')], ''],
     ['before touchdown', [c(phase, 'approach')], ''],
-    ['manual braking too late', [inn(phase, ...decel), c(collideV, 'true', '=', { names: [null, { declare: 'o1' }] })], 'it is already later than TBD to avoid the collision'],
+    ['manual braking too late', W('o1', object, inn(phase, ...decel), c(collideV, 'true', '=', '', 'o1')), 'it is already later than TBD to avoid the collision'],
     ['before safe taxi speed', [c(taxiSpeed, 'false'), inn(phase, 'landing roll', 'rejected takeoff')], ''],
     ['manual braking too long', [c(speed, '0'), inn(location, 'runway', 'active taxiway')], ''],
     ['arm Autobrake before landing', [c(phase, 'approach'), c(setting, 'disarmed')], ''],
@@ -105,10 +105,10 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     ['does not power on BSCU', [c(bscu, 'off'), c(brakingNeeded, 'true'), c(behaviour, 'normal')], ''],
     ['powers on BSCU too late', [c(bscu, 'off'), c(brakingNeeded, 'true'), c(behaviour, 'normal')], 'more than TBD seconds have passed since the function was needed'],
   ]
-  const bs: [string, Condition[], string][] = [
+  const bs: [string, Expr[], string][] = [
     ['during RTO to V1', [c(phase, 'rejected takeoff'), c(v1, 'false')], ''],
     ['during landing roll when BSCU is armed', [c(phase, 'landing roll'), c(setting, 'disarmed', '≠')], ''],
-    ['after takeoff', [c(phase, 'climb-out'), c(gear, 'retracted', '≠'), c(rotating, 'true', '=', { names: [{ declare: 'w1' }] })], ''],
+    ['after takeoff', W('w1', wheel, c(phase, 'climb-out'), c(gear, 'retracted', '≠'), c(rotating, 'true', '=', 'w1')), ''],
     ['excessive Braking commands', [c(phase, 'landing roll')], 'the braking level is excessive (TBD)'],
     ['inappropriately during takeoff', [c(phase, 'takeoff roll')], ''],
     ['insufficient level', [c(phase, 'landing roll')], 'the braking level is insufficient (TBD)'],
@@ -118,14 +118,14 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     ['seconds after V1 during rejected takeoff', [c(phase, 'rejected takeoff'), c(v1, 'true')], 'more than TBD seconds have passed since V1'],
     ['before TBD taxi speed attained', [c(phase, 'landing roll'), c(taxiSpeed, 'false')], ''],
     ['too long (more than TBD seconds)', [c(phase, 'landing roll'), c(speed, '0'), c(location, 'runway')], 'the braking has lasted more than TBD seconds'],
-    ['tire lock until', [c(phase, 'approach'), c(force, '0', '>', { names: [{ declare: 'w1' }] })], 'the braking continues until less than TBD seconds before touchdown'],
+    ['tire lock until', W('w1', wheel, c(phase, 'approach'), c(force, '0', '>', 'w1')), 'the braking continues until less than TBD seconds before touchdown'],
   ]
 
   // ---- apply --------------------------------------------------------------------------------------------------------
   for (const h of itemsOfKind(q, 'hazard')) {
     const conds = hazardConds[h.title]
     if (!conds) continue
-    set(h.id, { conditions: conds, variables: [...new Set(conds.flatMap(condVars))] })
+    set(h.id, { when: all(conds), variables: [...new Set(varsOf(all(conds)))] })
   }
   const ctrl = itemsOfKind(q, 'node').find((n) => n.role === 'controller')!.id
   const table = id === 'hb-crew' ? crew : bs
@@ -135,11 +135,13 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     const row = table.find(([key]) => u.override.includes(key))
     if (!row) continue
     const [, conds, context] = row
-    set(u.id, { conditions: conds, context, override: '', description: `Handbook wording: ${u.override}` })
-    for (const x of conds) for (const v of condVars(x)) q = addBelief(q, ctrl, v).project
+    set(u.id, { when: all(conds), context, override: '', description: `Handbook wording: ${u.override}` })
+    for (const v of new Set(varsOf(all(conds)))) q = addBelief(q, ctrl, v).project
   }
   return q
 }
 
-function c(variable: Id<'variable'>, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { kind: 'value', variable, op, state, ...extra } }
-const inn = (variable: Id<'variable'>, ...set: string[]): Condition => ({ kind: 'value', variable, op: 'in', state: '', set })
+const all = (cs: Expr[]): Expr => (cs.length > 1 ? and(...cs) : cs[0])
+/** `variable op state` (a number for `<`/`>`), read at the instances `at`. */
+function c(v: Id<'variable'>, state: string, op: '=' | '≠' | CmpOp = '=', ...at: string[]): Expr { return op === '=' ? is(v, state, ...at) : op === '≠' ? isNot(v, state, ...at) : cmp(op, variable(v, ...at), num(state)) }
+const inn = (v: Id<'variable'>, ...set: string[]): Expr => oneOf(variable(v), ...set)

@@ -3,6 +3,8 @@ import { projectBuilder } from './build'
 import { attributesOf, generalisations, isA, sameInstance } from './formal'
 import { inheritedOperations } from './operations'
 import { isMany } from './variables'
+import { endName, relName } from './labels'
+import { deleteItems } from './ops'
 
 function setup() {
   const b = projectBuilder()
@@ -39,5 +41,23 @@ describe('entity relation', () => {
     expect(isMany(b.project, b.project.items[shift] as never)).toBe(true)
     const v = b.add('variable', { layer: 'domain', parent: badge, title: 'worn', type: 'boolean' })
     expect(isMany(b.project, b.project.items[v] as never)).toBe(false)
+  })
+})
+
+describe('relationship ends', () => {
+  it('names an end by its role, by default the entity title; relationships name all ends', () => {
+    const b = projectBuilder()
+    const a = b.add('entity', { title: 'Driver' }), v = b.add('entity', { title: 'Vehicle' })
+    const r = b.add('relationship', { title: 'drives', ends: [{ entity: a, role: '', card: '1' }, { entity: v, role: 'car', card: '*' }] })
+    const rel = b.project.items[r]
+    if (rel.kind !== 'relationship') throw new Error('kind')
+    expect(rel.ends.map((e) => endName(b.project, e))).toEqual(['Driver', 'car'])
+    expect(relName(b.project, rel)).toBe('Driver drives car')
+  })
+  it('deleting an end entity removes the relationship', () => {
+    const b = projectBuilder()
+    const a = b.add('entity', { title: 'A' }), c = b.add('entity', { title: 'C' }), d = b.add('entity', { title: 'D' })
+    const r = b.add('relationship', { title: 'x', ends: [{ entity: a, role: '', card: '1' }, { entity: c, role: '', card: '1' }, { entity: d, role: '', card: '1' }] })
+    expect(deleteItems(b.project, [d]).items[r]).toBeUndefined()
   })
 })

@@ -3,10 +3,10 @@ import { emptyProject } from './create'
 import { blankField, createItem, defineEnumType, defineRangeType, defineStructType, defineSymbolicType, deleteEnumType, deleteRangeType, deleteSymbolicType, renameEnumType, renameRangeType, renameSymbolicType, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
-import { conditionError, opsFor, opsForVar, describeStates } from './variables'
+import { opsFor, describeStates } from './variables'
+import { val, checkError, cmp, opsFor as opsForTy, tyOfSpec, variable } from './lang'
 import { paramVar } from './params'
-import type { ConditionOp, ItemOf, Project, Variable } from './types'
-import type { ValueCondition, VarCondition } from './legacy'
+import type { Comparison, ConditionOp, ItemOf, Project, Variable } from './types'
 import { typeSpec } from './create'
 
 const setup = () => {
@@ -19,8 +19,7 @@ const setup = () => {
   const v = (i: string) => p.items[i] as Variable
   return { p: () => p, v, t1, t2, id, set: (f: (q: Project) => Project) => { p = f(p) } }
 }
-const c = (variable: string, op: ConditionOp, state: string): ValueCondition => ({ kind: 'value', variable, op, state })
-const cv = (variable: string, op: ConditionOp, other: string): VarCondition => ({ kind: 'var', variable, op, other })
+const c = (op: ConditionOp, state: string): Comparison => ({ op, state })
 
 describe('symbolic types', () => {
   it('a named type gives its properties to the variables', () => {
@@ -33,7 +32,7 @@ describe('symbolic types', () => {
     expect(s.v(s.id)).toMatchObject({ ordered: true })
     s.set((q) => defineSymbolicType(q, 'ID', { ordered: false }))
     expect(opsFor(s.v(s.id))).toEqual(['=', '≠'])
-    expect(conditionError(s.v(s.id), c(s.id, '<', 'a'))).toMatch(/does not apply/)
+    expect(checkError({ p: s.p() }, cmp('<', variable(s.id), val('a')))).toMatch(/has no order/)
   })
 
   it('rename and delete keep variables consistent', () => {
@@ -53,12 +52,12 @@ describe('symbolic types', () => {
   it('conditions compare symbols; order is natural', () => {
     const s = setup()
     const t = s.v(s.t1)
-    expect(holds(t, c(s.t1, '<', 't10'), 't2')).toBe(true)
-    expect(holds(t, c(s.t1, '≥', 't10'), 't2')).toBe(false)
-    expect(holds(s.v(s.id), c(s.id, '=', 'a1'), 'a1')).toBe(true)
-    expect(holds(s.v(s.id), c(s.id, '<', 'a1'), 'a0')).toBeNull()
+    expect(holds(t, c('<', 't10'), 't2')).toBe(true)
+    expect(holds(t, c('≥', 't10'), 't2')).toBe(false)
+    expect(holds(s.v(s.id), c('=', 'a1'), 'a1')).toBe(true)
+    expect(holds(s.v(s.id), c('<', 'a1'), 'a0')).toBeNull()
     for (const op of ['=', '≠', '<', '≤', '>', '≥'] as const) {
-      const cond = c(s.t1, op, 't5')
+      const cond = c(op, 't5')
       expect(holds(t, cond, pickValue(t, cond))).toBe(true)
       expect(holds(t, cond, pickValue(t, cond, true))).toBe(false)
     }
@@ -66,9 +65,9 @@ describe('symbolic types', () => {
 
   it('variables compare only within the same symbolic type', () => {
     const s = setup()
-    expect(conditionError(s.v(s.t1), cv(s.t1, '<', s.t2), s.p())).toBeNull()
-    expect(conditionError(s.v(s.t1), cv(s.t1, '=', s.id), s.p())).toMatch(/different symbolic types/)
-    expect(opsForVar(s.v(s.id))).toEqual(['=', '≠'])
+    expect(checkError({ p: s.p() }, cmp('<', variable(s.t1), variable(s.t2)))).toBeNull()
+    expect(checkError({ p: s.p() }, cmp('=', variable(s.t1), variable(s.id)))).toMatch(/cannot compare/)
+    expect(opsForTy(tyOfSpec(s.v(s.id))).filter((o) => o !== 'in')).toEqual(['=', '≠'])
     expect(describeStates(s.v(s.t1))).toBe('Timestamp (ordered)')
   })
 

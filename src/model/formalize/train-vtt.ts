@@ -2,13 +2,10 @@ import { relEnds } from '../create'
 import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
-import { anyOf, autoName, declare } from '../variables'
-import { condVars } from '../expr'
+import { varsOf } from '../atoms'
 import { rulesOf } from '../types'
 import type { Id, Item, ItemOf, Project, Variable } from '../types'
-import type { Condition, ValueCondition } from '../legacy'
-import { upgrade } from '../build'
-import { check, mapChildren, some, type Expr } from '../lang'
+import { and, check, inWords, is, isNot, mapChildren, none, or, some, type Expr } from '../lang'
 
 /**
  * Formalizes the published examples `pub-train-door` and `pub-vtt-am` as far as the model allows: domain model (entities with
@@ -26,13 +23,12 @@ const named = <T extends Item>(xs: T[], title: string) => xs.find((x) => x.title
 function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: K, title: string, init: Record<string, unknown>, owner?: Id): Id {
   const have = all(b).find((i) => i.kind === kind && i.title.trim() === title && (!owner || i.parent === owner || (i.kind === 'relationship' && i.ends[0]?.entity === owner)))
   if (have) return have.id
-  const r = createItem(b.p, kind, { title, ...upgrade(b.p, init) } as never)
+  const r = createItem(b.p, kind, { title, ...init } as never)
   b.p = r.project
   return r.id
 }
-const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, upgrade(b.p, patch) as never) }
-const cond = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
-const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
+const set = (b: Box, id: Id, patch: Record<string, unknown>) => { b.p = updateItem(b.p, id, patch as never) }
+const all_ = (cs: Expr[]): Expr => (cs.length > 1 ? and(...cs) : cs[0])
 const isEmpty = (e: Expr | null) => !e
 const world = (b: Box, ids: Id[]) => ids.filter((v) => b.p.items[v]?.kind === 'variable')
 
@@ -64,13 +60,13 @@ function train(p0: Project): Project {
   // A train has several doors: conditions on door variables say which door.
   if (!(b.p.items[doorE] as ItemOf<'entity'>).many) set(b, doorE, { many: true })
   const doorVars = [doorPos, way]
-  const d1 = autoName(b.p, doorE, [])
+  const d1 = 'do1'
 
   // Hierarchical variable: is it unsafe to open the doors (hazard H2 is "moving OR not aligned")?
   const sit = ensure(b, 'variable', 'Door-opening situation', {
     layer: 'domain', parent: trainE, states: ['safe for opening', 'unsafe for opening'],
     definition: 'Opening the doors is unsafe while the train is moving or not aligned with a platform. Refines train motion and train position.',
-    rules: [{ state: 'unsafe for opening', when: anyOf(cond(motion, 'moving'), cond(pos, 'not aligned with platform')) }], otherwise: 'safe for opening',
+    rules: [{ state: 'unsafe for opening', when: or(is(motion, 'moving'), is(pos, 'not aligned with platform')) }], otherwise: 'safe for opening',
   })
 
   // The existing UCA conditions on door variables are about the door the controller drives: one named instance.
@@ -81,12 +77,12 @@ function train(p0: Project): Project {
 
   const [h1, h2, h3] = ['Doors close on a person in the doorway', 'Doors open when the train is moving or not aligned with a platform', 'Passengers or personnel are unable to exit the train during an emergency']
     .map((t) => named(itemsOfKind(b.p, 'hazard'), t)!)
-  const hz: [typeof h1, Condition[]][] = [
-    [h1, [cond(way, 'person in doorway', { names: [{ declare: d1 }] }), cond(doorPos, 'fully open', { op: '≠', names: [{ use: d1 }] })]],
-    [h2, [cond(sit, 'unsafe for opening'), cond(doorPos, 'fully closed', { op: '≠', names: [{ declare: d1 }] })]],
-    [h3, [cond(em, 'evacuation required'), cond(doorPos, 'fully open', { names: [declare('do1', 'none')] })]],
+  const hz: [typeof h1, Expr][] = [
+    [h1, some(d1, doorE, and(is(way, 'person in doorway', d1), isNot(doorPos, 'fully open', d1)))],
+    [h2, some(d1, doorE, and(is(sit, 'unsafe for opening'), isNot(doorPos, 'fully closed', d1)))],
+    [h3, none('do1', doorE, and(is(em, 'evacuation required'), is(doorPos, 'fully open', 'do1')))],
   ]
-  for (const [h, cs] of hz) if (isEmpty(h.when)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
+  for (const [h, when] of hz) if (isEmpty(h.when)) set(b, h.id, { when, ...(h.variables.length ? {} : { variables: world(b, [...new Set(varsOf(when))]) }) })
   return b.p
 }
 
@@ -107,7 +103,7 @@ function vtt(p0: Project): Project {
   // Hierarchical: "operational context" the drive command has to be adjusted to (people near, objects in the way, extraordinary environment).
   const ctx = V('Operational context', am, ['normal', 'adjusted driving required'], 'The situation the drive command must be adjusted to: people nearby, vehicles or objects in the way or extraordinary environmental conditions.')
   if (!rulesOf((b.p.items[ctx] as Variable)).length)
-    set(b, ctx, { rules: [{ state: 'adjusted driving required', when: anyOf(cond(near, 'true', { names: [{ declare: 'pe1' }] }), cond(inWay, 'true', { names: [{ declare: 've1' }] }), cond(cnd, 'extraordinary')) }], otherwise: 'normal' })
+    set(b, ctx, { rules: [{ state: 'adjusted driving required', when: or(some('pe1', person, is(near, 'true', 'pe1')), some('ve1', thing, is(inWay, 'true', 've1')), is(cnd, 'extraordinary')) }], otherwise: 'normal' })
 
   // Elements know their entities; the movement control action changes the AM's world state.
   const node = (t: string) => named(itemsOfKind(b.p, 'node'), t)
@@ -125,23 +121,23 @@ function vtt(p0: Project): Project {
   signalFor(b, 'Environmental conditions', [cnd])
 
   const hz = (re: RegExp) => itemsOfKind(b.p, 'hazard').find((h) => re.test(h.title))!
-  const hzs: [ReturnType<typeof hz>, Condition[]][] = [
-    [hz(/people nearby/), [cond(motion, 'moving'), cond(near, 'true', { names: [{ declare: 'pe1' }] })]],
-    [hz(/vehicles or other objects/), [cond(motion, 'moving'), cond(inWay, 'true', { names: [{ declare: 've1' }] })]],
-    [hz(/leaves the area/), [cond(loc, 'outside operating area')]],
+  const hzs: [ReturnType<typeof hz>, Expr][] = [
+    [hz(/people nearby/), some('pe1', person, and(is(motion, 'moving'), is(near, 'true', 'pe1')))],
+    [hz(/vehicles or other objects/), some('ve1', thing, and(is(motion, 'moving'), is(inWay, 'true', 've1')))],
+    [hz(/leaves the area/), is(loc, 'outside operating area')],
   ]
-  for (const [h, cs] of hzs) if (isEmpty(h.when)) set(b, h.id, { conditions: cs, ...(h.variables.length ? {} : { variables: world(b, [...new Set(cs.flatMap(condVars))]) }) })
+  for (const [h, when] of hzs) if (isEmpty(h.when)) set(b, h.id, { when, ...(h.variables.length ? {} : { variables: world(b, [...new Set(varsOf(when))]) }) })
 
   const uca = (ca: string, guide: string, re = /./) => itemsOfKind(b.p, 'uca').find((u) => (b.p.items[u.ca] as { title: string }).title === ca && u.guide === guide && re.test(u.override))!
-  const ucs: [ReturnType<typeof uca>, Condition[]][] = [
-    [uca('Drive command to route point', 'provided', /incorrect route point/), [words('the route point in the drive command is not the intended one')]],
-    [uca('Drive command to route point', 'provided', /not adjusted/), [cond(ctx, 'adjusted driving required'), words('the drive command is not adjusted to this operational context')]],
-    [uca('Drive command to route point', 'not-provided'), [cond(prog, 'on the path to a route point')]],
-    [uca('Environmental data', 'provided'), [cond(motion, 'moving'), words('the environmental data does not match the actual environmental condition')]],
-    [uca('Environmental data', 'not-provided'), [cond(cnd, 'extraordinary')]],
-    [uca('Environmental data', 'too-early-late'), [cond(motion, 'moving'), cond(cnd, 'extraordinary')]],
+  const ucs: [ReturnType<typeof uca>, Expr[]][] = [
+    [uca('Drive command to route point', 'provided', /incorrect route point/), [inWords('the route point in the drive command is not the intended one')]],
+    [uca('Drive command to route point', 'provided', /not adjusted/), [is(ctx, 'adjusted driving required'), inWords('the drive command is not adjusted to this operational context')]],
+    [uca('Drive command to route point', 'not-provided'), [is(prog, 'on the path to a route point')]],
+    [uca('Environmental data', 'provided'), [is(motion, 'moving'), inWords('the environmental data does not match the actual environmental condition')]],
+    [uca('Environmental data', 'not-provided'), [is(cnd, 'extraordinary')]],
+    [uca('Environmental data', 'too-early-late'), [is(motion, 'moving'), is(cnd, 'extraordinary')]],
   ]
-  for (const [u, cs] of ucs) if (isEmpty(u.when)) set(b, u.id, { conditions: cs })
+  for (const [u, cs] of ucs) if (isEmpty(u.when)) set(b, u.id, { when: all_(cs) })
   return b.p
 }
 

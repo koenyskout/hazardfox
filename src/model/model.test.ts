@@ -2,17 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
 import { effectiveLosses } from './derived'
 import { applyStructType, blankField, defineEnumType, defineRangeType, defineStructType, deleteStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split } from './ops'
-import { upgrade } from './build'
-import { createItem as create0, updateItem as update0 } from './ops'
-// legacy condition authoring in tests: converted to Expr on the way in
-const createItem = ((p: Project, k: Kind, init?: object) => create0(p, k, upgrade(p, (init ?? {}) as Record<string, unknown>) as never)) as <K extends Kind>(p: Project, k: K, init?: object) => { project: Project; id: Id<K> }
-const updateItem = ((p: Project, id: Id, patch: object) => update0(p, id, upgrade(p, patch as Record<string, unknown>) as never)) as (p: Project, id: Id, patch: object) => Project
+import { createItem, updateItem } from './ops'
 import { emptyProject, makeItem } from './create'
 import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
 import { guideApplies } from './uca'
 import { structOf } from './types'
-import type { Hazard, Id, ItemOf, Kind, Patch, Project, Variable } from './types'
+import type { Hazard, Id, Kind, Patch, Project, Variable } from './types'
 
 function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
   const r = createItem(p, kind, init)
@@ -230,25 +226,28 @@ describe('variable types and conditions', () => {
     expect((q.items[h.id] as Hazard).when).toBeNull()
   })
   it('describes states, validates conditions per type', async () => {
-    const { describeStates, conditionError, conditionText, opsFor } = await import('./variables')
+    const { describeStates, opsFor } = await import('./variables')
+    const { checkError, cmp, between, variable, val, num, not, oneOf } = await import('./lang')
+    const { say } = await import('./say')
     const { makeItem } = await import('./create')
     const range = { ...makeItem('variable'), type: 'range' as const, unit: '%', min: 0, max: 100 }
     expect(describeStates(range)).toBe('0–100 %')
     expect(opsFor(range)).toContain('between')
     expect(opsFor({ ...makeItem('variable'), type: 'boolean' })).toEqual(['=', '≠'])
-    expect(conditionError(range, { kind: 'value', variable: 'x', op: 'between', state: '20', to: '10' })).toMatch(/exceeds/)
-    expect(conditionError(range, { kind: 'value', variable: 'x', op: '>', state: 'abc' })).toMatch(/not a number/)
-    expect(conditionText({ ...emptyProject(), items: { x: { ...range, id: 'x', title: 'Rate' } } }, { kind: 'value', variable: 'x', op: 'not between', state: '1', to: '5' })).toBe('Rate is not between 1 and 5 %')
-    expect(conditionError(range, { kind: 'value', variable: 'x', op: '≥', state: '5' })).toBeNull()
-    expect(conditionError({ ...range, type: 'boolean' }, { kind: 'value', variable: 'x', op: '<', state: 'true' })).toMatch(/does not apply/)
     const en = { ...makeItem('variable'), title: 'Mode', states: ['a', 'b', 'c'] }
     expect(opsFor(en)).toEqual(['=', '≠', 'in', 'not in'])
-    expect(conditionError(en, { kind: 'value', variable: 'x', op: 'in', state: '', set: ['a', 'z'] })).toMatch(/"z" is not one of/)
-    expect(conditionError(en, { kind: 'value', variable: 'x', op: 'not in', state: '', set: ['a', 'b'] })).toBeNull()
     let p = emptyProject()
-    p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
-    const v = Object.values(p.items)[0] as ItemOf<'variable'>
-    expect(conditionText(p, { kind: 'value', variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
+    const r = createItem(p, 'variable', { ...range, title: 'Rate' }); p = r.project
+    const m = createItem(p, 'variable', { ...en, title: 'Mode' }); p = m.project
+    const bo = createItem(p, 'variable', { type: 'boolean', title: 'Armed' }); p = bo.project
+    const err = (e: Parameters<typeof checkError>[1]) => checkError({ p }, e)
+    expect(err(cmp('>', variable(r.id), val('abc')))).toMatch(/not a number/)
+    expect(err(cmp('≥', variable(r.id), val('5')))).toBeNull()
+    expect(err(cmp('<', variable(bo.id), val('true')))).toBeTruthy()
+    expect(err(oneOf(variable(m.id), 'a', 'z'))).toMatch(/"z" is not one of/)
+    expect(err(not(oneOf(variable(m.id), 'a', 'b')))).toBeNull()
+    expect(say(p, between(variable(r.id), num(1), num(5)))).toBe('Rate is between 1 and 5 %')
+    expect(say(p, not(between(variable(r.id), num(1), num(5))))).toBe('not (Rate is between 1 and 5 %)')
   })
 })
 

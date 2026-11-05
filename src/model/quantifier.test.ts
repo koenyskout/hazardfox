@@ -1,24 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject, relEnds } from './create'
 import { deleteItems } from './ops'
-import { upgrade } from './build'
-import { createItem as create0, updateItem as update0 } from './ops'
-// legacy condition authoring in tests: converted to Expr on the way in
-const createItem = ((p: Project, k: Kind, init?: object) => create0(p, k, upgrade(p, (init ?? {}) as Record<string, unknown>) as never)) as <K extends Kind>(p: Project, k: K, init?: object) => { project: Project; id: Id<K> }
-const updateItem = ((p: Project, id: Id, patch: object) => update0(p, id, upgrade(p, patch as Record<string, unknown>) as never)) as (p: Project, id: Id, patch: object) => Project
+import { createItem, updateItem } from './ops'
+import { and, every, gt, inWords, is, none, some, val, variable, type Expr } from './lang'
 import { addSignal, beliefsAbout, signalsOf } from './formal'
 import { say } from './say'
-import { whenToExpr } from './bridge'
 import { varsOf } from './atoms'
 import { deserialize, serialize } from './serialize'
 import { whenHolds, diagnose, draftTrace, getter, mismatches } from './traces'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { isMany, declare } from './variables'
+import { isMany } from './variables'
 import { mention, refsOf } from './refs'
-import type { Id, Kind, Project, Scenario } from './types'
-import type { Condition, ValueCondition } from './legacy'
+import type { Id, Project, Scenario } from './types'
 
 function setup() {
   let p = emptyProject()
@@ -30,32 +25,32 @@ function setup() {
   return { get p() { return p }, set p(x: Project) { p = x }, add, train, station, speed, rel }
 }
 
-const cond = (variable: Id, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state: '0', ...extra })
-const txt = (p: Project, ...cs: Condition[]) => say(p, whenToExpr(p, cs))
+const zero = (v: Id<'variable'>, ...at: string[]) => is(v, '0', ...at)
+const txt = (p: Project, e: Expr) => say(p, e)
 const predOf = (s: ReturnType<typeof setup>, rel: Id) => Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === rel)!.id as Id<'variable'>
 
 describe('instance quantification', () => {
   it('defaults to a single instance: nothing changes', () => {
     const s = setup()
     expect(isMany(s.p, s.p.items[s.speed] as never)).toBe(false)
-    expect(txt(s.p, cond(s.speed))).toBe('speed is 0')
+    expect(txt(s.p, zero(s.speed))).toBe('speed is 0')
   })
   it('reads quantified conditions as sentences', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    expect(txt(s.p, cond(s.speed, { names: [declare('t1', 'all')] }))).toBe('every Train t1: speed of t1 is 0')
-    expect(txt(s.p, cond(s.speed, { names: [declare('t1', 'none')] }))).toBe('no Train t1: speed of t1 is 0')
-    expect(txt(s.p, cond(s.speed, { names: [declare('t1')] }))).toBe('some Train t1: speed of t1 is 0')
+    expect(txt(s.p, every('t1', s.train, zero(s.speed, 't1')))).toBe('every Train t1: speed of t1 is 0')
+    expect(txt(s.p, none('t1', s.train, zero(s.speed, 't1')))).toBe('no Train t1: speed of t1 is 0')
+    expect(txt(s.p, some('t1', s.train, zero(s.speed, 't1')))).toBe('some Train t1: speed of t1 is 0')
     const pred = predOf(s, s.rel)
-    expect(txt(s.p, { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'none')] })).toBe('no Train t1: t1 at Station')
-    const uca = s.add('uca', { conditions: [cond(s.speed, { names: [declare('t1', 'all')] })] })
+    expect(txt(s.p, none('t1', s.train, is(pred, 'true', 't1')))).toBe('no Train t1: t1 at Station')
+    const uca = s.add('uca', { when: every('t1', s.train, zero(s.speed, 't1')) })
     expect(generateUcaText(s.p, computeLabels(s.p), s.p.items[uca] as never)).toContain('when every Train t1: speed of t1 is 0')
   })
   it('none flips a trace value', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const get = getter({ [`${s.speed}@a`]: '0' })
-    const w = (q: 'some' | 'none') => whenToExpr(s.p, [cond(s.speed, { names: [declare('t1', q)] })])
+    const w = (q: 'some' | 'none') => (q === 'some' ? some : none)('t1', s.train, zero(s.speed, 't1'))
     expect(whenHolds(s.p, w('some'), get)).toBe(true)
     expect(whenHolds(s.p, w('none'), get)).toBe(false)
     expect(whenHolds(s.p, w('none'), getter({}))).toBeNull()
@@ -63,7 +58,7 @@ describe('instance quantification', () => {
   it('round-trips and plain projects carry no quantifier data', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const u = s.add('uca', { conditions: [cond(s.speed, { names: [declare('t1', 'all')] })] })
+    const u = s.add('uca', { when: every('t1', s.train, zero(s.speed, 't1')) })
     const q = deserialize(serialize(s.p))
     expect((q.items[s.train] as { many?: boolean }).many).toBe(true)
     expect((q.items[u] as { when: unknown }).when).toEqual((s.p.items[u] as { when: unknown }).when)
@@ -78,10 +73,7 @@ describe('instance quantification', () => {
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '*') })
     const pred = predOf(s, appr)
     const open = s.add('variable', { layer: 'domain', parent: crossing, title: 'open', type: 'boolean' })
-    const w = whenToExpr(s.p, [
-      { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'all'), declare('c1')] },
-      { kind: 'value', variable: open, op: '=', state: 'true', names: [{ use: 'c1' }] },
-    ])
+    const w = every('t1', s.train, some('c1', crossing, and(is(pred, 'true', 't1', 'c1'), is(open, 'true', 'c1'))))
     const lane = (t: string, c: string) => `${pred}@${t}|${c}`
     const holds = (v: Record<string, string>) => whenHolds(s.p, w, getter(v))
     expect(holds({ [lane('t1', 'c1')]: 'true', [lane('t2', 'c1')]: 'true', [`${open}@c1`]: 'true' })).toBe(true)
@@ -91,7 +83,7 @@ describe('instance quantification', () => {
   it('distinct names are distinct instances; the aggregate lane cannot supply two', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const w = whenToExpr(s.p, [cond(s.speed, { names: [declare('t1')] }), cond(s.speed, { names: [declare('t2')] })])
+    const w = some('t1', s.train, some('t2', s.train, and(zero(s.speed, 't1'), zero(s.speed, 't2'))))
     expect(whenHolds(s.p, w, getter({ [s.speed]: '0' }))).toBeNull()
     expect(whenHolds(s.p, w, getter({ [`${s.speed}@a`]: '0' }))).toBe(false)
     expect(whenHolds(s.p, w, getter({ [`${s.speed}@a`]: '0', [`${s.speed}@b`]: '0' }))).toBe(true)
@@ -103,10 +95,9 @@ describe('instance quantification', () => {
     const min = s.add('variable', { layer: 'domain', parent: crossing, title: 'minimum speed', type: 'range', min: 0, max: 100 })
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '1') })
     const pred = predOf(s, appr)
-    const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't1' }] }
-    const b: Condition = { kind: 'var', variable: s.speed, op: '>', other: min, names: [{ use: 't1' }] }
-    const uca = s.add('uca', { conditions: [a, b] })
-    expect(txt(s.p, a, b)).toBe('some Train t1: t1 approaches Crossing and speed of t1 is greater than minimum speed')
+    const w = some('t1', s.train, and(is(pred, 'true', 't1'), gt(variable(s.speed, 't1'), variable(min))))
+    const uca = s.add('uca', { when: w })
+    expect(txt(s.p, w)).toBe('some Train t1: t1 approaches Crossing and speed of t1 is greater than minimum speed')
     expect(validate(s.p).filter((i) => i.rule === 'expr-type' && i.item === uca)).toEqual([])
     const get = (id: Id) => ({ [pred]: 'true', [s.speed]: '60', [min]: '40' } as Record<Id, string>)[id]
     expect(whenHolds(s.p, (s.p.items[uca] as unknown as { when: never }).when, get)).toBe(true)
@@ -131,7 +122,7 @@ describe('relationship reading', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id as Id<'variable'>
-    const c: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1')] }
+    const c = some('t1', s.train, is(pred, 'true', 't1'))
     expect(txt(s.p, c)).toBe('some Train t1: t1 at Station')
     s.p = updateItem(s.p, s.rel, { reading: '{2} is where {1} stops' })
     expect(txt(s.p, c)).toBe('some Train t1: Station is where t1 stops')
@@ -150,7 +141,7 @@ describe('per-instance signals and beliefs', () => {
     const ca = s.add('ca', { title: 'Brake', from: ctrl, to: proc, affects: [s.speed] })
     const fb = s.add('feedback', { title: 'Speed reading', from: proc, to: ctrl })
     s.p = addSignal(s.p, fb, s.speed).project
-    const uca = s.add('uca', { ca, guide: 'provided', conditions: [cond(s.speed, { names: [{ declare: 't1' }], op: '>', state: '10' })] })
+    const uca = s.add('uca', { ca, guide: 'provided', when: some('t1', s.train, gt(variable(s.speed, 't1'), val('10'))) })
     return { ...s, ctrl, ca, fb, uca }
   }
   it('drafts signal and belief lanes for the named instance and diagnoses them', () => {
@@ -183,7 +174,7 @@ describe('variable mentions in free-text conditions', () => {
     const s = setup()
     const v2 = s.add('variable', { layer: 'domain', parent: s.train, title: 'brake', type: 'boolean' })
     const hz = s.add('hazard', {})
-    s.p = updateItem(s.p, hz, { conditions: [{ kind: 'text', op: '=', text: `alert while ${mention(s.speed)} is high` }] }) as Project
+    s.p = updateItem(s.p, hz, { when: inWords(`alert while ${mention(s.speed)} is high`) }) as Project
     expect(refsOf(s.p.items[hz])).toContain(s.speed)
     expect(refsOf(s.p.items[v2])).not.toContain(s.speed)
     const rt = deserialize(serialize(s.p))

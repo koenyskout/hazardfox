@@ -2,10 +2,9 @@ import { addBelief, addSignal } from '../formal'
 import { relEnds } from '../create'
 import { itemsOfKind } from '../tree'
 import { createItem, updateItem } from '../ops'
-import { upgrade, type Init, type Legacy } from '../build'
 import { varsOf } from '../atoms'
-import type { ConditionOp, Id, Kind, Patch, Project } from '../types'
-import type { Condition, ValueCondition } from '../legacy'
+import { and, cmp as cmpE, gt, is, isNot, num, some, variable, type CmpOp, type Expr } from '../lang'
+import type { Id, Kind, Patch, Project } from '../types'
 
 /**
  * Formalizes the Handbook examples hb-autohold (Auto-Hold, Table C.1) and hb-htv (H-II Transfer Vehicle, Table C.2):
@@ -21,14 +20,14 @@ export function formalizeAutoholdHtv(id: 'hb-autohold' | 'hb-htv', p: Project): 
 /** Small mutable builder over an existing project. */
 function kit(p: Project) {
   let q = p
-  const add = <K extends Kind>(kind: K, init?: Init<K>): Id<K> => { const r = createItem(q, kind, upgrade(q, (init ?? {}) as Record<string, unknown>) as Patch<K>); q = r.project; return r.id }
-  const set = (id: Id, patch: Patch | Legacy) => { q = updateItem(q, id, upgrade(q, patch as Record<string, unknown>) as Patch) }
+  const add = <K extends Kind>(kind: K, init?: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
+  const set = (id: Id, patch: Patch) => { q = updateItem(q, id, patch) }
   const find = <K extends Kind>(kind: K, title: string): Id<K> => {
     const it = itemsOfKind(q, kind).find((x) => x.title === title)
     if (!it) throw new Error(`${kind} "${title}" not found`)
     return it.id as Id<K>
   }
-  const enumVar = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], extra: Init<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
+  const enumVar = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], extra: Patch<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
   const bool = (parent: Id<'entity' | 'relationship'>, title: string, extra: Patch<'variable'> = {}) => add('variable', { parent, title, type: 'boolean', ...extra })
   const range = (parent: Id<'entity' | 'relationship'>, title: string, unit: string, min: number | null = 0, max: number | null = null, extra: Patch<'variable'> = {}) =>
     add('variable', { parent, title, type: 'range', unit, min, max, ...extra })
@@ -36,10 +35,10 @@ function kit(p: Project) {
   const internalRange = (node: Id<'node'>, title: string, unit: string, definition = '') => add('variable', { layer: 'internal', parent: node, title, type: 'range', unit, min: 0, max: null, definition })
   const rel = (title: string, from: Id<'entity'>, to: Id<'entity'>, fromCard: string, toCard: string) => { const id = add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) }); return { id, pred: itemsOfKind(q, 'variable').find((v) => v.parent === id)!.id } }
   /** UCA lookup by the Handbook sentence, rewritten with formal conditions; the sentence is kept in the notes. */
-  const uca = (text: string, conditions: Condition[], context = '', hazards?: Id<'hazard'>[]) => {
+  const uca = (text: string, conditions: Expr[], context = '', hazards?: Id<'hazard'>[]) => {
     const u = itemsOfKind(q, 'uca').find((x) => x.override === text)
     if (!u) throw new Error(`UCA "${text}" not found`)
-    set(u.id, { conditions, context, override: '', notes: `Handbook: ${text}`, ...(hazards ? { hazards } : {}) })
+    set(u.id, { when: conditions.length > 1 ? and(...conditions) : conditions[0] ?? null, context, override: '', notes: `Handbook: ${text}`, ...(hazards ? { hazards } : {}) })
   }
   /** Beliefs of the issuing controller about every world variable its UCA contexts mention. */
   const believe = () => {
@@ -59,16 +58,15 @@ function kit(p: Project) {
     if (b) set(b.id, { definition })
   }
   const signal = (fb: Id<'feedback'>, world: Id<'variable'>) => { q = addSignal(q, fb, world).project }
-  const cond = (variable: Id<'variable'>, op: ConditionOp, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op, state, ...extra })
-  const eq = (v: Id<'variable'>, s: string) => cond(v, '=', s)
-  const ne = (v: Id<'variable'>, s: string) => cond(v, '≠', s)
-  const cmp = (v: Id<'variable'>, op: ConditionOp, other: Id<'variable'>): Condition => ({ kind: 'var', variable: v, op, other })
-  return { get p() { return q }, add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, believe, belief, describeBelief, signal, cond, eq, ne, cmp }
+  const eq = (v: Id<'variable'>, s: string) => is(v, s)
+  const ne = (v: Id<'variable'>, s: string) => isNot(v, s)
+  const cmp = (v: Id<'variable'>, op: CmpOp, other: Id<'variable'>): Expr => cmpE(op, variable(v), variable(other))
+  return { get p() { return q }, add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, believe, belief, describeBelief, signal, eq, ne, cmp }
 }
 
 function autohold(p: Project): Project {
   const k = kit(p)
-  const { add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, eq, ne, cmp, cond } = k
+  const { add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, eq, ne, cmp } = k
 
   // --- domain model -----------------------------------------------------------------------------------------
   const vehicle = add('entity', { title: 'Vehicle', description: 'The ego vehicle with Auto-Hold.' })
@@ -82,7 +80,7 @@ function autohold(p: Project): Project {
   const wheelSpeed = range(vehicle, 'Wheel speed', 'km/h', 0, null)
   const motion = enumVar(vehicle, 'Motion', ['stopped', 'moving'], {
     definition: 'The vehicle is moving when its wheel speed exceeds zero.',
-    rules: [{ state: 'moving', when: { kind: 'group', any: false, of: [cond(wheelSpeed, '>', '0')] } }], otherwise: 'stopped',
+    rules: [{ state: 'moving', when: gt(variable(wheelSpeed), num(0)) }], otherwise: 'stopped',
   })
   const timeAtRest = range(vehicle, 'Time at rest', 's', 0, null, { definition: 'Time since the vehicle came to rest (a timer; zero while moving).' })
   const slipping = bool(vehicle, 'Slipping', { definition: 'The vehicle moves (rolls) although the brakes hold, e.g. on a steep or slippery slope.' })
@@ -116,8 +114,8 @@ function autohold(p: Project): Project {
   // --- hazards ----------------------------------------------------------------------------------------------
   const H1 = find('hazard', 'Vehicle does not maintain safe distance from nearby objects')
   const H2 = find('hazard', 'Vehicle enters dangerous area/region')
-  set(H1, { variables: [distance, safeDistance], conditions: [cmp(distance, '<', safeDistance)] })
-  set(H2, { variables: [dangerous, locatedIn.pred], conditions: [cond(dangerous, '=', 'true', { names: [{ declare: 'ar1' }] }), cond(locatedIn.pred, '=', 'true', { names: [null, { use: 'ar1' }] })] })
+  set(H1, { variables: [distance, safeDistance], when: some('no1', object, cmpE('<', variable(distance, '', 'no1'), variable(safeDistance))) })
+  set(H2, { variables: [dangerous, locatedIn.pred], when: some('ar1', area, and(is(dangerous, 'true', 'ar1'), is(locatedIn.pred, 'true', '', 'ar1'))) })
 
   // --- UCAs (contexts) --------------------------------------------------------------------------------------
   uca('AH does not provide HOLD when vehicle stops and brake pedal released', [eq(motion, 'stopped'), eq(brakePedal, 'released'), ne(ahState, 'disabled')], 'the vehicle has just stopped')
@@ -154,7 +152,7 @@ function autohold(p: Project): Project {
 
 function htv(p: Project): Project {
   const k = kit(p)
-  const { add, set, find, enumVar, bool, range, internalRange, rel, uca, eq, ne, cmp, cond } = k
+  const { add, set, find, enumVar, bool, range, internalRange, rel, uca, eq, ne, cmp } = k
 
   // --- domain model -----------------------------------------------------------------------------------------
   const htvE = add('entity', { title: 'HTV', description: 'The autonomous H-II Transfer Vehicle.' })
@@ -181,7 +179,7 @@ function htv(p: Project): Project {
 
   // --- hazard -----------------------------------------------------------------------------------------------
   const H1 = find('hazard', 'HTV and ISS collide or violate safe separation')
-  set(H1, { variables: [distance, safeSep, captured.pred], conditions: [cmp(distance, '<', safeSep), cond(captured.pred, '=', 'false')] })
+  set(H1, { variables: [distance, safeSep, captured.pred], when: and(cmp(distance, '<', safeSep), is(captured.pred, 'false')) })
 
   // --- UCAs (contexts) --------------------------------------------------------------------------------------
   uca('ISS crew does not provide Abort Cmd when emergency condition exists', [eq(emergency, 'true'), ne(mode, 'abort')])

@@ -1,14 +1,9 @@
 import { createItem, updateItem } from '../ops'
 import { addBelief, addSignal, beliefsAbout } from '../formal'
 import { itemsOfKind } from '../tree'
-import { anyOf, isOnVariable } from '../variables'
-import { upgrade, type Init, type Legacy } from '../build'
-import { whenToExpr } from '../bridge'
 import { varsOf } from '../atoms'
-import { and, type Expr } from '../lang'
-import { condVars } from '../expr'
-import type { ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
-import type { Condition, ValueCondition, VarCondition } from '../legacy'
+import { and, cmp, is, or, some, variable, type Expr } from '../lang'
+import type { Entity, Hazard, Id, Patch, Project, Uca, Variable } from '../types'
 
 /**
  * Adds the formal layers (domain model, typed world variables, `many` entities, conditions on leaf hazards and UCAs,
@@ -23,37 +18,33 @@ const kit = (c: Ctx) => {
     if (have) return have.id
     const r = createItem(c.p, 'entity', { title, ...patch }); c.p = r.project; return r.id
   }
-  const world = (owner: Id<'entity' | 'relationship'>, title: string, patch: Init<'variable'>): Id<'variable'> => {
+  const world = (owner: Id<'entity' | 'relationship'>, title: string, patch: Patch<'variable'>): Id<'variable'> => {
     const have = find(itemsOfKind(c.p, 'variable').filter((v) => v.layer === 'domain'), title, owner)
     if (have) return have.id
-    const r = createItem(c.p, 'variable', upgrade(c.p, { layer: 'domain', parent: owner, title, ...patch }) as Patch<'variable'>); c.p = r.project; return r.id
+    const r = createItem(c.p, 'variable', { layer: 'domain', parent: owner, title, ...patch }); c.p = r.project; return r.id
   }
   const rng = (owner: Id<'entity' | 'relationship'>, title: string, unit: string, definition = '') => world(owner, title, { type: 'range', min: 0, max: null, unit, definition })
-  const set = (id: Id, patch: Patch | Legacy) => { c.p = updateItem(c.p, id, upgrade(c.p, patch as Record<string, unknown>) as Patch) }
+  const set = (id: Id, patch: Patch) => { c.p = updateItem(c.p, id, patch) }
   const hazard = (title: string): Hazard => { const h = itemsOfKind(c.p, 'hazard').find((x) => x.title === title); if (!h) throw new Error('hazard not found: ' + title); return h }
   const node = (title: string) => { const n = itemsOfKind(c.p, 'node').find((x) => x.title.startsWith(title)); if (!n) throw new Error('node not found: ' + title); return n.id }
   const feedback = (title: string, from: Id<'node'>, to: Id<'node'>) => { const f = itemsOfKind(c.p, 'feedback').find((x) => x.title.startsWith(title) && x.from === from && x.to === to); if (!f) throw new Error('feedback not found: ' + title); return f.id }
   /** Replace a hazard's / UCA's conditions when it has none yet (never overwrites what is there); hazards also list their world variables. */
-  const hazardConditions = (h: Hazard, conditions: Condition[]) => {
+  const hazardConditions = (h: Hazard, when: Expr) => {
     const have = c.p.items[h.id] as Hazard
-    set(h.id, { ...(have.when ? {} : { conditions }), variables: [...new Set([...have.variables, ...conditions.flatMap(condVars)])] })
+    set(h.id, { ...(have.when ? {} : { when }), variables: [...new Set([...have.variables, ...varsOf(when)])] })
   }
   /** Add the conditions the UCA does not yet have (matched by variable and instance), before the existing ones. */
-  const ucaConditions = (u: Uca, conditions: Condition[], context = '') => {
+  const ucaConditions = (u: Uca, conditions: Expr[], context = '') => {
     const have = (c.p.items[u.id] as Uca)
     const had = new Set(varsOf(have.when))
-    const missing = conditions.filter((x) => isOnVariable(x) && !had.has(x.variable))
-    const parts = [whenToExpr(c.p, missing), have.when].filter((x): x is Expr => !!x)
+    const missing = conditions.filter((x) => !had.has(varsOf(x)[0]))
+    const parts = [missing.length > 1 ? and(...missing) : missing[0], have.when].filter((x): x is Expr => !!x)
     set(u.id, { when: parts.length > 1 ? and(...parts) : parts[0] ?? null, ...(context && !have.context.trim() ? { context } : {}) })
   }
   const belief = (ctrl: Id<'node'>, w: Id<'variable'>) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
   const signal = (fb: Id<'feedback'>, w: Id<'variable'>) => { c.p = addSignal(c.p, fb, w).project }
   return { find, entity, world, rng, set, hazard, node, feedback, hazardConditions, ucaConditions, belief, signal }
 }
-const eq = (variable: Id<'variable'>, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
-/** `variable` compared with another variable (`other`). */
-const cmp = (variable: Id<'variable'>, op: ConditionOp, other: Id<'variable'>, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
-
 function aeb(c: Ctx) {
   const k = kit(c)
   const av = k.entity('Autonomous vehicle (AV)')
@@ -71,20 +62,20 @@ function aeb(c: Ctx) {
   const within = k.world(av, 'Object within CIBd', {
     type: 'boolean',
     definition: 'Some forward mobile object or some prohibited area is closer to the AV than the collision imminent braking distance.',
-    rules: [{ state: 'true', when: anyOf(cmp(dF, '<', cibd, {}), cmp(dP, '<', cibd, {})) }],
+    rules: [{ state: 'true', when: or(some('fmo1', fmo, cmp('<', variable(dF, 'fmo1'), variable(cibd))), some('pa1', pa, cmp('<', variable(dP, 'pa1'), variable(cibd)))) }],
     otherwise: 'false',
   })
 
   // hazards: distance below the minimum safe distance (FMO / PA) and too high g-force
-  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), [cmp(dF, '<', msd, { names: [{ declare: 'fmo1' }] })])
-  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), [cmp(dP, '<', msd, { names: [{ declare: 'pa1' }] })])
-  k.hazardConditions(k.hazard('AV occupants are exposed to unhealthy g-forces exceeding the safety threshold of the AV'), [cmp(g, '>', gMax)])
+  k.hazardConditions(k.hazard('AV does not maintain minimum safe distance (MSD) from a forward mobile object (FMO)'), some('fmo1', fmo, cmp('<', variable(dF, 'fmo1'), variable(msd))))
+  k.hazardConditions(k.hazard('AV does not maintain MSD from a prohibited area (PA)'), some('pa1', pa, cmp('<', variable(dP, 'pa1'), variable(msd))))
+  k.hazardConditions(k.hazard('AV occupants are exposed to unhealthy g-forces exceeding the safety threshold of the AV'), cmp('>', variable(g), variable(gMax)))
 
   // UCAs: no BFC / too weak BFC while an object is inside the collision imminent braking distance
   const ucas = itemsOfKind(c.p, 'uca')
   for (const u of ucas) {
-    if (u.guide === 'provided') k.ucaConditions(u, [eq(within, 'true')], 'the commanded braking force is below the required deceleration rate (RDR)')
-    else k.ucaConditions(u, [eq(within, 'true')])
+    if (u.guide === 'provided') k.ucaConditions(u, [is(within, 'true')], 'the commanded braking force is below the required deceleration rate (RDR)')
+    else k.ucaConditions(u, [is(within, 'true')])
   }
 
   // control structure: which entities the nodes stand for, what BFC affects
@@ -111,12 +102,12 @@ function msiv(c: Ctx) {
   const leak = k.world(sg.id, 'Rupture or leak', {
     type: 'boolean',
     definition: 'A rupture in the SG tube, a leak in the main feedwater pipe or a leak in the main steam line.',
-    rules: [{ state: 'true', when: anyOf(eq(sgtr, 'ruptured'), eq(fw, 'leak'), eq(sl, 'leak')) }], otherwise: 'false',
+    rules: [{ state: 'true', when: or(is(sgtr, 'ruptured'), is(fw, 'leak'), is(sl, 'leak')) }], otherwise: 'false',
   })
   const secLeak = k.world(sg.id, 'Secondary-side leak', {
     type: 'boolean',
     definition: 'A leak in the main feedwater pipe or in the main steam line (not a tube rupture).',
-    rules: [{ state: 'true', when: anyOf(eq(fw, 'leak'), eq(sl, 'leak')) }], otherwise: 'false',
+    rules: [{ state: 'true', when: or(is(fw, 'leak'), is(sl, 'leak')) }], otherwise: 'false',
   })
 
   // domain model of the hazard states
@@ -130,16 +121,16 @@ function msiv(c: Ctx) {
   const eqOp = k.world(equip, 'Operation', { type: 'enum', states: ['within limits', 'beyond limits'], definition: 'Beyond safe limits (reactor damage) or beyond design limits (other equipment).' })
   const pos = k.world(msivE, 'Position', { type: 'enum', states: ['open', 'closed'] })
 
-  k.hazardConditions(k.hazard('Release of radioactive materials'), [eq(rad, 'released outside primary system')])
-  k.hazardConditions(k.hazard('Reactor temperature too high'), [eq(temp, 'too high')])
-  k.hazardConditions(k.hazard('Equipment operated beyond limits'), [eq(eqOp, 'beyond limits', { names: [{ declare: 'eq1' }] })])
-  k.hazardConditions(k.hazard('Reactor shut down'), [eq(op, 'unplanned shutdown')])
+  k.hazardConditions(k.hazard('Release of radioactive materials'), is(rad, 'released outside primary system'))
+  k.hazardConditions(k.hazard('Reactor temperature too high'), is(temp, 'too high'))
+  k.hazardConditions(k.hazard('Equipment operated beyond limits'), some('eq1', equip, is(eqOp, 'beyond limits', 'eq1')))
+  k.hazardConditions(k.hazard('Reactor shut down'), is(op, 'unplanned shutdown'))
 
   // UCAs (matched by the "(SC n)" in their constraint)
   const byScn = (n: number) => { const u = itemsOfKind(c.p, 'uca').find((x) => x.constraint.includes(`(SC ${n})`)); if (!u) throw new Error('UCA SC ' + n); return u }
-  k.ucaConditions(byScn(1), [eq(leak, 'true')])
-  k.ucaConditions(byScn(2), [eq(secLeak, 'true'), eq(sgtr, 'not ruptured')])
-  k.ucaConditions(byScn(5), [eq(leak, 'true')], 'the Close MSIV command comes later than the time the operator has to stop the release into the secondary loop (the source gives no time bound)')
+  k.ucaConditions(byScn(1), [is(leak, 'true')])
+  k.ucaConditions(byScn(2), [is(secLeak, 'true'), is(sgtr, 'not ruptured')])
+  k.ucaConditions(byScn(5), [is(leak, 'true')], 'the Close MSIV command comes later than the time the operator has to stop the release into the secondary loop (the source gives no time bound)')
 
   // control structure
   k.set(k.node('MSIV'), { entities: [msivE] })

@@ -1,9 +1,8 @@
-import { declare } from './variables'
+import { and, every, is, none, some } from './lang'
 import { relEnds } from './create'
 import { projectBuilder } from './build'
 import { predicateOf } from './formal'
-import type { Id, Project, Quantifier } from './types'
-import type { Condition } from './legacy'
+import type { Project } from './types'
 
 /** Level crossing with several trains: shows many-instance entities and some / every / no conditions. */
 export function crossingExampleProject(): Project {
@@ -44,14 +43,14 @@ export function crossingExampleProject(): Project {
   add('variable', { layer: 'belief', parent: ctrl, about: vNear, title: 'Train approaching', type: 'boolean' })
   add('variable', { layer: 'belief', parent: ctrl, about: vGate, title: 'Gate position', states: ['open', 'closed', 'unknown'] })
 
-  const c = (variable: Id, state: string, quant?: Quantifier): Condition => ({ kind: 'value', variable, op: '=', state, ...(quant && quant !== 'some' ? { names: [declare('t1', quant)] } : {}) })
-  b.set(H1, { conditions: [c(vGate, 'open'), c(vNear, 'true', 'some')] })
-  b.set(H2, { conditions: [c(vGate, 'closed'), c(vNear, 'true', 'none')] })
-  const u1 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], conditions: [c(vPos, 'approaching', 'some')], constraint: 'Controller must not raise the gate while some train is approaching' })
-  const u2 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], conditions: [c(vPos, 'on crossing', 'some')], constraint: 'Controller must not raise the gate while some train is on the crossing' })
-  add('uca', { ca: lower, guide: 'not-provided', hazards: [H1], conditions: [c(vNear, 'true', 'some')], constraint: 'Controller must lower the gate when some train approaches the crossing' })
-  add('uca', { ca: lower, guide: 'provided', hazards: [H2], conditions: [c(vPos, 'far', 'all')], constraint: 'Controller must not lower the gate while every train is far away' })
-  add('uca', { ca: raise, guide: 'not-provided', hazards: [H2], conditions: [c(vNear, 'true', 'none'), c(vGate, 'closed')], constraint: 'Controller must raise the gate when no train approaches the crossing' })
+  const t = (q: typeof some, ...body: Parameters<typeof and>) => q(q === some ? 'tr1' : 't1', train, and(...body))
+  b.set(H1, { when: t(some, is(vGate, 'open'), is(vNear, 'true', 'tr1')) })
+  b.set(H2, { when: t(none, is(vGate, 'closed'), is(vNear, 'true', 't1')) })
+  const u1 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], when: t(some, is(vPos, 'approaching', 'tr1')), constraint: 'Controller must not raise the gate while some train is approaching' })
+  const u2 = add('uca', { ca: raise, guide: 'provided', hazards: [H1], when: t(some, is(vPos, 'on crossing', 'tr1')), constraint: 'Controller must not raise the gate while some train is on the crossing' })
+  add('uca', { ca: lower, guide: 'not-provided', hazards: [H1], when: t(some, is(vNear, 'true', 'tr1')), constraint: 'Controller must lower the gate when some train approaches the crossing' })
+  add('uca', { ca: lower, guide: 'provided', hazards: [H2], when: t(every, is(vPos, 'far', 't1')), constraint: 'Controller must not lower the gate while every train is far away' })
+  add('uca', { ca: raise, guide: 'not-provided', hazards: [H2], when: t(none, is(vNear, 'true', 't1'), is(vGate, 'closed')), constraint: 'Controller must raise the gate when no train approaches the crossing' })
 
   add('scenario', { uca: u1, cause: 'process-model', element: ctrl, title: 'A second train approaches while the first one is leaving: the controller keeps one "approaching" flag and clears it when the first train has passed' })
   add('scenario', { uca: u2, cause: 'feedback', element: trains, title: 'The track sensor only reports the first train of a convoy, so the controller does not know that another train is still on the crossing' })

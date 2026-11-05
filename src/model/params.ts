@@ -1,4 +1,4 @@
-import { OP_LABELS, conditionError, describeStates, isRangeOp, isSetOp, opsFor } from './variables'
+import { OP_LABELS, comparisonError, describeStates, isRangeOp, isSetOp, opsFor } from './variables'
 import type { ArgCondition, ControlAction, Param, Project, Uca, Variable } from './types'
 
 /** The parameter as a variable-like value (named range / enum types applied), to reuse the condition helpers. */
@@ -15,7 +15,7 @@ export const argOps = (p: Project, pa: Param | undefined) => opsFor(pa && paramV
 export function argError(p: Project, ca: ControlAction | undefined, a: ArgCondition): string | null {
   const pa = paramOf(ca, a.param)
   if (!pa) return `"${a.param}" is not a parameter of ${ca?.title || 'the control action'}`
-  return conditionError(paramVar(p, pa), { kind: 'value', variable: '', op: a.op, state: a.state, to: a.to, set: a.set })
+  return comparisonError(paramVar(p, pa), { op: a.op, state: a.state, to: a.to, set: a.set })
 }
 
 export function argText(p: Project, ca: ControlAction | undefined, a: ArgCondition): string {
