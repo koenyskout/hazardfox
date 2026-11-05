@@ -130,7 +130,7 @@ function Group({ env, x, path, head, top, onRemove }: { env: Env; x: Expr; path:
         {top && members.length < 2 ? (sole ? null : <span className="wv-tag">all of</span>) : <Select className={'tagsel ' + kind} value={kind} onChange={(ev) => edit(path, { k: ev.target.value === 'any' ? 'or' : 'and', of: members })}><option value="all">All of</option><option value="any">Any of</option></Select>}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
       </div>
-      <div className={'conds g-' + kind + (top ? '' : ' group')}>
+      <div className={'conds g-' + kind + (top ? '' : ' group') + (sole && top ? ' sole' : '')}>
         {members.map((m, i) => <Row key={i} env={env} x={m} path={pathOf(i)} onRemove={() => setMembers(members.filter((_, j) => j !== i))} />)}
         {!sole && <div className="rule-add">
           <button onClick={() => add(HOLE)}><Icon name="plus" size={12} /> condition</button>

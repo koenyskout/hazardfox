@@ -674,3 +674,6 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .cascade-pop li.grp.cas-sec { justify-content: flex-start; text-transform: none; letter-spacing: 0; }
 .cas-n { color: var(--muted); font-size: 12px; }
 .cas-tag { color: var(--muted); font-size: 11px; margin-left: auto; }
+/* a lone quantifier is not a group member: no line or dot */
+.rule .conds.sole { border-left: 0; padding-left: 0; margin-left: 0; }
+.conds.sole > .cond:before, .conds.sole > .cond:after { display: none; }
