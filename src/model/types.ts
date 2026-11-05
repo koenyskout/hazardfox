@@ -391,7 +391,7 @@ export const KINDS = Object.keys(KIND_NAMES) as Kind[]
 export interface SavedReview { key: string; p: Record<string, number> }
 
 export interface Project {
-  schema: 1
+  schema: 2
   meta: { name: string; description: string; author: string; strideEnabled: boolean }
   items: Record<Id, Item>
   /** Saved AI-check results per item (`key` = hash of what was checked); outside undo history. */

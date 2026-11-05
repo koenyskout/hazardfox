@@ -22,7 +22,7 @@ export function serialize(p: Project): string {
 export function deserialize(text: string): Project {
   const raw = JSON.parse(text)
   if (raw?.app !== 'hazardfox') throw new Error('Not a HazardFox project file')
-  if (raw.schema !== 1) throw new Error(`Unsupported schema version ${raw.schema}`)
+  if (raw.schema !== 2) throw new Error(`Unsupported schema version ${raw.schema}`)
   const p = emptyProject()
   p.meta = { ...p.meta, ...raw.meta }
   for (const it of raw.items as Item[]) p.items[it.id] = it.kind === 'scenario' || it.kind === 'hazard' || it.kind === 'node' || it.kind === 'ca' || it.kind === 'feedback' || it.kind === 'uca' || it.kind === 'variable' || it.kind === 'operation' ? (makeItem(it.kind, it as Patch<typeof it.kind>) as Item) : it

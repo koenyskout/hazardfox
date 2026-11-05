@@ -10,7 +10,7 @@ export const newId = (): Id =>
 export const relEnds = (from: Id<'entity'>, to: Id<'entity'>, fromCard = '1', toCard = '*'): RelEnd[] => [{ entity: from, role: '', card: fromCard }, { entity: to, role: '', card: toCard }]
 
 export const emptyProject = (): Project => ({
-  schema: 1,
+  schema: 2,
   meta: { name: 'Untitled analysis', description: '', author: '', strideEnabled: true },
   items: {},
 })
