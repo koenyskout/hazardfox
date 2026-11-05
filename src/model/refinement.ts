@@ -2,7 +2,7 @@ import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
 import { cmpOf, exprCondition, isExpr } from './expr'
-import { condKey, instName, instName2, isEvent, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
+import { condKey, nameAt, isEvent, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
 import type { Condition, Id, Project, TextCondition, ValueCondition, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
@@ -11,7 +11,7 @@ type Dnf = Condition[][]
 const key = (c: Condition) => JSON.stringify(
   isEvent(c) ? ['event', c.event, c.time]
   : isText(c) ? [condKey(c), c.op]
-  : isVarCmp(c) ? [condKey(c), c.op, c.other, c.oSame, c.oSame2, c.oAs, c.oAs2, c.quant, c.as, c.same, c.as2, c.same2]
+  : isVarCmp(c) ? [condKey(c), c.op, c.other, c.otherAt, c.quant, c.as, c.same, c.as2, c.same2]
   : [condKey(c), c.op, c.state, c.to, c.quant, c.as, c.same, c.as2, c.same2, [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
@@ -22,8 +22,8 @@ export function consistent(p: Project, cs: Condition[]): boolean {
   // "some instance" conditions have independent witnesses and cannot conflict; "no instance" is "every instance not".
   // Conditions on the same named instance share a witness and can conflict.
   const norm = (c: Plain): Plain => !isText(c) && quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
-  const gkey = (c: Plain) => !isText(c) && (instName(c) || instName2(c)) ? `${instName(c)}|${instName2(c)}\u0000${condKey(c)}` : condKey(c)
-  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (isText(c) || quantOf(p, c) !== 'some' || !!instName(c) || !!instName2(c)))
+  const gkey = (c: Plain) => !isText(c) && (nameAt(c, 1) || nameAt(c, 2)) ? `${nameAt(c, 1)}|${nameAt(c, 2)}\u0000${condKey(c)}` : condKey(c)
+  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (isText(c) || quantOf(p, c) !== 'some' || !!nameAt(c, 1) || !!nameAt(c, 2)))
   for (const c of plain.map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
   for (const [id, group] of by) {
     if (laneText(id.split('\u0000').pop()!) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }

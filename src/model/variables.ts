@@ -1,5 +1,5 @@
 import { shortName } from './labels'
-import { QUANT_LABELS, UNIT_S, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Instances, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type InstanceNames, type Quantifier, type ConditionOp, type Group, type Item, type Project, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -75,22 +75,29 @@ export const toVarCmp = (c: ValueCondition | VarCondition, other: Id, to: Partia
   const { variable, quant, as, same, as2, same2, time, op } = c
   return { kind: 'var', variable, op, other, quant, as, same, as2, same2, time, ...to }
 }
-/** The instance name an end of the condition introduces (`as`) or refers to (`same`). */
-export const asAt = (c: Instances, end: 1 | 2) => (end === 1 ? c.as : c.as2)
-export const sameAt = (c: Instances, end: 1 | 2) => (end === 1 ? c.same : c.same2)
-/** The condition with what one end introduces / refers to replaced. */
-export const withEnd = <C extends Instances>(c: C, end: 1 | 2, to: { as?: string; same?: string }): C => (end === 1 ? { ...c, as: to.as, same: to.same } : { ...c, as2: to.as, same2: to.same })
+/** The names of an end (1 / 2) of the variable: introduced (`as`) or referred to (`same`). */
+export const asAt = (n: InstanceNames, end: 1 | 2) => (end === 1 ? n.as : n.as2)
+export const sameAt = (n: InstanceNames, end: 1 | 2) => (end === 1 ? n.same : n.same2)
+/** The name used at an end, introduced or referred to ('' if none). */
+export const nameAt = (n: InstanceNames, end: 1 | 2) => (asAt(n, end) ?? sameAt(n, end) ?? '').trim()
+/** The names with what one end introduces / refers to replaced. */
+export const withEnd = <N extends InstanceNames>(n: N, end: 1 | 2, to: { as?: string; same?: string }): N => (end === 1 ? { ...n, as: to.as, same: to.same } : { ...n, as2: to.as, same2: to.same })
+/** The name sets of a condition: its variable's and, in a variable comparison, the compared variable's. */
+export const sidesOf = (c: ValueCondition | VarCondition): InstanceNames[] => (isVarCmp(c) && c.otherAt ? [c, c.otherAt] : [c])
+/** Every instance name a condition uses. */
+export const allNames = (c: ValueCondition | VarCondition): string[] => sidesOf(c).flatMap((n) => [n.as, n.same, n.as2, n.same2]).filter((s): s is string => !!s)
 /** The condition with the name introduced at one end set (`cmp`: at the compared variable's end) or cleared. */
 export const withInstanceName = (c: Condition, end: 1 | 2, name: string | undefined, cmp = false): Condition => {
   if (!isOnVariable(c)) return c
-  if (cmp) return isVarCmp(c) ? (end === 1 ? { ...c, oAs: name } : { ...c, oAs2: name }) : c
-  return end === 1 ? { ...c, as: name } : { ...c, as2: name }
+  if (!cmp) return end === 1 ? { ...c, as: name } : { ...c, as2: name }
+  return isVarCmp(c) ? { ...c, otherAt: end === 1 ? { ...c.otherAt, as: name } : { ...c.otherAt, as2: name } } : c
 }
 /** The condition with references to the instance name `old` changed to `to`. */
 export const renameSame = (c: Condition, old: string, to: string | undefined): Condition => {
   if (!isOnVariable(c)) return c
   const r = (s: string | undefined) => (s === old ? to : s)
-  return isVarCmp(c) ? { ...c, same: r(c.same), same2: r(c.same2), oSame: r(c.oSame), oSame2: r(c.oSame2) } : { ...c, same: r(c.same), same2: r(c.same2) }
+  const names = <N extends InstanceNames>(n: N): N => ({ ...n, same: r(n.same), same2: r(n.same2) })
+  return isVarCmp(c) ? { ...names(c), ...(c.otherAt ? { otherAt: names(c.otherAt) } : {}) } : names(c)
 }
 const timeOk = (t: TimeBound | undefined) => !!t && t.amount.trim() !== '' && Number.isFinite(Number(t.amount)) && Number(t.amount) >= 0
 /** Seconds of a time bound. */
@@ -145,10 +152,6 @@ export function boundEntity(p: Project, v: Variable): Id | null {
   const many = (id: string, card: string) => manyEntity(p, id) || card === '*' || card === '1..*'
   return many(o.from, o.fromCard) ? o.from : many(o.to, o.toCard) ? o.to : null
 }
-/** The instance name a condition introduces or refers to. */
-export const instName = (c: ValueCondition | VarCondition) => (c.as ?? c.same ?? '').trim()
-/** The name for the second end of a relationship (see `otherEnd`). */
-export const instName2 = (c: ValueCondition | VarCondition) => (c.as2 ?? c.same2 ?? '').trim()
 /** The other end of a many-to-many relationship variable (the one `boundEntity` leaves out), else null. */
 export function otherEnd(p: Project, v: Variable): Id | null {
   const o = v.layer === 'domain' && v.parent ? p.items[v.parent] : null
@@ -160,24 +163,22 @@ export function otherEnd(p: Project, v: Variable): Id | null {
 export function condInstances(p: Project, c: Condition): { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] {
   const v = isOnVariable(c) ? p.items[c.variable] : undefined
   if (!isOnVariable(c) || v?.kind !== 'variable') return []
-  const e1 = boundEntity(p, v), e2 = otherEnd(p, v)
   const out: { entity: Id; name: string; intro: boolean; end: 1 | 2; cmp?: boolean }[] = []
-  if (e1 && instName(c)) out.push({ entity: e1, name: instName(c), intro: c.as !== undefined, end: 1 })
-  if (e2 && instName2(c)) out.push({ entity: e2, name: instName2(c), intro: c.as2 !== undefined, end: 2 })
-  const ov = isVarCmp(c) ? p.items[c.other] : undefined
-  if (isVarCmp(c) && ov?.kind === 'variable') {
-    const o1 = boundEntity(p, ov), o2 = otherEnd(p, ov)
-    if (o1 && oName(c, 1)) out.push({ entity: o1, name: oName(c, 1), intro: c.oAs !== undefined, end: 1, cmp: true })
-    if (o2 && oName(c, 2)) out.push({ entity: o2, name: oName(c, 2), intro: c.oAs2 !== undefined, end: 2, cmp: true })
+  const side = (n: InstanceNames | undefined, x: Variable, cmp: boolean) => {
+    if (!n) return
+    for (const [end, entity] of [[1, boundEntity(p, x)], [2, otherEnd(p, x)]] as const) {
+      const name = nameAt(n, end)
+      if (entity && name) out.push({ entity, name, intro: asAt(n, end) !== undefined, end, ...(cmp ? { cmp } : {}) })
+    }
   }
+  side(c, v, false)
+  const ov = isVarCmp(c) ? p.items[c.other] : undefined
+  if (ov?.kind === 'variable') side(isVarCmp(c) ? c.otherAt : undefined, ov, true)
   return out
 }
 /** Trace lane key of a condition about named instances ("<variable>@t1" or "<variable>@t1|c1"), else the variable. */
-export const instLane = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? condKey(c) : instName(c) || instName2(c) ? `${c.variable}@${instName(c)}${instName2(c) ? '|' + instName2(c) : ''}` : c.variable)
-/** Trace lane key of the compared variable of a comparison (`other`), at the instances `oSame` / `oSame2` it names. */
-/** The instance name a comparison uses at an end of its compared variable (introduced or referred to). */
-export const oName = (c: VarCondition, end: 1 | 2) => ((end === 1 ? c.oAs ?? c.oSame : c.oAs2 ?? c.oSame2) ?? '').trim()
-export const otherLane = (c: VarCondition): string => { const a = oName(c, 1), b = oName(c, 2); return a || b ? `${c.other}@${a}${b ? '|' + b : ''}` : c.other }
+export const instLane = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? condKey(c) : nameAt(c, 1) || nameAt(c, 2) ? `${c.variable}@${nameAt(c, 1)}${nameAt(c, 2) ? '|' + nameAt(c, 2) : ''}` : c.variable)
+export const otherLane = (c: VarCondition): string => { const a = nameAt(c.otherAt ?? {}, 1), b = nameAt(c.otherAt ?? {}, 2); return a || b ? `${c.other}@${a}${b ? '|' + b : ''}` : c.other }
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
 
@@ -208,7 +209,7 @@ function quantText(p: Project, c: ValueCondition | VarCondition, q: Quantifier, 
   const name = shortName(p, v)
   const title = (id: Id | null) => p.items[id ?? '']?.title.trim()
   const ent = title(boundEntity(p, v)) || (o.kind === 'entity' ? 'instance' : 'link')
-  const n = instName(c), n2 = instName2(c)
+  const n = nameAt(c, 1), n2 = nameAt(c, 2)
   const label = another ? 'another' : QUANT_LABELS[q]
   const who = c.same ? n : `${label} ${ent}${n ? ' ' + n : ''}`
   const e2 = otherEnd(p, v)
@@ -233,7 +234,7 @@ function plainText(p: Project, c: Exclude<Condition, EventCondition>): string {
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''
   const name = shortName(p, v)
-  if (isVarCmp(c)) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[oName(c, 1), oName(c, 2)].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
+  if (isVarCmp(c)) { const o = p.items[c.other]; return o?.kind === 'variable' ? `${name} ${OP_LABELS[c.op]} ${o.title}${[nameAt(c.otherAt ?? {}, 1), nameAt(c.otherAt ?? {}, 2)].filter(Boolean).map((n, i) => (i ? ' and ' : ' of ') + n).join('')}` : '' }
   if (isSetOp(c.op)) return `${name} ${OP_LABELS[c.op]} {${(c.set ?? []).join(', ')}}`
   return isRangeOp(c.op) ? `${name} ${OP_LABELS[c.op]} ${c.state} and ${c.to}${u}` : `${name} ${OP_LABELS[c.op]} ${c.state}${u}`
 }
@@ -286,7 +287,7 @@ export function whenText(p: Project, w: When, top = true, before: Condition[] = 
 /** A short unused instance name for an entity: t1, t2, … */
 export function autoName(p: Project, entity: Id | null, scope: Condition[], taken: string[] = []): string {
   const base = ((p.items[entity ?? '']?.title.trim().replace(/[^\p{L}]/gu, '').slice(0, 2)) || 'x').toLowerCase()
-  const used = new Set([...scope.filter(isOnVariable).flatMap((o) => [o.as, o.same, o.as2, o.same2, ...(isVarCmp(o) ? [o.oAs, o.oAs2, o.oSame, o.oSame2] : [])]), ...taken])
+  const used = new Set([...scope.filter(isOnVariable).flatMap(allNames), ...taken])
   let n = 1
   while (used.has(base + n)) n++
   return base + n
@@ -304,7 +305,7 @@ export function nameInstances(p: Project, ws: When[]): When[] {
     if (e1 && !c.as) c.as = autoName(p, e1, all)
     const e2 = !c.same2 ? otherEnd(p, v) : null
     if (e2 && !c.as2) c.as2 = autoName(p, e2, all)
-    for (const x of condInstances(p, c)) if (isVarCmp(c) && x.cmp && x.intro && !x.name) c[x.end === 1 ? 'oAs' : 'oAs2'] = autoName(p, x.entity, all)
+    for (const x of condInstances(p, c)) if (isVarCmp(c) && x.cmp && x.intro && !x.name) c.otherAt = withEnd(c.otherAt ?? {}, x.end, { as: autoName(p, x.entity, all) })
   }
   return out
 }

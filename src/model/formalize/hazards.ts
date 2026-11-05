@@ -35,7 +35,7 @@ export const notIn = (variable: Id, set: string[], extra: Partial<ValueCondition
 export const above = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '>', state: String(n), ...extra })
 export const below = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '<', state: String(n), ...extra })
 export const outside = (variable: Id, lo: number, hi: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
-/** `variable op other`, both read at the instances named in `extra` (`as`/`same`, `oSame`). */
+/** `variable op other`, both read at the instances named in `extra` (`as`/`same`, `otherAt`). */
 export const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
 
 const REGIONS = ['head', 'neck', 'thorax', 'abdomen', 'pelvis', 'limbs']
@@ -89,11 +89,11 @@ function aircraft(c: Ctx) {
   const minDist = c.range(tooClose, 'minimum safe distance', 0, null, 'm', 'Depends on aircraft size and the object (wingspan, speed, ...).')
   c.conditions('Aircraft violate',
     is(c.pred(near), 'true', { quant: 'some', as: 'ac1', as2: 'ac2' }),
-    cmp(hsep, '<', hreq, { same: 'ac1', same2: 'ac2', oSame: 'ac1', oSame2: 'ac2' }),
-    cmp(vsep, '<', vreq, { same: 'ac1', same2: 'ac2', oSame: 'ac1', oSame2: 'ac2' }))
+    cmp(hsep, '<', hreq, { same: 'ac1', same2: 'ac2', otherAt: { same: 'ac1', same2: 'ac2' } }),
+    cmp(vsep, '<', vreq, { same: 'ac1', same2: 'ac2', otherAt: { same: 'ac1', same2: 'ac2' } }))
   c.conditions('Controlled flight',
     is(c.pred(over), 'true', { quant: 'some', as: 'ac3', as2: 'te1' }),
-    cmp(clearance, '<', minClear, { same: 'ac3', same2: 'te1', oSame: 'ac3', oSame2: 'te1' }),
+    cmp(clearance, '<', minClear, { same: 'ac3', same2: 'te1', otherAt: { same: 'ac3', same2: 'te1' } }),
     is(control, 'controlled', { same: 'ac3' }),
     notIn(phase, ['ground', 'landing'], { same: 'ac3' }))
   c.conditions('Loss of aircraft control', isNot(phase, 'ground', { quant: 'some', as: 'ac4' }), is(control, 'lost', { same: 'ac4' }))
@@ -107,7 +107,7 @@ function aircraft(c: Ctx) {
   c.conditions('Aircraft comes too close',
     is(phase, 'ground', { quant: 'some', as: 'ac7' }),
     is(c.pred(tooClose), 'true', { same: 'ac7', as2: 'ob1' }),
-    cmp(dist, '<', minDist, { same: 'ac7', same2: 'ob1', oSame: 'ac7', oSame2: 'ob1' }))
+    cmp(dist, '<', minDist, { same: 'ac7', same2: 'ob1', otherAt: { same: 'ac7', same2: 'ob1' } }))
 }
 
 function radiation(c: Ctx) {
@@ -130,8 +130,8 @@ function radiation(c: Ctx) {
   const minGap = c.range(approach, 'minimum safe distance', 0, null, 'cm')
   const motion = c.states(mover, 'motion', ['stationary', 'moving'])
   const pa = (extra: Partial<ValueCondition> & Partial<VarCondition> = {}) => ({ same: 'pa1', ...extra })
-  const sameDose = (op: '=' | '≠') => cmp(dose, op, rx, pa({ oSame: 'pa1' }))
-  const sameSite = (op: '=' | '≠') => cmp(site, op, target, pa({ oSame: 'pa1' }))
+  const sameDose = (op: '=' | '≠') => cmp(dose, op, rx, pa({ otherAt: { same: 'pa1' } }))
+  const sameSite = (op: '=' | '≠') => cmp(site, op, target, pa({ otherAt: { same: 'pa1' } }))
   const irradiated = is(c.pred(irradiates), 'true', { quant: 'some', as: 'pa1' })
   c.conditions('Right patient, right dose', irradiated, is(scheduled, 'true', pa()), sameDose('='), sameSite('≠'))
   c.conditions('Right patient, wrong dose, right', irradiated, is(scheduled, 'true', pa()), sameDose('≠'), sameSite('='))
@@ -142,7 +142,7 @@ function radiation(c: Ctx) {
   c.conditions('Persons are subjected',
     is(motion, 'moving', { quant: 'some', as: 'mp1' }),
     is(c.pred(approach), 'true', { same: 'mp1', as2: 'pr1' }),
-    cmp(gap, '<', minGap, { same: 'mp1', same2: 'pr1', oSame: 'mp1', oSame2: 'pr1' }))
+    cmp(gap, '<', minGap, { same: 'mp1', same2: 'pr1', otherAt: { same: 'mp1', same2: 'pr1' } }))
 }
 
 function military(c: Ctx) {
@@ -165,7 +165,7 @@ function military(c: Ctx) {
   const launch = c.states(ord, 'launch state', ['on aircraft', 'launched'])
   const status = c.states(asset, 'status', ['friendly forces', 'civilians', 'civilian property', 'legitimate target'])
   const lethal = c.rel(ord, 'detonates within lethal radius of', asset)
-  c.conditions('Violation of minimum', is(c.pred(near), 'true', { quant: 'some', as: 'ob1' }), cmp(sep, '<', minSep, { same: 'ob1', oSame: 'ob1' }))
+  c.conditions('Violation of minimum', is(c.pred(near), 'true', { quant: 'some', as: 'ob1' }), cmp(sep, '<', minSep, { same: 'ob1', otherAt: { same: 'ob1' } }))
   c.conditions('Inability to control', is(control, 'lost'))
   c.conditions('Loss of airframe', is(integrity, 'lost'))
   c.conditions('Uncommanded detonation', is(det, 'detonated', { quant: 'some', as: 'or1' }), is(detCmd, 'not commanded', { same: 'or1' }))
@@ -202,7 +202,7 @@ function automotive(c: Ctx) {
   const closing = c.rel(door, 'closes on', occupant)
   const exposure = c.states(occupant, 'exposure', ['harmless', 'harmful'])
   c.refined(exposure, [['harmful', anyOf(is(fire, 'true'), outside(temp, 5, 40), is(exit, 'false'), is(c.pred(closing), 'true'))]], 'harmless')
-  c.conditions('Vehicle does not maintain', is(c.pred(near), 'true', { quant: 'some', as: 'no1' }), cmp(dist, '<', safe, { same: 'no1', oSame: 'no1' }))
+  c.conditions('Vehicle does not maintain', is(c.pred(near), 'true', { quant: 'some', as: 'no1' }), cmp(dist, '<', safe, { same: 'no1', otherAt: { same: 'no1' } }))
   c.conditions('Vehicle enters', is(c.pred(inside), 'true', { quant: 'some', as: 're1' }), is(danger, 'dangerous', { same: 're1' }))
   c.conditions('Vehicle exceeds', is(envelope, 'exceeded'))
   c.conditions('Vehicle occupants', is(exposure, 'harmful', { quant: 'some', as: 'oc1' }))

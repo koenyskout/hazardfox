@@ -8,7 +8,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { isValueCmp, leaves, nameAllInstances, condInstances, oName, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario, ValueCondition, VarCondition } from './types'
 
@@ -267,13 +267,13 @@ describe('another instance is a separate instance in traces', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
     const limit = s.add('variable', { layer: 'domain', parent: s.train, title: 'limit', type: 'range', min: 0, max: 100 })
-    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: limit, oSame: 't2' }
+    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: limit, otherAt: { same: 't2' } }
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than limit of t2')
     expect(instLane({ ...c })).toBe(`${s.speed}@t1`)
     const get = getter({ [`${s.speed}@t1`]: '50', [`${limit}@t2`]: '40', [`${limit}@t1`]: '90' })
     expect(condHolds(s.p, c, get, true)).toBe(true)
-    expect(condHolds(s.p, { ...c, oSame: 't1' }, get, true)).toBe(false)
-    expect(condHolds(s.p, { ...c, oSame: 't3' }, get, true)).toBeNull()
+    expect(condHolds(s.p, { ...c, otherAt: { same: 't1' } }, get, true)).toBe(false)
+    expect(condHolds(s.p, { ...c, otherAt: { same: 't3' } }, get, true)).toBeNull()
     const back = deserialize(serialize({ ...s.p, items: { ...s.p.items } }))
     expect(back.items[s.speed]).toBeTruthy()
   })
@@ -281,12 +281,12 @@ describe('another instance is a separate instance in traces', () => {
   it('a comparison can introduce a second named instance on its compared side', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: s.speed, oAs: 't2' }
-    expect(oName(c, 1)).toBe('t2')
+    const c: VarCondition = { kind: 'var', variable: s.speed, op: '>', as: 't1', other: s.speed, otherAt: { as: 't2' } }
+    expect(nameAt(c.otherAt ?? {}, 1)).toBe('t2')
     expect(condInstances(s.p, c).map((x) => [x.name, x.intro, !!x.cmp])).toEqual([['t1', true, false], ['t2', true, true]])
     expect(conditionText(s.p, c)).toBe('speed of some Train t1 is greater than speed of t2')
     const get = getter({ [`${s.speed}@t1`]: '50', [`${s.speed}@t2`]: '40' })
     expect(condHolds(s.p, c, get, true)).toBe(true)
-    expect(condHolds(s.p, { ...c, oAs: 't3' }, get, true)).toBeNull()
+    expect(condHolds(s.p, { ...c, otherAt: { as: 't3' } }, get, true)).toBeNull()
   })
 })

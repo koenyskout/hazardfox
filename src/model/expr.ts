@@ -253,7 +253,7 @@ export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : !isOn
 
 // ---- plain-text form of a condition tree
 
-const SIMPLE = (c: ValueCondition | VarCondition) => !c.quant && !c.as && !c.same && !c.as2 && !c.same2 && !c.time && (!isVarCmp(c) || !(c.oAs || c.oAs2 || c.oSame || c.oSame2))
+const SIMPLE = (c: ValueCondition | VarCondition) => !c.quant && !c.as && !c.same && !c.as2 && !c.same2 && !c.time && (!isVarCmp(c) || !c.otherAt)
 /** One line for a condition, or null when it needs the rows editor (quantifiers, instance names, timing, events, words). */
 export function conditionLine(p: Project, c: Condition): string | null {
   if (isEvent(c) || (isOnVariable(c) && !SIMPLE(c)) || (isText(c) && c.time)) return null

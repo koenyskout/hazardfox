@@ -5,7 +5,7 @@ import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { exprError } from '../model/expr'
 import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isVarCmp, laneText, mapLeaves } from '../model/variables'
-import { QUANTIFIERS, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type TextCondition, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { QUANTIFIERS, type InstanceNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type TextCondition, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -37,7 +37,7 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const COND = '{variable: ref, quant?: some | all | none, as?/same?/as2?/same2?: instance names for many-instance entities (as introduces, same refers back), text?: string (condition in words instead of variable; with expr: true an expression over @[ref] variables), op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥), set?: string[] (states, only for in / not in)}'
+const COND = '{variable: ref, quant?: some | all | none, as?/same?/as2?/same2?: instance names for many-instance entities (as introduces, same refers back), text?: string (condition in words instead of variable; with expr: true an expression over @[ref] variables), op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥; otherAt?: {as?, same?, as2?, same2?} names for the instances of the compared variable), set?: string[] (states, only for in / not in)}'
 
 const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
@@ -128,18 +128,22 @@ export class Resolver {
   label = (id: Id | null | undefined) => (id ? this.labels[id] ?? DELETED : null)
 }
 
-/** Quantifier and instance names of a condition (many-instance entities), copied when valid. */
-function instanceFields(c: Rec): Instances {
-  const out: Instances = {}
-  if (c.quant !== undefined) { if (!(QUANTIFIERS as readonly unknown[]).includes(c.quant)) throw new Error(`quant must be one of ${QUANTIFIERS.join(', ')}`); out.quant = c.quant as Quantifier }
+/** Instance names (`as`, `same`, `as2`, `same2`) of an object, copied when valid. */
+function instanceNames(c: Rec): InstanceNames {
+  const out: InstanceNames = {}
   for (const k of ['as', 'same', 'as2', 'same2'] as const) if (isStr(c[k]) && c[k]) out[k] = c[k]
   return out
 }
-/** Instance names of the compared variable in a variable-to-variable comparison. */
-function otherInstanceFields(c: Rec): Pick<VarCondition, 'oAs' | 'oAs2' | 'oSame' | 'oSame2'> {
-  const out: Pick<VarCondition, 'oAs' | 'oAs2' | 'oSame' | 'oSame2'> = {}
-  for (const k of ['oAs', 'oAs2', 'oSame', 'oSame2'] as const) if (isStr(c[k]) && c[k]) out[k] = c[k]
+/** Quantifier and instance names of a condition (many-instance entities), copied when valid. */
+function instanceFields(c: Rec): Instances {
+  const out: Instances = instanceNames(c)
+  if (c.quant !== undefined) { if (!(QUANTIFIERS as readonly unknown[]).includes(c.quant)) throw new Error(`quant must be one of ${QUANTIFIERS.join(', ')}`); out.quant = c.quant as Quantifier }
   return out
+}
+/** Instance names of the compared variable in a variable-to-variable comparison (`otherAt`). */
+function otherInstanceFields(c: Rec): { otherAt?: InstanceNames } {
+  const at = c.otherAt && typeof c.otherAt === 'object' ? instanceNames(c.otherAt as Rec) : {}
+  return Object.keys(at).length ? { otherAt: at } : {}
 }
 
 const isStr = (v: unknown): v is string => typeof v === 'string'

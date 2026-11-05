@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isEvent, isOnVariable, isText, isValueCmp, isVarCmp, renameSame, toValue, toVarCmp, withEnd, withInstanceName } from './variables'
+import { allNames, isEvent, isOnVariable, isText, isValueCmp, isVarCmp, nameAt, renameSame, sidesOf, toValue, toVarCmp, withEnd, withInstanceName } from './variables'
 import type { Condition, ValueCondition } from './types'
 
 const val: ValueCondition = { kind: 'value', variable: 'v', op: '<', state: '5', quant: 'all', as: 't1', same2: 'c1', time: { op: '≥', amount: '2', unit: 's' } }
@@ -24,8 +24,16 @@ describe('condition forms', () => {
     expect(withInstanceName(val, 1, 'x')).toMatchObject({ as: 'x' })
     expect(withInstanceName(val, 2, 'y')).toMatchObject({ as2: 'y' })
     expect(withInstanceName({ kind: 'event', event: 'e' }, 1, 'x')).toEqual({ kind: 'event', event: 'e' })
-    const cmp = toVarCmp({ ...val, same: 'a' }, 'w', { oSame: 'a' })
-    expect(renameSame(cmp, 'a', 'b')).toMatchObject({ same: 'b', oSame: 'b' })
+    const cmp = toVarCmp({ ...val, same: 'a' }, 'w', { otherAt: { same: 'a' } })
+    expect(renameSame(cmp, 'a', 'b')).toMatchObject({ same: 'b', otherAt: { same: 'b' } })
     expect(withEnd(val, 1, { same: 't0' })).toMatchObject({ as: undefined, same: 't0' })
+  })
+  it('reads the names of both variables of a comparison the same way', () => {
+    const cmp = toVarCmp({ ...val, as: 't1' }, 'w', { otherAt: { as2: 'c9', same: 't2' } })
+    expect(sidesOf(cmp)).toHaveLength(2)
+    expect(sidesOf(val)).toHaveLength(1)
+    expect([nameAt(cmp, 1), nameAt(cmp, 2), nameAt(cmp.otherAt!, 1), nameAt(cmp.otherAt!, 2)]).toEqual(['t1', 'c1', 't2', 'c9'])
+    expect(allNames(cmp).sort()).toEqual(['c1', 'c9', 't1', 't2'])
+    expect(withInstanceName(cmp, 1, 'x', true)).toMatchObject({ as: 't1', otherAt: { as: 'x', same: 't2' } })
   })
 })

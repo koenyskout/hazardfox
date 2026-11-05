@@ -250,17 +250,17 @@ export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
 /** Shared by every form of condition: how long it must have held (needs numeric step times in traces). With an event condition, the time since that event instead. */
 interface CondBase { time?: TimeBound }
-/** A variable of a many-instance entity / relationship: how many instances the condition is about (absent = `some`) and the names it gives to / takes from them. */
-export interface Instances {
-  quant?: Quantifier
-  /** Names the (some) instance this condition is about, for later conditions to refer to (`same`) */
+/** The names a condition gives to / takes from the instances of one variable of a many-instance entity (the second pair: the other end of a relationship whose both ends have several instances). */
+export interface InstanceNames {
+  /** Introduces a name for the (some) instance, for later conditions to refer to (`same`) */
   as?: string
   /** Refers to an instance named by `as` in another condition of the same context: the same instance, not just some */
   same?: string
-  /** Same as `as` / `same`, for the other end of a relationship whose both ends have several instances */
   as2?: string
   same2?: string
 }
+/** The instances a variable is about: how many (absent = `some`) and their names. */
+export interface Instances extends InstanceNames { quant?: Quantifier }
 /** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
 export interface ValueCondition extends CondBase, Comparison, Instances { kind: 'value'; variable: Id }
 /** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
@@ -269,12 +269,8 @@ export interface VarCondition extends CondBase, Instances {
   variable: Id
   op: ConditionOp
   other: Id
-  /** The named instances (as `same` / `same2`) of the compared variable, e.g. speed of t1 > speed of t2 */
-  oSame?: string
-  oSame2?: string
-  /** Introduces a name (some instance) for the compared variable's instance, instead of referring to one (`oSame`) */
-  oAs?: string
-  oAs2?: string
+  /** Names for the instances of the compared variable, e.g. speed of t1 > speed of t2 */
+  otherAt?: InstanceNames
 }
 /** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. With `expr` the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts`. */
 export interface TextCondition extends CondBase {

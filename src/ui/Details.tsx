@@ -8,7 +8,7 @@ import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, oName, conditionComplete, isOnVariable, isVarCmp, asAt, sameAt, withEnd, withInstanceName, renameSame, toValue, toVarCmp, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, asAt, sameAt, withEnd, withInstanceName, renameSame, toValue, toVarCmp, conditionError, otherEnd, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, boundEntity, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
 import { type Effect, type Project, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
@@ -1006,24 +1006,22 @@ function VarCompare({ c, vr, vars, onChange, entityTitle, scope, swap }: { c: Va
   const otherChoices = (): SubjectChoice[] => !vr ? [] : vars.filter((x) => x.id !== vr.id && x.type === vr.type).flatMap((x) => {
     const e1 = boundEntity(p, x), e2 = otherEnd(p, x)
     // per end: read at any instance, at a named one, or at one introduced here ("another … than t1")
-    const ends = (e: Id | null, end: 1 | 2, taken: string[]): { label: string | undefined; patch: Partial<VarCondition> }[] => {
-      if (!e) return [{ label: undefined, patch: {} }]
+    const ends = (e: Id | null, taken: string[]): { label: string | undefined; names: { as?: string; same?: string } }[] => {
+      if (!e) return [{ label: undefined, names: {} }]
       const names = otherNames(e), t = entityTitle(e), fresh = autoName(p, e, scope, [...names, ...taken])
-      const same = (n: string): Partial<VarCondition> => (end === 1 ? { oSame: n } : { oSame2: n })
-      const intro: Partial<VarCondition> = end === 1 ? { oAs: fresh } : { oAs2: fresh }
       return [
-        { label: `any ${t}`, patch: {} },
-        ...names.map((n) => ({ label: n, patch: same(n) })),
-        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, patch: intro })) : [{ label: `some ${t}`, patch: intro }]),
+        { label: `any ${t}`, names: {} },
+        ...names.map((n) => ({ label: n, names: { same: n } })),
+        ...(names.length ? names.map((n) => ({ label: `another ${t} than ${n}`, names: { as: fresh } })) : [{ label: `some ${t}`, names: { as: fresh } }]),
       ]
     }
-    const named = (patch: Partial<VarCondition>) => [patch.oSame, patch.oSame2, patch.oAs, patch.oAs2].filter((s): s is string => !!s)
-    return ends(e1, 1, []).flatMap((a, ai) => ends(e2, 2, named(a.patch)).map((b, bi) => {
+    return ends(e1, []).flatMap((a, ai) => ends(e2, [a.names.as, a.names.same].filter((s): s is string => !!s)).map((b, bi) => {
       const [before, after] = [a.label, b.label]
-      return { key: `${x.id}|${ai}|${bi}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => onChange(toVarCmp(c, x.id, { oSame: undefined, oSame2: undefined, oAs: undefined, oAs2: undefined, ...a.patch, ...b.patch })) }
+      const otherAt = withEnd(withEnd({}, 1, a.names), 2, b.names)
+      return { key: `${x.id}|${ai}|${bi}`, variable: x, before, after, text: `${before ?? ''} ${variableName(p, x)} ${labels[x.id]} ${after ?? ''}`, pick: () => onChange(toVarCmp(c, x.id, { otherAt })) }
     }))
   })
-  const instOf = (end: 1 | 2) => { const e = ov?.kind === 'variable' ? (end === 1 ? boundEntity(p, ov) : otherEnd(p, ov)) : null; return e ? (oName(c, end) || `any ${entityTitle(e)}`) : '' }
+  const instOf = (end: 1 | 2) => { const e = ov?.kind === 'variable' ? (end === 1 ? boundEntity(p, ov) : otherEnd(p, ov)) : null; return e ? (nameAt(c.otherAt ?? {}, end) || `any ${entityTitle(e)}`) : '' }
   const toValueCmp = () => vr && onChange(toValue(c, { op: opsFor(vr).includes(c.op) ? c.op : '=' }))
   return (
     <>
