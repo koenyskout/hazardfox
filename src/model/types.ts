@@ -202,8 +202,10 @@ export interface CsNode extends Base {
 }
 /** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
 export interface Param extends TypeSpec { name: string; symbolicType?: string; ordered?: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
+/** A comparison with a constant: `state` is the compared value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
+export interface Comparison { op: ConditionOp; state: string; to?: string; set?: string[] }
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
-export interface ArgCondition { param: string; op: ConditionOp; state: string; to?: string; set?: string[] }
+export interface ArgCondition extends Comparison { param: string }
 /** Control action edge. */
 export interface ControlAction extends Base {
   kind: 'ca'
@@ -248,12 +250,8 @@ export const UNIT_S: Record<TimeUnit, number> = { ms: 0.001, s: 1, min: 60, h: 3
 export interface TimeBound { op: '≥' | '<'; amount: string; unit: TimeUnit }
 /** `state` is the compared value (a state name, true/false, or a number); `to` is the upper bound of `between`; `set` the states of `in` / `not in` (enumerations).
  *  With `text` (and no variable) it is a condition in words that holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
-export interface Condition {
+export interface Condition extends Comparison {
   variable: Id
-  op: ConditionOp
-  state: string
-  to?: string
-  set?: string[]
   text?: string
   /** With `text`: the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts` */
   expr?: boolean
