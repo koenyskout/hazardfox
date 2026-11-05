@@ -67,7 +67,7 @@ describe('mcp tools', () => {
       { kind: 'node', fields: { title: 'Steering' }, alias: 's' },
       { kind: 'ca', fields: { title: 'Steer', from: '$d', to: '$s' } },
     ] }))
-    const mk = (state: string) => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'Steer', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Gear', state }] } }] })
+    const mk = (state: string) => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'Steer', guide: 'provided', hazards: ['H-1'], when: `@[V-1] = ${state}` } }] })
     expect(() => mk('reverse')).toThrow(/is not one of drive, park/)
     ;({ p } = mk('park'))
     expect(run(p, 'list_items', { kind: 'uca' }).r.items[0].title).toBe('Driver provides Steer when Gear is park')
@@ -86,7 +86,7 @@ describe('mcp tools', () => {
       { kind: 'node', fields: { title: 'Brakes' }, alias: 'b' },
       { kind: 'ca', fields: { title: 'Brake', from: '$c', to: '$b', operation: '$op' }, alias: 'ca' },
       { kind: 'hazard', fields: { title: 'Fast' }, alias: 'h' },
-      { kind: 'uca', fields: { ca: '$ca', guide: 'not-provided', hazards: ['$h'], conditions: [{ variable: '$sp', op: '>', state: '5', names: [{ declare: 'x', quant: 'all' }] }, { text: '@[$sp] > 3', expr: true }] }, alias: 'u' },
+      { kind: 'uca', fields: { ca: '$ca', guide: 'not-provided', hazards: ['$h'], when: 'all x in @[E-1]: @[V-1]@x > 5 and @[V-1]@x > 3' }, alias: 'u' },
       { kind: 'scenario', fields: { uca: '$u', trace: { lanes: [], steps: [{ t: '0', events: [{ on: '$ca', what: 'occurs', args: { train: 't1' } }] }] } } },
     ] }))
     expect(p.items[Object.values(p.items).find((i) => i.kind === 'ca')!.id]).toMatchObject({ operation: Object.values(p.items).find((i) => i.kind === 'operation')!.id })
@@ -95,10 +95,9 @@ describe('mcp tools', () => {
     expect(op.params).toEqual([{ name: 'train', entity: 'E-1' }])
     expect(op.effects).toEqual([{ variable: 'V-1', state: '0', on: 'train' }])
     const u = run(p, 'get_item', { ref: 'UCA-1' }).r
-    expect(u.conditions[0]).toMatchObject({ names: [{ declare: 'x', quant: 'all' }] })
-    expect(u.conditions[1]).toMatchObject({ expr: true })
+    expect(u.when).toContain('all x in @[E-1]')
     const sc = Object.values(p.items).find((i) => i.kind === 'scenario')!
     expect(sc.kind === 'scenario' && sc.trace.steps[0].events[0].args).toEqual({ train: 't1' })
-    expect(() => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'CA-1', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Speed', state: '1', names: [{ declare: 'x', quant: 'most' }] }] } }] })).toThrow(/quant/)
+    expect(() => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'CA-1', guide: 'provided', hazards: ['H-1'], when: 'most x in @[E-1]: @[V-1]@x = 1' } }] })).toThrow()
   })
 })

@@ -6,7 +6,10 @@ import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { refsOf } from './refs'
 import { deleteItems } from './ops'
-import { anyOf, isOnVariable, leaves, whenTexts } from './variables'
+import { say } from './say'
+import { anyOf } from './variables'
+import { varsOf } from './atoms'
+import { whenToExpr } from './bridge'
 import type { ConditionOp, Id, Scenario, Uca } from './types'
 import type { ValueCondition } from './legacy'
 import { laneOf } from './variables'
@@ -28,14 +31,14 @@ describe('any-of conditions', () => {
   it('reads as text with the group in parentheses', () => {
     const { b, u } = setup()
     const p = b.project
-    expect(whenTexts(p, (p.items[u] as Uca).conditions)).toEqual(['flow is greater than 5', '(power is on or power is off)'])
+    expect(say(p, (p.items[u] as Uca).when)).toBe('flow is greater than 5 and (power is on or power is off)')
     expect(generateUcaText(p, computeLabels(p), p.items[u] as Uca)).toContain('flow is greater than 5 and (power is on or power is off)')
   })
   it('holds when one branch holds', () => {
     const { b, a, c, u } = setup()
     const p = b.project, uca = p.items[u] as Uca
     expect(contextHolds(p, uca, { [c]: '7', [a]: 'off' })).toBe(true)
-    expect(contextHolds(p, { ...uca, conditions: [anyOf({ kind: 'value', variable: a, op: '=', state: 'on' }, { kind: 'value', variable: c, op: '<', state: '3' })] }, { [c]: '7', [a]: 'off' })).toBe(false)
+    expect(contextHolds(p, { ...uca, when: whenToExpr(p, [anyOf({ kind: 'value', variable: a, op: '=', state: 'on' }, { kind: 'value', variable: c, op: '<', state: '3' })]) }, { [c]: '7', [a]: 'off' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '2', [a]: 'on' })).toBe(false)
     expect(contextHolds(p, uca, { [c]: '7' })).toBeNull()
   })
@@ -43,15 +46,15 @@ describe('any-of conditions', () => {
     const { b, a, u } = setup()
     const q = deserialize(serialize(b.project))
     const uca = q.items[u] as Uca
-    expect(uca.conditions).toEqual((b.project.items[u] as Uca).conditions)
+    expect(uca.when).toEqual((b.project.items[u] as Uca).when)
     expect(refsOf(uca)).toContain(a)
-    expect(uca.conditions.flatMap(leaves)).toHaveLength(3)
+    expect(varsOf(uca.when)).toHaveLength(2)
   })
   it('drops a deleted variable from inside a group', () => {
     const { b, a, u } = setup()
     const q = deleteItems(b.project, [a])
     const uca = q.items[u] as Uca
-    expect(uca.conditions.flatMap(leaves).filter(isOnVariable).every((c) => c.variable !== a)).toBe(true)
+    expect(varsOf(uca.when)).not.toContain(a)
   })
   it('drafts a trace that satisfies the first branch', () => {
     const { b, a, u } = setup()

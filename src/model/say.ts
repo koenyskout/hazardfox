@@ -35,11 +35,12 @@ const time = (e: Extract<Expr, { k: 'cmp' }>): string => (e.r.k === 'const' ? ti
 /** A condition as a sentence ("speed of t1 is 0 and Train t1 approaches Crossing c1"); `@[id]` references stay for rendering with labels. */
 export function say(p: Project, e: Expr | null, top = true): string {
   if (!e) return ''
+  if ((e.k === 'and' || e.k === 'or') && e.of.length === 1) return say(p, e.of[0], top)
   switch (e.k) {
     case 'and': { const t = e.of.map((x) => say(p, x, false)).filter(Boolean); return !top && t.length > 1 ? `(${t.join(' and ')})` : t.join(' and ') }
     case 'or': { const t = e.of.map((x) => say(p, x, false)).filter(Boolean); return !top && t.length > 1 ? `(${t.join(' or ')})` : t.join(' or ') }
     case 'not': { const t = say(p, e.e, false); return t ? `not (${t})` : '' }
-    case 'quant': { const t = say(p, e.body, false); const ent = (p.items[e.entity]?.title ?? '').trim() || 'instance'; return `${QUANT_LABELS[e.q]} ${ent} ${e.name}${t ? ': ' + t : ''}` }
+    case 'quant': { const t = say(p, e.body, true); const ent = (p.items[e.entity]?.title ?? '').trim() || 'instance'; return `${QUANT_LABELS[e.q]} ${ent} ${e.name}${t ? ': ' + t : ''}` }
     case 'text': return e.text.trim()
     case 'hole': case 'const': case 'name': case 'param': case 'event': case 'app': return e.k === 'hole' ? '' : operand(p, e)
     case 'var': return varText(p, e)
@@ -52,7 +53,7 @@ export function say(p: Project, e: Expr | null, top = true): string {
         const t = varText(p, e.l)
         return (e.r.v === 'true') === (e.op === '=') ? t : `not (${t})`
       }
-      return `${operand(p, e.l)} ${OP_LABELS[OPS[e.op]]} ${operand(p, e.r)}${unitOf(p, e.l)}`
+      return `${operand(p, e.l)} ${OP_LABELS[OPS[e.op]]} ${operand(p, e.r)}${e.r.k === "const" ? unitOf(p, e.l) : ""}`
     }
   }
 }

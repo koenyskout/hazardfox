@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { say } from './say'
 import { projectBuilder } from './build'
 import { deserialize, serialize } from './serialize'
 import { clockAt, draftTrace, witness } from './traces'
 import { deleteItems } from './ops'
 import { refsOf } from './refs'
-import { boundSeconds, conditionComplete, parseTime, whenTexts } from './variables'
+import { boundSeconds, conditionComplete, parseTime } from './variables'
 import type { Id, Scenario, Trace, Uca } from './types'
 import type { Condition } from './legacy'
 import { laneOf } from './variables'
@@ -37,7 +38,7 @@ describe('timing conditions', () => {
   })
   it('reads as text', () => {
     const { b, u } = setup((a) => [{ kind: 'value', variable: a, op: '=', state: 'on', time: time('≥', '3') }])
-    expect(whenTexts(b.project, (b.project.items[u] as Uca).conditions)).toEqual(['power is on for at least 3 s'])
+    expect(say(b.project, (b.project.items[u] as Uca).when)).toBe('power is on for at least 3 s')
   })
   it('needs a duration to be complete', () => {
     expect(conditionComplete({ kind: 'event', event: 'x', time: time('≥', '') })).toBe(false)
@@ -68,7 +69,7 @@ describe('timing conditions', () => {
   it('survives save / load, references and deletion', () => {
     const { b, ca, u } = setup((_, c) => [{ kind: 'value', variable: '', op: '=', state: '', event: c, time: time('<', '1', 'min') }])
     const q = deserialize(serialize(b.project))
-    expect((q.items[u] as Uca).conditions).toEqual((b.project.items[u] as Uca).conditions)
+    expect((q.items[u] as Uca).when).toEqual((b.project.items[u] as Uca).when)
     expect(refsOf(q.items[u])).toContain(ca)
     expect(deleteItems(b.project, [ca]).items[u]).toBeUndefined()
   })

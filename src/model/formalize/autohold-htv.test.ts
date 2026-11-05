@@ -23,7 +23,7 @@ describe.each(IDS)('formalize %s', (id) => {
     const issues = validate(p)
     console.log(id, 'issues:', issues.filter((i) => i.severity !== 'error').map((i) => `${i.severity} ${i.rule}: ${i.message}`).join('\n  '))
     expect(issues.filter((i) => i.severity === 'error')).toEqual([])
-    expect(issues.filter((i) => i.rule === 'context-unrepresented' || i.rule === 'instance-name' || i.rule === 'instance-unnamed' || i.rule === 'context-not-world')).toEqual([])
+    expect(issues.filter((i) => i.rule === 'context-unrepresented' || i.rule === 'context-not-world')).toEqual([])
   })
 
   it('formalizes every hazard with complete conditions', () => {

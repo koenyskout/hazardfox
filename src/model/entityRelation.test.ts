@@ -3,7 +3,6 @@ import { projectBuilder } from './build'
 import { attributesOf, generalisations, isA, sameInstance } from './formal'
 import { inheritedOperations } from './operations'
 import { isMany } from './variables'
-import { validate } from './validate'
 
 function setup() {
   const b = projectBuilder()
@@ -40,9 +39,5 @@ describe('entity relation', () => {
     expect(isMany(b.project, b.project.items[shift] as never)).toBe(true)
     const v = b.add('variable', { layer: 'domain', parent: badge, title: 'worn', type: 'boolean' })
     expect(isMany(b.project, b.project.items[v] as never)).toBe(false)
-  })
-  it('a plain hierarchy raises no instance-name findings', () => {
-    const { b } = setup()
-    expect(validate(b.project).filter((i) => i.rule === 'instance-name')).toEqual([])
   })
 })

@@ -5,15 +5,23 @@ import { exampleProject } from './example'
 import { publishedExampleProject } from './publishedExamples'
 import { addBelief, addSignal, beliefsAbout, beliefsOf, predicateOf, signalsOf, updatedBy } from './formal'
 import { computeLabels, displayLabels } from './labels'
-import { createItem, deleteItems, updateItem } from './ops'
+import { deleteItems } from './ops'
+import { upgrade } from './build'
+import { createItem as create0, updateItem as update0 } from './ops'
+// legacy condition authoring in tests: converted to Expr on the way in
+const createItem = ((p: Project, k: Kind, init?: object) => create0(p, k, upgrade(p, (init ?? {}) as Record<string, unknown>) as never)) as <K extends Kind>(p: Project, k: K, init?: object) => { project: Project; id: Id<K> }
+const updateItem = ((p: Project, id: Id, patch: object) => update0(p, id, upgrade(p, patch as Record<string, unknown>) as never)) as (p: Project, id: Id, patch: object) => Project
 import { deserialize, serialize } from './serialize'
 import { diagnose, draftTrace, holds, pickValue, ruleConflicts, ruleValue, traceState, valueAt, witness } from './traces'
 import { expand, refineUca } from './refinement'
 import { itemsOfKind } from './tree'
-import { allOf, anyOf, isOnVariable, whenText } from './variables'
+import { allOf, anyOf } from './variables'
+import { say } from './say'
+import { varsOf } from './atoms'
+import { and, cmp, variable } from './lang'
 import { validate } from './validate'
 import { rulesOf, aboutOf } from './types'
-import type { Comparison, Condition, Id, Kind, Project, Scenario, Trace, ValueCondition, Variable } from './types'
+import type { Comparison, Id, Kind, Project, Scenario, Trace, Uca, Variable } from './types'
 import { laneOf } from './variables'
 
 function base() {
@@ -134,32 +142,34 @@ describe('refinement', () => {
   it('expands a refined condition into contexts over the parts', () => {
     const { p, fire, smoke, em } = train()
     const v = p.items[em] as Variable
-    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'evacuation' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'true' }], [{ kind: 'value', variable: smoke, op: '=', state: 'true' }]])
-    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'false' }, { kind: 'value', variable: smoke, op: '=', state: 'false' }]])
+    const is = (id: Id<'variable'>, state: string) => cmp('=', variable(id), { k: 'const', v: state })
+    expect(expand(p, v, { op: '=', state: 'evacuation' })).toEqual([is(fire, 'true'), is(smoke, 'true')])
+    expect(expand(p, v, { op: '=', state: 'none' })).toEqual([and(is(fire, 'false'), is(smoke, 'false'))])
   })
 
   it('evaluates and expands nested all / any groups', () => {
     let { p, fire, smoke, speed, em } = train()
-    const [f, s, fast]: ValueCondition[] = [{ kind: 'value', variable: fire, op: '=' as const, state: 'true' }, { kind: 'value', variable: smoke, op: '=' as const, state: 'true' }, { kind: 'value', variable: speed, op: '>' as const, state: '100' }]
-    p = updateItem(p, em, { rules: [{ state: 'evacuation', when: allOf(fast, anyOf(f, s)) }] })
+    const c = (id: Id, op: string, state: string) => ({ kind: 'value' as const, variable: id, op: op as never, state })
+    p = updateItem(p, em, { rules: [{ state: 'evacuation', when: allOf(c(speed, '>', '100'), anyOf(c(fire, '=', 'true'), c(smoke, '=', 'true'))) }] })
     const v = p.items[em] as Variable
-    expect(whenText(p, rulesOf(v)[0].when)).toBe('Speed is greater than 100 km/h and (Fire is true or Smoke is true)')
+    expect(say(p, rulesOf(v)[0].when)).toBe('Speed is greater than 100 km/h and (Fire is true or Smoke is true)')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false', [smoke]: 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [speed]: '50' })[id])).toBe('none')
     expect(ruleValue(p, v, (id) => ({ [speed]: '120', [fire]: 'false' })[id])).toBeUndefined()
-    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'evacuation' })).toEqual([[fast, f], [fast, s]])
-    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ ...fast, op: '≤' }], [{ ...f, state: 'false' }, { ...s, state: 'false' }]])
+    const alts = expand(p, v, { op: '=', state: 'evacuation' })!.map((e) => say(p, e))
+    expect(alts).toEqual(['Speed is greater than 100 km/h and Fire is true', 'Speed is greater than 100 km/h and Smoke is true'])
+    expect(expand(p, v, { op: '=', state: 'none' })!.map((e) => say(p, e))).toEqual(['Speed is at most 100 km/h', 'Fire is false and Smoke is false'])
   })
 
   it('treats conditions in words as booleans keyed by their text', () => {
     let { p, fire, em, uca } = train()
-    const words: Condition = { kind: 'text', op: '=', text: 'Passengers are boarding' }
+    const words = { kind: 'text' as const, op: '=' as const, text: 'Passengers are boarding' }
     p = updateItem(p, em, { rules: [{ state: 'evacuation', when: anyOf({ kind: 'value', variable: fire, op: '=', state: 'true' }, words) }] })
     const v = p.items[em] as Variable
-    expect(whenText(p, rulesOf(v)[0].when)).toBe('Fire is true or Passengers are boarding')
+    expect(say(p, rulesOf(v)[0].when)).toBe('Fire is true or Passengers are boarding')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false', 'text:Passengers are boarding': 'true' })[id])).toBe('evacuation')
     expect(ruleValue(p, v, (id) => ({ [fire]: 'false' })[id])).toBeUndefined()
-    expect(expand(p, v, { kind: 'value', variable: em, op: '=', state: 'none' })).toEqual([[{ kind: 'value', variable: fire, op: '=', state: 'false' }, { ...words, op: '≠' }]])
+    expect(expand(p, v, { op: '=', state: 'none' })!.map((e) => say(p, e))).toEqual(['Fire is false and not (Passengers are boarding)'])
     p = updateItem(p, uca, { conditions: [{ ...words, op: '≠' }] })
     const r = createItem(p, 'scenario', { scenarioType: 'uca', uca, cause: 'control-algorithm' })
     p = r.project
@@ -172,11 +182,11 @@ describe('refinement', () => {
 
   it('refines a UCA once, linked to its parent', () => {
     const { p: p0, uca, speed } = train()
-    let r = refineUca(p0, uca, 0)
+    let r = refineUca(p0, uca, [0])
     expect(r.ids).toHaveLength(1)
     expect(r.project.items[r.ids[0]]).toMatchObject({ refines: uca, guide: 'provided' })
-    expect((r.project.items[r.ids[0]] as { conditions: Condition[] }).conditions.filter(isOnVariable).map((c) => c.variable)).toContain(speed)
-    r = refineUca(r.project, uca, 0)
+    expect(varsOf((r.project.items[r.ids[0]] as Uca).when)).toContain(speed)
+    r = refineUca(r.project, uca, [0])
     expect(itemsOfKind(r.project, 'uca')).toHaveLength(2)
     const q = deleteItems(r.project, [uca])
     expect((q.items[r.ids[0]] as { refines: Id | null }).refines).toBeNull()

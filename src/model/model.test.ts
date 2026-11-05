@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { computeLabels, renderText } from './labels'
 import { effectiveLosses } from './derived'
-import { applyStructType, blankField, createItem, defineEnumType, defineRangeType, defineStructType, deleteStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split, updateItem } from './ops'
+import { applyStructType, blankField, defineEnumType, defineRangeType, defineStructType, deleteStructType, deleteItems, deleteRangeType, group, indent, merge, outdent, renameRangeType, shift, split } from './ops'
+import { upgrade } from './build'
+import { createItem as create0, updateItem as update0 } from './ops'
+// legacy condition authoring in tests: converted to Expr on the way in
+const createItem = ((p: Project, k: Kind, init?: object) => create0(p, k, upgrade(p, (init ?? {}) as Record<string, unknown>) as never)) as <K extends Kind>(p: Project, k: K, init?: object) => { project: Project; id: Id<K> }
+const updateItem = ((p: Project, id: Id, patch: object) => update0(p, id, upgrade(p, patch as Record<string, unknown>) as never)) as (p: Project, id: Id, patch: object) => Project
 import { emptyProject, makeItem } from './create'
 import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
@@ -207,21 +212,22 @@ describe('control action duration', () => {
 
 describe('variable types and conditions', () => {
   it('compares a variable with another variable', async () => {
-    const { conditionText, conditionError } = await import('./variables')
-    const { condHolds } = await import('./traces')
+    const { say } = await import('./say')
+    const { holds, cmp, variable, check } = await import('./lang')
     const { makeItem } = await import('./create')
     let q = emptyProject()
     const mk = (title: string) => { const r = createItem(q, 'variable', { ...makeItem('variable'), type: 'range' as const, title, unit: 'ml' }); q = r.project; return r.id }
     const flow = mk('Flow'), dose = mk('Prescribed dose')
-    const c = { kind: 'var' as const, variable: flow, op: '>' as const, other: dose }
-    expect(conditionText(q, c)).toBe('Flow is greater than Prescribed dose')
-    expect(conditionError(q.items[flow] as never, c, q)).toBeNull()
-    expect(condHolds(q, c, (id) => ({ [flow]: '5', [dose]: '3' })[id])).toBe(true)
-    expect(condHolds(q, c, (id) => ({ [flow]: '2', [dose]: '3' })[id])).toBe(false)
-    expect(condHolds(q, c, (id) => ({ [flow]: '2' })[id])).toBeNull()
-    const h = createItem(q, 'hazard', { conditions: [c] })
+    const c = cmp('>', variable(flow), variable(dose))
+    expect(say(q, c)).toBe('Flow is greater than Prescribed dose')
+    expect(check({ p: q }, c).filter((d) => d.level === 'error')).toEqual([])
+    const env = (m: Record<string, string>) => ({ get: (id: string) => m[id] }) as never
+    expect(holds({ p: q }, c, env({ [flow]: '5', [dose]: '3' }))).toBe(true)
+    expect(holds({ p: q }, c, env({ [flow]: '2', [dose]: '3' }))).toBe(false)
+    expect(holds({ p: q }, c, env({ [flow]: '2' }))).toBeNull()
+    const h = createItem(q, 'hazard', { when: c })
     q = deleteItems(h.project, [dose])
-    expect((q.items[h.id] as Hazard).conditions).toEqual([])
+    expect((q.items[h.id] as Hazard).when).toBeNull()
   })
   it('describes states, validates conditions per type', async () => {
     const { describeStates, conditionError, conditionText, opsFor } = await import('./variables')
