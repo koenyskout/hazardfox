@@ -683,3 +683,14 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .decl > .x { margin-left: auto; }
 .cond .hold-btn { width: auto; font-size: 12px; padding: 1px 8px; color: var(--muted); flex: none; }
 .cond .hold-btn:hover { color: var(--text); }
+/* condition text: syntax colours and completion */
+.tx pre { white-space: pre-wrap; }
+.tx .tx-kw { color: var(--accent-2); font-weight: 600; }
+.tx .tx-var { color: hsl(70 55% 32%); } .tx .tx-ent { color: hsl(214 60% 42%); } .tx .tx-ev { color: var(--text); font-weight: 600; }
+.tx .tx-fn { color: hsl(275 50% 48%); } .tx .tx-num { color: hsl(30 80% 42%); } .tx .tx-str { color: hsl(150 45% 33%); }
+.tx .tx-inst { color: hsl(214 60% 42%); font-style: italic; } .tx .tx-op { color: var(--muted); } .tx .tx-err { color: var(--danger); text-decoration: underline wavy; }
+@media (prefers-color-scheme: dark) { .tx .tx-var { color: hsl(70 55% 65%); } .tx .tx-ent, .tx .tx-inst { color: hsl(214 80% 72%); } .tx .tx-fn { color: hsl(275 70% 78%); } .tx .tx-num { color: hsl(30 85% 68%); } .tx .tx-str { color: hsl(150 50% 65%); } }
+.tx-comp { position: absolute; left: 8px; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; z-index: 30; min-width: 220px; max-width: 90%; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 20px rgba(0,0,0,.18); font-family: inherit; font-size: 13px; line-height: 20px; }
+.tx-comp li { display: flex; gap: 8px; align-items: baseline; padding: 2px 8px; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+.tx-comp li.hi { background: var(--sel); }
+.tx-k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 52px; }

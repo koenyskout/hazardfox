@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Select } from './Select'
 import { Cascade, type CGroup, type COpt } from './Cascade'
 import { ChipLabel, Icon } from './Icon'
@@ -9,6 +9,7 @@ import { isPredicate } from '../model/formal'
 import { itemsOfKind } from '../model/tree'
 import { manyEntity } from '../model/variables'
 import { QUANTIFIERS, QUANT_LABELS, TIME_UNITS, type Id, type Item, type Project, type Quantifier, type Relationship, type TimeUnit, type Variable } from '../model/types'
+import { highlight, complete, type Completion } from '../model/textsyntax'
 import { ANY, BOOL, HOLE, val, at, check, checkError, children, eq, fills, namesOf, num, opsFor, parseExpr, printExpr, quant, replaceAt, scopeAt, slotType, typeOf, walk, type Candidate, type CmpOp, type Ctx, type Expr, type Fn, type Ty } from '../model/lang'
 
 type Q = Extract<Expr, { k: 'quant' }>
@@ -96,18 +97,49 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
   const canonical = e.k === 'hole' ? '' : printExpr(e, name)
   const [draft, setDraft] = useState(canonical)
   const [focus, setFocus] = useState(false)
+  const [caret, setCaret] = useState(0)
+  const [hi, setHi] = useState(0)
+  const [shut, setShut] = useState(false)
+  const area = useRef<HTMLTextAreaElement>(null)
+  const nextCaret = useRef<number | null>(null)
   useEffect(() => { if (!focus) setDraft(canonical) }, [canonical, focus])
+  useLayoutEffect(() => { if (nextCaret.current !== null && area.current) { area.current.setSelectionRange(nextCaret.current, nextCaret.current); setCaret(nextCaret.current); nextCaret.current = null } })
   let parsed: Expr | null = null
   let error: string | null = null
   if (draft.trim()) { try { parsed = parseExpr(p, draft, namesOf(p)); error = checkError(ctx, parsed) } catch (x) { error = (x as Error).message } }
   const commit = () => { setFocus(false); if (!draft.trim()) onChange(HOLE); else if (parsed && !error) onChange(parsed) }
+  const names = useMemo(() => namesOf(p), [p])
+  const segs = useMemo(() => highlight(p, draft, names), [p, draft, names])
+  const items = focus && !shut ? complete(p, draft, caret, names) : []
+  const accept = (c: Completion) => {
+    nextCaret.current = c.from + c.insert.length - c.back
+    setDraft(draft.slice(0, c.from) + c.insert + draft.slice(caret))
+    setHi(0)
+    area.current?.focus()
+  }
+  const sync = (el: HTMLTextAreaElement) => { setCaret(el.selectionStart) }
+  const key = (ev: React.KeyboardEvent) => {
+    if (ev.key === ' ' && ev.ctrlKey) { ev.preventDefault(); setShut(false); return }
+    if (!items.length) return
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); setHi((h) => (h + 1) % items.length) }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); setHi((h) => (h + items.length - 1) % items.length) }
+    else if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); accept(items[Math.min(hi, items.length - 1)]) }
+    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); setShut(true) }
+  }
   return (
     <div>
       <div className="tx">
-        <pre aria-hidden>{draft.split('\n').map((l, i) => <div key={i}>{l}{'​'}</div>)}</pre>
-        <textarea spellCheck={false} value={draft} onFocus={() => setFocus(true)} onChange={(x) => setDraft(x.target.value)} onBlur={commit} />
+        <pre aria-hidden>{segs.map((s, i) => s.cls ? <span key={i} className={s.cls}>{s.text}</span> : s.text)}{'\u200b'}</pre>
+        <textarea ref={area} spellCheck={false} value={draft} onFocus={(x) => { setFocus(true); sync(x.currentTarget) }}
+          onChange={(x) => { setDraft(x.target.value); sync(x.target); setShut(false); setHi(0) }}
+          onSelect={(x) => sync(x.currentTarget)} onKeyDown={key} onBlur={commit} />
+        {items.length > 0 && (
+          <ul className="tx-comp" onMouseDown={(ev) => ev.preventDefault()}>
+            {items.map((c, i) => <li key={c.kind + c.text} className={i === hi ? 'hi' : ''} onMouseEnter={() => setHi(i)} onClick={() => accept(c)}><span className={'tx-k tx-k-' + c.kind}>{c.kind === 'event' ? 'action' : c.kind}</span>{c.text}</li>)}
+          </ul>
+        )}
       </div>
-      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code>, <code>or</code>, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>.</div>}
+      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code>, <code>or</code>, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
     </div>
   )
 }
