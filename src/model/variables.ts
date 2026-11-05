@@ -288,9 +288,9 @@ export function conditionError(v: Variable, c: ValueCondition | VarCondition, p?
   return null
 }
 
-export const isGroup = (w: When): w is Group => 'of' in w
-export const allOf = (...of: When[]): Group => ({ any: false, of })
-export const anyOf = (...of: When[]): Group => ({ any: true, of })
+export const isGroup = (w: When): w is Group => w.kind === 'group'
+export const allOf = (...of: When[]): Group => ({ kind: 'group', any: false, of })
+export const anyOf = (...of: When[]): Group => ({ kind: 'group', any: true, of })
 /** The conditions in a condition tree. */
 export const leaves = (w: When): Condition[] => (isGroup(w) ? w.of.flatMap(leaves) : [w])
 /** The conditions to make true to satisfy a tree: all of an all-of group, the first branch of an any-of group (to draft traces). */

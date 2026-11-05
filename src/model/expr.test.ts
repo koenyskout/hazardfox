@@ -72,8 +72,8 @@ describe('expression conditions', () => {
     expect(textToWhen(s.p, 'all of:\n  - Speed > 0\n  and any of:\n    or Door state = closed\n    ∨ Gap − 2 × Speed < 5\n  - not: Door state = open')).toEqual(ws)
     const get = (v: Record<string, string>) => getter(v)
     const ok = { [s.speed]: '3', [s.door]: 'closed', [s.gap]: '100' }
-    expect(whenHolds(s.p, { any: false, of: ws }, get(ok))).toBe(true)
-    expect(whenHolds(s.p, { any: false, of: ws }, get({ ...ok, [s.door]: 'open' }))).toBe(false)
+    expect(whenHolds(s.p, { kind: 'group', any: false, of: ws }, get(ok))).toBe(true)
+    expect(whenHolds(s.p, { kind: 'group', any: false, of: ws }, get({ ...ok, [s.door]: 'open' }))).toBe(false)
     expect(whenText(s.p, ws[1] as never)).toContain(' or ')
     // negation is pushed to the leaves; a timed leaf has no opposite and keeps a not group
     const nots = textToWhen(s.p, 'not:\n  & Speed > 0\n  & Door state = open')

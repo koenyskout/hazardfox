@@ -799,7 +799,7 @@ function GroupEditor({ g, onChange, onRemove, vars, head, flat, scope }: { scope
           <button title="An arithmetic comparison such as Gap − 2 × Speed < 5, or Door state ≠ prev(Door state)" onClick={() => onChange({ ...g, of: [...g.of, EXPR] })}><Icon name="plus" size={12} /> expression</button>
           <button title="Timing condition: how long ago a control action or feedback occurred. Only checked in traces whose steps have times such as 5 s." onClick={() => onChange({ ...g, of: [...g.of, EVENT] })}><Icon name="plus" size={12} /> time since an event</button>
           <button title="A condition written in words, for something that is not a variable. Traces treat it as true or false." onClick={() => onChange({ ...g, of: [...g.of, WORDS] })}><Icon name="plus" size={12} /> free text</button>
-          <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all of' : 'any of'}</button>
+          <button title={`A nested group whose conditions are combined with ${g.any ? 'and' : 'or'}`} onClick={() => onChange({ ...g, of: [...g.of, { kind: 'group', any: !g.any, of: [BLANK, BLANK] }] })}><Icon name="plus" size={12} /> {g.any ? 'all of' : 'any of'}</button>
         </div>
       </div>
     </>

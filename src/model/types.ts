@@ -181,7 +181,7 @@ export interface StructField extends TypeSpec { name: string; /** name of anothe
 /** A reusable composite (e.g. Position: x, y): applying it to an owner creates one world variable per field, titled "<name>.<field>". */
 export interface StructType { fields: StructField[] }
 /** Condition tree: all (`any` false) or any of its conditions and nested groups hold; with `not` the group is negated (not all of its members hold). */
-export interface Group { any: boolean; of: When[]; not?: boolean }
+export interface Group { kind: 'group'; any: boolean; of: When[]; not?: boolean }
 export type When = Condition | Group
 /** The refined variable has value `state` when `when` holds. */
 export interface Rule { state: string; when: Group }

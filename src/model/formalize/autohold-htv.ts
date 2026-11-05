@@ -81,7 +81,7 @@ function autohold(p: Project): Project {
   const wheelSpeed = range(vehicle, 'Wheel speed', 'km/h', 0, null)
   const motion = enumVar(vehicle, 'Motion', ['stopped', 'moving'], {
     definition: 'The vehicle is moving when its wheel speed exceeds zero.',
-    rules: [{ state: 'moving', when: { any: false, of: [cond(wheelSpeed, '>', '0')] } }], otherwise: 'stopped',
+    rules: [{ state: 'moving', when: { kind: 'group', any: false, of: [cond(wheelSpeed, '>', '0')] } }], otherwise: 'stopped',
   })
   const timeAtRest = range(vehicle, 'Time at rest', 's', 0, null, { definition: 'Time since the vehicle came to rest (a timer; zero while moving).' })
   const slipping = bool(vehicle, 'Slipping', { definition: 'The vehicle moves (rolls) although the brakes hold, e.g. on a steep or slippery slope.' })

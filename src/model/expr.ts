@@ -2,7 +2,7 @@ import { variableName } from './labels'
 import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
 import { NEGATE } from './traces'
-import { compareSymbols, conditionError, isEvent, isExpr, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
+import { compareSymbols, conditionError, isEvent, isExpr, isGroup, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
 import type { Condition, ExprCondition, Group, Id, Project, ValueCondition, Variable, VarCondition, When } from './types'
 
 /** Arithmetic comparisons ("Gap − 2 × Speed < 5", "Door state = prev(Door state)"): a condition with `text` (variables as `@[id]`) and `expr: true`.
@@ -308,10 +308,10 @@ export function lineCondition(p: Project, src: string, names: Names = namesOf(p)
 
 /** The negation of a tree with the negation pushed to the leaves (De Morgan, opposite operators); only leaves without an opposite (timing, events, quantifiers) keep a `not` group. */
 export function negate(w: When): When {
-  if ('of' in w) return w.not ? { any: false, of: w.of } : { any: !w.any, of: w.of.map(negate) }
+  if (isGroup(w)) return w.not ? { kind: 'group', any: false, of: w.of } : { kind: 'group', any: !w.any, of: w.of.map(negate) }
   const m = isExpr(w) ? cmpOf(w) : null
   if (m) return exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })
-  if (isEvent(w) || isExpr(w) || w.time || (isOnVariable(w) && (w.quant || w.names))) return { any: false, not: true, of: [w] }
+  if (isEvent(w) || isExpr(w) || w.time || (isOnVariable(w) && (w.quant || w.names))) return { kind: 'group', any: false, not: true, of: [w] }
   return isText(w) ? { ...w, op: w.op === '=' ? '≠' : '=' } : { ...w, op: NEGATE[w.op] }
 }
 
@@ -328,7 +328,7 @@ export function textToWhen(p: Project, text: string): When[] {
       const h = header(row.body)
       if (h) {
         const kids = i < rows.length && rows[i].indent > row.indent ? parse(rows[i].indent) : []
-        out.push(h === 'any of' ? { any: true, of: kids } : h === 'not' ? negate({ any: false, of: kids }) : { any: false, of: kids })
+        out.push(h === 'any of' ? { kind: 'group', any: true, of: kids } : h === 'not' ? negate({ kind: 'group', any: false, of: kids }) : { kind: 'group', any: false, of: kids })
       } else if (/^not:\s/i.test(row.body)) out.push(negate(lineCondition(p, row.body.replace(/^not:\s*/i, ''), names)))
       else out.push(lineCondition(p, row.body, names))
     }

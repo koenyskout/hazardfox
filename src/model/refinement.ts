@@ -57,7 +57,7 @@ const not = (p: Project, cs: Condition[]): Dnf => cs.map((c): Condition[] => {
 /** A condition tree (or its negation) in DNF. */
 const dnf = (p: Project, w: When, neg = false): Dnf => {
   if (!isGroup(w)) return neg ? not(p, [w]) : [[w]]
-  if (w.not) return dnf(p, { any: false, of: w.of }, !neg)
+  if (w.not) return dnf(p, { kind: 'group', any: false, of: w.of }, !neg)
   const parts = w.of.map((x) => dnf(p, x, neg))
   return w.any === neg ? parts.reduce((a, b) => and(p, a, b), [[]]) : simplify(parts.flat())
 }

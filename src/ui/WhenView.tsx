@@ -30,5 +30,5 @@ export function WhenView({ ws, verdict }: { ws: When[]; verdict?: Verdict }) {
   }
   const top = ws.filter(complete)
   if (top.length === 1) return isGroup(top[0]) ? group(top[0], []) : <div className="wv-single">{leaf(top[0], [])}</div>
-  return group({ any: false, of: top }, [])
+  return group({ kind: 'group', any: false, of: top }, [])
 }

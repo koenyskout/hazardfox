@@ -4,7 +4,7 @@ import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleR
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { exprError } from '../model/expr'
-import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText, mapLeaves } from '../model/variables'
+import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText } from '../model/variables'
 import { QUANTIFIERS, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
@@ -357,6 +357,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const refs = new Set(refFields(it.kind))
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
   const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : isExpr(c) ? { text: r.externalText(c.text), op: '=', expr: true, ...(c.time ? { time: c.time } : {}) } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.time ? { time: c.time } : {}) } : { ...omitKind(c), variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
+  const whenView = (w: When): Rec => (isGroup(w) ? { any: w.any, ...(w.not ? { not: true } : {}), of: w.of.map(whenView) } : cond(w))
   const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]
@@ -364,11 +365,11 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'status' && v === 'draft') continue
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
-    else if (f === 'conditions') out[f] = (v as When[]).map((w) => (isGroup(w) ? mapLeaves(w, cond as (c: Condition) => Condition) : cond(w)))
+    else if (f === 'conditions') out[f] = (v as When[]).map(whenView)
     else if (f === 'params' && it.kind === 'operation') out[f] = it.params.map((x) => ({ ...x, entity: x.entity ? r.label(x.entity) : '' }))
     else if (f === 'ends' && it.kind === 'relationship') out[f] = it.ends.map((x) => ({ entity: r.label(x.entity), ...(x.role ? { role: x.role } : {}), card: x.card }))
     else if (f === 'effects' && it.kind === 'operation') out[f] = it.effects.map((x) => ({ ...x, variable: r.label(x.variable) }))
-    else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: mapLeaves(x.when, cond as (c: Condition) => Condition) }))
+    else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: whenView(x.when) }))
     else if (f === 'trace') {
       const t = v as Trace
       if (!t.steps.length) continue
