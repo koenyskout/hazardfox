@@ -395,6 +395,8 @@ export interface Env {
   /** The instances of an entity known at this step; none: the aggregate lane stands for them. */
   instances?(entity: Id<'entity'>): string[]
   param?(name: string): string | undefined
+  /** Lane keys (with instance names) that carry a value at this step: an unnamed variable stands for any of its instances. */
+  lanes?(): string[]
 }
 type Bind = Record<string, string>
 
@@ -410,6 +412,17 @@ const kleeneAnd = (xs: (boolean | null)[]): boolean | null => (xs.includes(false
 const kleeneOr = (xs: (boolean | null)[]): boolean | null => (xs.includes(true) ? true : xs.includes(null) ? null : false)
 const asBool = (v: Val): boolean | null => (typeof v === 'boolean' ? v : v === 'true' ? true : v === 'false' ? false : null)
 
+/** The values a side of a comparison may take: a variable with no instance named stands for its aggregate lane and each instance lane (some). */
+function alts(ctx: Ctx, e: Expr, env: Env, bind: Bind, u: string | null): Val[] {
+  const one = evalExpr(ctx, e, env, bind, u)
+  if (e.k !== 'var' || e.at?.some((n) => n && n in bind) || !env.lanes) return [one]
+  const v = ctx.p.items[e.id]
+  if (v?.kind !== 'variable') return [one]
+  const more = env.lanes().filter((l) => l.startsWith(e.id + '@')).map((l) => env.get(l)).filter((x): x is string => x !== undefined && x !== '')
+    .map((raw): Val => (v.type === 'range' ? (numeric(raw) === null ? null : numeric(raw)! * secs(v.unit.trim())) : v.type === 'boolean' ? raw === 'true' : raw))
+  return one === null ? (more.length ? more : [null]) : [one, ...more]
+}
+const some_ = (xs: (boolean | null)[]) => kleeneOr(xs)
 /** Value of an expression at a step: numbers (times in seconds), strings, booleans (three-valued: null = unknown). */
 export function evalExpr(ctx: Ctx, e: Expr, env: Env, bind: Bind = {}, wantUnit: string | null = null): Val {
   const { p } = ctx
@@ -460,22 +473,18 @@ export function evalExpr(ctx: Ctx, e: Expr, env: Env, bind: Bind = {}, wantUnit:
     }
     case 'cmp': {
       const u = isConst(e.l) ? tyUnit(ctx, e.r) : tyUnit(ctx, e.l)
-      const l = ev(e.l, u), r = ev(e.r, u)
-      if (l === null || r === null) return null
-      return compare(ctx, e.op, l, r, e.l, e.r)
+      const ls = alts(ctx, e.l, env, bind, u), rs = alts(ctx, e.r, env, bind, u)
+      return some_(ls.flatMap((l) => rs.map((r) => (l === null || r === null ? null : compare(ctx, e.op, l, r, e.l, e.r)))))
     }
     case 'between': {
       const u = tyUnit(ctx, e.e)
-      const x = ev(e.e, u), lo = ev(e.lo, u), hi = ev(e.hi, u)
-      if (x === null || lo === null || hi === null) return null
-      const a = compare(ctx, '≥', x, lo, e.e, e.lo), b = compare(ctx, '≤', x, hi, e.e, e.hi)
-      return kleeneAnd([a, b])
+      const lo = ev(e.lo, u), hi = ev(e.hi, u)
+      if (lo === null || hi === null) return null
+      return some_(alts(ctx, e.e, env, bind, u).map((x) => (x === null ? null : kleeneAnd([compare(ctx, '≥', x, lo, e.e, e.lo), compare(ctx, '≤', x, hi, e.e, e.hi)]))))
     }
     case 'in': {
       const u = tyUnit(ctx, e.e)
-      const x = ev(e.e, u)
-      if (x === null) return null
-      return kleeneOr(e.set.map((s) => { const y = ev(s, u); return y === null ? null : compare(ctx, '=', x, y, e.e, s) }))
+      return some_(alts(ctx, e.e, env, bind, u).flatMap((x) => e.set.map((s) => { const y = ev(s, u); return x === null || y === null ? null : compare(ctx, '=', x, y, e.e, s) })))
     }
     case 'not': { const b = evb(e.e); return b === null ? null : !b }
     case 'and': return kleeneAnd(e.of.map(evb))
@@ -485,8 +494,8 @@ export function evalExpr(ctx: Ctx, e: Expr, env: Env, bind: Bind = {}, wantUnit:
       const taken = Object.entries(ctx.scope ?? {}).filter(([n, en]) => n in bind && isA(p, en, e.entity) || n in bind && isA(p, e.entity, en)).map(([n]) => bind[n])
       const all = env.instances?.(e.entity) ?? []
       const inst = all.filter((x) => !taken.includes(x))
-      if (all.length && !inst.length) return null
-      const rs = (inst.length ? inst : ['']).map((i) => asBool(evalExpr({ ...ctx, scope: { ...ctx.scope, [e.name]: e.entity } }, e.body, env, { ...bind, [e.name]: i })))
+      if (!all.length && taken.length) return null
+      const rs = (all.length ? inst : ['']).map((i) => asBool(evalExpr({ ...ctx, scope: { ...ctx.scope, [e.name]: e.entity } }, e.body, env, { ...bind, [e.name]: i })))
       if (e.q === 'all') return kleeneAnd(rs)
       const any = kleeneOr(rs)
       return e.q === 'some' ? any : any === null ? null : !any

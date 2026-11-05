@@ -37,12 +37,13 @@ const tree = (p: Project, w: When): Expr | null => {
   return w.not ? not(and(...of)) : w.any ? or(...of) : and(...of)
 }
 /** The conjunction of `ws`, with the names its leaves declare quantified around it (`scope`: the whole list the names are declared in). */
-export function whenToExpr(p: Project, ws: When[], scope: When[] = ws): Expr {
+export function whenToExpr(p: Project, ws: When[], scope: When[] = ws): Expr | null {
   const body = tree(p, and_(ws))
   const mine = new Set(ws.flatMap(leaves).flatMap((c) => condInstances(p, c).map((i) => i.name)))
   const decls: { name: string; entity: Id<'entity'>; q: 'some' | 'all' | 'none' }[] = []
   for (const c of scope.flatMap(leaves)) for (const i of condInstances(p, c)) if (i.intro && mine.has(i.name) && !decls.some((d) => d.name === i.name)) decls.push({ name: i.name, entity: i.entity as Id<'entity'>, q: i.quant })
-  let e = body ?? and()
+  if (!body) return null
+  let e = body
   for (const d of [...decls].reverse()) e = (d.q === 'some' ? some : d.q === 'all' ? every : none)(d.name, d.entity, e)
   return e
 }

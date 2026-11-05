@@ -54,7 +54,7 @@ describe('Expr agrees with the old condition trees on every example trace', () =
           if (!ws.length) continue
           const old = whenHolds(p, { kind: 'group', any: false, of: ws }, get)
           if (old === undefined) continue
-          const now = newHolds({ p }, whenToExpr(p, ws), env)
+          const now = newHolds({ p }, whenToExpr(p, ws)!, env)
           compared++
           expect({ s: s.id, i, now }, JSON.stringify(ws).slice(0, 200)).toEqual({ s: s.id, i, now: old })
         }
