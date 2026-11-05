@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { createItem, defineSymbolicType, deleteSymbolicType, renameSymbolicType, updateItem } from './ops'
+import { blankField, createItem, defineEnumType, defineRangeType, defineStructType, defineSymbolicType, deleteEnumType, deleteRangeType, deleteSymbolicType, renameEnumType, renameRangeType, renameSymbolicType, updateItem } from './ops'
 import { deserialize, serialize } from './serialize'
 import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
 import { paramVar } from './params'
-import type { Condition, Project, Variable } from './types'
+import type { Condition, ItemOf, Project, Variable } from './types'
 
 const setup = () => {
   let p: Project = emptyProject()
@@ -97,5 +97,27 @@ describe('symbolic types', () => {
       step({ [s.t1]: 't6', [s.id]: 'a1', [seq.id]: 'n4' }),
     ] }
     expect(symbolViolations(s.p(), trace as never).map((x) => [x.step, x.property])).toEqual([[2, 'monotonic'], [2, 'unique'], [2, 'sequential']])
+  })
+})
+
+describe('named types follow renames and deletes everywhere', () => {
+  it('updates control-action params, operation value params and struct fields', () => {
+    let p = defineRangeType(emptyProject(), 'Pct', { min: 0, max: 100, unit: '%' })
+    p = defineEnumType(p, 'Mode', ['a', 'b'])
+    const ca = createItem(p, 'ca', { params: [{ name: 'x', type: 'range', states: [], min: 0, max: 100, unit: '%', rangeType: 'Pct', enumType: '' }] })
+    p = ca.project
+    const op = createItem(p, 'operation', { params: [{ name: 'm', entity: '', data: { type: 'enum', states: ['a', 'b'], min: null, max: null, unit: '', rangeType: '', enumType: 'Mode' } }] })
+    p = defineStructType(op.project, 'S', { fields: [{ ...blankField(), name: 'f', type: 'range', rangeType: 'Pct' }] })
+    const read = (q: typeof p) => ({
+      ca: (q.items[ca.id] as ItemOf<'ca'>).params[0].rangeType,
+      op: (q.items[op.id] as ItemOf<'operation'>).params[0].data!.enumType,
+      field: q.structTypes!.S.fields[0].rangeType,
+    })
+    const renamed = renameEnumType(renameRangeType(p, 'Pct', 'Percent'), 'Mode', 'Gear')
+    expect(read(renamed)).toEqual({ ca: 'Percent', op: 'Gear', field: 'Percent' })
+    expect(renamed.rangeTypes).toHaveProperty('Percent')
+    expect(renamed.rangeTypes).not.toHaveProperty('Pct')
+    const gone = deleteEnumType(deleteRangeType(p, 'Pct'), 'Mode')
+    expect(read(gone)).toEqual({ ca: '', op: '', field: '' })
   })
 })

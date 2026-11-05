@@ -86,80 +86,72 @@ export function updateItem(p: Project, id: Id, patch: Patch): Project {
   })
 }
 
-/** Create or change a named symbolic type variables using it follow. Works on a draft. */
+/** The three kinds of named, reusable types that variables (and parameters) refer to by name. */
+interface NamedKind<T> {
+  registry: 'rangeTypes' | 'enumTypes' | 'symbolicTypes'
+  /** field holding the type name on variables, parameters and struct fields */
+  field: 'rangeType' | 'enumType' | 'symbolicType'
+  /** a variable following the type takes its definition */
+  apply: (v: Variable, t: T) => void
+  normalize: (t: T) => T
+}
+type TypeField = NamedKind<unknown>['field']
+/** Where a named type is stored and referred to. */
+type Where = Pick<NamedKind<unknown>, 'registry' | 'field'>
+type NameHolder = { [F in TypeField]?: string }
+
+const RANGE: NamedKind<RangeType> = { registry: 'rangeTypes', field: 'rangeType', apply: (v, t) => Object.assign(v, t), normalize: (t) => ({ ...t }) }
+const ENUM: NamedKind<string[]> = { registry: 'enumTypes', field: 'enumType', apply: (v, t) => { v.states = [...t] }, normalize: (t) => [...t] }
+const SYMBOLIC: NamedKind<SymbolicType> = { registry: 'symbolicTypes', field: 'symbolicType', apply: (v, t) => Object.assign(v, t), normalize: normSym }
 const SYM_KEYS = ['ordered', 'unique', 'monotonic', 'sequential']
-function setSymbolicType(d: Draft, name: string, t: SymbolicType) {
-  const s = normSym(t)
-  ;(d.symbolicTypes ??= {})[name] = s
-  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.symbolicType === name) Object.assign(it, s)
+
+/** Everything that names a type: variables, control-action parameters, value parameters of operations and struct fields. */
+function* nameHolders(d: Draft): Generator<NameHolder> {
+  for (const it of Object.values(d.items)) {
+    if (it.kind === 'variable') yield it
+    else if (it.kind === 'ca') yield* it.params
+    else if (it.kind === 'operation') for (const x of it.params) if (x.data) yield x.data
+  }
+  for (const t of Object.values(d.structTypes ?? {})) yield* t.fields
 }
-export const defineSymbolicType = (p: Project, name: string, t: SymbolicType): Project => produce(p, (d) => setSymbolicType(d, name, t))
-export const renameSymbolicType = (p: Project, from: string, to: string): Project => {
-  if (!to || to === from || !p.symbolicTypes?.[from] || p.symbolicTypes[to]) return p
+
+/** Create or change a named type; variables using it follow. Works on a draft. */
+function setNamed<T>(d: Draft, k: NamedKind<T>, name: string, t: T) {
+  const def = k.normalize(t)
+  ;((d[k.registry] ??= {}) as Record<string, T>)[name] = def
+  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it[k.field] === name) k.apply(it, def)
+}
+const defineNamed = <T>(k: NamedKind<T>) => (p: Project, name: string, t: T): Project => produce(p, (d) => setNamed(d, k, name, t))
+/** Rename a type everywhere it is used (no-op when the new name is taken). */
+const renameNamed = (k: Where) => (p: Project, from: string, to: string): Project => {
+  const reg = p[k.registry] as Record<string, unknown> | undefined
+  if (!to || to === from || !reg?.[from] || reg[to]) return p
   return produce(p, (d) => {
-    d.symbolicTypes![to] = d.symbolicTypes![from]
-    delete d.symbolicTypes![from]
-    for (const it of Object.values(d.items)) {
-      if (it.kind === 'variable' && it.symbolicType === from) it.symbolicType = to
-      if (it.kind === 'ca' || it.kind === 'operation') for (const x of it.params) if ('symbolicType' in x && x.symbolicType === from) x.symbolicType = to
-    }
+    const r = d[k.registry] as Record<string, unknown>
+    r[to] = r[from]
+    delete r[from]
+    for (const h of nameHolders(d)) if (h[k.field] === from) h[k.field] = to
   })
 }
-/** Remove a symbolic type; its variables keep their properties as their own. */
-export const deleteSymbolicType = (p: Project, name: string): Project =>
+/** Remove a type; whatever used it keeps its current definition as its own. */
+const deleteNamed = (k: Where) => (p: Project, name: string): Project =>
   produce(p, (d) => {
-    delete d.symbolicTypes?.[name]
-    for (const it of Object.values(d.items)) {
-      if (it.kind === 'variable' && it.symbolicType === name) it.symbolicType = ''
-      if (it.kind === 'ca') for (const x of it.params) if (x.symbolicType === name) x.symbolicType = ''
-    }
+    delete (d[k.registry] as Record<string, unknown> | undefined)?.[name]
+    for (const h of nameHolders(d)) if (h[k.field] === name) h[k.field] = ''
   })
 
-/** Create or change a named enum type; variables using it follow. Works on a draft. */
-function setEnumType(d: Draft, name: string, states: string[]) {
-  ;(d.enumTypes ??= {})[name] = [...states]
-  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === name) it.states = [...states]
-}
-export const defineEnumType = (p: Project, name: string, states: string[]): Project => produce(p, (d) => setEnumType(d, name, states))
-export const renameEnumType = (p: Project, from: string, to: string): Project => {
-  if (!to || to === from || !p.enumTypes?.[from] || p.enumTypes[to]) return p
-  return produce(p, (d) => {
-    d.enumTypes![to] = d.enumTypes![from]
-    delete d.enumTypes![from]
-    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === from) it.enumType = to
-  })
-}
-/** Remove an enum type; its variables keep their states as their own. */
-export const deleteEnumType = (p: Project, name: string): Project =>
-  produce(p, (d) => {
-    delete d.enumTypes?.[name]
-    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.enumType === name) it.enumType = ''
-  })
-
-/** Create or change a named range type; variables using it follow. Works on a draft. */
-function setRangeType(d: Draft, name: string, t: RangeType) {
-  ;(d.rangeTypes ??= {})[name] = t
-  for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === name) Object.assign(it, t)
-}
-
-export const defineRangeType = (p: Project, name: string, t: RangeType): Project => produce(p, (d) => setRangeType(d, name, t))
-
-/** Rename a range type (no-op when the new name is taken). */
-export const renameRangeType = (p: Project, from: string, to: string): Project => {
-  if (!to || to === from || !p.rangeTypes?.[from] || p.rangeTypes[to]) return p
-  return produce(p, (d) => {
-    d.rangeTypes![to] = d.rangeTypes![from]
-    delete d.rangeTypes![from]
-    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === from) it.rangeType = to
-  })
-}
-
-/** Remove a range type; its variables keep their current bounds as custom ones. */
-export const deleteRangeType = (p: Project, name: string): Project =>
-  produce(p, (d) => {
-    delete d.rangeTypes?.[name]
-    for (const it of Object.values(d.items)) if (it.kind === 'variable' && it.rangeType === name) it.rangeType = ''
-  })
+const setRangeType = (d: Draft, name: string, t: RangeType) => setNamed(d, RANGE, name, t)
+const setEnumType = (d: Draft, name: string, states: string[]) => setNamed(d, ENUM, name, states)
+const setSymbolicType = (d: Draft, name: string, t: SymbolicType) => setNamed(d, SYMBOLIC, name, t)
+export const defineRangeType = defineNamed(RANGE)
+export const renameRangeType = renameNamed(RANGE)
+export const deleteRangeType = deleteNamed(RANGE)
+export const defineEnumType = defineNamed(ENUM)
+export const renameEnumType = renameNamed(ENUM)
+export const deleteEnumType = deleteNamed(ENUM)
+export const defineSymbolicType = defineNamed(SYMBOLIC)
+export const renameSymbolicType = renameNamed(SYMBOLIC)
+export const deleteSymbolicType = deleteNamed(SYMBOLIC)
 
 export const blankField = (): StructField => ({ name: '', type: 'enum', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' })
 export const defineStructType = (p: Project, name: string, t: StructType): Project => syncStructs(produce(p, (d) => { (d.structTypes ??= {})[name] = t }))
