@@ -61,7 +61,7 @@ describe('not as a block', () => {
     const e = and(b(vs[2]), { k: 'not', e: q }, { k: 'not', e: or(b(vs[0]), and(b(vs[1]), b(vs[2]))) }, b(vs[0]))
     const t = formatExpr(e, (id) => '@[' + id + ']')
     expect(t).not.toContain('(')
-    expect(t).toMatch(/^∧ not all .*:\n {2}∨ /m)
+    expect(t).toMatch(/^∧ not all .*:\n {4}∨ /m)
     expect(parseExpr(p, t)).toEqual(e)
   })
 })
