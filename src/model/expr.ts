@@ -10,7 +10,7 @@ import type { Condition, ExprCondition, Group, Id, Project, ValueCondition, Vari
 export type Expr =
   | { k: 'n'; v: string }
   | { k: 'c'; v: string }
-  | { k: 'v'; id: Id }
+  | { k: 'v'; id: Id<'variable'> }
   | { k: 'f'; f: string; a: Expr[] }
   | { k: 'b'; o: '+' | '−' | '×'; l: Expr; r: Expr }
 export const CMP_OPS = ['=', '≠', '<', '≤', '>', '≥'] as const
@@ -21,10 +21,10 @@ const FNS: Record<string, number> = { prev: 1, succ: 1, pred: 1, abs: 1, min: 2,
 /** An expression condition: a text condition whose text is a comparison. */
 
 type Tok = { t: 'n' | 'c' | 'v' | 'w' | 'op'; v: string }
-type Names = [string, Id][]
+type Names = [string, Id<'variable'>][]
 /** Variable names (as written) sorted longest first, for reading text that names variables instead of using references. */
 export const namesOf = (p: Project, filter: (v: Variable) => boolean = () => true): Names =>
-  itemsOfKind(p, 'variable').filter(filter).map((v) => [variableName(p, v).trim(), v.id] as [string, Id]).filter(([n]) => n).sort((a, b) => b[0].length - a[0].length)
+  itemsOfKind(p, 'variable').filter(filter).map((v) => [variableName(p, v).trim(), v.id] as [string, Id<'variable'>]).filter(([n]) => n).sort((a, b) => b[0].length - a[0].length)
 
 function tokens(src: string, names: Names): Tok[] {
   const out: Tok[] = []
@@ -87,7 +87,7 @@ class Parser {
   }
 }
 
-export type Parsed = { cmp: Cmp } | { between: { v: Id; not: boolean; a: string; b: string } } | { set: { v: Id; not: boolean; of: string[] } }
+export type Parsed = { cmp: Cmp } | { between: { v: Id<'variable'>; not: boolean; a: string; b: string } } | { set: { v: Id<'variable'>; not: boolean; of: string[] } }
 
 /** Reads one comparison; `names` also lets variables be written by name. Throws an Error with a readable message. */
 export function parseComparison(src: string, names: Names = []): Parsed {
@@ -246,9 +246,9 @@ export function exprHolds(p: Project, c: ExprCondition, get: (id: Id) => string 
   const m = cmpOf(c)
   return m ? cmpHolds(p, m, get, prev) : undefined
 }
-export const exprVars = (c: ExprCondition): Id[] => [...new Set(mentions(c.text))]
+export const exprVars = (c: ExprCondition): Id<'variable'>[] => [...new Set(mentions(c.text))]
 /** Variables a condition reads (both sides of a comparison, or those in an expression). */
-export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : !isOnVariable(c) ? [] : isVarCmp(c) ? [c.variable, c.other].filter(Boolean) : [c.variable].filter(Boolean))
+export const condVars = (c: Condition): Id<'variable'>[] => (isExpr(c) ? exprVars(c) : !isOnVariable(c) ? [] : isVarCmp(c) ? [c.variable, c.other].filter(Boolean) : [c.variable].filter(Boolean))
 
 // ---- plain-text form of a condition tree
 

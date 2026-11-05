@@ -11,33 +11,33 @@ import { anyOf, nameAllInstances } from '../variables'
  */
 class Ctx {
   constructor(public p: Project) {}
-  private add<K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id { const r = createItem(this.p, kind, init); this.p = r.project; return r.id }
-  entity = (title: string, many = false, description = ''): Id => this.add('entity', { title, description, ...(many ? { many } : {}) })
-  rel = (from: Id, title: string, to: Id, fromCard = '*', toCard = '*'): Id => this.add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) })
+  private add<K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id<K> { const r = createItem(this.p, kind, init); this.p = r.project; return r.id }
+  entity = (title: string, many = false, description = ''): Id<'entity'> => this.add('entity', { title, description, ...(many ? { many } : {}) })
+  rel = (from: Id<'entity'>, title: string, to: Id<'entity'>, fromCard = '*', toCard = '*'): Id<'relationship'> => this.add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) })
   /** The boolean predicate R(from, to) of a relationship. */
-  pred = (rel: Id): Id => predicateOf(this.p, rel)!.id
-  states = (parent: Id, title: string, states: string[], definition = ''): Id => this.add('variable', { parent, title, states, definition })
-  bool = (parent: Id, title: string, definition = ''): Id => this.add('variable', { parent, title, type: 'boolean', definition })
-  range = (parent: Id, title: string, min: number | null, max: number | null, unit: string, definition = ''): Id => this.add('variable', { parent, title, type: 'range', min, max, unit, definition })
+  pred = (rel: Id<'relationship'>): Id<'variable'> => predicateOf(this.p, rel)!.id
+  states = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], definition = ''): Id<'variable'> => this.add('variable', { parent, title, states, definition })
+  bool = (parent: Id<'entity' | 'relationship'>, title: string, definition = ''): Id<'variable'> => this.add('variable', { parent, title, type: 'boolean', definition })
+  range = (parent: Id<'entity' | 'relationship'>, title: string, min: number | null, max: number | null, unit: string, definition = ''): Id<'variable'> => this.add('variable', { parent, title, type: 'range', min, max, unit, definition })
   /** Defines a (refined) enum variable by rules over lower-level world variables: the first state of `rules` whose condition holds, else `otherwise`. */
-  refined = (v: Id, rules: [state: string, when: ReturnType<typeof anyOf>][], otherwise: string) => { this.p = updateItem(this.p, v, { rules: rules.map(([state, when]) => ({ state, when })), otherwise }) }
-  hazard = (title: string): Id => {
+  refined = (v: Id<'variable'>, rules: [state: string, when: ReturnType<typeof anyOf>][], otherwise: string) => { this.p = updateItem(this.p, v, { rules: rules.map(([state, when]) => ({ state, when })), otherwise }) }
+  hazard = (title: string): Id<'hazard'> => {
     const h = Object.values(this.p.items).find((i) => i.kind === 'hazard' && i.title.startsWith(title))
     if (!h) throw new Error(`no hazard "${title}"`)
-    return h.id
+    return h.id as Id<'hazard'>
   }
   conditions = (title: string, ...cs: Condition[]) => { this.p = updateItem(this.p, this.hazard(title), { conditions: cs }) }
 }
 
-export const is = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
-export const isNot = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '≠', state, ...extra })
-export const isIn = (variable: Id, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'in', state: '', set, ...extra })
-export const notIn = (variable: Id, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not in', state: '', set, ...extra })
-export const above = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '>', state: String(n), ...extra })
-export const below = (variable: Id, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '<', state: String(n), ...extra })
-export const outside = (variable: Id, lo: number, hi: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
+export const is = (variable: Id<'variable'>, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
+export const isNot = (variable: Id<'variable'>, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '≠', state, ...extra })
+export const isIn = (variable: Id<'variable'>, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'in', state: '', set, ...extra })
+export const notIn = (variable: Id<'variable'>, set: string[], extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not in', state: '', set, ...extra })
+export const above = (variable: Id<'variable'>, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '>', state: String(n), ...extra })
+export const below = (variable: Id<'variable'>, n: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '<', state: String(n), ...extra })
+export const outside = (variable: Id<'variable'>, lo: number, hi: number, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: 'not between', state: String(lo), to: String(hi), ...extra })
 /** `variable op other`, both read at the instances named in `extra` (`as`/`same`, `otherAt`). */
-export const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
+export const cmp = (variable: Id<'variable'>, op: ConditionOp, other: Id<'variable'>, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
 
 const REGIONS = ['head', 'neck', 'thorax', 'abdomen', 'pelvis', 'limbs']
 

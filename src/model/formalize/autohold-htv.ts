@@ -20,22 +20,22 @@ export function formalizeAutoholdHtv(id: 'hb-autohold' | 'hb-htv', p: Project): 
 /** Small mutable builder over an existing project. */
 function kit(p: Project) {
   let q = p
-  const add = <K extends Kind>(kind: K, init?: Patch<K>): Id => { const r = createItem(q, kind, init); q = r.project; return r.id }
+  const add = <K extends Kind>(kind: K, init?: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
   const set = (id: Id, patch: Patch) => { q = updateItem(q, id, patch) }
-  const find = (kind: Kind, title: string): Id => {
+  const find = <K extends Kind>(kind: K, title: string): Id<K> => {
     const it = itemsOfKind(q, kind).find((x) => x.title === title)
     if (!it) throw new Error(`${kind} "${title}" not found`)
-    return it.id
+    return it.id as Id<K>
   }
-  const enumVar = (parent: Id, title: string, states: string[], extra: Patch<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
-  const bool = (parent: Id, title: string, extra: Patch<'variable'> = {}) => add('variable', { parent, title, type: 'boolean', ...extra })
-  const range = (parent: Id, title: string, unit: string, min: number | null = 0, max: number | null = null, extra: Patch<'variable'> = {}) =>
+  const enumVar = (parent: Id<'entity' | 'relationship'>, title: string, states: string[], extra: Patch<'variable'> = {}) => add('variable', { parent, title, states, ...extra })
+  const bool = (parent: Id<'entity' | 'relationship'>, title: string, extra: Patch<'variable'> = {}) => add('variable', { parent, title, type: 'boolean', ...extra })
+  const range = (parent: Id<'entity' | 'relationship'>, title: string, unit: string, min: number | null = 0, max: number | null = null, extra: Patch<'variable'> = {}) =>
     add('variable', { parent, title, type: 'range', unit, min, max, ...extra })
-  const internalEnum = (node: Id, title: string, states: string[], definition = '') => add('variable', { layer: 'internal', parent: node, title, states, definition })
-  const internalRange = (node: Id, title: string, unit: string, definition = '') => add('variable', { layer: 'internal', parent: node, title, type: 'range', unit, min: 0, max: null, definition })
-  const rel = (title: string, from: Id, to: Id, fromCard: string, toCard: string) => { const id = add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) }); return { id, pred: itemsOfKind(q, 'variable').find((v) => v.parent === id)!.id } }
+  const internalEnum = (node: Id<'node'>, title: string, states: string[], definition = '') => add('variable', { layer: 'internal', parent: node, title, states, definition })
+  const internalRange = (node: Id<'node'>, title: string, unit: string, definition = '') => add('variable', { layer: 'internal', parent: node, title, type: 'range', unit, min: 0, max: null, definition })
+  const rel = (title: string, from: Id<'entity'>, to: Id<'entity'>, fromCard: string, toCard: string) => { const id = add('relationship', { title, ends: relEnds(from, to, fromCard, toCard) }); return { id, pred: itemsOfKind(q, 'variable').find((v) => v.parent === id)!.id } }
   /** UCA lookup by the Handbook sentence, rewritten with formal conditions; the sentence is kept in the notes. */
-  const uca = (text: string, conditions: Condition[], context = '', hazards?: Id[]) => {
+  const uca = (text: string, conditions: Condition[], context = '', hazards?: Id<'hazard'>[]) => {
     const u = itemsOfKind(q, 'uca').find((x) => x.override === text)
     if (!u) throw new Error(`UCA "${text}" not found`)
     set(u.id, { conditions, context, override: '', notes: `Handbook: ${text}`, ...(hazards ? { hazards } : {}) })
@@ -51,17 +51,17 @@ function kit(p: Project) {
       }
     }
   }
-  const belief = (node: Id, world: Id) => itemsOfKind(q, 'variable').find((v) => v.layer === 'belief' && v.parent === node && v.about === world)!.id
+  const belief = (node: Id<'node'>, world: Id<'variable'>) => itemsOfKind(q, 'variable').find((v) => v.layer === 'belief' && v.parent === node && v.about === world)!.id
   /** Sets the definition of a controller's belief about a world variable (a text note why it has no feedback source); no-op without such a belief. */
-  const describeBelief = (node: Id, world: Id, definition: string) => {
+  const describeBelief = (node: Id<'node'>, world: Id<'variable'>, definition: string) => {
     const b = itemsOfKind(q, 'variable').find((v) => v.layer === 'belief' && v.parent === node && v.about === world)
     if (b) set(b.id, { definition })
   }
-  const signal = (fb: Id, world: Id) => { q = addSignal(q, fb, world).project }
-  const cond = (variable: Id, op: ConditionOp, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op, state, ...extra })
-  const eq = (v: Id, s: string) => cond(v, '=', s)
-  const ne = (v: Id, s: string) => cond(v, '≠', s)
-  const cmp = (v: Id, op: ConditionOp, other: Id): Condition => ({ kind: 'var', variable: v, op, other })
+  const signal = (fb: Id<'feedback'>, world: Id<'variable'>) => { q = addSignal(q, fb, world).project }
+  const cond = (variable: Id<'variable'>, op: ConditionOp, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op, state, ...extra })
+  const eq = (v: Id<'variable'>, s: string) => cond(v, '=', s)
+  const ne = (v: Id<'variable'>, s: string) => cond(v, '≠', s)
+  const cmp = (v: Id<'variable'>, op: ConditionOp, other: Id<'variable'>): Condition => ({ kind: 'var', variable: v, op, other })
   return { get p() { return q }, add, set, find, enumVar, bool, range, internalEnum, internalRange, rel, uca, believe, belief, describeBelief, signal, cond, eq, ne, cmp }
 }
 

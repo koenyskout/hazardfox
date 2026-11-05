@@ -13,21 +13,21 @@ import type { Condition, ConditionOp, Entity, Hazard, Id, Patch, Project, Uca, V
 type Ctx = { p: Project }
 const kit = (c: Ctx) => {
   const find = <T extends { title: string; parent: Id | null }>(items: T[], title: string, parent: Id | null) => items.find((i) => i.title === title && i.parent === parent)
-  const entity = (title: string, patch: Patch<'entity'> = {}): Id => {
+  const entity = (title: string, patch: Patch<'entity'> = {}): Id<'entity'> => {
     const have = find(itemsOfKind(c.p, 'entity'), title, null)
     if (have) return have.id
     const r = createItem(c.p, 'entity', { title, ...patch }); c.p = r.project; return r.id
   }
-  const world = (owner: Id, title: string, patch: Patch<'variable'>): Id => {
+  const world = (owner: Id<'entity' | 'relationship'>, title: string, patch: Patch<'variable'>): Id<'variable'> => {
     const have = find(itemsOfKind(c.p, 'variable').filter((v) => v.layer === 'domain'), title, owner)
     if (have) return have.id
     const r = createItem(c.p, 'variable', { layer: 'domain', parent: owner, title, ...patch }); c.p = r.project; return r.id
   }
-  const rng = (owner: Id, title: string, unit: string, definition = '') => world(owner, title, { type: 'range', min: 0, max: null, unit, definition })
+  const rng = (owner: Id<'entity' | 'relationship'>, title: string, unit: string, definition = '') => world(owner, title, { type: 'range', min: 0, max: null, unit, definition })
   const set = (id: Id, patch: Patch) => { c.p = updateItem(c.p, id, patch) }
   const hazard = (title: string): Hazard => { const h = itemsOfKind(c.p, 'hazard').find((x) => x.title === title); if (!h) throw new Error('hazard not found: ' + title); return h }
   const node = (title: string) => { const n = itemsOfKind(c.p, 'node').find((x) => x.title.startsWith(title)); if (!n) throw new Error('node not found: ' + title); return n.id }
-  const feedback = (title: string, from: Id, to: Id) => { const f = itemsOfKind(c.p, 'feedback').find((x) => x.title.startsWith(title) && x.from === from && x.to === to); if (!f) throw new Error('feedback not found: ' + title); return f.id }
+  const feedback = (title: string, from: Id<'node'>, to: Id<'node'>) => { const f = itemsOfKind(c.p, 'feedback').find((x) => x.title.startsWith(title) && x.from === from && x.to === to); if (!f) throw new Error('feedback not found: ' + title); return f.id }
   /** Replace a hazard's / UCA's conditions when it has none yet (never overwrites what is there); hazards also list their world variables. */
   const hazardConditions = (h: Hazard, conditions: Condition[]) => {
     const have = c.p.items[h.id] as Hazard
@@ -39,13 +39,13 @@ const kit = (c: Ctx) => {
     const missing = conditions.filter((x) => isOnVariable(x) && !have.conditions.flatMap(leaves).some((y) => isOnVariable(y) && y.variable === x.variable))
     set(u.id, { conditions: [...missing, ...have.conditions], ...(context && !have.context.trim() ? { context } : {}) })
   }
-  const belief = (ctrl: Id, w: Id) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
-  const signal = (fb: Id, w: Id) => { c.p = addSignal(c.p, fb, w).project }
+  const belief = (ctrl: Id<'node'>, w: Id<'variable'>) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
+  const signal = (fb: Id<'feedback'>, w: Id<'variable'>) => { c.p = addSignal(c.p, fb, w).project }
   return { find, entity, world, rng, set, hazard, node, feedback, hazardConditions, ucaConditions, belief, signal }
 }
-const eq = (variable: Id, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
+const eq = (variable: Id<'variable'>, state: string, extra: Partial<ValueCondition> = {}): ValueCondition => ({ kind: 'value', variable, op: '=', state, ...extra })
 /** `variable` compared with another variable (`other`). */
-const cmp = (variable: Id, op: ConditionOp, other: Id, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
+const cmp = (variable: Id<'variable'>, op: ConditionOp, other: Id<'variable'>, extra: Partial<VarCondition> = {}): VarCondition => ({ kind: 'var', variable, op, other, ...extra })
 
 function aeb(c: Ctx) {
   const k = kit(c)

@@ -40,15 +40,15 @@ export function createItem<K extends Kind>(
   kind: K,
   init: Patch<K> = {} as Patch<K>,
   index?: number,
-): { project: Project; id: Id } {
+): { project: Project; id: Id<K> } {
   const item = makeItem(kind, init)
   const project = produce(p, (d) => {
     d.items[item.id] = item
     placeAt(d, item.id, undefined, index ?? Number.MAX_SAFE_INTEGER)
     // A relationship is a time-varying predicate R(from, to): it owns a boolean world variable (untitled; named after the relationship).
-    if (kind === 'relationship') { const v = makeItem('variable', { parent: item.id, type: 'boolean' }); d.items[v.id] = v; placeAt(d, v.id, undefined, 0) }
+    if (kind === 'relationship') { const v = makeItem('variable', { parent: item.id as Id<'relationship'>, type: 'boolean' }); d.items[v.id] = v; placeAt(d, v.id, undefined, 0) }
   })
-  return { project, id: item.id }
+  return { project, id: item.id as Id<K> }
 }
 
 /** Turn a scenario into one of the other type, pointing at `target` (a UCA or control action); the fields of the old type are dropped, hazards start empty. */
@@ -302,18 +302,18 @@ export function group(p: Project, ids: Id[], title: string): { project: Project;
     throw new Error('Items to group must be siblings of the same kind')
   const ordered = [...items].sort((a, b) => a.rank - b.rank)
   const index = ordered[0].rank
-  const parent = makeItem(kind, { title, parent: items[0].parent })
+  const parent = makeItem(kind, { title, parent: items[0].parent as never })
   const before = new Map<Id, Id[]>()
-  if (kind === 'hazard') for (const h of ordered) before.set(h.id, effectiveLosses(p, h.id))
+  if (kind === 'hazard') for (const h of ordered) before.set(h.id, effectiveLosses(p, h.id as Id<'hazard'>))
   const project = produce(p, (d) => {
     d.items[parent.id] = parent
     placeAt(d, parent.id, undefined, index)
     ordered.forEach((it, i) => placeAt(d, it.id, parent.id, i))
     if (kind === 'hazard') {
-      const old = parent.parent ? effectiveLosses(p, parent.parent) : []
+      const old = parent.parent ? effectiveLosses(p, parent.parent as Id<'hazard'>) : []
       const union = [...new Set([...before.values()].flat())].filter((l) => !old.includes(l))
       ;(d.items[parent.id] as ItemOf<'hazard'>).lossLinks = union
-      const parentEff = effectiveLosses(d, parent.id)
+      const parentEff = effectiveLosses(d, parent.id as Id<'hazard'>)
       for (const h of ordered) {
         const hz = d.items[h.id] as ItemOf<'hazard'>
         const keep = before.get(h.id)!
@@ -373,7 +373,7 @@ export function merge(p: Project, ids: Id[], title?: string): Project {
   const [keep, ...rest] = items
   return produce(p, (d) => {
     const k = d.items[keep.id]
-    const losses = kind === 'hazard' ? [...new Set(items.flatMap((h) => effectiveLosses(p, h.id)))] : []
+    const losses = kind === 'hazard' ? [...new Set(items.flatMap((h) => effectiveLosses(p, h.id as Id<'hazard'>)))] : []
     for (const o of rest) {
       const other = d.items[o.id]
       for (const c of children(d, o.id, kind)) placeAt(d, c.id, keep.id, Number.MAX_SAFE_INTEGER)

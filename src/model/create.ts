@@ -7,7 +7,7 @@ export const newId = (): Id =>
   (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
 
 /** The ends of a binary relationship (roles default to the entity titles). */
-export const relEnds = (from: Id, to: Id, fromCard = '1', toCard = '*'): RelEnd[] => [{ entity: from, role: '', card: fromCard }, { entity: to, role: '', card: toCard }]
+export const relEnds = (from: Id<'entity'>, to: Id<'entity'>, fromCard = '1', toCard = '*'): RelEnd[] => [{ entity: from, role: '', card: fromCard }, { entity: to, role: '', card: toCard }]
 
 export const emptyProject = (): Project => ({
   schema: 1,
@@ -28,7 +28,7 @@ export const DEFAULT_RANGE_TYPES: NonNullable<Project['rangeTypes']> = {
 export const newProject = (): Project => ({ ...emptyProject(), rangeTypes: structuredClone(DEFAULT_RANGE_TYPES) })
 
 /** Default values of the kind-specific fields. */
-const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
+const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base<K> | 'kind'> } = {
   loss: () => ({}),
   hazard: () => ({ lossLinks: [], lossExclude: [], variables: [], conditions: [], security: false }),
   constraint: () => ({ hazards: [] }),
@@ -58,7 +58,7 @@ function layerFields(v: Record<string, unknown>) {
 
 /** Build a fully defaulted item of the given kind. */
 export function makeItem<K extends Kind>(kind: K, init: Patch<K> = {} as Patch<K>): ItemOf<K> {
-  const base: Base = {
+  const base: Base<K> = {
     id: newId(),
     parent: null,
     rank: Number.MAX_SAFE_INTEGER,

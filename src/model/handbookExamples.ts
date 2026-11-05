@@ -270,15 +270,15 @@ export function handbookExampleProject(id: string): Project {
   const spec = HANDBOOK_EXAMPLES.find((e) => e.id === id)!.spec
   const b = projectBuilder({ name: spec.name, description: spec.description })
   const { add } = b
-  const loss: Record<string, Id> = {}
+  const loss: Record<string, Id<'loss'>> = {}
   for (const [k, t] of spec.losses) loss[k] = add('loss', { title: t })
-  const haz: Record<string, Id> = {}
+  const haz: Record<string, Id<'hazard'>> = {}
   for (const [k, t, ls, parent] of spec.hazards) haz[k] = add('hazard', { title: t, lossLinks: ls.map((l) => loss[l]), parent: parent ? haz[parent] : null })
-  const ca: Record<string, Id> = {}
+  const ca: Record<string, Id<'ca'>> = {}
   if (spec.nodes) {
-    const node: Record<string, Id> = {}
+    const node: Record<string, Id<'node'>> = {}
     for (const [k, t, role, parent] of spec.nodes) node[k] = add('node', { title: t, role, parent: parent ? node[parent] : null })
-    for (const [from, to, type, t, dev] of spec.links ?? []) { const id = type === 'fb' ? add('feedback', { title: t, from: node[from], to: node[to], sensor: dev ?? '' }) : add('ca', { title: t, from: node[from], to: node[to], actuator: dev ?? '' }); if (type === 'ca') ca[t] ??= id }
+    for (const [from, to, type, t, dev] of spec.links ?? []) { const id = type === 'fb' ? add('feedback', { title: t, from: node[from], to: node[to], sensor: dev ?? '' }) : add('ca', { title: t, from: node[from], to: node[to], actuator: dev ?? '' }); if (type === 'ca') ca[t] ??= id as Id<'ca'> }
   } else if (spec.ucas) {
     const ctrl = add('node', { title: spec.controller, role: 'controller' })
     const proc = add('node', { title: spec.process, role: 'process' })

@@ -204,7 +204,7 @@ export function traceState(p: Project, t: Trace, i: number): Record<Id, string> 
   for (const b of vars) {
     if (b.layer !== 'belief' || !b.parent || !b.about) continue
     const ctrl = b.parent
-    const belief = (id: Id): string | undefined => { const x = beliefsAbout(p, ctrl, id)[0]; return x ? derive(id, belief, raw[x.id]) : derive(id, belief, undefined) }
+    const belief = (id: Id): string | undefined => { const x = beliefsAbout(p, ctrl as Id<'node'>, id)[0]; return x ? derive(id, belief, raw[x.id]) : derive(id, belief, undefined) }
     const x = derive(b.about, belief, undefined)
     if (x !== undefined) out[b.id] = x
   }

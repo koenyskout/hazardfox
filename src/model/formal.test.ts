@@ -13,12 +13,12 @@ import { itemsOfKind } from './tree'
 import { allOf, anyOf, isOnVariable, whenText } from './variables'
 import { validate } from './validate'
 import { rulesOf, aboutOf } from './types'
-import type { Comparison, Condition, Id, Project, Scenario, Trace, ValueCondition, Variable } from './types'
+import type { Comparison, Condition, Id, Kind, Project, Scenario, Trace, ValueCondition, Variable } from './types'
 import { laneOf } from './variables'
 
 function base() {
   let p: Project = emptyProject()
-  const mk = <T,>(r: { project: Project; id: Id }) => { p = r.project; return r.id as T & Id }
+  const mk = <K extends Kind>(r: { project: Project; id: Id<K> }) => { p = r.project; return r.id }
   const ent = mk(createItem(p, 'entity', { title: 'Tank' }))
   const level = mk(createItem(p, 'variable', { title: 'Level', parent: ent, states: ['ok', 'high'] }))
   const ctrl = mk(createItem(p, 'node', { title: 'Ctrl', role: 'controller' }))
@@ -117,7 +117,7 @@ describe('traces', () => {
 describe('refinement', () => {
   function train() {
     let p = emptyProject()
-    const mk = (r: { project: Project; id: Id }) => { p = r.project; return r.id }
+    const mk = <K extends Kind>(r: { project: Project; id: Id<K> }) => { p = r.project; return r.id }
     const ent = mk(createItem(p, 'entity', { title: 'Train' }))
     const speed = mk(createItem(p, 'variable', { title: 'Speed', parent: ent, type: 'range', min: 0, max: 200, unit: 'km/h' }))
     const fire = mk(createItem(p, 'variable', { title: 'Fire', parent: ent, type: 'boolean' }))

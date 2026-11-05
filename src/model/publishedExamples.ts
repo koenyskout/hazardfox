@@ -45,9 +45,9 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const close = add('ca', { title: 'Close door', from: ctrl, to: phys, actuator: 'Door actuator', affects: [vDoor], description: 'Close door, stop closing door (mechanical force on the door).' })
       const fbDoor = add('feedback', { title: 'Door feedback', from: phys, to: ctrl, sensor: 'Door sensors', description: 'Door position, door clear? (from the mechanical position of the door).' })
       const fbOther = add('feedback', { title: 'Other inputs', from: trainNode, to: ctrl })
-      const states = (v: Id) => (b.project.items[v] as { states: string[] }).states
+      const states = (v: Id<'variable'>) => (b.project.items[v] as { states: string[] }).states
       add('variable', { layer: 'signal', parent: fbStatus, about: vDoor, title: 'Door status', states: states(vDoor) })
-      const sig: Record<Id, Id> = {}, bel: Record<Id, Id> = {}
+      const sig: Record<string, Id<'variable'>> = {}, bel: Record<string, Id<'variable'>> = {}
       sig[vDoor] = add('variable', { layer: 'signal', parent: fbDoor, about: vDoor, title: 'Door position', states: states(vDoor), definition: 'Door end-position switches.' })
       sig[vWay] = add('variable', { layer: 'signal', parent: fbDoor, about: vWay, title: 'Door clear?', states: states(vWay), definition: 'Light curtain and door-edge force sensor.' })
       sig[vMotion] = add('variable', { layer: 'signal', parent: fbOther, about: vMotion, title: 'Train motion', states: states(vMotion), definition: 'From the speed sensors.' })
@@ -60,7 +60,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       for (const v of [vSpeed, vLimit, vBrake, vRest]) bel[v] = add('variable', { layer: 'belief', parent: ctrl, about: v, title: (b.project.items[v] as { title: string }).title, type: 'range', min: 0, max: 1000, unit: (b.project.items[v] as { unit: string }).unit })
       add('variable', { layer: 'belief', parent: ops, about: vDoor, title: 'Door position', states: [...states(vDoor), 'unknown'] })
 
-      const c = (variable: Id, state: string, op: '=' | '≠' = '=') => ({ kind: 'value' as const, variable, op, state })
+      const c = (variable: Id<'variable'>, state: string, op: '=' | '≠' = '=') => ({ kind: 'value' as const, variable, op, state })
       const u1 = add('uca', { ca: open, guide: 'provided', hazards: [H2], conditions: [c(vMotion, 'moving'), c(vEm, 'evacuation required', '≠')], constraint: 'Controller must not open the doors while the train is moving, unless an evacuation is required' })
       const u2 = add('uca', { ca: open, guide: 'provided', hazards: [H2], conditions: [c(vMotion, 'stopped'), { kind: 'group', any: true, of: [c(vPos, 'not aligned with platform'), c(vWay, 'person in doorway')] }, c(vEm, 'no emergency')], constraint: 'Controller must not open the doors when the train is not aligned with a platform, unless an evacuation is required' })
       add('uca', { ca: open, guide: 'not-provided', hazards: [H1], conditions: [c(vMotion, 'stopped'), c(vWay, 'person in doorway'), c(vDoor, 'fully open', '≠')], constraint: 'Controller must reopen the door when a person is in the doorway while it is closing' })
@@ -84,11 +84,11 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       add('requirement', { title: 'Provide a manual emergency door release independent of the door actuator power', sources: [s4], type: 'mitigation' })
       add('assumption', { title: 'Train speed and platform alignment sensors are independent of the door controller', about: [trainNode] })
       // Hand-written traces. A lane triple is world variable, the controller's signal and belief about it; `w(v, x)` sets all three, `world`/`belief` one.
-      const lanes = (vs: Id[]) => vs.flatMap((v) => [v, sig[v], bel[v]].map((x) => laneOf(x)))
-      const w = (v: Id, x: string) => ({ [laneOf(v)]: x, [laneOf(sig[v])]: x, [laneOf(bel[v])]: x })
-      type Ev = [Id, 'occurs' | 'absent' | 'lost']
+      const lanes = (vs: Id<'variable'>[]) => vs.flatMap((v) => [v, sig[v], bel[v]].map((x) => laneOf(x)))
+      const w = (v: Id<'variable'>, x: string) => ({ [laneOf(v)]: x, [laneOf(sig[v])]: x, [laneOf(bel[v])]: x })
+      type Ev = [Id<'ca' | 'feedback' | 'operation'>, 'occurs' | 'absent' | 'lost']
       const st = (t: string, note: string, values: Record<Lane, string>, events: Ev[] = []) => ({ t, note, values, events: events.map(([on, what]) => ({ on, what })) })
-      const set = (s: Id, vs: Id[], steps: ReturnType<typeof st>[]) => b.set(s, { trace: { lanes: lanes(vs), steps } })
+      const set = (s: Id<'scenario'>, vs: Id<'variable'>[], steps: ReturnType<typeof st>[]) => b.set(s, { trace: { lanes: lanes(vs), steps } })
       set(s1, [vWay, vDoor], [
         st('t0', 'The door is open at the platform and the doorway is clear.', { ...w(vWay, 'person not in doorway'), ...w(vDoor, 'fully open') }),
         st('t1', `A small child steps into the doorway. ${mention(sig[vWay])} still reports the doorway clear: the child is below the sensor's resolution.`, { [vWay]: 'person in doorway' }, [[fbDoor, 'occurs']]),
@@ -162,7 +162,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const u22 = add('uca', { ca: caEnv, guide: 'not-provided', hazards: [H1, H2], override: 'Traffic and mission control system does not provide environmental data during extraordinary environmental conditions, so the AM operates without complying with required parameters' })
       const u23 = add('uca', { ca: caEnv, guide: 'too-early-late', hazards: [H1, H2], override: 'Traffic and mission control system provides environmental data too late to adjust accordingly while AM is driving, so the AM operates without complying with required parameters' })
 
-      const S = (uca: Id, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
+      const S = (uca: Id<'uca'>, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
       // UCA-1.1
       S(u11, 'Failure in the traffic and mission control system itself', 'controller-failure')
       S(u11, 'Failure in the connection of the traffic and mission control system and the AM', 'other-controller')
@@ -205,7 +205,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const sOp = S(u13, 'Remote operator is not aware what consequences the command to stop providing mission plans has, when operation is already ongoing', 'process-model', { element: remote })
       S(u13, 'Traffic and mission control system suffers a data overload and freezes', 'controller-failure', { element: tmcs })
 
-      const R = (title: string, src: Id) => add('requirement', { title, sources: [src], type: 'requirement' })
+      const R = (title: string, src: Id<'constraint' | 'scenario' | 'uca' | 'hazard' | 'assumption'>) => add('requirement', { title, sources: [src], type: 'requirement' })
       R('Traffic and mission control system may not cause a hazard even if it does not receive information about entities; other safety measures must take over if an object is in the way of the AM', sNoInfo)
       R('The tag must function at all times and must not be affected by weather; it must be maintained regularly', sNoTag)
       R('Traffic and mission control system must have knowledge about all possible dimensions of entities and, if in doubt, must assume the biggest parameters', sDim)
@@ -273,7 +273,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       const H4 = add('hazard', { title: 'Reactor shut down', lossLinks: [A4], description: 'Any unplanned shutdown that may result in loss of electrical power generation.' })
 
       const eSg = add('entity', { title: 'Steam generator system' })
-      const world: [Id, string, string[]][] = []
+      const world: [Id<'variable'>, string, string[]][] = []
       const wv = (title: string, states: string[], description = '') => { const id = add('variable', { title, parent: eSg, states, description }); world.push([id, title, states]); return id }
       const vSgtr = wv('Steam generator tube', ['ruptured', 'not ruptured'])
       const vFw = wv('Main feedwater pipe', ['leak', 'no leak'])
@@ -331,7 +331,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       ] as const) add('constraint', { title: t, hazards: [...hs], description: `Safety constraint SC ${u} (Table 29).` })
 
       // Operator causal factors (A.8.1.1): a selection per UCA
-      const S = (uca: Id, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
+      const S = (uca: Id<'uca'>, title: string, cause: Cause, init: Patch<'scenario'> = {}) => add('scenario', { uca, title, cause, ...init })
       S(u1, 'A concurrent situation masks another, e.g. a feedwater problem during a SGTR keeps the SG water level practically stable', 'process-model', { element: op })
       S(u1, 'The event progresses too slowly to detect', 'feedback')
       const s1fb = S(u1, 'SG level or pressure feedback is missing, delayed or incorrect; main steam line activity is not correctly indicated', 'feedback')
@@ -354,7 +354,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       S(u5, 'Operator is not aware of the problem or waits for stronger evidence of the real problem (e.g. pressed to avoid spurious shutdowns, or relies on automatic protection)', 'other-controller', { element: op })
 
       // Why a correct "Close MSIV" is not followed (A.8.1.2); the thesis states these for SC 1 and 2, and SC 3-6
-      const CS = (title: string, cause: Cause, hazards: Id[], element: Id, init: Patch<'scenario'> = {}) => add('scenario', { scenarioType: 'ca', ca: caPmMsiv, title, cause, hazards, element, ...init })
+      const CS = (title: string, cause: Cause, hazards: Id<'hazard'>[], element: Id<'node' | 'ca' | 'feedback'>, init: Patch<'scenario'> = {}) => add('scenario', { scenarioType: 'ca', ca: caPmMsiv, title, cause, hazards, element, ...init })
       const c1 = CS('The PM ignores the close command: wrong priority settings, a previous interlock from the PS (e.g. to prevent closure during start-up), two conflicting commands arriving at nearly the same time, or a status check of the MSIV actuators taking longer than expected', 'receiver', [H1, H2, H3], pm)
       CS('Valve position or operability is reported incorrectly by the MSIV sensor, so the PM does not or cannot forward the close command', 'delivery', [H1, H2, H3], msiv)
       CS('The MSIV actuator cannot close the valve: dump valves do not open, nitrogen pressure in the upper chamber is insufficient, upper chamber in maintenance, loss of oil pump power', 'actuator', [H1, H2, H3], msiv)
@@ -362,7 +362,7 @@ export const PUBLISHED_EXAMPLES: { id: string; label: string; name: string; desc
       CS('Valve closes without an operator command: de-energised pilots open the dump valve, mechanical failure dumps the hydraulic oil, or a closure test inadvertently closes it', 'actuator', [H2, H3, H4], msiv)
       CS('Valve closes too late: leakage in the upper chamber, or the oil pump keeps the valve open', 'actuator', [H1, H2, H3], msiv)
 
-      const R = (title: string, src: Id, type: 'requirement' | 'mitigation' = 'requirement', notes = '') => add('requirement', { title, sources: [src], type, notes })
+      const R = (title: string, src: Id<'constraint' | 'scenario' | 'uca' | 'hazard' | 'assumption'>, type: 'requirement' | 'mitigation' = 'requirement', notes = '') => add('requirement', { title, sources: [src], type, notes })
       R('Simplify the indicators for a SGTR: make the radioactivity level in the main steam line a major indication to isolate the affected SG, so that the PS can detect the event earlier', s1fb, 'requirement', 'Recommendation in A.11.')
       R('The priority settings of the PM must be fixed and not programmable, and the PM logic and PLD design must ensure that MSIV close commands are never ignored regardless of the current priority', c1, 'requirement', 'Option named in A.10; wording ours.')
       R('Reduce the reliance on the operator and on the PS to act on each other: design the PS to alert the operator when it takes no action instead of assuming the operator will resolve the problem', s1wait, 'mitigation', 'Derived from the discussion of "crediting the operator" in A.11; wording ours.')

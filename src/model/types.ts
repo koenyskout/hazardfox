@@ -1,4 +1,5 @@
-export type Id = string
+/** Item id; `Id<K>` is an id of an item of kind K (a bare `Id` is any string, converts in freely; an id of another kind does not). */
+export type Id<K extends Kind = never> = [K] extends [never] ? string : string & { readonly __kind?: K }
 /** Display labels per item id (derived, see `labels.ts`). */
 export type Labels = Record<Id, string>
 
@@ -65,10 +66,10 @@ export type RequirementType = (typeof REQUIREMENT_TYPES)[number]
 /** Manual layout offset in px. */
 export interface Offset { dx: number; dy: number }
 
-export interface Base {
-  id: Id
+export interface Base<K extends Kind, Parent extends string = string> {
+  id: Id<K>
   /** Parent in the item's tree (null = root). Flat kinds use it for their owner where noted. */
-  parent: Id | null
+  parent: Parent | null
   /** Sibling order; kept normalised to 0..n-1 by the operations. */
   rank: number
   title: string
@@ -79,33 +80,33 @@ export interface Base {
   tags: string[]
 }
 
-export interface Loss extends Base {
+export interface Loss extends Base<'loss', Id<'loss'>> {
   kind: 'loss'
 }
-export interface Hazard extends Base {
+export interface Hazard extends Base<'hazard', Id<'hazard'>> {
   kind: 'hazard'
   /** Explicit loss links (in addition to inherited ones). */
-  lossLinks: Id[]
+  lossLinks: Id<'loss'>[]
   /** Inherited loss links that are switched off for this hazard. */
-  lossExclude: Id[]
+  lossExclude: Id<'loss'>[]
   /** World (domain) variables describing the system state or environment conditions that make this a hazard. */
-  variables: Id[]
+  variables: Id<'variable'>[]
   /** Logical definition of the hazardous state over world variables (all must hold). */
   conditions: When[]
   /** STPA-Sec: hazard is caused by / relevant for adversarial actions. */
   security: boolean
 }
-export interface Constraint extends Base {
+export interface Constraint extends Base<'constraint', Id<'constraint'>> {
   kind: 'constraint'
-  hazards: Id[]
+  hazards: Id<'hazard'>[]
 }
-export interface Requirement extends Base {
+export interface Requirement extends Base<'requirement', Id<'requirement'>> {
   kind: 'requirement'
   /** constraints, scenarios or UCAs this requirement / mitigation derives from */
-  sources: Id[]
+  sources: Id<'constraint' | 'scenario' | 'uca' | 'hazard' | 'assumption'>[]
   type: RequirementType
 }
-export interface Assumption extends Base {
+export interface Assumption extends Base<'assumption'> {
   kind: 'assumption'
   about: Id[]
 }
@@ -118,7 +119,7 @@ export const ENTITY_RELATIONS = ['specialisation', 'part'] as const
 export type EntityRelation = (typeof ENTITY_RELATIONS)[number]
 
 /** Domain model entity (tree: a child may be a specialisation or part of its parent, or just grouped under it). Its attributes are its world variables V(e). */
-export interface Entity extends Base {
+export interface Entity extends Base<'entity', Id<'entity'>> {
   kind: 'entity'
   /** How this entity relates to its parent (see `EntityRelation`); ignored for a root entity. */
   relation: EntityRelation
@@ -128,20 +129,20 @@ export interface Entity extends Base {
   nudge: Offset | null
 }
 /** Something that can happen in the domain (e.g. lower the gate, a train enters the crossing). Free-standing, with typed parameters and effects on any world variables. A control action may realize it, and traces apply its effects when it occurs. */
-export interface Operation extends Base {
+export interface Operation extends Base<'operation'> {
   kind: 'operation'
   /** What it acts on: named parameters typed by an entity or relationship (e.g. `gate: Gate`); an event on the operation names an instance per parameter. */
   params: OpParam[]
   effects: Effect[]
 }
 /** `entity` types an instance parameter; a value parameter has no entity (`''`) and a datatype `data` instead (typed like a control-action parameter). */
-export interface OpParam { name: string; entity: Id; data?: TypeSpec }
+export interface OpParam { name: string; entity: Id<'entity' | 'relationship'>; data?: TypeSpec }
 /** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */
-export interface Effect { variable: Id; state: string; on?: string; /** name of a value parameter whose argument becomes the value (instead of `state`) */ from?: string }
+export interface Effect { variable: Id<'variable'>; state: string; on?: string; /** name of a value parameter whose argument becomes the value (instead of `state`) */ from?: string }
 /** One end of a relationship: the entity, the role it plays (empty: the entity's title) and its cardinality. */
-export interface RelEnd { entity: Id; role: string; card: string }
+export interface RelEnd { entity: Id<'entity'>; role: string; card: string }
 /** A relationship R(end1, end2, …) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
-export interface Relationship extends Base {
+export interface Relationship extends Base<'relationship'> {
   kind: 'relationship'
   /** `title` is the relationship name; the ends in order (at least two; the editor offers two) */
   ends: RelEnd[]
@@ -163,7 +164,7 @@ export interface TypeSpec {
   symbolicType: string
 }
 /** What every variable has, whatever its layer. The owner (`parent`) depends on the layer: domain → entity / relationship, signal → feedback, belief / internal → controller node. */
-interface VariableBase extends Base, TypeSpec {
+interface VariableBase extends Base<'variable', Id<'entity' | 'relationship' | 'feedback' | 'node'>>, TypeSpec {
   kind: 'variable'
   /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
   definition: string
@@ -176,14 +177,14 @@ export interface WorldVariable extends VariableBase {
   otherwise: string
 }
 /** An observed signal o (of a feedback) or a belief x̂ (of a controller): `about` is the world variable it observes / stands for (designation δ). */
-export interface SignalVariable extends VariableBase { layer: 'signal'; about: Id | null }
-export interface BeliefVariable extends VariableBase { layer: 'belief'; about: Id | null }
+export interface SignalVariable extends VariableBase { layer: 'signal'; about: Id<'variable'> | null }
+export interface BeliefVariable extends VariableBase { layer: 'belief'; about: Id<'variable'> | null }
 /** A controller's internal variable q, not about the world. */
 export interface InternalVariable extends VariableBase { layer: 'internal' }
 export type Variable = WorldVariable | SignalVariable | BeliefVariable | InternalVariable
 export const isWorld = (v: Variable): v is WorldVariable => v.layer === 'domain'
 /** The world variable a signal or belief is about; null for other layers or when unset. */
-export const aboutOf = (v: Variable): Id | null => ('about' in v ? v.about : null)
+export const aboutOf = (v: Variable): Id<'variable'> | null => ('about' in v ? v.about : null)
 /** A world variable's refinement rules, `otherwise` value and struct instance; empty on other layers. */
 export const rulesOf = (v: Variable): Rule[] => (isWorld(v) ? v.rules : [])
 export const otherwiseOf = (v: Variable): string => (isWorld(v) ? v.otherwise : '')
@@ -203,11 +204,11 @@ export type When = Condition | Group
 export interface Rule { state: string; when: Group }
 
 /** Control structure node; `parent` nests nodes (hierarchy / subsystems). */
-export interface CsNode extends Base {
+export interface CsNode extends Base<'node', Id<'node'>> {
   kind: 'node'
   role: NodeRole
   /** Domain entities this node represents (a physical process may comprise several) */
-  entities: Id[]
+  entities: Id<'entity'>[]
   /** Manual layout nudge, relative offset applied on top of the auto layout */
   nudge: Offset | null
   /** Extra width in px added to the box in the diagram (0 = automatic) */
@@ -222,18 +223,18 @@ export interface Comparison { op: ConditionOp; state: string; to?: string; set?:
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */
 export interface ArgCondition extends Comparison { param: string }
 /** Control action edge. */
-export interface ControlAction extends Base {
+export interface ControlAction extends Base<'ca'> {
   kind: 'ca'
-  from: Id
-  to: Id
+  from: Id<'node'>
+  to: Id<'node'>
   /** Instantaneous (discrete) actions have no duration, so "stopped too soon / applied too long" does not apply (Handbook, step 3) */
   duration: Duration
   /** World variables this action is meant to change (controlled variables) */
-  affects: Id[]
+  affects: Id<'variable'>[]
   /** Typed parameters the action carries (optional) */
   params: Param[]
   /** Optional domain operation this action realizes */
-  operation: Id | null
+  operation: Id<'operation'> | null
   /** Actuator that carries this control action out (name; an attribute of the arrow, not a node) */
   actuator: string
   /** Guide words that make no sense for this control action (with a reason); not to be analysed */
@@ -242,10 +243,10 @@ export interface ControlAction extends Base {
   /** Manual label offset from its automatic place beside the arrow */
   labelShift: Offset | null
 }
-export interface Feedback extends Base {
+export interface Feedback extends Base<'feedback'> {
   kind: 'feedback'
-  from: Id
-  to: Id
+  from: Id<'node'>
+  to: Id<'node'>
   /** Sensor that produces this feedback (name; an attribute of the arrow, not a node) */
   sensor: string
   bend: Offset | null
@@ -272,13 +273,13 @@ export type EndNames = (Binding | null)[]
 /** The names a condition gives to / takes from the instances of its variable. */
 export interface InstanceNames { names?: EndNames }
 /** A variable compared with a constant: `state` is the value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
-export interface ValueCondition extends CondBase, Comparison, InstanceNames { kind: 'value'; variable: Id }
+export interface ValueCondition extends CondBase, Comparison, InstanceNames { kind: 'value'; variable: Id<'variable'> }
 /** A variable compared with the value of `other` (ops `=`, `≠` and, for numbers, `<` `≤` `>` `≥`). */
 export interface VarCondition extends CondBase, InstanceNames {
   kind: 'var'
-  variable: Id
+  variable: Id<'variable'>
   op: ConditionOp
-  other: Id
+  other: Id<'variable'>
   /** Names for the instances of the compared variable, e.g. speed of t1 > speed of t2 */
   otherNames?: EndNames
 }
@@ -287,11 +288,11 @@ export interface TextCondition extends CondBase { kind: 'text'; text: string; op
 /** An arithmetic comparison (variables as `@[id]`, `prev(x)`, `+ − ×`, `min/max/abs`, `= ≠ < ≤ > ≥`) in canonical text, see `model/expr.ts`. */
 export interface ExprCondition extends CondBase { kind: 'expr'; text: string }
 /** A timing condition on an event: the time since this control action / feedback last occurred (`time` says how long). It has no variable. */
-export interface EventCondition extends CondBase { kind: 'event'; event: Id }
+export interface EventCondition extends CondBase { kind: 'event'; event: Id<'ca' | 'feedback' | 'operation'> }
 export type Condition = ValueCondition | VarCondition | TextCondition | ExprCondition | EventCondition
-export interface Uca extends Base {
+export interface Uca extends Base<'uca'> {
   kind: 'uca'
-  ca: Id
+  ca: Id<'ca'>
   guide: GuideWord
   conditions: When[]
   /** Conditions on the control action's parameters (optional; the action must have those parameters) */
@@ -301,11 +302,11 @@ export interface Uca extends Base {
   /** If set, replaces the generated sentence */
   override: string
   /** Leaf hazards */
-  hazards: Id[]
+  hazards: Id<'hazard'>[]
   /** Controller constraint */
   constraint: string
   /** Higher-level UCA whose context this one refines (by substituting a refined variable's rules) */
-  refines: Id | null
+  refines: Id<'uca'> | null
 }
 /** Type 1: why an UCA may occur. Type 2: why a control action is not executed / improperly executed. */
 export const SCENARIO_TYPES = ['uca', 'ca'] as const
@@ -341,7 +342,7 @@ export const TRACE_EVENTS = ['occurs', 'absent', 'lost'] as const
 export type TraceEventKind = (typeof TRACE_EVENTS)[number]
 export const TRACE_EVENT_LABELS: Record<TraceEventKind, string> = { occurs: 'sent', absent: 'not sent', lost: 'sent but lost / not executed' }
 /** `args`: the instance (or, for a value parameter, the value) of each parameter of the operation (by parameter name), e.g. `{ train: 't1' }`; a relationship's two ends are "t1|c1". */
-export interface TraceEvent { on: Id; what: TraceEventKind; args?: Record<string, string> }
+export interface TraceEvent { on: Id<'ca' | 'feedback' | 'operation'>; what: TraceEventKind; args?: Record<string, string> }
 /** A column of a trace: a variable id, `<variable>@<instances>` for one instance of a many-instance variable, or `text:<condition>` for a condition in words (build with `laneOf`/`instLane`/`condKey`, take apart with `laneParts`/`laneText`). */
 export type Lane = string & { readonly __lane: true }
 /** `values` sets lanes at this step (unset ones keep their previous value). */
@@ -349,12 +350,12 @@ export interface TraceStep { t: string; note: string; values: Record<Lane, strin
 /** A finite run σ of the system (world, signals, beliefs, internal state) that exhibits the scenario. */
 export interface Trace { lanes: Lane[]; steps: TraceStep[] }
 
-interface ScenarioBase extends Base {
+interface ScenarioBase extends Base<'scenario'> {
   kind: 'scenario'
   /** '' = unspecified */
   cause: Cause | ''
   /** Control structure element where the cause lies (optional) */
-  element: Id | null
+  element: Id<'node' | 'ca' | 'feedback'> | null
   stride: Stride[]
   threat: string
   adversarial: boolean
@@ -363,9 +364,9 @@ interface ScenarioBase extends Base {
   trace: Trace
 }
 /** Why an unsafe control action occurs; its hazards are inherited from the UCA. */
-export interface UcaScenario extends ScenarioBase { scenarioType: 'uca'; uca: Id | null }
+export interface UcaScenario extends ScenarioBase { scenarioType: 'uca'; uca: Id<'uca'> | null }
 /** Why a control action is not executed properly: the control action and the leaf hazards it may lead to. */
-export interface CaScenario extends ScenarioBase { scenarioType: 'ca'; ca: Id | null; hazards: Id[] }
+export interface CaScenario extends ScenarioBase { scenarioType: 'ca'; ca: Id<'ca'> | null; hazards: Id<'hazard'>[] }
 export type Scenario = UcaScenario | CaScenario
 
 export type Item =

@@ -115,8 +115,8 @@ export function Ref({ id }: { id: Id }) {
 
 export const optionLabel = (labels: Labels, it: Item) => `${labels[it.id]} ${it.title || ''}`.trim()
 
-export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[]) => void; placeholder?: string; disabled?: Id[]; create?: { label: string; run: () => Id } }) {
-  const rest = props.options.filter((o) => !props.value.includes(o.id))
+export function RefList<I extends Id>(props: { value: I[]; options: Item[]; onChange: (v: I[]) => void; placeholder?: string; disabled?: Id[]; create?: { label: string; run: () => I } }) {
+  const rest = props.options.filter((o) => !props.value.includes(o.id as I))
   return (
     <div className="reflist">
       {props.value.map((id) => (
@@ -125,17 +125,17 @@ export function RefList(props: { value: Id[]; options: Item[]; onChange: (v: Id[
           <button className="x" title="Remove" onClick={() => props.onChange(props.value.filter((v) => v !== id))}><Icon name="x" size={12} /></button>
         </span>
       ))}
-      <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id])} create={props.create && { label: props.create.label, run: () => { const id = props.create!.run(); props.onChange([...props.value, id]) } }}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>
+      <Picker options={rest} onPick={(id) => id && props.onChange([...props.value, id as I])} create={props.create && { label: props.create.label, run: () => { const id = props.create!.run(); props.onChange([...props.value, id]) } }}><span className="muted">{props.placeholder ?? '+ add…'}</span></Picker>
     </div>
   )
 }
 
-export function SingleRef(props: { value: Id | null; options: Item[]; onChange: (v: Id | null) => void; none?: string }) {
+export function SingleRef<I extends Id>(props: { value: I | null; options: Item[]; onChange: (v: I | null) => void; none?: string }) {
   const labels = useLabels()
   const cur = useProject().items[props.value ?? '']
   const opts = cur && !props.options.includes(cur) ? [cur, ...props.options] : props.options
   return (
-    <Picker options={opts} onPick={props.onChange}>
+    <Picker options={opts} onPick={(id) => props.onChange(id as I | null)}>
       {cur ? <><ItemHover id={cur.id}><span className={'chip k-' + cur.kind}><ChipLabel it={cur} label={labels[cur.id]} /></span></ItemHover>{labels[cur.id] !== cur.title && ` ${cur.title}`}</> : <span className="muted">{props.none ?? '— none —'}</span>}
     </Picker>
   )

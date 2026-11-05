@@ -75,7 +75,7 @@ export const toValue = (c: ValueCondition | VarCondition, to: Partial<ValueCondi
   return { kind: 'value', variable, op: op, state: '', names, time, ...to }
 }
 /** The same condition compared with the variable `other`; instance names and timing stay (the compared variable's own instance names start empty). */
-export const toVarCmp = (c: ValueCondition | VarCondition, other: Id, to: Partial<VarCondition> = {}): VarCondition => {
+export const toVarCmp = (c: ValueCondition | VarCondition, other: Id<'variable'>, to: Partial<VarCondition> = {}): VarCondition => {
   const { variable, names, time, op } = c
   return { kind: 'var', variable, op, other, names, time, ...to }
 }

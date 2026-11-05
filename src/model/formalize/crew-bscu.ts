@@ -14,7 +14,7 @@ import type { Condition, ConditionOp, Id, Patch, Project, ValueCondition } from 
  */
 export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Project {
   let q = p
-  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id => { const r = createItem(q, kind, init); q = r.project; return r.id }
+  const add = <K extends 'entity' | 'relationship' | 'variable'>(kind: K, init: Patch<K>): Id<K> => { const r = createItem(q, kind, init); q = r.project; return r.id }
   const set = (item: Id, patch: Patch) => { q = updateItem(q, item, patch) }
 
   // ---- domain model -------------------------------------------------------------------------------------------------
@@ -24,8 +24,8 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   const runway = add('entity', { title: 'Runway', description: 'The runway or taxiway the aircraft is on (the one in use).' })
   const object = add('entity', { title: 'Object', many: true, description: 'Other objects on the ground: aircraft, vehicles, buildings, people.' })
 
-  const en = (title: string, parent: Id, states: string[], definition = '') => add('variable', { title, parent, states, definition })
-  const bool = (title: string, parent: Id, definition = '') => add('variable', { title, parent, type: 'boolean', definition })
+  const en = (title: string, parent: Id<'entity' | 'relationship'>, states: string[], definition = '') => add('variable', { title, parent, states, definition })
+  const bool = (title: string, parent: Id<'entity' | 'relationship'>, definition = '') => add('variable', { title, parent, type: 'boolean', definition })
   const phase = en('Flight phase', aircraft, ['approach', 'landing roll', 'taxi', 'lined up for takeoff', 'takeoff roll', 'rejected takeoff', 'climb-out'],
     'approach: airborne before touchdown; landing roll: from touchdown until safe taxi speed; takeoff roll: normal takeoff run; rejected takeoff (RTO): takeoff aborted; climb-out: airborne after takeoff. States, not events: "touchdown", "RTO requested" are transitions between them.')
   const speed = add('variable', { title: 'Ground speed', parent: aircraft, type: 'range', min: 0, max: null, unit: 'kt' })
@@ -127,7 +127,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   }
   const ctrl = itemsOfKind(q, 'node').find((n) => n.role === 'controller')!.id
   const table = id === 'hb-crew' ? crew : bs
-  const affects: Record<string, Id[]> = { 'Manual braking via brake pedals': [force], 'Arm autobrake': [setting], 'Disarm autobrake': [setting], 'Power off BSCU': [bscu], 'Power on BSCU': [bscu], 'Brake command': [force] }
+  const affects: Record<string, Id<'variable'>[]> = { 'Manual braking via brake pedals': [force], 'Arm autobrake': [setting], 'Disarm autobrake': [setting], 'Power off BSCU': [bscu], 'Power on BSCU': [bscu], 'Brake command': [force] }
   for (const ca of itemsOfKind(q, 'ca')) if (affects[ca.title]) set(ca.id, { affects: affects[ca.title] })
   for (const u of itemsOfKind(q, 'uca')) {
     const row = table.find(([key]) => u.override.includes(key))
@@ -139,5 +139,5 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   return q
 }
 
-function c(variable: Id, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { kind: 'value', variable, op, state, ...extra } }
-const inn = (variable: Id, ...set: string[]): Condition => ({ kind: 'value', variable, op: 'in', state: '', set })
+function c(variable: Id<'variable'>, state: string, op: ConditionOp = '=', extra: Partial<ValueCondition> = {}): ValueCondition { return { kind: 'value', variable, op, state, ...extra } }
+const inn = (variable: Id<'variable'>, ...set: string[]): Condition => ({ kind: 'value', variable, op: 'in', state: '', set })

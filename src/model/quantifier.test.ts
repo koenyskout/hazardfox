@@ -51,7 +51,7 @@ describe('instance quantification', () => {
     expect(conditionText(s.p, cond(s.speed))).toBe('speed of some Train is 0')
     expect(conditionText(s.p, cond(s.speed, { names: [declare('t1', 'all')] }))).toBe('speed of every Train t1 is 0')
     expect(conditionText(s.p, cond(s.speed, { names: [declare('t1', 'none')] }))).toBe('speed of no Train t1 is 0')
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id as Id<'variable'>
     expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
     expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'none')] })).toBe('no Train t1 at Station')
     const uca = s.add('uca', { conditions: [cond(s.speed, { names: [declare('t1', 'all')] })] })
@@ -59,7 +59,7 @@ describe('instance quantification', () => {
   })
   it('a many-cardinality relationship quantifies its variables', () => {
     const s = setup()
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id as Id<'variable'>
     expect(quantAt(undefined, 0)).toBe('some')
     expect(conditionText(s.p, { kind: 'value', variable: pred, op: '=', state: 'true' })).toBe('some Train at Station')
   })
@@ -101,7 +101,7 @@ describe('instance quantification', () => {
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing', many: true })
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '*') })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id as Id<'variable'>
     const open = s.add('variable', { layer: 'domain', parent: crossing, title: 'open', type: 'boolean' })
     const w = { kind: 'group', any: false, of: [
       { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1', 'all'), declare('c1')] },
@@ -142,7 +142,7 @@ describe('level crossing example', () => {
   it('names an instance and refers to it again', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id as Id<'variable'>
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't1' }] }
     const b = cond(s.speed, { names: [{ use: 't1' }], op: '>', state: '10' })
     expect(conditionText(s.p, a)).toBe('some Train t1 at Station')
@@ -163,7 +163,7 @@ describe('level crossing example', () => {
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing' })
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '1') })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id as Id<'variable'>
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't1' }] }
     const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't2' }] }
     expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing', 'another Train t2 approaches Crossing'])
@@ -175,7 +175,7 @@ describe('level crossing example', () => {
     const crossing = s.add('entity', { title: 'Crossing' })
     const min = s.add('variable', { layer: 'domain', parent: crossing, title: 'minimum speed', type: 'range', min: 0, max: 100 })
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '1') })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id as Id<'variable'>
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't1' }] }
     const b: Condition = { kind: 'var', variable: s.speed, op: '>', other: min, names: [{ use: 't1' }] }
     expect(conditionText(s.p, a)).toBe('some Train t1 approaches Crossing')
@@ -192,7 +192,7 @@ describe('level crossing example', () => {
     s.p = updateItem(s.p, s.train, { many: true })
     const crossing = s.add('entity', { title: 'Crossing', many: true })
     const appr = s.add('relationship', { title: 'approaches', ends: relEnds(s.train, crossing, '*', '*') })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === appr)!.id as Id<'variable'>
     const a: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't1' }, { declare: 'c1' }] }
     const b: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [{ declare: 't2' }, { use: 'c1' }] }
     expect(conditionTexts(s.p, [a, b])).toEqual(['some Train t1 approaches Crossing c1', 'another Train t2 approaches c1'])
@@ -219,7 +219,7 @@ describe('relationship reading', () => {
   it('phrases conditions by the template, falls back when an end is missing', () => {
     const s = setup()
     s.p = updateItem(s.p, s.train, { many: true })
-    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id
+    const pred = Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === s.rel)!.id as Id<'variable'>
     const c: Condition = { kind: 'value', variable: pred, op: '=', state: 'true', names: [declare('t1')] }
     expect(conditionText(s.p, c)).toBe('some Train t1 at Station')
     s.p = updateItem(s.p, s.rel, { reading: '{2} is where {1} stops' })

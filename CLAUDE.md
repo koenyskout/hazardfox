@@ -39,6 +39,7 @@ Read `PLAN.md` for goals, decisions and milestone status.
 - Every link field must be declared in `REQUIRED_REFS` / `OPTIONAL_REFS` / `LIST_REFS` (`refs.ts`); this drives
   dangling-link cleanup, cascade delete (`cascadeSet`) and traceability. The registries are typed per kind, so only
   real fields of the right type can be listed; untyped field access is confined to `getField`/`setField`/`getList`.
+- Ids are branded per kind: `Id<K>` is an id of kind K (`Id` alone = any string; a bare `Id`/string converts into `Id<K>`, an id of another kind does not), so `b.add('constraint', { hazards: [lossId] })` fails to compile. `Base<K, Parent>` types `id` and `parent` (tree kinds: own kind; variables: entity|relationship|feedback|node); `createItem`/`add` return `Id<K>`; `RefList`/`SingleRef` are generic over the id. Where a generic id meets a typed field (refs rewriting, MCP label→id, pickers) cast `as Id<'x'>` after a runtime kind check.
 - Typing: `ItemOf<K>` is the item of kind K, `Patch<K>` a partial update of it; `makeItem`, `createItem`, `itemsOfKind`,
   `children`, `flatten` and `addItem` (`ui/hooks.ts`: commit + select) are generic over the kind. Enumerations
   (`STATUSES`, `CAUSES`, `REQUIREMENT_TYPES`, `SEVERITIES`, …) are `as const` arrays with derived union types.

@@ -30,14 +30,14 @@ export const attributesOf = (p: Project, e: Id): { v: Variable; from: Id; inheri
   [e, ...generalisations(p, e)].flatMap((g) => variablesIn(p, 'domain', g).map((v) => ({ v, from: g, inherited: g !== e })))
 
 /** Process model of a controller. */
-export const beliefsOf = (p: Project, node: Id) => variablesIn(p, 'belief', node)
+export const beliefsOf = (p: Project, node: Id<'node'>) => variablesIn(p, 'belief', node)
 /** Observations carried by a feedback. */
-export const signalsOf = (p: Project, fb: Id) => variablesIn(p, 'signal', fb)
+export const signalsOf = (p: Project, fb: Id<'feedback'>) => variablesIn(p, 'signal', fb)
 
 /** Feedback arriving at a node. */
-export const feedbackInto = (p: Project, node: Id): Feedback[] => itemsOfKind(p, 'feedback').filter((f) => f.to === node)
+export const feedbackInto = (p: Project, node: Id<'node'>): Feedback[] => itemsOfKind(p, 'feedback').filter((f) => f.to === node)
 /** Signals a node receives. */
-export const signalsInto = (p: Project, node: Id) => feedbackInto(p, node).flatMap((f) => signalsOf(p, f.id))
+export const signalsInto = (p: Project, node: Id<'node'>) => feedbackInto(p, node).flatMap((f) => signalsOf(p, f.id))
 
 /** The world variable a signal or belief is about (itself for world variables). */
 export const worldOf = (p: Project, v: Variable): Variable | null => {
@@ -51,29 +51,29 @@ export const predicateOf = (p: Project, rel: Id) => variablesIn(p, 'domain', rel
 export const isPredicate = (p: Project, v: Variable) => p.items[v.parent ?? '']?.kind === 'relationship' && predicateOf(p, v.parent!)?.id === v.id
 
 /** Variables a refined world variable is defined from (refinement ρ: its rules, and @-mentions in its definition). */
-export const refines = (p: Project, v: Variable): Id[] =>
+export const refines = (p: Project, v: Variable): Id<'variable'>[] =>
   [...new Set([...rulesOf(v).flatMap((r) => leaves(r.when).flatMap(condVars)), ...mentions(v.definition)])].filter((id) => id !== v.id && p.items[id]?.kind === 'variable')
 
 /** All lower-level variables v is refined into, transitively (includes v itself only on a cycle). */
-export function partsOf(p: Project, v: Id): Id[] {
-  const out = new Set<Id>()
-  const go = (id: Id) => { const x = p.items[id]; if (x?.kind === 'variable') for (const w of refines(p, x)) if (!out.has(w)) { out.add(w); go(w) } }
+export function partsOf(p: Project, v: Id<'variable'>): Id<'variable'>[] {
+  const out = new Set<Id<'variable'>>()
+  const go = (id: Id<'variable'>) => { const x = p.items[id]; if (x?.kind === 'variable') for (const w of refines(p, x)) if (!out.has(w)) { out.add(w); go(w) } }
   go(v)
   return [...out]
 }
 /** Higher-level variables refined (transitively) into v. */
-export const wholesOf = (p: Project, v: Id): Id[] => itemsOfKind(p, 'variable').filter((w) => w.id !== v && partsOf(p, w.id).includes(v)).map((w) => w.id)
+export const wholesOf = (p: Project, v: Id<'variable'>): Id<'variable'>[] => itemsOfKind(p, 'variable').filter((w) => w.id !== v && partsOf(p, w.id).includes(v)).map((w) => w.id)
 /** Variables refined directly into v. */
-export const refinedBy = (p: Project, v: Id) => itemsOfKind(p, 'variable').filter((w) => refines(p, w).includes(v))
+export const refinedBy = (p: Project, v: Id<'variable'>) => itemsOfKind(p, 'variable').filter((w) => refines(p, w).includes(v))
 
 /** Beliefs of a controller about a world variable. */
-export const beliefsAbout = (p: Project, node: Id, world: Id) => beliefsOf(p, node).filter((b) => aboutOf(b) === world)
+export const beliefsAbout = (p: Project, node: Id<'node'>, world: Id<'variable'>) => beliefsOf(p, node).filter((b) => aboutOf(b) === world)
 
 /** Signals that update a belief: those about the same world variable, or one of its parts, on feedback into its controller. */
 export function updatedBy(p: Project, belief: Variable) {
   if (!belief.parent || !aboutOf(belief)) return []
   const about = [aboutOf(belief), ...partsOf(p, aboutOf(belief)!)]
-  return signalsInto(p, belief.parent).filter((s) => aboutOf(s) && about.includes(aboutOf(s)))
+  return signalsInto(p, belief.parent as Id<'node'>).filter((s) => aboutOf(s) && about.includes(aboutOf(s)))
 }
 
 /** Beliefs a signal updates (in the receiving controller). */
@@ -88,14 +88,14 @@ export const updates = (p: Project, signal: Variable) => {
 export const affectable = (p: Project, node: Id) => (p.items[node]?.kind === 'node' ? [...variablesIn(p, 'internal', node), ...beliefsOf(p, node)] : [])
 
 /** Control actions that affect (control) a world variable. */
-export const controlledBy = (p: Project, world: Id) => itemsOfKind(p, 'ca').filter((c) => c.affects.includes(world))
+export const controlledBy = (p: Project, world: Id<'variable'>) => itemsOfKind(p, 'ca').filter((c) => c.affects.includes(world))
 
 
 /** A variable of another layer about `world`, with the same type and value set. */
 const copyOf = (p: Project, world: Variable) => ({ title: variableName(p, world), type: world.type, states: [...world.states], unit: world.unit, min: world.min, max: world.max, rangeType: world.rangeType, enumType: world.enumType, ordered: world.ordered, unique: world.unique, monotonic: world.monotonic, sequential: world.sequential, symbolicType: world.symbolicType, about: world.id })
 
 /** Add a belief about a world variable to a controller (no-op if it has one). */
-export function addBelief(p: Project, node: Id, world: Id): { project: Project; id: Id } {
+export function addBelief(p: Project, node: Id<'node'>, world: Id<'variable'>): { project: Project; id: Id<'variable'> } {
   const have = beliefsAbout(p, node, world)[0]
   const w = p.items[world]
   if (have || w?.kind !== 'variable') return { project: p, id: have?.id ?? '' }
@@ -103,7 +103,7 @@ export function addBelief(p: Project, node: Id, world: Id): { project: Project; 
 }
 
 /** Let a feedback report a world variable: a signal on it, plus the receiving controller's belief when missing. */
-export function addSignal(p: Project, fb: Id, world: Id): { project: Project; id: Id } {
+export function addSignal(p: Project, fb: Id<'feedback'>, world: Id<'variable'>): { project: Project; id: Id<'variable'> } {
   const f = p.items[fb]
   const w = p.items[world]
   if (f?.kind !== 'feedback' || w?.kind !== 'variable') return { project: p, id: '' }

@@ -7,7 +7,7 @@ import { deserialize, serialize } from './serialize'
 import { validate } from './validate'
 import { guideApplies } from './uca'
 import { structOf } from './types'
-import type { Hazard, Id, Kind, Patch, Project, Variable } from './types'
+import type { Hazard, Id, ItemOf, Kind, Patch, Project, Variable } from './types'
 
 function add<K extends Kind>(p: Project, kind: K, init?: Patch<K>) {
   const r = createItem(p, kind, init)
@@ -241,7 +241,7 @@ describe('variable types and conditions', () => {
     expect(conditionError(en, { kind: 'value', variable: 'x', op: 'not in', state: '', set: ['a', 'b'] })).toBeNull()
     let p = emptyProject()
     p = createItem(p, 'variable', { ...range, title: 'Rate' }).project
-    const v = Object.values(p.items)[0]
+    const v = Object.values(p.items)[0] as ItemOf<'variable'>
     expect(conditionText(p, { kind: 'value', variable: v.id, op: 'between', state: '1', to: '5' })).toBe('Rate is between 1 and 5 %')
   })
 })
