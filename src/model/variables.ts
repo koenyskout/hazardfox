@@ -10,7 +10,6 @@ export const isSetOp = (op: ConditionOp) => op === 'in' || op === 'not in'
 /** Operators that make sense for the variable's type. */
 export const opsFor = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? RANGE_OPS : v?.type === 'boolean' ? ['=', '≠'] : v?.type === 'symbolic' ? symbolicOps(v) : ENUM_OPS)
 
-export const isSymbolic = (v: Variable | undefined) => v?.type === 'symbolic'
 /** Symbolic properties made consistent: monotonic / sequential imply ordered. */
 export const normSym = (t: Partial<SymbolicType>): SymbolicType => {
   const monotonic = !!t.monotonic, sequential = !!t.sequential, ordered = !!t.ordered || monotonic || sequential, unique = !!t.unique
@@ -68,7 +67,6 @@ const TEXT_KEY = 'text:'
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
 /** Operators for comparing two variables. */
-export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v?.type === 'range' ? ['=', '≠', '<', '≤', '>', '≥'] : v?.type === 'symbolic' ? symbolicOps(v) : ['=', '≠'])
 
 
 /** Whether an entity has several instances; a specialisation of a many-instance entity does too. */
