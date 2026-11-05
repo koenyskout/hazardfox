@@ -6,6 +6,7 @@ import { holds, pickValue, symbolViolations } from './traces'
 import { conditionError, opsFor, opsForVar, describeStates } from './variables'
 import { paramVar } from './params'
 import type { ConditionOp, ItemOf, ValueCondition, VarCondition, Project, Variable } from './types'
+import { typeSpec } from './create'
 
 const setup = () => {
   let p: Project = emptyProject()
@@ -72,7 +73,7 @@ describe('symbolic types', () => {
 
   it('parameters resolve named types and the file round-trips', () => {
     const s = setup()
-    const pa = { name: 'at', type: 'symbolic' as const, states: [], min: null, max: null, unit: '', rangeType: '', enumType: '', symbolicType: 'Timestamp' }
+    const pa = { name: 'at', ...typeSpec({ type: 'symbolic', symbolicType: 'Timestamp' }) }
     expect(paramVar(s.p(), pa)).toMatchObject({ ordered: true })
     const q = deserialize(serialize(s.p()))
     expect(q.symbolicTypes).toEqual(s.p().symbolicTypes)
@@ -105,9 +106,9 @@ describe('named types follow renames and deletes everywhere', () => {
   it('updates control-action params, operation value params and struct fields', () => {
     let p = defineRangeType(emptyProject(), 'Pct', { min: 0, max: 100, unit: '%' })
     p = defineEnumType(p, 'Mode', ['a', 'b'])
-    const ca = createItem(p, 'ca', { params: [{ name: 'x', type: 'range', states: [], min: 0, max: 100, unit: '%', rangeType: 'Pct', enumType: '' }] })
+    const ca = createItem(p, 'ca', { params: [{ name: 'x', ...typeSpec({ type: 'range', min: 0, max: 100, unit: '%', rangeType: 'Pct' }) }] })
     p = ca.project
-    const op = createItem(p, 'operation', { params: [{ name: 'm', entity: '', data: { type: 'enum', states: ['a', 'b'], min: null, max: null, unit: '', rangeType: '', enumType: 'Mode' } }] })
+    const op = createItem(p, 'operation', { params: [{ name: 'm', entity: '', data: typeSpec({ states: ['a', 'b'], enumType: 'Mode' }) }] })
     p = defineStructType(op.project, 'S', { fields: [{ ...blankField(), name: 'f', type: 'range', rangeType: 'Pct' }] })
     const read = (q: typeof p) => ({
       ca: (q.items[ca.id] as ItemOf<'ca'>).params[0].rangeType,

@@ -1,6 +1,6 @@
 import { normSym } from './variables'
 import { produce } from 'immer'
-import { makeItem } from './create'
+import { makeItem, typeSpec } from './create'
 import { effectiveLosses } from './derived'
 import { cascadeSet, getList, listRefs, replaceInLists, rewriteRefs, setField } from './refs'
 import { children, descendants, groupKey, isTreeKind, ownerKinds, parentKinds, siblings } from './tree'
@@ -163,7 +163,7 @@ export const defineSymbolicType = defineNamed(SYMBOLIC)
 export const renameSymbolicType = renameNamed(SYMBOLIC)
 export const deleteSymbolicType = deleteNamed(SYMBOLIC)
 
-export const blankField = (): StructField => ({ name: '', type: 'enum', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' })
+export const blankField = (): StructField => ({ name: '', ...typeSpec() })
 export const defineStructType = (p: Project, name: string, t: StructType): Project => syncStructs(produce(p, (d) => { (d.structTypes ??= {})[name] = t }))
 export const renameStructType = (p: Project, from: string, to: string): Project => {
   if (!to || to === from || !p.structTypes?.[from] || p.structTypes[to]) return p

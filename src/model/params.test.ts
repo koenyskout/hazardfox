@@ -7,9 +7,10 @@ import { argError } from './params'
 import { generateUcaText } from './uca'
 import { validate } from './validate'
 import type { ControlAction, Param, Uca } from './types'
+import { typeSpec } from './create'
 
-const dose: Param = { name: 'dose', type: 'range', states: [], min: 0, max: 10, unit: 'mg', rangeType: '', enumType: '' }
-const mode: Param = { name: 'mode', type: 'enum', states: ['auto', 'manual'], min: null, max: null, unit: '', rangeType: '', enumType: '' }
+const dose: Param = { name: 'dose', ...typeSpec({ type: 'range', min: 0, max: 10, unit: 'mg' }) }
+const mode: Param = { name: 'mode', ...typeSpec({ states: ['auto', 'manual'] }) }
 function setup() {
   const b = projectBuilder()
   const n = b.add('node', { title: 'Nurse', role: 'controller' })

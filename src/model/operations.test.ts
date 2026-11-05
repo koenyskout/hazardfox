@@ -6,6 +6,7 @@ import { deleteItems } from './ops'
 import { operationOfCa, operationsOf } from './operations'
 import type { Trace } from './types'
 import { laneOf } from './variables'
+import { typeSpec } from './create'
 
 function setup() {
   const b = projectBuilder()
@@ -43,7 +44,7 @@ describe('operations', () => {
     const b = projectBuilder()
     const e = b.add('entity', { title: 'Pump' })
     const v = b.add('variable', { layer: 'domain', parent: e, title: 'rate', type: 'range', min: 0, max: 10 })
-    const op = b.add('operation', { title: 'Set rate', params: [{ name: 'r', entity: '', data: { type: 'range', states: [], min: 0, max: 10, unit: 'ml/h', rangeType: '', enumType: '' } }], effects: [{ variable: v, state: '', from: 'r' }] })
+    const op = b.add('operation', { title: 'Set rate', params: [{ name: 'r', entity: '', data: typeSpec({ type: 'range', states: [], min: 0, max: 10, unit: 'ml/h' }) }], effects: [{ variable: v, state: '', from: 'r' }] })
     const t: Trace = { lanes: [], steps: [{ t: '0', note: '', values: {}, events: [{ on: op, what: 'occurs', args: { r: '7' } }] }] }
     expect(traceState(b.project, t, 0)[v]).toBe('7')
   })

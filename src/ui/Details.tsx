@@ -9,7 +9,8 @@ import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
 import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
+import { typeSpec } from '../model/create'
+import { type TypeSpec, type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType, rulesOf, isWorld, aboutOf, otherwiseOf } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem, setScenarioType } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -604,7 +605,7 @@ function Declarations({ conditions: tree, onChange }: { conditions: When[]; onCh
   )
 }
 
-const BLANK_PARAM: Param = { name: '', type: 'range', states: [], min: null, max: null, unit: '', rangeType: '', enumType: '' }
+const BLANK_PARAM: Param = { name: '', ...typeSpec({ type: 'range' }) }
 
 /** The parameters of a control action: a name and a type (enum with states / boolean / range with bounds and unit), as for variables. */
 /** Summary lines with a button that opens the editor in a dialog. */
@@ -635,7 +636,7 @@ function ArgsSummary({ ca, uca, onChange }: { ca: ItemOf<'ca'>; uca: ItemOf<'uca
   return <EditPopup title="Edit parameter conditions" lines={argTexts(p, uca).map((l) => renderText(labels, l))} empty="No conditions on parameters" button="Edit parameter conditions…"><ArgsEditor ca={ca} args={uca.args} onChange={onChange} /></EditPopup>
 }
 
-type ParamData = Omit<Param, 'name'>
+type ParamData = TypeSpec
 const rangeSum = (t: { min: number | null; max: number | null; unit: string }) => describeStates({ type: 'range', states: [], rules: [], ...t } as unknown as Variable)
 
 const TypeLabel = ({ t, plus, children }: { t: 'range' | 'enum' | 'boolean' | 'symbolic' | 'struct'; plus?: boolean; children: ReactNode }) =>

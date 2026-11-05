@@ -135,7 +135,7 @@ export interface Operation extends Base {
   effects: Effect[]
 }
 /** `entity` types an instance parameter; a value parameter has no entity (`''`) and a datatype `data` instead (typed like a control-action parameter). */
-export interface OpParam { name: string; entity: Id; data?: Omit<Param, 'name'> }
+export interface OpParam { name: string; entity: Id; data?: TypeSpec }
 /** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */
 export interface Effect { variable: Id; state: string; on?: string; /** name of a value parameter whose argument becomes the value (instead of `state`) */ from?: string }
 /** One end of a relationship: the entity, the role it plays (empty: the entity's title) and its cardinality. */
@@ -149,13 +149,9 @@ export interface Relationship extends Base {
   nudge: Offset | null
 }
 /** The value type shared by variables, control-action parameters and struct fields: enum `states`, boolean, range (`min`/`max`/`unit`) or symbolic; optionally following a named range / enum type. */
-export interface TypeSpec { type: VariableType; states: string[]; unit: string; min: number | null; max: number | null; rangeType: string; enumType: string }
-/** What every variable has, whatever its layer. The owner (`parent`) depends on the layer: domain → entity / relationship, signal → feedback, belief / internal → controller node. */
-interface VariableBase extends Base, TypeSpec {
-  kind: 'variable'
-  /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
-  definition: string
-  /** symbolic: values are opaque symbolic constants ("t1", "id7"); every symbolic variable supports = / ≠, `ordered` also < ≤ > ≥ (natural order of the symbols) */
+export interface TypeSpec {
+  type: VariableType; states: string[]; unit: string; min: number | null; max: number | null; rangeType: string; enumType: string
+  /** symbolic: values are opaque symbolic constants ("t1", "id7"); every symbolic type supports = / ≠, `ordered` also < ≤ > ≥ (natural order of the symbols) */
   ordered: boolean
   /** symbolic, more properties: every new value differs from all earlier ones / never decreases / each change is to the successor (implies ordered) */
   unique: boolean
@@ -163,6 +159,12 @@ interface VariableBase extends Base, TypeSpec {
   sequential: boolean
   /** Name of the project's `symbolicTypes` entry that `ordered` / `unique` / … follow ('' = own properties) */
   symbolicType: string
+}
+/** What every variable has, whatever its layer. The owner (`parent`) depends on the layer: domain → entity / relationship, signal → feedback, belief / internal → controller node. */
+interface VariableBase extends Base, TypeSpec {
+  kind: 'variable'
+  /** Rich text. domain: abstraction of other variables (e.g. moving := |@speed| > ε); signal: interface semantics; belief: world predicate it designates; internal: meaning */
+  definition: string
 }
 /** A world variable x. Set on variables generated from a struct type: `struct` = the instance (`id`, `name`), the root type and the field `path`; the variable follows the type. Refinement ρ: the value as a function of lower-level world variables; the first rule whose condition tree holds gives the value, else `otherwise` ('' = undefined). */
 export interface WorldVariable extends VariableBase {
@@ -212,7 +214,7 @@ export interface CsNode extends Base {
   tall: number
 }
 /** A typed parameter of a control action (e.g. a dose, a target temperature): typed like a variable, optionally following a named range / enum type. */
-export interface Param extends TypeSpec { name: string; symbolicType?: string; ordered?: boolean; unique?: boolean; monotonic?: boolean; sequential?: boolean }
+export interface Param extends TypeSpec { name: string }
 /** A comparison with a constant: `state` is the compared value, `to` the upper bound of `between`, `set` the states of `in` / `not in`. */
 export interface Comparison { op: ConditionOp; state: string; to?: string; set?: string[] }
 /** A condition on a control-action parameter in a UCA ("provides Set dose with dose above 5 mg"); `param` is the parameter's name. */

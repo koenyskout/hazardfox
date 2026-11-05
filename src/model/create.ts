@@ -1,4 +1,7 @@
-import type { Base, Id, ItemOf, Kind, Patch, Project, RelEnd } from './types'
+import type { Base, Id, ItemOf, Kind, Patch, Project, RelEnd, TypeSpec } from './types'
+
+/** A value type with its defaults: an enum without states; `over` overrides. */
+export const typeSpec = (over: Partial<TypeSpec> = {}): TypeSpec => ({ type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, symbolicType: '', ...over })
 
 export const newId = (): Id =>
   (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`)
@@ -34,7 +37,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   entity: () => ({ nudge: null, relation: 'specialisation', many: false }),
   operation: () => ({ params: [], effects: [] }),
   relationship: () => ({ ends: relEnds('', '', '1', '*'), nudge: null }),
-  variable: () => ({ layer: 'domain', definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, symbolicType: '', rules: [], otherwise: '' }),
+  variable: () => ({ ...typeSpec(), layer: 'domain', definition: '', rules: [], otherwise: '' }),
   node: () => ({ role: 'controller', entities: [], nudge: null, wide: 0, tall: 0 }),
   ca: () => ({ from: '', to: '', duration: 'continuous', affects: [], params: [], operation: null, actuator: '', notApplicable: [], bend: null, labelShift: null }),
   feedback: () => ({ from: '', to: '', sensor: '', bend: null, labelShift: null }),
