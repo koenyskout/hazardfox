@@ -27,7 +27,7 @@ export function WhenView({ e, verdict }: { e: Expr | null; verdict?: Verdict }) 
       case 'and': return block(x, qs, 'all', 'all of', x.of.filter((m) => m.k !== 'hole'))
       case 'or': return block(x, qs, 'any', 'any of', x.of.filter((m) => m.k !== 'hole'))
       case 'not': return x.e.k === 'and' || x.e.k === 'or' || x.e.k === 'quant' ? block(x, qs, 'not', 'not', [x.e]) : <span className="wv-b">{verdict && mark(ver(x, qs))}<span className="wv-tag wv-not">not</span> {renderText(labels, say(p, x.e))}</span>
-      case 'quant': return block(x, qs, 'all', `${QUANT_LABELS[x.q]} ${(p.items[x.entity]?.title ?? '').trim() || 'instance'} ${x.name}`, [x.body], [...qs, x])
+      case 'quant': return block(x, qs, 'all', `for ${QUANT_LABELS[x.q]} ${(p.items[x.entity]?.title ?? '').trim() || 'instance'} ${x.name}`, [x.body], [...qs, x])
       case 'hole': return null
       default: return leaf(x, qs)
     }

@@ -180,6 +180,7 @@ function QuantRow({ env, x, path, remove }: { env: Env; x: Q; path: number[]; re
   return (
     <div className="cond xr cond-q">
       <div className="decl">
+        <span className="cond-word">for</span>
         <Select value={x.q} onChange={(ev) => edit(path, { ...x, q: ev.target.value as Quantifier })}>{QUANTIFIERS.map((q) => <option key={q} value={q}>{QUANT_LABELS[q]}</option>)}</Select>
         <Select value={x.entity} onChange={(ev) => edit(path, { ...x, entity: ev.target.value as Id<'entity'>, name: x.name || freshName(p, env.root, ev.target.value as Id) })}>
           <option value="" disabled hidden>entity…</option>
