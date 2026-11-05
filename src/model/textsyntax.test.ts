@@ -34,3 +34,18 @@ describe('incomplete amounts', () => {
     expect(parseExpr(crossingExampleProject(), t)).toEqual(e)
   })
 })
+
+import { formatExpr, and, or, namesOf } from './lang'
+describe('TLA+ block format', () => {
+  it('round-trips nested lists and quantifiers', () => {
+    const p = crossingExampleProject()
+    const vs = namesOf(p).filter(([, id]) => p.items[id].kind === 'variable').slice(0, 4).map(([, id]) => ({ k: 'var', id } as const))
+    const ent = namesOf(p).find(([, id]) => p.items[id].kind === 'entity')![1]
+    const b = (v: (typeof vs)[number], x: string) => cmp('=', v, num(x))
+    const e = and(b(vs[0], 'true'), or(b(vs[1], 'true'), and(b(vs[2], 'true'), b(vs[3], 'true'))), { k: 'quant', q: 'some', name: 'tr2', entity: ent, body: or(b(vs[0], 'false'), b(vs[1], 'false')) }, b(vs[3], 'false'))
+    const t = formatExpr(e, (id) => '@[' + id + ']')
+    expect(t).toContain('/\\ ')
+    expect(t).toContain('\\/ ')
+    expect(parseExpr(p, t)).toEqual(e)
+  })
+})

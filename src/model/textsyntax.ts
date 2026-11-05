@@ -36,7 +36,7 @@ function scan(p: Project, src: string, names: NameEntry[]): Tok[] {
         : inst.has(w) ? 'tx-inst' : '')
       push('word', w.length, cls); continue
     }
-    if ((m = /^(<=|>=|!=|[=<>+\-−×*(),{}:?@|$≠≤≥])/.exec(rest))) { push('op', m[0].length, 'tx-op'); continue }
+    if ((m = /^(\/\\|\\\/|<=|>=|!=|[=<>+\-−×*(),{}:?@|$≠≤≥])/.exec(rest))) { push('op', m[0].length, m[0] === '/\\' ? 'tx-and' : m[0] === '\\/' ? 'tx-or' : 'tx-op'); continue }
     push('bad', 1, 'tx-err')
   }
   return out

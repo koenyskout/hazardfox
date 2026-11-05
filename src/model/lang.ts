@@ -541,22 +541,23 @@ export function namesOf(p: Project): NameEntry[] {
   for (const k of ['entity', 'ca', 'feedback', 'operation'] as const) for (const x of itemsOfKind(p, k)) out.push([x.title.trim(), x.id])
   return out.filter(([n]) => n).sort((a, b) => b[0].length - a[0].length)
 }
-type Tok = { t: 'num' | 'str' | 'word' | 'ref' | 'op'; v: string }
+type Tok = { t: 'num' | 'str' | 'word' | 'ref' | 'op'; v: string; /** column in its line and whether it starts the line (for /\\ and \\/ lists) */ col: number; bol: boolean }
 const WORD = /^[\p{L}_][\p{L}\p{N}_.]*/u
 function tokens(src: string, names: NameEntry[]): Tok[] {
   const out: Tok[] = []
   let i = 0
+  const pos = () => { const ls = src.lastIndexOf('\n', i - 1) + 1; return { col: i - ls, bol: !src.slice(ls, i).trim() } }
   while (i < src.length) {
     const rest = src.slice(i)
     let m: RegExpExecArray | null
     if (/^\s/.test(rest)) { i++; continue }
-    if ((m = /^@\[([^\]]+)\]/.exec(rest))) { out.push({ t: 'ref', v: m[1] }); i += m[0].length; continue }
+    if ((m = /^@\[([^\]]+)\]/.exec(rest))) { out.push({ ...pos(), t: 'ref', v: m[1] }); i += m[0].length; continue }
     const nm = names.find(([n]) => rest.startsWith(n) && !/[\p{L}\p{N}_]/u.test(rest[n.length] ?? ''))
-    if (nm) { out.push({ t: 'ref', v: nm[1] }); i += nm[0].length; continue }
-    if ((m = /^\d+(\.\d+)?/.exec(rest))) { out.push({ t: 'num', v: m[0] }); i += m[0].length; continue }
-    if ((m = /^"([^"]*)"/.exec(rest))) { out.push({ t: 'str', v: m[1] }); i += m[0].length; continue }
-    if ((m = WORD.exec(rest))) { out.push({ t: 'word', v: m[0] }); i += m[0].length; continue }
-    if ((m = /^(<=|>=|!=|≠|≤|≥|[=<>+\-−×*(),{}:?@|$])/.exec(rest))) { out.push({ t: 'op', v: ({ '<=': '≤', '>=': '≥', '!=': '≠', '-': '−', '*': '×' } as Record<string, string>)[m[1]] ?? m[1] }); i += m[0].length; continue }
+    if (nm) { out.push({ ...pos(), t: 'ref', v: nm[1] }); i += nm[0].length; continue }
+    if ((m = /^\d+(\.\d+)?/.exec(rest))) { out.push({ ...pos(), t: 'num', v: m[0] }); i += m[0].length; continue }
+    if ((m = /^"([^"]*)"/.exec(rest))) { out.push({ ...pos(), t: 'str', v: m[1] }); i += m[0].length; continue }
+    if ((m = WORD.exec(rest))) { out.push({ ...pos(), t: 'word', v: m[0] }); i += m[0].length; continue }
+    if ((m = /^(\/\\|\\\/|<=|>=|!=|≠|≤|≥|[=<>+\-−×*(),{}:?@|$])/.exec(rest))) { out.push({ ...pos(), t: 'op', v: ({ '<=': '≤', '>=': '≥', '!=': '≠', '-': '−', '*': '×' } as Record<string, string>)[m[1]] ?? m[1] }); i += m[0].length; continue }
     throw new Error(`unexpected "${rest[0]}"`)
   }
   return out
@@ -566,7 +567,8 @@ class Parser {
   i = 0
   scope = new Set<string>()
   constructor(readonly p: Project, readonly ts: Tok[]) {}
-  peek = () => this.ts[this.i]
+  bound = -1
+  peek = () => { const t = this.ts[this.i]; return (t && t.bol && t.col <= this.bound ? undefined : t) as Tok }
   isOp = (v: string) => this.peek()?.t === 'op' && this.peek().v === v
   isWord = (v: string) => this.peek()?.t === 'word' && this.peek().v === v
   eat = (v: string) => { if (!this.isOp(v)) throw new Error(`expected "${v}"${this.peek() ? `, found "${this.peek().v}"` : ''}`); this.i++ }
@@ -580,7 +582,20 @@ class Parser {
     while (this.isWord('and')) { this.i++; of.push(this.not()) }
     return of.length === 1 ? of[0] : { k: 'and', of }
   }
+  /** TLA+ style list: items start with the same /\\ (and) or \\/ (or) in one column; an item runs until a line that starts at or left of that column. */
+  list(): Expr {
+    const c = this.ts[this.i].col, op = this.ts[this.i].v, outer = this.bound, of: Expr[] = []
+    for (;;) {
+      const t = this.ts[this.i]
+      if (!t || t.t !== 'op' || t.v !== op || t.col !== c || (of.length && !t.bol)) break
+      this.i++; this.bound = c
+      of.push(this.or())
+      this.bound = outer
+    }
+    return of.length === 1 ? of[0] : { k: op === '/\\' ? 'and' : 'or', of }
+  }
   not(): Expr {
+    if (this.isOp('/\\') || this.isOp('\\/')) return this.list()
     if (this.isWord('not')) { this.i++; return { k: 'not', e: this.not() } }
     const t = this.peek()
     if (t?.t === 'word' && (t.v === 'some' || t.v === 'all' || t.v === 'no') && this.ts[this.i + 1]?.t === 'word' && this.ts[this.i + 2]?.v === 'in') return this.quant()
@@ -691,6 +706,22 @@ export function parseExpr(p: Project, src: string, names: NameEntry[] = namesOf(
   const e = ps.or()
   if (ps.peek()) throw new Error(`unexpected "${ps.peek().v}"`)
   return e
+}
+
+/** Text as a TLA+ style block: and / or as aligned /\\ and \\/ lists, a quantifier's body indented under it. Parses back with `parseExpr`. */
+export function formatExpr(e: Expr, name: (id: Id) => string = mention): string {
+  const fmt = (x: Expr): string[] => {
+    if ((x.k === 'and' || x.k === 'or') && x.of.length >= 2) {
+      const b = x.k === 'and' ? '/\\' : '\\/'
+      return x.of.flatMap((m) => { const l = fmt(m); return [b + ' ' + l[0], ...l.slice(1).map((r) => '   ' + r)] })
+    }
+    if (x.k === 'quant') {
+      const head = `${x.q} ${x.name} in ${name(x.entity)}:`, body = fmt(x.body)
+      return body.length === 1 ? [head + ' ' + body[0]] : [head, ...body.map((r) => '  ' + r)]
+    }
+    return [printExpr(x, name)]
+  }
+  return fmt(e).join('\n')
 }
 
 const PREC: Record<string, number> = { quant: 0, or: 1, and: 2, not: 3, cmp: 4, between: 4, in: 4, '+': 5, '−': 5, '×': 6 }

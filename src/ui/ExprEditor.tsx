@@ -10,7 +10,7 @@ import { itemsOfKind } from '../model/tree'
 import { manyEntity } from '../model/variables'
 import { QUANTIFIERS, QUANT_LABELS, TIME_UNITS, type Id, type Item, type Project, type Quantifier, type Relationship, type TimeUnit, type Variable } from '../model/types'
 import { highlight, complete, type Completion } from '../model/textsyntax'
-import { ANY, BOOL, HOLE, val, at, check, checkError, children, eq, fills, namesOf, num, opsFor, parseExpr, printExpr, quant, replaceAt, scopeAt, slotType, typeOf, walk, type Candidate, type CmpOp, type Ctx, type Expr, type Fn, type Ty } from '../model/lang'
+import { ANY, BOOL, HOLE, val, at, check, checkError, children, eq, fills, namesOf, num, opsFor, formatExpr, parseExpr, printExpr, quant, replaceAt, scopeAt, slotType, typeOf, walk, type Candidate, type CmpOp, type Ctx, type Expr, type Fn, type Ty } from '../model/lang'
 
 type Q = Extract<Expr, { k: 'quant' }>
 type Edit = (path: number[], to: Expr) => void
@@ -94,7 +94,7 @@ export function ConditionEditor({ e, onChange, vars, head }: { e: Expr | null; o
 function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr) => void }) {
   const { p } = ctx
   const name = (id: Id) => { const it = p.items[id]; return it?.kind === 'variable' ? variableName(p, it) : it?.title ?? '' }
-  const canonical = e.k === 'hole' ? '' : printExpr(e, name)
+  const canonical = e.k === 'hole' ? '' : formatExpr(e, name)
   const [draft, setDraft] = useState(canonical)
   const [focus, setFocus] = useState(false)
   const [caret, setCaret] = useState(0)
@@ -139,7 +139,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
           </ul>
         )}
       </div>
-      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; <code>and</code>, <code>or</code>, <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
+      {error ? <div className="tx-msg">{error}</div> : <div className="tx-hint">Variables by name; aligned <code>/\</code> (and) and <code>\/</code> (or) lists like TLA+ (or <code>and</code> / <code>or</code> inline), <code>not</code>, <code>some|all|no name in Entity: …</code>, <code>x between a and b</code>, <code>x in {'{a, b}'}</code>, <code>heldFor(c) ≥ 5 s</code>, <code>text("…")</code>. Tab or Enter completes, Ctrl+Space suggests.</div>}
     </div>
   )
 }
