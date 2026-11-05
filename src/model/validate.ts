@@ -9,7 +9,7 @@ import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './t
 import { guideApplies } from './uca'
 import { endName, shortName } from './labels'
 import { condVars, conditionLine, exprError, isExpr } from './expr'
-import { condInstances, conditionError, nameAt, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
+import { condInstances, conditionError, endsOf, nameAt, nameKey, isVarCmp, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]
@@ -161,6 +161,10 @@ export function validate(p: Project): Issue[] {
   for (const u of ucas) {
     const named = new Map<string, Id | null>()
     const all = u.conditions.flatMap(leaves).map((c) => condInstances(p, c))
+    for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
+      const v = p.items[c.variable]
+      if (v?.kind === 'variable') for (const [side, n] of [[v, c.names], [p.items[isVarCmp(c) ? c.other : ''], isVarCmp(c) ? c.otherNames : undefined]] as const) if (side?.kind === 'variable') endsOf(p, side).forEach((e, end) => { if (nameAt(n, end) && !e.many) add('warning', u, 'instance-name', `${L[u.id]}: ${nameAt(n, end)} names an end of ${side.title || shortName(p, side)} that has a single instance`, [side.id]) })
+    }
     for (const x of all.flat().filter((x) => x.intro)) { if (named.has(x.name) && !sameInstance(p, named.get(x.name) ?? null, x.entity)) add('warning', u, 'instance-name', `${L[u.id]}: the name ${x.name} is used for different entities`); named.set(x.name, x.entity) }
     for (const x of all.flat().filter((x) => !x.intro)) {
       if (!named.has(x.name)) add('warning', u, 'instance-name', `${L[u.id]}: ${x.name} is not introduced by any condition`)
@@ -170,7 +174,7 @@ export function validate(p: Project): Issue[] {
   // conditions on many-instance variables: quantifiers are optional (default "some"), so only a contradictory use is reported
   for (const u of ucas) for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) {
     const v = p.items[c.variable]
-    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !nameAt(c.names, 0)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
+    if (v?.kind === 'variable' && quantOf(p, c) === 'some' && !nameKey(c.names)) add('warning', u, 'instance-unnamed', `${L[u.id]}: "some" ${v.title || shortName(p, v)} has no instance name`, [v.id])
     if (c.quant && v?.kind === 'variable' && !quantOf(p, c)) add('info', u, 'quantifier-single', `${L[u.id]}: "${c.quant}" on ${v.title || shortName(p, v)}, which describes a single instance`, [v.id])
   }
 

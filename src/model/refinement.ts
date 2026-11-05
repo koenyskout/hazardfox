@@ -2,7 +2,7 @@ import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
 import { cmpOf, exprCondition, isExpr } from './expr'
-import { condKey, nameAt, isEvent, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, uses, valuesOf, symbolAfter, symbolBefore } from './variables'
+import { condKey, nameKey, usesAny, isEvent, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
 import type { Condition, Id, Project, TextCondition, ValueCondition, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
@@ -22,8 +22,8 @@ export function consistent(p: Project, cs: Condition[]): boolean {
   // "some instance" conditions have independent witnesses and cannot conflict; "no instance" is "every instance not".
   // Conditions on the same named instance share a witness and can conflict.
   const norm = (c: Plain): Plain => !isText(c) && quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
-  const gkey = (c: Plain) => !isText(c) && (nameAt(c.names, 0) || nameAt(c.names, 1)) ? `${nameAt(c.names, 0)}|${nameAt(c.names, 1)}\u0000${condKey(c)}` : condKey(c)
-  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (isText(c) || quantOf(p, c) !== 'some' || !!nameAt(c.names, 0) || !!nameAt(c.names, 1)))
+  const gkey = (c: Plain) => !isText(c) && nameKey(c.names) ? `${nameKey(c.names)}\u0000${condKey(c)}` : condKey(c)
+  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (isText(c) || quantOf(p, c) !== 'some' || !!nameKey(c.names)))
   for (const c of plain.map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
   for (const [id, group] of by) {
     if (laneText(id.split('\u0000').pop()!) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
@@ -45,7 +45,7 @@ const not = (p: Project, cs: Condition[]): Dnf => cs.map((c): Condition[] => {
   if (isText(c)) return [{ ...c, op: c.op === '=' ? '≠' : '=' }]
   if (isVarCmp(c)) return [{ ...c, op: NEGATE[c.op] }]
   const q = quantOf(p, c)
-  if (uses(c.names, 0)) return [{ ...c, op: NEGATE[c.op] }]
+  if (usesAny(c.names)) return [{ ...c, op: NEGATE[c.op] }]
   if (q === 'some' || q === 'none') return [{ ...c, names: undefined, quant: q === 'some' ? 'none' : 'some' }]
   if (q === 'all') return [{ ...c, op: NEGATE[c.op], quant: 'some' }]
   const v = p.items[c.variable]

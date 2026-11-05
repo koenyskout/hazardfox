@@ -67,7 +67,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
   const takeoff = ['lined up for takeoff', 'takeoff roll']
   const words = (text: string): Condition => ({ kind: 'text', op: '=', text })
   const hazardConds: Record<string, Condition[]> = {
-    'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { names: [{ declare: 'o1' }] })],
+    'Aircraft comes too close to other objects on the ground': [c(closeV, 'true', '=', { names: [null, { declare: 'o1' }] })],
     'Deceleration is insufficient upon landing, rejected takeoff, or during taxiing': [inn(phase, ...decel), c(decelOk, 'false')],
     'Asymmetric deceleration maneuvers aircraft toward other objects': [c(force, '0', '>', { names: [{ declare: 'w1' }] }), c(brakeSym, 'false')],
     'Deceleration occurs after V1 point during takeoff': [c(v1, 'true'), inn(phase, 'takeoff roll', 'rejected takeoff'), c(force, '0', '>', { names: [{ declare: 'w1' }] })],
@@ -83,7 +83,7 @@ export function formalizeCrewBscu(id: 'hb-crew' | 'hb-bscu', p: Project): Projec
     ['excessive pedal pressure', [c(phase, 'landing roll')], 'the pedal pressure is excessive'],
     ['during normal takeoff', [c(phase, 'takeoff roll')], ''],
     ['before touchdown', [c(phase, 'approach')], ''],
-    ['manual braking too late', [inn(phase, ...decel), c(collideV, 'true', '=', { names: [{ declare: 'o1' }] })], 'it is already later than TBD to avoid the collision'],
+    ['manual braking too late', [inn(phase, ...decel), c(collideV, 'true', '=', { names: [null, { declare: 'o1' }] })], 'it is already later than TBD to avoid the collision'],
     ['before safe taxi speed', [c(taxiSpeed, 'false'), inn(phase, 'landing roll', 'rejected takeoff')], ''],
     ['manual braking too long', [c(speed, '0'), inn(location, 'runway', 'active taxiway')], ''],
     ['arm Autobrake before landing', [c(phase, 'approach'), c(setting, 'disarmed')], ''],

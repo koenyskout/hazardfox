@@ -8,7 +8,7 @@ import { consistent, expand } from './refinement'
 import { generateUcaText } from './uca'
 import { computeLabels } from './labels'
 import { validate } from './validate'
-import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf } from './variables'
+import { nameAt, isValueCmp, leaves, nameAllInstances, condInstances, conditionText, conditionTexts, instLane, isMany, laneParts, quantOf, endsOf, manyEndsOf, nameKey } from './variables'
 import { mention, refsOf } from './refs'
 import type { Condition, Id, Project, Scenario, ValueCondition, VarCondition } from './types'
 
@@ -288,5 +288,52 @@ describe('another instance is a separate instance in traces', () => {
     const get = getter({ [`${s.speed}@t1`]: '50', [`${s.speed}@t2`]: '40' })
     expect(condHolds(s.p, c, get, true)).toBe(true)
     expect(condHolds(s.p, { ...c, otherNames: [{ declare: 't3' }]  }, get, true)).toBeNull()
+  })
+})
+
+describe('instance names are keyed by relationship end', () => {
+  function world() {
+    const s = setup()
+    const plant = s.add('entity', { title: 'Plant' })
+    s.p = updateItem(s.p, s.train, { many: true })
+    const crossing = s.add('entity', { title: 'Crossing', many: true })
+    const route = s.add('entity', { title: 'Route', many: true })
+    const pred = (r: Id) => Object.values(s.p.items).find((i) => i.kind === 'variable' && i.parent === r)!
+    const serves = s.add('relationship', { title: 'serves', ends: relEnds(plant, crossing, '1', '*') })
+    const meets = s.add('relationship', { title: 'meets', ends: [{ entity: s.train, role: 'Train', card: '*' }, { entity: crossing, role: 'Crossing', card: '*' }, { entity: route, role: 'Route', card: '*' }] })
+    return Object.assign(s, { plant, crossing, route, serves: pred(serves), meets: pred(meets) })
+  }
+  const val = (variable: Id, extra: Partial<ValueCondition>): ValueCondition => ({ kind: 'value', variable, op: '=', state: 'true', ...extra })
+  it('a single end before a many end keeps its index, so the many end is end 1', () => {
+    const w = world()
+    expect(endsOf(w.p, w.serves as never).map((e) => e.many)).toEqual([false, true])
+    expect(manyEndsOf(w.p, w.serves as never).map((e) => e.end)).toEqual([1])
+    const c = val(w.serves.id, { names: [null, { declare: 'c1' }] })
+    expect(condInstances(w.p, c).map((x) => [x.name, x.end])).toEqual([['c1', 1]])
+    expect(quantOf(w.p, c)).toBe('some')
+    expect(conditionText(w.p, c)).toBe('Plant serves some Crossing c1')
+  })
+  it('naming a single-instance end is reported', () => {
+    const w = world()
+    const u = w.add('uca', { conditions: [val(w.serves.id, { names: [{ declare: 'p1' }, { declare: 'c1' }] })] })
+    expect(u).toBeTruthy()
+    expect(validate(w.p).some((i) => i.rule === 'instance-name' && /single instance/.test(i.message))).toBe(true)
+  })
+  it('relationships with three ends: every many end gets a name, lanes carry them in end order', () => {
+    const w = world()
+    expect(manyEndsOf(w.p, w.meets as never).map((e) => e.end)).toEqual([0, 1, 2])
+    const u = w.add('uca', { conditions: [val(w.meets.id, {})] })
+    const q = nameAllInstances(w.p)
+    const c = (q.items[u] as { conditions: Condition[] }).conditions[0] as ValueCondition
+    expect(c.names?.map((b) => !!b)).toEqual([true, true, true])
+    expect(nameKey(c.names)).toMatch(/^\w+\|\w+\|\w+$/)
+    expect(instLane(c)).toBe(`${w.meets.id}@${nameKey(c.names)}`)
+  })
+  it('the quantifier ranges over the ends left unnamed; named ends are existential', () => {
+    const w = world()
+    expect(quantOf(w.p, val(w.meets.id, { quant: 'all' }))).toBe('all')
+    expect(quantOf(w.p, val(w.meets.id, { quant: 'all', names: [{ declare: 't1' }] }))).toBe('all')
+    expect(quantOf(w.p, val(w.meets.id, { quant: 'all', names: [{ declare: 't1' }, { declare: 'c1' }, { use: 'r1' }] }))).toBe('some')
+    expect(conditionText(w.p, val(w.meets.id, { quant: 'none' }))).toBe('no Train meets any Crossing any Route')
   })
 })
