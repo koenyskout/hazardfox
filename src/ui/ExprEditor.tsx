@@ -113,7 +113,7 @@ function TextEdit({ e, ctx, onChange }: { e: Expr; ctx: Ctx; onChange: (e: Expr)
 }
 
 /** and / or: members as rows, with buttons for what may be added. */
-function Group({ env, x, path, head, top, bare, onRemove }: { env: Env; x: Expr; path: number[]; head?: ReactNode; top?: boolean; bare?: boolean; onRemove?: () => void }) {
+function Group({ env, x, path, head, top, onRemove }: { env: Env; x: Expr; path: number[]; head?: ReactNode; top?: boolean; onRemove?: () => void }) {
   const members = x.k === 'and' || x.k === 'or' ? x.of : x.k === 'hole' ? [] : [x]
   const kind = x.k === 'or' ? 'any' : 'all'
   const { edit } = env
@@ -125,12 +125,12 @@ function Group({ env, x, path, head, top, bare, onRemove }: { env: Env; x: Expr;
   const sole = members.length === 1 && members[0].k === 'quant'
   return (
     <>
-      {!bare && <div className="rule-head">
+      <div className="rule-head">
         {head}
         {top && members.length < 2 ? (sole ? null : <span className="wv-tag">all of</span>) : <Select className={'tagsel ' + kind} value={kind} onChange={(ev) => edit(path, { k: ev.target.value === 'any' ? 'or' : 'and', of: members })}><option value="all">All of</option><option value="any">Any of</option></Select>}
         {onRemove && <button className="x" title="Remove group" onClick={onRemove}><Icon name="x" size={12} /></button>}
-      </div>}
-      <div className={'conds g-' + kind + (top ? '' : ' group') + (bare ? ' bare' : '')}>
+      </div>
+      <div className={'conds g-' + kind + (top ? '' : ' group')}>
         {members.map((m, i) => <Row key={i} env={env} x={m} path={pathOf(i)} onRemove={() => setMembers(members.filter((_, j) => j !== i))} />)}
         {!sole && <div className="rule-add">
           <button onClick={() => add(HOLE)}><Icon name="plus" size={12} /> condition</button>
@@ -186,11 +186,10 @@ function QuantRow({ env, x, path, remove }: { env: Env; x: Q; path: number[]; re
           {entities.map((e) => <option key={e.id} value={e.id} label={e.title.trim() || 'instance'}><EntityPill e={e} /></option>)}
         </Select>
         <input className="decl-name" value={x.name} placeholder="name" onChange={(ev) => edit(path, { ...x, name: ev.target.value.replace(/\s/g, '') })} />
-        {multi && <Select className="decl-join" value={body.k === 'or' ? 'any' : 'all'} onChange={(ev) => edit([...path, 0], { k: ev.target.value === 'any' ? 'or' : 'and', of: body.of })}><option value="all">all of these hold</option><option value="any">any of these holds</option></Select>}
         {!multi && <button type="button" className="decl-add" title="Add another condition inside" onClick={() => edit([...path, 0], { k: 'and', of: [body, HOLE] })}><Icon name="plus" size={12} /> and</button>}
         {remove}
       </div>
-      <div className="cond-in">{multi ? <Group env={env} x={body} path={[...path, 0]} bare /> : <Row env={env} x={body} path={[...path, 0]} onRemove={() => edit([...path, 0], HOLE)} />}</div>
+      <div className="cond-in">{multi ? <Group env={env} x={body} path={[...path, 0]} /> : <Row env={env} x={body} path={[...path, 0]} onRemove={() => edit([...path, 0], HOLE)} />}</div>
     </div>
   )
 }
