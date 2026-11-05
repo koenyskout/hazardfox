@@ -1,5 +1,5 @@
 import { endName, shortName } from './labels'
-import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
+import { QUANT_LABELS, UNIT_S, type Binding, type EndNames, type Condition, type EventCondition, type TextCondition, type ExprCondition, type ValueCondition, type VarCondition, type TimeBound, type TimeUnit, type Id, type Quantifier, type ConditionOp, type Group, type Item, type Project, type RelEnd, type SymbolicType, type Variable, type When } from './types'
 
 const RANGE_OPS: readonly ConditionOp[] = ['=', '≠', '<', '≤', '>', '≥', 'between', 'not between']
 const ENUM_OPS: readonly ConditionOp[] = ['=', '≠', 'in', 'not in']
@@ -57,6 +57,10 @@ export function stepOf(v: Variable): number {
 
 /** A condition in words (no variable). */
 export const isText = (c: Condition): c is TextCondition => c.kind === 'text'
+/** An arithmetic comparison (see `expr.ts`). */
+export const isExpr = (c: Condition): c is ExprCondition => c.kind === 'expr'
+/** A condition carrying free `text` (in words, or an expression): no variable. */
+export const hasText = (c: Condition): c is TextCondition | ExprCondition => c.kind === 'text' || c.kind === 'expr'
 /** A condition on the time since an event (control action or feedback) occurred. */
 export const isEvent = (c: Condition): c is EventCondition => c.kind === 'event'
 /** A condition comparing the variable with another variable instead of a constant. */
@@ -127,7 +131,7 @@ export function parseTime(s: string): number | null {
 export const timeText = (t: TimeBound) => `${t.op === '≥' ? 'at least' : 'less than'} ${t.amount} ${t.unit}`
 const TEXT_KEY = 'text:'
 /** Trace lane / state key of a condition: its variable, or for a condition in words its text. */
-export const condKey = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? TEXT_KEY + c.text.trim() : c.variable)
+export const condKey = (c: Exclude<Condition, EventCondition>): string => (hasText(c) ? TEXT_KEY + c.text.trim() : c.variable)
 /** The text of a lane key of a condition in words, else null. */
 export const laneText = (key: string): string | null => (key.startsWith(TEXT_KEY) ? key.slice(TEXT_KEY.length) : null)
 
@@ -136,7 +140,7 @@ export const opsForVar = (v: Variable | undefined): readonly ConditionOp[] => (v
 
 /** Whether the condition is complete enough to appear in a sentence. */
 export const conditionComplete = (c: Condition): boolean => (isEvent(c) ? !!c.event && timeOk(c.time) : (!c.time || timeOk(c.time)) && baseComplete(c))
-const baseComplete = (c: Exclude<Condition, EventCondition>) => isText(c) ? !!c.text.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
+const baseComplete = (c: Exclude<Condition, EventCondition>) => hasText(c) ? !!c.text.trim() : isVarCmp(c) ? !!c.variable : (isSetOp(c.op) ? !!c.set?.length : !!c.state) && (!isRangeOp(c.op) || !!c.to)
 
 /** Whether an entity has several instances; a specialisation of a many-instance entity does too. */
 export function manyEntity(p: Project, id: Id): boolean {
@@ -190,7 +194,7 @@ export const nameKey = (n: EndNames | undefined): string => {
   return names.join('|')
 }
 const laneOf = (id: Id, n: EndNames | undefined): string => (nameKey(n) ? `${id}@${nameKey(n)}` : id)
-export const instLane = (c: TextCondition | ValueCondition | VarCondition): string => (isText(c) ? condKey(c) : laneOf(c.variable, c.names))
+export const instLane = (c: Exclude<Condition, EventCondition>): string => (hasText(c) ? condKey(c) : laneOf(c.variable, c.names))
 export const otherLane = (c: VarCondition): string => laneOf(c.other, c.otherNames)
 /** Variable and instance names of a lane key. */
 export const laneParts = (key: string): { id: Id; names: string[] } => { const i = key.indexOf('@'); return i < 0 || laneText(key) !== null ? { id: key, names: [] } : { id: key.slice(0, i), names: key.slice(i + 1).split('|') } }
@@ -247,7 +251,8 @@ function quantText(p: Project, c: ValueCondition | VarCondition, q: Quantifier, 
 
 function plainText(p: Project, c: Exclude<Condition, EventCondition>): string {
   if (isEvent(c)) return ''
-  if (isText(c)) return c.op === '≠' && !c.expr ? `not (${c.text.trim()})` : c.text.trim()
+  if (isText(c)) return c.op === '≠' ? `not (${c.text.trim()})` : c.text.trim()
+  if (isExpr(c)) return c.text.trim()
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return ''
   const u = v.type === 'range' && v.unit ? ' ' + v.unit : ''

@@ -8,8 +8,8 @@ import { VARIABLE_OWNER } from '../model/tree'
 import { guideApplies } from '../model/uca'
 import { effectText, inheritedOperations, opSignature, operationsOf, paramText } from '../model/operations'
 import { argError, argTexts, paramOf, paramSummary, paramVar } from '../model/params'
-import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
-import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
+import { allOf, autoName, nameInstances, condInstances, nameAt, conditionComplete, isOnVariable, isVarCmp, declaredAt, usedAt, uses, bindAt, withBinding, nameOf, withInstanceName, renameSame, toValue, toVarCmp, conditionError, manyEndsOf, describeStates, symProps, isGroup, isEvent, isRangeOp, isSetOp, isText, isExpr, OP_LABELS, opsFor, opsForVar, quantOf, stepOf, valuesOf, whenText, whenTexts, leaves } from '../model/variables'
+import { type Effect, type Binding, type Project, type RelEnd, type ArgCondition, type OpParam, type Param, TIME_UNITS, type TimeBound, type TimeUnit, CARDINALITIES, VARIABLE_LAYERS, VARIABLE_LAYER_LABELS, type Condition, type ValueCondition, type VarCondition, type TextCondition, type ExprCondition, type EventCondition, type Group, type Rule, type When, type Variable, type VariableLayer, type ConditionOp, CAUSES, DURATIONS, DURATION_LABELS, type Duration, GUIDE_WORD_LABELS, GUIDE_WORDS, KIND_NAMES, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPE_LABELS, SCENARIO_TYPES, STATUSES, STRIDE, QUANTIFIERS, QUANT_LABELS, type Cause, type GuideWord, type Id, type Item, type ItemOf, type Kind, type NodeRole, type Patch, type Quantifier, type RequirementType, type ScenarioType } from '../model/types'
 import { effectiveLosses, inheritedLosses } from '../model/derived'
 import { updateItem } from '../model/ops'
 import { defineEnumType, defineRangeType } from '../model/ops'
@@ -761,7 +761,7 @@ function ArgsEditor({ ca, args, onChange }: { ca: ItemOf<'ca'>; args: ArgConditi
 }
 
 const BLANK: ValueCondition = { kind: 'value', variable: '', op: '=', state: '' }
-const EXPR: TextCondition = { kind: 'text', op: '=', text: '', expr: true }
+const EXPR: ExprCondition = { kind: 'expr', text: '' }
 const WORDS: TextCondition = { kind: 'text', op: '=', text: '' }
 const TIME: TimeBound = { op: '≥', amount: '', unit: 's' }
 const EVENT: EventCondition = { kind: 'event', event: '', time: TIME }
@@ -814,7 +814,7 @@ const withName = (x: Condition, bind: Bind): Condition => (isOnVariable(x) ? bin
 const VAR_OPTION = '\u0000var'
 
 /** An arithmetic comparison, typed with variable names; a plain "variable op constant" becomes an ordinary row. */
-function ExprRow({ c, word, vars, onChange, onRemove }: { c: TextCondition; word: string; vars: Variable[]; onChange: (c: Condition) => void; onRemove: () => void }) {
+function ExprRow({ c, word, vars, onChange, onRemove }: { c: ExprCondition; word: string; vars: Variable[]; onChange: (c: Condition) => void; onRemove: () => void }) {
   const p = useProject()
   const shown = conditionLine(p, c) ?? ''
   const [draft, setDraft] = useState(shown)
@@ -840,7 +840,8 @@ type RowProps<C extends Condition> = { scope?: Condition[]; c: C; onChange: (c: 
 /** One condition of a context, edited by its form: in words, an expression, a time since an event, or a variable (against a value or another variable). */
 function ConditionRow(props: RowProps<Condition>) {
   const { c, word, vars, onChange, onRemove, scope } = props
-  if (isText(c)) return c.expr ? <ExprRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} /> : <TextRow {...props} c={c} />
+  if (isExpr(c)) return <ExprRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} />
+  if (isText(c)) return <TextRow {...props} c={c} />
   if (isEvent(c)) return <EventRow {...props} c={c} />
   return <VariableRow c={c} word={word} vars={vars} onChange={onChange} onRemove={onRemove} scope={scope} />
 }

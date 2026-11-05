@@ -4,8 +4,8 @@ import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleR
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
 import { exprError } from '../model/expr'
-import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isVarCmp, laneText, mapLeaves } from '../model/variables'
-import { QUANTIFIERS, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type TextCondition, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { allOf, normSym, isGroup, conditionError, isRangeOp, isEvent, isText as inWords, isExpr, isVarCmp, laneText, mapLeaves } from '../model/variables'
+import { QUANTIFIERS, type ExprCondition, type Binding, type EndNames, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type Instances, type ValueCondition, type VarCondition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -198,7 +198,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
   }
   const parseBase = (c: Rec): Condition => {
     if (isStr(c?.text) && c.variable === undefined && c.expr === true) {
-      const e: TextCondition = { kind: 'text', op: '=', text: r.internalText(c.text), expr: true }
+      const e: ExprCondition = { kind: 'expr', text: r.internalText(c.text) }
       const bad = exprError(r.p, e)
       if (bad) throw new Error(bad)
       return e
@@ -356,7 +356,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const raw = it as unknown as Rec
   const refs = new Set(refFields(it.kind))
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
-  const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.expr ? { expr: true } : {}), ...(c.time ? { time: c.time } : {}) } : { ...omitKind(c), variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
+  const cond = (c: Condition) => (isEvent(c) ? { event: r.label(c.event) ?? c.event, time: c.time } : isExpr(c) ? { text: r.externalText(c.text), op: '=', expr: true, ...(c.time ? { time: c.time } : {}) } : inWords(c) ? { text: r.externalText(c.text), op: c.op, ...(c.time ? { time: c.time } : {}) } : { ...omitKind(c), variable: r.label(c.variable) ?? c.variable, ...(isVarCmp(c) ? { other: r.label(c.other) ?? c.other } : {}) })
   const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]

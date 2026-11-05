@@ -2,8 +2,8 @@ import { variableName } from './labels'
 import { mention, mentions } from './refs'
 import { itemsOfKind } from './tree'
 import { NEGATE } from './traces'
-import { compareSymbols, conditionError, isEvent, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
-import type { Condition, Group, Id, Project, TextCondition, ValueCondition, Variable, VarCondition, When } from './types'
+import { compareSymbols, conditionError, isEvent, isExpr, isOnVariable, isText, isVarCmp, isSetOp, symbolAfter, symbolBefore } from './variables'
+import type { Condition, ExprCondition, Group, Id, Project, ValueCondition, Variable, VarCondition, When } from './types'
 
 /** Arithmetic comparisons ("Gap − 2 × Speed < 5", "Door state = prev(Door state)"): a condition with `text` (variables as `@[id]`) and `expr: true`.
  *  Terms: numbers, symbols, variables, `prev(x)` (value at the previous trace step), `succ(x)` / `pred(x)` (sequential symbols), `+ − ×`, `min` `max` `abs`. */
@@ -19,7 +19,6 @@ export interface Cmp { l: Expr; op: CmpOp; r: Expr }
 const FNS: Record<string, number> = { prev: 1, succ: 1, pred: 1, abs: 1, min: 2, max: 2 }
 
 /** An expression condition: a text condition whose text is a comparison. */
-export const isExpr = (c: Condition): c is TextCondition & { expr: true } => isText(c) && !!c.expr
 
 type Tok = { t: 'n' | 'c' | 'v' | 'w' | 'op'; v: string }
 type Names = [string, Id][]
@@ -134,12 +133,12 @@ export const printCmp = (c: Cmp, name?: (id: Id) => string) => `${printExpr(c.l,
 
 const cache = new Map<string, Cmp | null>()
 /** The comparison stored in an expression condition (null when it does not read). */
-export function cmpOf(c: TextCondition): Cmp | null {
+export function cmpOf(c: ExprCondition): Cmp | null {
   const s = c.text
   if (!cache.has(s)) { try { const r = parseComparison(s); cache.set(s, 'cmp' in r ? r.cmp : null) } catch { cache.set(s, null) } }
   return cache.get(s)!
 }
-export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): TextCondition => ({ kind: 'text', op: '=', text: printCmp(cmp, name), expr: true })
+export const exprCondition = (cmp: Cmp, name?: (id: Id) => string): ExprCondition => ({ kind: 'expr', text: printCmp(cmp, name) })
 
 // ---- types
 
@@ -197,7 +196,7 @@ export function cmpError(p: Project, c: Cmp): string | null {
   } catch (e) { return (e as Error).message }
 }
 /** Error of an expression condition (null when fine). */
-export function exprError(p: Project, c: TextCondition): string | null {
+export function exprError(p: Project, c: ExprCondition): string | null {
   const m = cmpOf(c)
   return m ? cmpError(p, m) : 'does not read as a comparison'
 }
@@ -243,11 +242,11 @@ export function cmpHolds(p: Project, c: Cmp, get: (id: Id) => string | undefined
   return c.op === '<' ? k < 0 : c.op === '≤' ? k <= 0 : c.op === '>' ? k > 0 : k >= 0
 }
 /** Whether an expression condition holds: undefined when it does not read. */
-export function exprHolds(p: Project, c: TextCondition, get: (id: Id) => string | undefined, prev?: (id: Id) => string | undefined): boolean | null | undefined {
+export function exprHolds(p: Project, c: ExprCondition, get: (id: Id) => string | undefined, prev?: (id: Id) => string | undefined): boolean | null | undefined {
   const m = cmpOf(c)
   return m ? cmpHolds(p, m, get, prev) : undefined
 }
-export const exprVars = (c: TextCondition): Id[] => [...new Set(mentions(c.text))]
+export const exprVars = (c: ExprCondition): Id[] => [...new Set(mentions(c.text))]
 /** Variables a condition reads (both sides of a comparison, or those in an expression). */
 export const condVars = (c: Condition): Id[] => (isExpr(c) ? exprVars(c) : !isOnVariable(c) ? [] : isVarCmp(c) ? [c.variable, c.other].filter(Boolean) : [c.variable].filter(Boolean))
 
@@ -312,7 +311,7 @@ export function negate(w: When): When {
   if ('of' in w) return w.not ? { any: false, of: w.of } : { any: !w.any, of: w.of.map(negate) }
   const m = isExpr(w) ? cmpOf(w) : null
   if (m) return exprCondition({ ...m, op: NEGATE[m.op] as typeof m.op })
-  if (isEvent(w) || w.time || (isOnVariable(w) && (w.quant || w.names))) return { any: false, not: true, of: [w] }
+  if (isEvent(w) || isExpr(w) || w.time || (isOnVariable(w) && (w.quant || w.names))) return { any: false, not: true, of: [w] }
   return isText(w) ? { ...w, op: w.op === '=' ? '≠' : '=' } : { ...w, op: NEGATE[w.op] }
 }
 

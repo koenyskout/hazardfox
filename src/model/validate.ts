@@ -8,8 +8,8 @@ import { children, isLeaf, itemsOfKind, VARIABLE_OWNER } from './tree'
 import { CAUSE_LABELS, LAYER_SHORT, type Id, type Item, type Project } from './types'
 import { guideApplies } from './uca'
 import { endName, shortName } from './labels'
-import { condVars, conditionLine, exprError, isExpr } from './expr'
-import { condInstances, conditionError, endsOf, nameAt, nameKey, isVarCmp, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
+import { condVars, conditionLine, exprError } from './expr'
+import { condInstances, conditionError, isExpr, endsOf, nameAt, nameKey, isVarCmp, isEvent, isOnVariable, leaves, quantOf, valuesOf } from './variables'
 
 export const SEVERITIES = ['error', 'warning', 'info'] as const
 export type Severity = (typeof SEVERITIES)[number]

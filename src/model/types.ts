@@ -268,16 +268,13 @@ export interface VarCondition extends CondBase, Instances {
   /** Names for the instances of the compared variable, e.g. speed of t1 > speed of t2 */
   otherNames?: EndNames
 }
-/** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. With `expr` the text is an arithmetic comparison (variables as `@[id]`), see `model/expr.ts`. */
-export interface TextCondition extends CondBase {
-  kind: 'text'
-  text: string
-  op: '=' | '≠'
-  expr?: boolean
-}
+/** A condition in words: it holds (`=`) or not (`≠`); traces treat it as a boolean lane keyed by its text. */
+export interface TextCondition extends CondBase { kind: 'text'; text: string; op: '=' | '≠' }
+/** An arithmetic comparison (variables as `@[id]`, `prev(x)`, `+ − ×`, `min/max/abs`, `= ≠ < ≤ > ≥`) in canonical text, see `model/expr.ts`. */
+export interface ExprCondition extends CondBase { kind: 'expr'; text: string }
 /** A timing condition on an event: the time since this control action / feedback last occurred (`time` says how long). It has no variable. */
 export interface EventCondition extends CondBase { kind: 'event'; event: Id }
-export type Condition = ValueCondition | VarCondition | TextCondition | EventCondition
+export type Condition = ValueCondition | VarCondition | TextCondition | ExprCondition | EventCondition
 export interface Uca extends Base {
   kind: 'uca'
   ca: Id

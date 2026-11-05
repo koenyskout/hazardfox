@@ -4,7 +4,7 @@ import { exprHolds } from './expr'
 import { appliedEffects, isOccurrence } from './operations'
 import { mention } from './refs'
 import { itemsOfKind } from './tree'
-import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
+import { boundSeconds, condInstances, condKey, conditionComplete, isEvent, isOnVariable, isVarCmp, toValue, parseTime, instLane, otherLane, isGroup, isSetOp, isExpr, isText, laneParts, leaves, quantOf, required, stepOf, valuesOf, compareSymbols, symbolAfter, symbolBefore } from './variables'
 import type { Cause, Comparison, Condition, ConditionOp, Id, Project, Scenario, Trace, TraceStep, TextCondition, Uca, ValueCondition, Variable, When } from './types'
 
 /** Value of a variable at step i (set there or carried forward), and whether it was set at that step. */
@@ -90,7 +90,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
     const d = get.clock?.held(c, strict)
     return d == null ? null : c.time.op === '≥' ? d >= boundSeconds(c.time) : d < boundSeconds(c.time)
   }
-  if (isText(c) && c.expr) { if (!conditionComplete(c)) return undefined; return exprHolds(p, c, get, get.clock?.prev) }
+  if (isExpr(c)) { if (!conditionComplete(c)) return undefined; return exprHolds(p, c, get, get.clock?.prev) }
   if (isText(c)) { if (!conditionComplete(c)) return undefined; const x = get(condKey(c)); return x === undefined || x === '' ? null : (x === 'true') === (c.op !== '≠') }
   const v = p.items[c.variable]
   if (v?.kind !== 'variable') return undefined
@@ -110,7 +110,7 @@ export function condHolds(p: Project, c: Condition, get: Getter, strict = false)
 
 /** Texts of all conditions in words in the project (candidate trace lanes). */
 export const textConditions = (p: Project): string[] => [...new Set(Object.values(p.items).flatMap((it) =>
-  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && !c.expr && conditionComplete(c)).map(condKey)))]
+  (it.kind === 'uca' || it.kind === 'hazard' ? it.conditions.flatMap(leaves) : it.kind === 'variable' ? it.rules.flatMap((r) => leaves(r.when)) : []).filter((c): c is TextCondition => isText(c) && conditionComplete(c)).map(condKey)))]
 
 /** Whether a condition tree holds (three-valued: null while it depends on an unknown value); empty conditions are ignored. */
 export function whenHolds(p: Project, w: When, get: Getter, strict?: (c: Condition) => boolean): boolean | null | undefined {

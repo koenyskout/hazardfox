@@ -1,9 +1,9 @@
 import { createItem } from './ops'
 import { holds, NEGATE } from './traces'
 import { itemsOfKind } from './tree'
-import { cmpOf, exprCondition, isExpr } from './expr'
-import { condKey, nameKey, usesAny, isEvent, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
-import type { Condition, Id, Project, TextCondition, ValueCondition, Variable, When } from './types'
+import { cmpOf, exprCondition } from './expr'
+import { condKey, nameKey, usesAny, isEvent, isExpr, hasText, isGroup, isText, isValueCmp, isVarCmp, laneText, quantOf, stepOf, valuesOf, symbolAfter, symbolBefore } from './variables'
+import type { Condition, ExprCondition, Id, Project, TextCondition, ValueCondition, Variable, When } from './types'
 
 /** Conjunctions of conditions: a context in disjunctive normal form. */
 type Dnf = Condition[][]
@@ -11,28 +11,29 @@ type Dnf = Condition[][]
 const key = (c: Condition) => JSON.stringify(
   isEvent(c) ? ['event', c.event, c.time]
   : isText(c) ? [condKey(c), c.op]
+  : isExpr(c) ? [condKey(c)]
   : isVarCmp(c) ? [condKey(c), c.op, c.other, c.otherNames, c.quant, c.names]
   : [condKey(c), c.op, c.state, c.to, c.quant, c.names, [...(c.set ?? [])].sort()])
 const dedupe = (cs: Condition[]) => [...new Map(cs.map((c) => [key(c), c])).values()]
 
-type Plain = ValueCondition | TextCondition
+type Plain = ValueCondition | TextCondition | ExprCondition
 /** Whether some assignment satisfies all conditions (checked per variable on its values, or on candidate numbers around the bounds). */
 export function consistent(p: Project, cs: Condition[]): boolean {
   const by = new Map<Id, Plain[]>()
   // "some instance" conditions have independent witnesses and cannot conflict; "no instance" is "every instance not".
   // Conditions on the same named instance share a witness and can conflict.
-  const norm = (c: Plain): Plain => !isText(c) && quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
-  const gkey = (c: Plain) => !isText(c) && nameKey(c.names) ? `${nameKey(c.names)}\u0000${condKey(c)}` : condKey(c)
-  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (isText(c) || quantOf(p, c) !== 'some' || !!nameKey(c.names)))
+  const norm = (c: Plain): Plain => isValueCmp(c) && quantOf(p, c) === 'none' ? { ...c, op: NEGATE[c.op] } : c
+  const gkey = (c: Plain) => isValueCmp(c) && nameKey(c.names) ? `${nameKey(c.names)}\u0000${condKey(c)}` : condKey(c)
+  const plain = cs.filter((c): c is Plain => !isEvent(c) && !isVarCmp(c) && (hasText(c) || quantOf(p, c) !== 'some' || !!nameKey(c.names)))
   for (const c of plain.map(norm)) by.set(gkey(c), [...(by.get(gkey(c)) ?? []), c])
   for (const [id, group] of by) {
-    if (laneText(id.split('\u0000').pop()!) !== null) { if (!group.every((c) => c.op === group[0].op)) return false; continue }
+    if (laneText(id.split('\u0000').pop()!) !== null) { const op = (c: Plain) => (isText(c) ? c.op : '='); if (!group.every((c) => op(c) === op(group[0]))) return false; continue }
     const v = p.items[id.split('\u0000').pop()!]
     if (v?.kind !== 'variable') continue
     const d = stepOf(v) / 10
     const cand = valuesOf(v) ?? (v.type === 'symbolic' ? group.filter(isValueCmp).flatMap((c) => (c.state ? [symbolBefore(c.state), c.state, symbolAfter(c.state)] : [])).filter(Boolean) : [v.min, v.max, ...group.filter(isValueCmp).flatMap((c) => [c.state, c.to ?? ''].filter(Boolean).map(Number).flatMap((x) => [x - d, x, x + d]))]
       .filter((x): x is number => x !== null && Number.isFinite(x)).map(String))
-    if (!cand.some((x) => group.every((c) => isText(c) || holds(v, c, x) !== false))) return false
+    if (!cand.some((x) => group.every((c) => !isValueCmp(c) || holds(v, c, x) !== false))) return false
   }
   return true
 }

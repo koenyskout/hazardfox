@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emptyProject } from './create'
-import { cmpError, cmpOf, conditionLine, lineCondition, negate, textToWhen, whenToText, parseComparison, printCmp, exprCondition, isExpr } from './expr'
+import { cmpError, cmpOf, conditionLine, lineCondition, negate, textToWhen, whenToText, parseComparison, printCmp, exprCondition } from './expr'
+import { isExpr } from './variables'
 import { createItem, defineSymbolicType, updateItem } from './ops'
 import { clockAt, getter, traceState, whenHolds } from './traces'
 import { whenText } from './variables'
