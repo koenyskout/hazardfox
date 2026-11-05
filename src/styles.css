@@ -681,3 +681,5 @@ button.primary.danger { background: var(--danger); border-color: var(--danger); 
 .decl { gap: 6px; }
 .decl .decl-name { flex: 0 0 72px; width: 72px; }
 .decl > .x { margin-left: auto; }
+.cond .hold-btn { width: auto; font-size: 12px; padding: 1px 8px; color: var(--muted); flex: none; }
+.cond .hold-btn:hover { color: var(--text); }
