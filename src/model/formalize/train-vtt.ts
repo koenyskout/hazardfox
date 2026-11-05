@@ -8,7 +8,7 @@ import { rulesOf } from '../types'
 import type { Id, Item, ItemOf, Project, Variable } from '../types'
 import type { Condition, ValueCondition } from '../legacy'
 import { upgrade } from '../build'
-import { mapChildren, some, type Expr } from '../lang'
+import { check, mapChildren, some, type Expr } from '../lang'
 
 /**
  * Formalizes the published examples `pub-train-door` and `pub-vtt-am` as far as the model allows: domain model (entities with
@@ -26,7 +26,7 @@ const named = <T extends Item>(xs: T[], title: string) => xs.find((x) => x.title
 function ensure<K extends 'entity' | 'relationship' | 'variable'>(b: Box, kind: K, title: string, init: Record<string, unknown>, owner?: Id): Id {
   const have = all(b).find((i) => i.kind === kind && i.title.trim() === title && (!owner || i.parent === owner || (i.kind === 'relationship' && i.ends[0]?.entity === owner)))
   if (have) return have.id
-  const r = createItem(b.p, kind, { title, ...init } as never)
+  const r = createItem(b.p, kind, { title, ...upgrade(b.p, init) } as never)
   b.p = r.project
   return r.id
 }
@@ -145,5 +145,5 @@ function vtt(p0: Project): Project {
   return b.p
 }
 
-/** Whether every condition of the list is complete (used by the tests). */
-export const complete = (cs: Condition[]) => cs.length > 0 && cs.every((c) => isText(c) || conditionComplete(c))
+/** What is wrong with a condition (empty, unfinished, ill-typed), or null (used by the tests). */
+export const problem = (p: Project, e: Expr | null): string | null => (e ? check({ p }, e).find((d) => d.level === 'error' || d.msg === 'incomplete')?.msg ?? null : 'empty')

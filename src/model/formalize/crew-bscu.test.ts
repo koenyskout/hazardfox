@@ -5,7 +5,8 @@ import { deserialize, serialize } from '../serialize'
 import { itemsOfKind } from '../tree'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
-import { leaves, conditionComplete, conditionError, isOnVariable, whenText } from '../variables'
+import { say } from '../say'
+import { problem } from './train-vtt'
 import { formalizeCrewBscu } from './crew-bscu'
 
 describe.each(['hb-crew', 'hb-bscu'] as const)('formalize %s', (id) => {
@@ -21,18 +22,14 @@ describe.each(['hb-crew', 'hb-bscu'] as const)('formalize %s', (id) => {
   it('has complete conditions on every UCA and hazard', () => {
     expect(itemsOfKind(p, 'uca').length).toBe(itemsOfKind(base, 'uca').length)
     for (const it of [...itemsOfKind(p, 'uca'), ...itemsOfKind(p, 'hazard')]) {
-      expect(it.conditions.length, it.title || it.description).toBeGreaterThan(0)
-      for (const cnd of it.conditions.flatMap(leaves)) {
-        expect(conditionComplete(cnd)).toBe(true)
-        if (isOnVariable(cnd)) expect(conditionError(p.items[cnd.variable] as never, cnd, p)).toBeNull()
-      }
+      expect(problem(p, it.when), it.title || it.description).toBeNull()
     }
   })
 
   it('round-trips and prints the UCA sentences', () => {
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
     const labels = computeLabels(p)
-    for (const h of itemsOfKind(p, 'hazard')) console.log(`${labels[h.id]}: ${h.title} :: ${h.conditions.map((x) => whenText(p, x)).join(' and ')}`)
+    for (const h of itemsOfKind(p, 'hazard')) console.log(`${labels[h.id]}: ${h.title} :: ${say(p, h.when)}`)
     for (const u of itemsOfKind(p, 'uca')) console.log(`${labels[u.id]}: ${generateUcaText(p, labels, u)}`)
   })
 })

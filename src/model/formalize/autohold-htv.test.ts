@@ -6,7 +6,8 @@ import { computeLabels } from '../labels'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
 import { deserialize, serialize } from '../serialize'
-import { leaves, conditionComplete, conditionError, conditionTexts, isOnVariable, whenText, allOf } from '../variables'
+import { say } from '../say'
+import { problem } from './train-vtt'
 import type { Project } from '../types'
 
 const IDS = ['hb-autohold', 'hb-htv'] as const
@@ -27,9 +28,8 @@ describe.each(IDS)('formalize %s', (id) => {
 
   it('formalizes every hazard with complete conditions', () => {
     for (const h of itemsOfKind(p, 'hazard')) {
-      expect(h.conditions.length, h.title).toBeGreaterThan(0)
-      console.log(`${L[h.id]} ${whenText(p, allOf(...h.conditions))}`)
-      for (const c of h.conditions.flatMap(leaves)) { expect(conditionComplete(c), h.title).toBe(true); if (isOnVariable(c)) { const v = p.items[c.variable]; if (v?.kind === 'variable') expect(conditionError(v, c, p), h.title).toBeNull() } }
+      console.log(`${L[h.id]} ${say(p, h.when)}`)
+      expect(problem(p, h.when), h.title).toBeNull()
     }
   })
 
@@ -41,9 +41,8 @@ describe.each(IDS)('formalize %s', (id) => {
       console.log(`${L[u.id]} [${u.guide}] ${t}`)
       expect(u.override).toBe('')
       if (TEXT_ONLY.some((x) => u.notes.includes(x))) { expect(u.context).not.toBe(''); continue }
-      expect(u.conditions.length, t).toBeGreaterThan(0)
-      for (const c of u.conditions.flatMap(leaves)) { expect(conditionComplete(c), t).toBe(true); if (isOnVariable(c)) { const v = p.items[c.variable]; if (v?.kind === 'variable') expect(conditionError(v, c, p), t).toBeNull() } }
-      expect(conditionTexts(p, u.conditions.flatMap(leaves)).every(Boolean)).toBe(true)
+      expect(problem(p, u.when), t).toBeNull()
+      expect(say(p, u.when)).not.toBe('')
     }
   })
 

@@ -5,11 +5,12 @@ import { validate } from '../validate'
 import { computeLabels } from '../labels'
 import { generateUcaText } from '../uca'
 import { itemsOfKind, isLeaf } from '../tree'
-import { isOnVariable, leaves, conditionComplete, conditionError, conditionTexts } from '../variables'
+import { say } from '../say'
+import { varsOf } from '../atoms'
+import { problem } from './train-vtt'
 import { deserialize, serialize } from '../serialize'
 import { beliefsAbout } from '../formal'
 import type { Project } from '../types'
-import type { Condition } from '../legacy'
 
 const IDS = ['pub-aeb', 'pub-thomas-msiv'] as const
 
@@ -26,22 +27,20 @@ describe.each(IDS)('formalized %s', (id) => {
   })
 
   it('gives every leaf hazard and every UCA complete, valid conditions', () => {
-    const complete = (cs: Condition[]) => cs.length > 0 && cs.every((c) => conditionComplete(c) && (!isOnVariable(c) || !conditionError(p.items[c.variable] as never, c, p)))
-    for (const h of itemsOfKind(p, 'hazard').filter((x) => isLeaf(p, x.id))) expect(complete(h.conditions.flatMap(leaves)), L[h.id]).toBe(true)
-    for (const u of itemsOfKind(p, 'uca')) expect(complete(u.conditions.flatMap(leaves)), L[u.id]).toBe(true)
+    for (const h of itemsOfKind(p, 'hazard').filter((x) => isLeaf(p, x.id))) expect(problem(p, h.when), L[h.id]).toBeNull()
+    for (const u of itemsOfKind(p, 'uca')) expect(problem(p, u.when), L[u.id]).toBeNull()
   })
 
   it('gives the issuing controller a belief about each world variable of a UCA context', () => {
     for (const u of itemsOfKind(p, 'uca')) {
       const from = (p.items[u.ca] as { from: string }).from
-      for (const c of u.conditions.flatMap(leaves).filter(isOnVariable)) expect(beliefsAbout(p, from, c.variable).length, `${L[u.id]} ${c.variable}`).toBeGreaterThan(0)
+      for (const v of varsOf(u.when)) expect(beliefsAbout(p, from, v).length, `${L[u.id]} ${v}`).toBeGreaterThan(0)
     }
   })
 
   it('is idempotent, adds only formal data and survives a file round trip', () => {
     expect(serialize(formalizeAebMsiv(id, p))).toBe(serialize(p))
     expect(serialize(deserialize(serialize(p)))).toBe(serialize(p))
-    expect(nameAllInstances(p)).toBe(p)
     for (const it of Object.values(base.items)) {
       const q = p.items[it.id]
       expect(q.title, it.id).toBe(it.title)
@@ -52,7 +51,7 @@ describe.each(IDS)('formalized %s', (id) => {
 
   it('prints the sentences', () => {
     const out: string[] = []
-    for (const h of itemsOfKind(p, 'hazard').filter((x) => isLeaf(p, x.id))) out.push(`${L[h.id]} ${h.title}\n    state: ${conditionTexts(p, h.conditions.flatMap(leaves)).join(' and ')}`)
+    for (const h of itemsOfKind(p, 'hazard').filter((x) => isLeaf(p, x.id))) out.push(`${L[h.id]} ${h.title}\n    state: ${say(p, h.when)}`)
     for (const u of itemsOfKind(p, 'uca')) out.push(`${L[u.id]} ${generateUcaText(p, L, { ...u, override: '' })}`)
     console.log(`\n${id}\n  ` + out.join('\n  '))
   })

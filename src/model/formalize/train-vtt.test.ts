@@ -6,8 +6,8 @@ import { itemsOfKind } from '../tree'
 import { rulesOf } from '../types'
 import { generateUcaText } from '../uca'
 import { validate } from '../validate'
-import { leaves as leafConds, conditionTexts } from '../variables'
-import { complete, formalizeTrainVtt } from './train-vtt'
+import { say } from '../say'
+import { formalizeTrainVtt, problem } from './train-vtt'
 
 const IDS = ['pub-train-door', 'pub-vtt-am'] as const
 
@@ -27,8 +27,8 @@ describe.each(IDS)('formalized %s', (id) => {
     const hazards = itemsOfKind(p, 'hazard')
     const leaves = hazards.filter((h) => !hazards.some((o) => o.parent === h.id))
     expect(leaves.length).toBeGreaterThan(0)
-    for (const h of leaves) expect(complete(h.conditions.flatMap(leafConds)), L[h.id]).toBe(true)
-    for (const u of itemsOfKind(p, 'uca')) expect(complete(u.conditions.flatMap(leafConds)), L[u.id]).toBe(true)
+    for (const h of leaves) expect(problem(p, h.when), L[h.id]).toBeNull()
+    for (const u of itemsOfKind(p, 'uca')) expect(problem(p, u.when), L[u.id]).toBeNull()
   })
 
   it('is idempotent, only adds, and survives a file round trip', () => {
@@ -39,7 +39,7 @@ describe.each(IDS)('formalized %s', (id) => {
 
   it('prints the sentences', () => {
     const lines: string[] = []
-    for (const h of itemsOfKind(p, 'hazard')) lines.push(`${L[h.id]} ${h.title}\n    when ${conditionTexts(p, h.conditions.flatMap(leafConds)).map((t) => renderText(L, t)).join(' and ') || '(none)'}`)
+    for (const h of itemsOfKind(p, 'hazard')) lines.push(`${L[h.id]} ${h.title}\n    when ${renderText(L, say(p, h.when)) || '(none)'}`)
     for (const u of itemsOfKind(p, 'uca')) lines.push(`${L[u.id]} ${generateUcaText(p, L, { ...u, override: '' })}\n    source: ${u.override || '(generated)'}`)
     console.log(`\n${id}\n` + lines.join('\n'))
     expect(lines.length).toBeGreaterThan(0)

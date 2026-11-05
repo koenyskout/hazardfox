@@ -44,7 +44,7 @@ const kit = (c: Ctx) => {
     const had = new Set(varsOf(have.when))
     const missing = conditions.filter((x) => isOnVariable(x) && !had.has(x.variable))
     const parts = [whenToExpr(c.p, missing), have.when].filter((x): x is Expr => !!x)
-    set(u.id, { when: parts.length ? and(...parts) : null, ...(context && !have.context.trim() ? { context } : {}) })
+    set(u.id, { when: parts.length > 1 ? and(...parts) : parts[0] ?? null, ...(context && !have.context.trim() ? { context } : {}) })
   }
   const belief = (ctrl: Id<'node'>, w: Id<'variable'>) => { if (!beliefsAbout(c.p, ctrl, w).length) c.p = addBelief(c.p, ctrl, w).project }
   const signal = (fb: Id<'feedback'>, w: Id<'variable'>) => { c.p = addSignal(c.p, fb, w).project }
