@@ -103,7 +103,7 @@ function facts(it: Item, c: Ctx): { badges: ReactNode[]; rows: ReactNode[] } {
       row('Contains', children(p, it.id, 'node').length ? <Chips ids={children(p, it.id, 'node').map((n) => n.id)} c={c} /> : null)
       break
     case 'ca': {
-      row('Operation', it.operation ? it.operation.split(':').slice(1).join(':') : null)
+      row('Operation', it.operation ? <Chips ids={[it.operation]} c={c} /> : null)
       row('Duration', it.duration)
       row('Actuator', it.actuator)
       row('Parameters', it.params.length ? it.params.map((x) => paramSummary(p, x)).join('; ') : null)

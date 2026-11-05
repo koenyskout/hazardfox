@@ -122,8 +122,8 @@ export interface Entity extends Base {
   kind: 'entity'
   /** How this entity relates to its parent (see `EntityRelation`); ignored for a root entity. */
   relation: EntityRelation
-  /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. Absent / false = one instance. */
-  many?: boolean
+  /** Several instances of this entity exist (e.g. trains); conditions on its variables then say for which instances they hold. false = one instance. */
+  many: boolean
   /** Manual layout nudge in the domain diagram, relative offset applied on top of the auto layout */
   nudge: Offset | null
 }

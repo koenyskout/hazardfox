@@ -178,7 +178,7 @@ function KindFields({ it, set }: { it: Item; set: Set }) {
             </Field>
           )}
           <Field single label="Instances" hint="Tick if the system contains several of these (e.g. trains). Conditions on its attributes can then say ‘some’, ‘every’ or ‘no’ instance.">
-            <label className="check"><input type="checkbox" checked={!!it.many} onChange={(e) => set({ many: e.target.checked || undefined })} /> several instances</label>
+            <label className="check"><input type="checkbox" checked={it.many} onChange={(e) => set({ many: e.target.checked })} /> several instances</label>
           </Field>
           <Field single label="Attributes" hint="The properties of this entity that can change over time (its world variables).">
             <OwnedVars vars={variablesIn(p, 'domain', it.id)} add="+ new attribute" onNew={() => addItemInDialog('variable', { layer: 'domain', parent: it.id })} />

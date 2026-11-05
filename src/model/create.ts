@@ -28,7 +28,7 @@ const DEFAULTS: { [K in Kind]: () => Omit<ItemOf<K>, keyof Base | 'kind'> } = {
   constraint: () => ({ hazards: [] }),
   requirement: () => ({ sources: [], type: 'requirement' }),
   assumption: () => ({ about: [] }),
-  entity: () => ({ nudge: null, relation: 'specialisation' }),
+  entity: () => ({ nudge: null, relation: 'specialisation', many: false }),
   operation: () => ({ params: [], effects: [] }),
   relationship: () => ({ from: '', to: '', fromCard: '1', toCard: '*', nudge: null }),
   variable: () => ({ layer: 'domain', about: null, definition: '', type: 'enum', states: [], unit: '', min: null, max: null, rangeType: '', enumType: '', ordered: false, unique: false, monotonic: false, sequential: false, symbolicType: '', rules: [], otherwise: '' }),

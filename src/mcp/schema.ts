@@ -3,8 +3,9 @@ import { computeLabels, DELETED, renderText } from '../model/labels'
 import { listRefs, mention, optionalRefs, replaceMentions, requiredRefs, singleRefs, textFields } from '../model/refs'
 import { parentKinds } from '../model/tree'
 import { TIME_UNITS, type TimeBound, type TimeUnit } from '../model/types'
+import { exprError } from '../model/expr'
 import { allOf, normSym, isGroup, conditionError, isRangeOp, isText as inWords, laneText, mapLeaves } from '../model/variables'
-import { CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
+import { QUANTIFIERS, type Quantifier, CAUSES, CONDITION_OPS, DURATIONS, ENTITY_RELATIONS, GUIDE_WORDS, KINDS, NODE_ROLES, REQUIREMENT_TYPES, SCENARIO_TYPES, STATUSES, STRIDE, TRACE_EVENTS, VARIABLE_LAYERS, VARIABLE_TYPES, type VariableType, type Trace, type TraceEventKind, type Condition, type ConditionOp, type Rule, type When, type Group, type Id, type Item, type Kind, type Project } from '../model/types'
 
 type Rec = Record<string, unknown>
 
@@ -20,7 +21,7 @@ const TARGETS: Partial<Record<Kind, Record<string, Kind[] | null>>> = {
   relationship: { from: ['entity'], to: ['entity'] },
   node: { entities: ['entity'] },
   variable: { about: ['variable'] },
-  ca: { from: ['node'], to: ['node'], affects: ['variable'] },
+  ca: { from: ['node'], to: ['node'], affects: ['variable'], operation: ['operation'] },
   feedback: { from: ['node'], to: ['node'] },
   uca: { ca: ['ca'], hazards: ['hazard'], refines: ['uca'] },
   scenario: { uca: ['uca'], ca: ['ca'], hazards: ['hazard'], element: ['node'] },
@@ -36,7 +37,7 @@ const ENUMS: Partial<Record<Kind, Record<string, readonly string[]>>> = {
   scenario: { scenarioType: SCENARIO_TYPES },
 }
 
-const COND = '{variable: ref, op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥), set?: string[] (states, only for in / not in)}'
+const COND = '{variable: ref, quant?: some | all | none, as?/same?/as2?/same2?: instance names for many-instance entities (as introduces, same refers back), text?: string (condition in words instead of variable; with expr: true an expression over @[ref] variables), op?: = | ≠ | in | not in | < | ≤ | > | ≥ | between | not between (default =; in / not in need an enum variable, the order operators and between / not between a range variable), state: string (not for in / not in) (a state of an enum variable, true/false for boolean, a number for range), to?: number (upper bound, only for between / not between), other?: ref (instead of state: compare with another variable of the same type, op = ≠ and for range variables < ≤ > ≥), set?: string[] (states, only for in / not in)}'
 
 const refFields = (kind: Kind): string[] => [...singleRefs(kind), ...listRefs(kind), ...(parentKinds(kind).length ? ['parent'] : [])]
 
@@ -57,13 +58,15 @@ export function describeKind(kind: Kind): Record<string, FieldInfo> {
     if (f === 'parent') info.type = 'ref | null'
     else if (refs.includes(f)) info.type = Array.isArray(v) ? 'ref[]' : 'ref'
     if (f === 'notApplicable') info.type = '{guide: not-provided | provided | too-early-late | stopped-too-soon, reason?: string}[]'
-    if (f === 'params') info.type = '{name: string (unique), type: enum | boolean | range | symbolic, states?: string[] (enum), min?: number, max?: number, unit?: string (range), ordered?, unique?, monotonic?, sequential?: boolean (symbolic, default none), enumType?: string, rangeType?: string, symbolicType?: string (names of project types)}[] (typed parameters the control action carries, e.g. a dose)'
+    if (f === 'params' && kind === 'ca') info.type = '{name: string (unique), type: enum | boolean | range | symbolic, states?: string[] (enum), min?: number, max?: number, unit?: string (range), ordered?, unique?, monotonic?, sequential?: boolean (symbolic, default none), enumType?: string, rangeType?: string, symbolicType?: string (names of project types)}[] (typed parameters the control action carries, e.g. a dose)'
+    if (f === 'params' && kind === 'operation') info.type = '{name: string (unique), entity?: ref (entity or relationship typed instance parameter), data?: {type, states?, min?, max?, unit?, ...} (value parameter, instead of entity)}[]'
+    if (f === 'effects') info.type = '{variable: ref (world variable), state: string, on?: string (name of the parameter whose instance the variable belongs to), from?: string (name of a value parameter whose argument becomes the value)}[] (what the operation changes)'
     if (f === 'args') info.type = '{param: string (name of a parameter of the UCA\'s control action), op?: =, ≠, in, not in (set), < ≤ > ≥ between (range), state, to?, set?}[] (conditions on the control action\'s parameters, e.g. {param: "dose", op: ">", state: "5"})'
     if (f === 'conditions') info.type = `(${COND} | Group)[] where Group = {any: boolean, of: (${COND} | Group)[]}: a list means all of; {any: true, of: [...]} is a disjunction (any of)`
     if (f === 'rules') info.type = `{state: string (a value of this variable), when: Group}[] where Group = {any: boolean, of: (${COND} | Group)[]} (all of / any of; a plain ${COND}[] means all of) (refinement of a world variable: the first rule whose condition holds gives its value, else otherwise)`
     if (f === 'min' || f === 'max') info.type = 'number | null'
     if (f === 'stride') info.type = 'string[]'
-    if (f === 'trace') info.type = '{lanes: ref[] (variables, or "text:<text>" for a condition in words), steps: {t: string, note: string, values: {<variable ref>: value}, events: {on: ref (ca | feedback), what: occurs | absent | lost}[]}[]} (values carry forward to later steps)'
+    if (f === 'trace') info.type = '{lanes: ref[] (variables, or "text:<text>" for a condition in words), steps: {t: string, note: string, values: {<variable ref>: value}, events: {on: ref (ca | feedback | operation), what: occurs | absent | lost, args?: {<parameter name>: instance or value}}[]}[]} (values carry forward to later steps)'
     if (f === 'severity' || f === 'likelihood') info.type = 'integer 0..5 (0 = unrated)'
     if (f === 'tags') info.type = 'string[]'
     if (f === 'status') info.values = STATUSES
@@ -125,7 +128,22 @@ export class Resolver {
   label = (id: Id | null | undefined) => (id ? this.labels[id] ?? DELETED : null)
 }
 
+/** Quantifier and instance names of a condition (many-instance entities), copied when valid. */
+function instanceFields(c: Rec): Partial<Condition> {
+  const out: Partial<Condition> = {}
+  if (c.quant !== undefined) { if (!(QUANTIFIERS as readonly unknown[]).includes(c.quant)) throw new Error(`quant must be one of ${QUANTIFIERS.join(', ')}`); out.quant = c.quant as Quantifier }
+  for (const k of ['as', 'same', 'as2', 'same2', 'oAs', 'oAs2', 'oSame', 'oSame2'] as const) if (isStr(c[k]) && c[k]) out[k] = c[k] as string
+  return out
+}
+
 const isStr = (v: unknown): v is string => typeof v === 'string'
+
+/** Data type of a control-action or value parameter: type, enum states, range bounds, named types, symbolic properties. */
+function paramData(x: Rec) {
+  if (!(VARIABLE_TYPES as readonly string[]).includes(x.type as string)) throw new Error(`type must be one of ${VARIABLE_TYPES.join(', ')}`)
+  const num = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) ? n : null)
+  return { type: x.type as VariableType, states: Array.isArray(x.states) ? x.states.filter(isStr) : [], min: num(x.min), max: num(x.max), unit: isStr(x.unit) ? x.unit : '', rangeType: isStr(x.rangeType) ? x.rangeType : '', enumType: isStr(x.enumType) ? x.enumType : '', ...(x.type === 'symbolic' ? { symbolicType: isStr(x.symbolicType) ? x.symbolicType : '', ...normSym({ ordered: x.ordered === true, unique: x.unique === true, monotonic: x.monotonic === true, sequential: x.sequential === true }) } : {}) }
+}
 
 /**
  * Validate agent-supplied fields for `kind` and convert them to the internal representation
@@ -161,6 +179,12 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     return time ? { ...cond, time } : cond
   }
   const parseBase = (c: Rec): Condition => {
+    if (isStr(c?.text) && c.variable === undefined && c.expr === true) {
+      const e: Condition = { variable: '', op: '=', state: '', text: r.internalText(c.text), expr: true }
+      const bad = exprError(r.p, e)
+      if (bad) throw new Error(bad)
+      return e
+    }
     if (isStr(c?.text) && c.variable === undefined) return { variable: '', op: c.op === '≠' || c.negate === true ? '≠' : '=', state: 'true', text: c.text }
     const variable = r.resolve(c?.variable)
     checkKind(variable, 'variable')
@@ -168,7 +192,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       const other = r.resolve(c.other)
       checkKind(other, 'variable')
       const op: ConditionOp = c.op === undefined ? '=' : (c.op as ConditionOp)
-      const cmp: Condition = { variable, op, state: '', other }
+      const cmp: Condition = { variable, op, state: '', other, ...instanceFields(c) }
       const vi = r.p.items[variable]
       const bad = vi?.kind === 'variable' ? conditionError(vi, cmp, r.p) : null
       if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
@@ -178,7 +202,7 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
     if (isSet ? !Array.isArray(c.set) || !c.set.length || c.set.some((x) => !isStr(x)) : (!isStr(c.state) && typeof c.state !== 'number') || c.state === '') throw new Error(isSet ? 'in / not in need a non-empty "set" of state strings' : 'each condition needs a "state" string')
     const op: ConditionOp = c.op === undefined ? (c.negate === true ? '≠' : '=') : (c.op as ConditionOp)
     if (!(CONDITION_OPS as readonly string[]).includes(op)) throw new Error(`op must be one of ${CONDITION_OPS.join(', ')}`)
-    const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}) }
+    const cond: Condition = { variable, op, state: isSet ? '' : String(c.state), ...(isSet ? { set: [...new Set(c.set as string[])] } : {}), ...(isRangeOp(op) ? { to: String(c.to ?? '') } : {}), ...instanceFields(c) }
     const vi = r.p.items[variable]
     const bad = vi?.kind === 'variable' ? conditionError(vi, cond, r.p) : null
     if (bad) throw new Error(`${r.labels[variable]}: ${bad}`)
@@ -221,17 +245,33 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
             values: Object.fromEntries(Object.entries((st.values ?? {}) as Rec).map(([k, x]) => [lane(k), String(x)])),
             events: ((st.events ?? []) as Rec[]).map((e) => {
               const on = r.resolve(e.on)
-              if (!['ca', 'feedback'].includes(r.p.items[on]?.kind)) throw new Error(`event on ${r.labels[on]}: expected a control action or feedback`)
+              if (!['ca', 'feedback', 'operation'].includes(r.p.items[on]?.kind)) throw new Error(`event on ${r.labels[on]}: expected a control action, feedback or operation`)
               if (!(TRACE_EVENTS as readonly unknown[]).includes(e.what ?? 'occurs')) throw new Error(`event "what" must be one of ${TRACE_EVENTS.join(', ')}`)
-              return { on, what: (e.what ?? 'occurs') as TraceEventKind }
+              const args = e.args && typeof e.args === 'object' ? Object.fromEntries(Object.entries(e.args as Rec).map(([k, x]) => [k, String(x)])) : undefined
+              return { on, what: (e.what ?? 'occurs') as TraceEventKind, ...(args && Object.keys(args).length ? { args } : {}) }
             }),
           })),
         }
+      } else if (f === 'params' && kind === 'operation') {
+        if (!Array.isArray(v) || v.some((x: Rec) => !isStr(x?.name) || !x.name.trim())) throw new Error('expected [{name, entity?, data?}]')
+        if (new Set(v.map((x: Rec) => (x.name as string).trim())).size !== v.length) throw new Error('parameter names must be unique')
+        out[f] = v.map((x: Rec) => {
+          const entity = x.entity ? r.resolve(x.entity) : ''
+          if (entity && !['entity', 'relationship'].includes(r.p.items[entity]?.kind)) throw new Error(`${r.labels[entity]} is not an entity or relationship`)
+          if (!entity && !x.data) throw new Error(`parameter ${x.name} needs an entity (instance parameter) or data (value parameter)`)
+          return { name: (x.name as string).trim(), entity, ...(x.data ? { data: paramData(x.data as Rec) } : {}) }
+        })
+      } else if (f === 'effects') {
+        if (!Array.isArray(v)) throw new Error('expected an array')
+        out[f] = v.map((x: Rec) => {
+          const variable = r.resolve(x?.variable)
+          checkKind(variable, 'variable')
+          return { variable, state: x.state === undefined ? '' : String(x.state), ...(isStr(x.on) && x.on ? { on: x.on } : {}), ...(isStr(x.from) && x.from ? { from: x.from } : {}) }
+        })
       } else if (f === 'params') {
         if (!Array.isArray(v) || v.some((x: Rec) => !isStr(x?.name) || !x.name.trim() || !(VARIABLE_TYPES as readonly string[]).includes(x.type as string))) throw new Error(`expected [{name, type}] with type among ${VARIABLE_TYPES.join(', ')}`)
         if (new Set(v.map((x: Rec) => (x.name as string).trim())).size !== v.length) throw new Error('parameter names must be unique')
-        const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null)
-        out[f] = v.map((x: Rec) => ({ name: (x.name as string).trim(), type: x.type, states: Array.isArray(x.states) ? x.states.filter(isStr) : [], min: num(x.min), max: num(x.max), unit: isStr(x.unit) ? x.unit : '', rangeType: isStr(x.rangeType) ? x.rangeType : '', enumType: isStr(x.enumType) ? x.enumType : '', ...(x.type === 'symbolic' ? { symbolicType: isStr(x.symbolicType) ? x.symbolicType : '', ...normSym({ ordered: x.ordered === true, unique: x.unique === true, monotonic: x.monotonic === true, sequential: x.sequential === true }) } : {}) }))
+        out[f] = v.map((x: Rec) => ({ name: (x.name as string).trim(), ...paramData(x) }))
       } else if (f === 'args') {
         if (!Array.isArray(v) || v.some((x: Rec) => !isStr(x?.param))) throw new Error('expected [{param, op?, state, to?, set?}]')
         out[f] = v.map((x: Rec) => {
@@ -264,10 +304,6 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
       errors.push(`${f}: ${(e as Error).message}`)
     }
   }
-  if (kind === 'ca' && isStr(out.operation) && out.operation.includes(':')) {
-    const [ent, ...op] = out.operation.split(':')
-    try { out.operation = `${r.resolve(ent)}:${op.join(':')}` } catch { /* keep as given */ }
-  }
   if (mode === 'create') {
     for (const f of requiredRefs(kind)) if (!out[f]) errors.push(`${f} is required`)
     if (kind === 'scenario') {
@@ -292,7 +328,7 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
   const raw = it as unknown as Rec
   const refs = new Set(refFields(it.kind))
   const out: Rec = { ref: r.labels[it.id], id: it.id, kind: it.kind }
-  const cond = (c: Condition) => (c.event ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: c.text, op: c.op, ...(c.time ? { time: c.time } : {}) } : { ...c, variable: r.label(c.variable) ?? c.variable })
+  const cond = (c: Condition) => (c.event ? { event: r.label(c.event) ?? c.event, time: c.time } : inWords(c) ? { text: r.externalText(c.text ?? ''), op: c.op, ...(c.expr ? { expr: true } : {}), ...(c.time ? { time: c.time } : {}) } : { ...c, variable: r.label(c.variable) ?? c.variable })
   const lane = (k: Id) => (laneText(k) !== null ? k : r.label(k))
   for (const f of Object.keys(describeKind(it.kind))) {
     const v = raw[f]
@@ -301,6 +337,8 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
     if (f === 'parent') out.parent = r.label(v as Id)
     else if (refs.has(f)) out[f] = Array.isArray(v) ? v.map((x) => r.label(x as Id)) : r.label(v as Id)
     else if (f === 'conditions') out[f] = (v as When[]).map((w) => (isGroup(w) ? mapLeaves(w, cond as (c: Condition) => Condition) : cond(w)))
+    else if (f === 'params' && it.kind === 'operation') out[f] = it.params.map((x) => ({ ...x, entity: x.entity ? r.label(x.entity) : '' }))
+    else if (f === 'effects' && it.kind === 'operation') out[f] = it.effects.map((x) => ({ ...x, variable: r.label(x.variable) }))
     else if (f === 'rules') out[f] = (v as Rule[]).map((x) => ({ ...x, when: mapLeaves(x.when, cond as (c: Condition) => Condition) }))
     else if (f === 'trace') {
       const t = v as Trace
@@ -308,10 +346,6 @@ export function view(r: Resolver, it: Item, extra: Rec = {}): Rec {
       out[f] = { lanes: t.lanes.map(lane), steps: t.steps.map((st) => ({ ...st, note: r.externalText(st.note), values: Object.fromEntries(Object.entries(st.values).map(([k, x]) => [lane(k), x])), events: st.events.map((e) => ({ ...e, on: r.label(e.on) })) })) }
     }
     else out[f] = isStr(v) && isText(it.kind, f) ? r.externalText(v) : v
-  }
-  if (it.kind === 'ca' && isStr(raw.operation) && raw.operation.includes(':')) {
-    const [ent, ...op] = raw.operation.split(':')
-    out.operation = `${r.label(ent) ?? ent}:${op.join(':')}`
   }
   return { ...out, ...extra }
 }

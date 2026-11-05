@@ -2,7 +2,7 @@ import { addSignal, predicateOf } from '../formal'
 import { createItem, updateItem } from '../ops'
 import { itemsOfKind } from '../tree'
 import { anyOf, autoName, conditionComplete, isText, leaves, quantOf } from '../variables'
-import type { Condition, Id, Item, Project, Variable } from '../types'
+import type { Condition, Id, Item, ItemOf, Project, Variable } from '../types'
 
 /**
  * Formalizes the published examples `pub-train-door` and `pub-vtt-am` as far as the model allows: domain model (entities with
@@ -58,7 +58,7 @@ function train(p0: Project): Project {
   const motion = v('Train motion'), pos = v('Train position'), em = v('Emergency'), doorPos = v('Door position'), way = v('Door state')
 
   // A train has several doors: conditions on door variables say which door.
-  if (!(b.p.items[doorE] as { many?: boolean }).many) set(b, doorE, { many: true })
+  if (!(b.p.items[doorE] as ItemOf<'entity'>).many) set(b, doorE, { many: true })
   const doorVars = [doorPos, way]
   const d1 = autoName(b.p, doorE, [])
 

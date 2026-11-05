@@ -75,4 +75,30 @@ describe('mcp tools', () => {
     ;({ p } = run(p, 'update_items', { updates: [{ ref: 'CA-1', fields: { duration: 'instantaneous', notApplicable: [{ guide: 'not-provided', reason: 'x' }, { guide: 'too-early-late', reason: 'x' }] } }] }))
     expect(run(p, 'project_summary').r.nextSteps.join()).not.toMatch(/lack at least one guide word/)
   })
+
+  it('links a control action to an operation and keeps trace event args and instance conditions', () => {
+    let p = emptyProject()
+    ;({ p } = run(p, 'create_items', { items: [
+      { kind: 'entity', fields: { title: 'Train', many: true }, alias: 't' },
+      { kind: 'variable', fields: { title: 'Speed', parent: '$t', type: 'range', min: 0, max: 100 }, alias: 'sp' },
+      { kind: 'operation', fields: { title: 'Brake', params: [{ name: 'train', entity: '$t' }], effects: [{ variable: '$sp', state: '0', on: 'train' }] }, alias: 'op' },
+      { kind: 'node', fields: { title: 'Ctrl' }, alias: 'c' },
+      { kind: 'node', fields: { title: 'Brakes' }, alias: 'b' },
+      { kind: 'ca', fields: { title: 'Brake', from: '$c', to: '$b', operation: '$op' }, alias: 'ca' },
+      { kind: 'hazard', fields: { title: 'Fast' }, alias: 'h' },
+      { kind: 'uca', fields: { ca: '$ca', guide: 'not-provided', hazards: ['$h'], conditions: [{ variable: '$sp', op: '>', state: '5', quant: 'all' }, { text: '@[$sp] > 3', expr: true }] }, alias: 'u' },
+      { kind: 'scenario', fields: { uca: '$u', trace: { lanes: [], steps: [{ t: '0', events: [{ on: '$ca', what: 'occurs', args: { train: 't1' } }] }] } } },
+    ] }))
+    expect(p.items[Object.values(p.items).find((i) => i.kind === 'ca')!.id]).toMatchObject({ operation: Object.values(p.items).find((i) => i.kind === 'operation')!.id })
+    expect(run(p, 'get_item', { ref: 'CA-1' }).r.operation).toBe('OP-1')
+    const op = run(p, 'get_item', { ref: 'OP-1' }).r
+    expect(op.params).toEqual([{ name: 'train', entity: 'E-1' }])
+    expect(op.effects).toEqual([{ variable: 'V-1', state: '0', on: 'train' }])
+    const u = run(p, 'get_item', { ref: 'UCA-1' }).r
+    expect(u.conditions[0]).toMatchObject({ quant: 'all' })
+    expect(u.conditions[1]).toMatchObject({ expr: true })
+    const sc = Object.values(p.items).find((i) => i.kind === 'scenario')!
+    expect(sc.kind === 'scenario' && sc.trace.steps[0].events[0].args).toEqual({ train: 't1' })
+    expect(() => run(p, 'create_items', { items: [{ kind: 'uca', fields: { ca: 'CA-1', guide: 'provided', hazards: ['H-1'], conditions: [{ variable: 'Speed', state: '1', quant: 'most' }] } }] })).toThrow(/quant must be/)
+  })
 })

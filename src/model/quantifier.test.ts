@@ -90,7 +90,7 @@ describe('instance quantification', () => {
     const u = Object.values(q.items).find((i) => i.kind === 'uca') as { conditions: Condition[] }
     expect(u.conditions[0].quant).toBe('all')
     const plain = setup()
-    expect(serialize(plain.p)).not.toContain('"many"')
+    expect(serialize(plain.p)).not.toContain('"many": true')
     expect(serialize(plain.p)).not.toContain('quant')
   })
   it('flags a quantifier on a single-instance variable only', () => {
