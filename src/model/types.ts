@@ -138,9 +138,9 @@ export interface Operation extends Base {
 export interface OpParam { name: string; entity: Id; data?: Omit<Param, 'name'> }
 /** After the operation, world variable `variable` has value `state`; `on` names the parameter whose instance the variable belongs to (else it is global). */
 export interface Effect { variable: Id; state: string; on?: string; /** name of a value parameter whose argument becomes the value (instead of `state`) */ from?: string }
-/** A relationship R(from, to) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 /** One end of a relationship: the entity, the role it plays (empty: the entity's title) and its cardinality. */
 export interface RelEnd { entity: Id; role: string; card: string }
+/** A relationship R(end1, end2, …) between entities; whether it holds over time is its predicate, a boolean world variable it owns (see `predicateOf`). */
 export interface Relationship extends Base {
   kind: 'relationship'
   /** `title` is the relationship name; the ends in order (at least two; the editor offers two) */
