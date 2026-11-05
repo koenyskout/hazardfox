@@ -160,14 +160,14 @@ export function internalize(r: Resolver, kind: Kind, fields: Rec, mode: 'create'
   }
   const parseWhen = (w: unknown): Group => Array.isArray(w) ? allOf(...w.map((x: Rec) => (x && 'of' in x ? parseWhen(x) : parseCond(x))))
     : w && typeof w === 'object' && Array.isArray((w as Rec).of) ? { ...parseWhen((w as Rec).of), any: !!(w as Rec).any } : allOf()
-  const parseTime = (t: unknown): TimeBound => {
+  const timeBound = (t: unknown): TimeBound => {
     const x = t as Rec
     const amount = String(x?.amount ?? '')
     if (!x || (x.op !== '≥' && x.op !== '<') || !(TIME_UNITS as readonly string[]).includes(x.unit as string) || amount === '' || !(Number(amount) >= 0)) throw new Error('time must be {op: ≥ | <, amount: number, unit: ms | s | min | h}')
     return { op: x.op, amount, unit: x.unit as TimeUnit }
   }
   const parseCond = (c: Rec): Condition => {
-    const time = c?.time === undefined ? undefined : parseTime(c.time)
+    const time = c?.time === undefined ? undefined : timeBound(c.time)
     if (c?.event !== undefined) {
       const event = r.resolve(c.event)
       const k = r.p.items[event]?.kind
